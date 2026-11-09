@@ -193,6 +193,12 @@ describe('TokenPreview, the aura', () => {
     expect(auraGlow(container)?.style.width).toBe('260px');
   });
 
+  it('the aura is round around the disc: half of its 260 px', () => {
+    const { container } = renderPreviewWith(tokenFormOf(lyra({ aura: goldAura() }), METERS));
+
+    expect(auraGlow(container)?.style.borderRadius).toBe('130px');
+  });
+
   it('a natural fire rings it in the natural tone of the fire', () => {
     const { container } = renderPreviewWith(tokenFormOf(lyra({ aura: fireAura() }), METERS));
 

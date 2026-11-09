@@ -1,4 +1,9 @@
-import type { AuraEffectDto, AuraImageShapeDto, TokenAuraDto } from '@lorkarium/contracts';
+import type {
+  AuraEffectDto,
+  AuraImageShapeDto,
+  TokenAuraDto,
+  TokenDto,
+} from '@lorkarium/contracts';
 import { drawingColorValue } from '@/lib/drawing-style';
 import { assetUrlOf } from '@/services/assets-api';
 import { CELL_WORLD_SIZE } from './camera';
@@ -15,18 +20,26 @@ export type AuraLook =
   | Readonly<{ kind: 'image'; url: string; shape: AuraImageShapeDto }>;
 
 /** The aura of a token as drawn: the footprint grown by the radius (`box`, world px), with corners
- *  rounded by that radius (`corner`), at `alpha` (0–1). */
-export type AuraView = Readonly<{ look: AuraLook; box: WorldRect; corner: number; alpha: number }>;
+ *  rounded by that radius (`corner`) plus the rounding of the token's own body (`tokenCorner`: half
+ *  its shorter side for a disc, 0 for a square image), at `alpha` (0–1). */
+export type AuraView = Readonly<{
+  look: AuraLook;
+  box: WorldRect;
+  corner: number;
+  tokenCorner: number;
+  alpha: number;
+}>;
 
 /** What the aura of a token is built from. */
 export type AuraViewInput = TokenFootprint &
+  Pick<TokenDto, 'frame' | 'imageAssetId'> &
   Readonly<{ aura: TokenAuraDto | null; hidden: boolean }>;
 
-/** The aura of a token: the footprint grown by the radius to every side, its corners rounded by the
- *  radius (an emanation measured from the edge), faded like the face of a hidden token. `null`
- *  without aura.
+/** The aura of a token: the footprint grown by the radius to every side, following the token's
+ *  body (round around a disc, rounded by the radius around a square image), faded like the face of
+ *  a hidden token. `null` without aura.
  *
- *  Example: `auraViewOf({ col: 5, row: 5, width: 1, height: 1, aura, hidden: false })?.box // { x: 192, y: 192, width: 320, height: 320 }` */
+ *  Example: `auraViewOf({ col: 5, row: 5, width: 1, height: 1, frame: 'round', imageAssetId: null, aura, hidden: false })?.box // { x: 192, y: 192, width: 320, height: 320 }` */
 export function auraViewOf(input: AuraViewInput): AuraView | null {
   const { aura } = input;
   if (!aura) return null;
@@ -39,7 +52,13 @@ export function auraViewOf(input: AuraViewInput): AuraView | null {
     height: token.height + reach * 2,
   };
   const alpha = (aura.opacity / 100) * (input.hidden ? HIDDEN_ALPHA : 1);
-  return { look: auraLookOf(aura), box, corner: reach, alpha };
+  const tokenCorner = tokenIsDisc(input) ? Math.min(token.width, token.height) / 2 : 0;
+  return { look: auraLookOf(aura), box, corner: reach, tokenCorner, alpha };
+}
+
+// With no image the token is the disc of initials whatever its frame.
+function tokenIsDisc({ frame, imageAssetId }: AuraViewInput): boolean {
+  return frame === 'round' || imageAssetId === null;
 }
 
 /** What the drawing of an aura reads, without where it stands: the same aura on a new cell keeps
@@ -48,8 +67,8 @@ export function auraViewOf(input: AuraViewInput): AuraView | null {
  *  Example: `if (auraKeyOf(before.aura) !== auraKeyOf(after.aura)) aura.draw(after.aura)` */
 export function auraKeyOf(view: AuraView | null): string {
   if (!view) return '';
-  const { look, box, corner, alpha } = view;
-  return [...Object.values(look), box.width, box.height, corner, alpha].join(' ');
+  const { look, box, corner, tokenCorner, alpha } = view;
+  return [...Object.values(look), box.width, box.height, corner, tokenCorner, alpha].join(' ');
 }
 
 function auraLookOf(aura: TokenAuraDto): AuraLook {
@@ -81,7 +100,7 @@ const HALO_BAND = { min: 4, max: 32, share: 0.25 } as const;
  *
  *  Example: `for (const step of auraHaloOf(view)) graphics.roundRect(step.x, step.y, step.width, step.height, step.radius).fill({ color, alpha: step.alpha })` */
 export function auraHaloOf(view: AuraView): AuraHaloStep[] {
-  const { box, corner, alpha } = view;
+  const { box, corner, tokenCorner, alpha } = view;
   const band = Math.min(HALO_BAND.max, Math.max(HALO_BAND.min, corner * HALO_BAND.share));
   return Array.from({ length: HALO_STEPS }, (_, index) => {
     const inset = (band * index) / HALO_STEPS;
@@ -92,7 +111,7 @@ export function auraHaloOf(view: AuraView): AuraHaloStep[] {
       y: inset - corner,
       width: box.width - inset * 2,
       height: box.height - inset * 2,
-      radius: Math.max(0, corner - inset),
+      radius: Math.max(0, corner + tokenCorner - inset),
       alpha: (above - below) / (1 - below),
     };
   });

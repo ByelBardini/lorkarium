@@ -16,6 +16,7 @@ export function newAuraUniformValues(): AuraUniformValues {
   return {
     uTime: 0,
     uHalfBox: new Float32Array(2),
+    uTokenCorner: 0,
     uRadius: 0,
     uCellSize: 1,
     uOpacity: 0,
@@ -28,6 +29,7 @@ export function newAuraUniformValues(): AuraUniformValues {
 export const AURA_UNIFORM_TYPES = {
   uTime: 'f32',
   uHalfBox: 'vec2<f32>',
+  uTokenCorner: 'f32',
   uRadius: 'f32',
   uCellSize: 'f32',
   uOpacity: 'f32',
@@ -51,6 +53,7 @@ export function auraUniformStructuresOf(values: AuraUniformValues): AuraUniformS
   return {
     uTime: { value: values.uTime, type: AURA_UNIFORM_TYPES.uTime },
     uHalfBox: { value: values.uHalfBox, type: AURA_UNIFORM_TYPES.uHalfBox },
+    uTokenCorner: { value: values.uTokenCorner, type: AURA_UNIFORM_TYPES.uTokenCorner },
     uRadius: { value: values.uRadius, type: AURA_UNIFORM_TYPES.uRadius },
     uCellSize: { value: values.uCellSize, type: AURA_UNIFORM_TYPES.uCellSize },
     uOpacity: { value: values.uOpacity, type: AURA_UNIFORM_TYPES.uOpacity },
@@ -65,6 +68,7 @@ export function auraUniformStructuresOf(values: AuraUniformValues): AuraUniformS
 export function writeAuraUniformValues(values: AuraUniformValues, uniforms: AuraUniforms): void {
   values.uHalfBox[0] = uniforms.halfBox[0];
   values.uHalfBox[1] = uniforms.halfBox[1];
+  values.uTokenCorner = uniforms.tokenCorner;
   values.uRadius = uniforms.radius;
   values.uCellSize = uniforms.cellSize;
   values.uOpacity = uniforms.opacity;

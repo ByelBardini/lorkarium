@@ -37,10 +37,12 @@ export function auraColorChannels(color: number): [number, number, number] {
   return [((color >> 16) & 0xff) / 255, ((color >> 8) & 0xff) / 255, (color & 0xff) / 255];
 }
 
-/** What turns an aura into shader values: the token box in world px, the radius in cells past
- *  its edge, the opacity in percent (10–100), the tone and the token (for the seed). */
+/** What turns an aura into shader values: the token box in world px and the rounding of its
+ *  corners, the radius in cells past its edge, the opacity in percent (10–100), the tone and the
+ *  token (for the seed). */
 export type AuraUniformsInput = Readonly<{
   box: WorldRect;
+  tokenCorner: number;
   radiusCells: number;
   cellSize: number;
   opacity: number;
@@ -52,6 +54,7 @@ export type AuraUniformsInput = Readonly<{
 export type AuraUniforms = Readonly<{
   center: Point;
   halfBox: readonly [number, number];
+  tokenCorner: number;
   radius: number;
   cellSize: number;
   opacity: number;
@@ -64,12 +67,13 @@ const SEED_MODULUS = 997;
 
 /** The shader values of one aura; the seed is stable per token, so two fires never pulse alike.
  *
- *  Example: `auraUniformsOf({ box, radiusCells: 2, cellSize: 64, opacity: 100, color, tokenId })` */
+ *  Example: `auraUniformsOf({ box, tokenCorner: 32, radiusCells: 2, cellSize: 64, opacity: 100, color, tokenId })` */
 export function auraUniformsOf(input: AuraUniformsInput): AuraUniforms {
   const { box, cellSize } = input;
   return {
     center: { x: box.x + box.width / 2, y: box.y + box.height / 2 },
     halfBox: [box.width / 2, box.height / 2],
+    tokenCorner: input.tokenCorner,
     radius: input.radiusCells * cellSize,
     cellSize,
     opacity: input.opacity / 100,

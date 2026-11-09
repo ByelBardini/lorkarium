@@ -3,6 +3,7 @@
 export const AURA_UNIFORMS = [
   'uTime',
   'uHalfBox',
+  'uTokenCorner',
   'uRadius',
   'uCellSize',
   'uOpacity',
@@ -40,6 +41,7 @@ out vec4 finalColor;
 
 uniform float uTime;
 uniform vec2 uHalfBox;
+uniform float uTokenCorner;
 uniform float uRadius;
 uniform float uCellSize;
 uniform float uOpacity;
@@ -56,7 +58,7 @@ float auraBoxDistance(vec2 p, vec2 halfBox) {
 
 // 0 on the token edge, 1 on the outer edge of the aura, negative inside the token.
 float auraBand(vec2 p) {
-  return auraBoxDistance(p, uHalfBox) / max(uRadius, 1.0);
+  return (auraBoxDistance(p, uHalfBox - uTokenCorner) - uTokenCorner) / max(uRadius, 1.0);
 }
 
 // Fades to nothing at the outer edge and mostly clears the token itself.
