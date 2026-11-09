@@ -81,6 +81,7 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   WALL_LIMIT: 'This scene has too many walls',
   INVALID_DOOR: 'Only a straight wall can be a door',
   WALL_BLOCKED: 'A wall blocks the way',
+  WALL_CHECKS_EXCEEDED: 'This would test too many walls at once',
   DOOR_LOCKED: 'The door is locked',
   WALL_SEGMENT_NOT_FOUND: 'That piece of wall is not there',
   LIGHT_NOT_FOUND: 'Light not found',

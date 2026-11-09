@@ -1,7 +1,9 @@
+import { preparedWalls } from '@lorkarium/game-core';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { LockedGrid } from '../scenes/locked-scene';
 import type { ScenePo } from '../scenes/scenes.po';
 import type { SceneWallsService } from '../walls/scene-walls.service';
+import { requireWallChecks } from '../walls/wall-checks.bo';
 import { TokenAccessBo } from './token-access.bo';
 import { TokenRulesBo } from './token-rules.bo';
 import { tokenAccessOf, tokensIn, type TokenWriteDaos } from './token-transaction';
@@ -99,6 +101,8 @@ export async function requirePassages(
   const walking = passages.filter(({ row }) => !tokenAccessOf(access, row).ignoresWalls());
   if (walking.length === 0) return;
   const walls = await deps.walls.wallsOf(scene.id, daos.walls);
+  const legs = walking.reduce((sum, { path }) => sum + (path?.length ?? 0) + 1, 0);
+  requireWallChecks(legs * preparedWalls(walls.walls).movement.segments.length);
   const rules = tokenRulesOf(scene, [], deps.limits);
   for (const { row, path, to } of walking) {
     rules.requirePassage(row.token.id, [row.token, ...(path ?? []), to], row.token, walls);
