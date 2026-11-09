@@ -66,7 +66,7 @@ Todas sob `/api`, exigem sessão (401 sem cookie), aninhadas na mesa (§2.6). DT
 - `LibraryService` (`library.service.ts`), montado por `createLibraryModule({ db, publisher, audience, grids, clock })` (`library.plugin.ts`, registrado no `build-app` **depois** do `wireRealtime`, que agora devolve o `io`): `list`, `createScene`, `updateScene`, `deleteScene`, `duplicate`, `createFolder`, `updateFolder`, `deleteFolder`. O requerente é `LibraryRequester { userId, campaignId }` (sessão + URL, nunca o corpo).
 - Toda edição passa por `edit`: `memberAccessOf` → `requireMaster` → transação (`LibraryTransactionRunner` com `LibraryWriteDaos`: campaigns, folders, scenes, images e os cinco `SceneCopyDaos`) que trava a mesa (`lockById`), lê pastas e grids para a `SceneLibraryBo` e executa → commit → `publisher.libraryChanged`.
 - `list` lê sem transação (`LibraryReadDaos`) e aceita o espectador (`viewerAccessOf`: ele lê como jogador; toda edição continua `memberAccessOf`), filtra por `visibleTo(new SceneAccessBo(access, activeSceneId))`, e só o mestre recebe `tokenCount` (`toLibrarySceneDto(row, seesTokenCount)` em `library.mapper.ts`).
-- Excluir pasta: `removal` → `moveChildren` → `moveScenes` → `images.moveFromFolder` → `delete`, na mesma transação (o `SET NULL` do banco levaria à raiz; o service leva ao pai).
+- Excluir pasta: `removal` → `moveChildren` → `moveScenes` → `images.moveFromFolder` → `maps.moveFromFolder` → `delete`, na mesma transação (o `SET NULL` do banco levaria à raiz; o service leva ao pai).
 - **Renomear um grid** (`updateScene` com `name`): na mesma transação `ScenesDao.bumpVersion` (diário `lock → save → bump → commit`) e, depois do `library:changed`, `scene:updated { campaignId, sceneId, version, at, scene }` às salas do grid pela dependência `grids: Pick<BoardPublisherPort, 'sceneUpdated'>` (o `SocketIoBoardPublisher`, que o `wireRealtime` devolve como `boardPublisher` em `RealtimeOutlets`). Sem isso a aba e o rótulo do tabuleiro de quem estava no grid ficavam com o nome velho até o F5 (achado pelo e2e `character.spec.ts`). Mover e publicar/privar não somam versão.
 - `LibraryPublisherPort` (`library-publisher.port.ts`) com o adaptador `SocketIoLibraryPublisher` (`server/src/infrastructure/library-publisher/`). Publica `library:changed` e `library:imagePresentationChanged` em `TableServerEvents` (contracts `LibraryServerEvents`).
 
@@ -108,6 +108,23 @@ Todas sob `/api`, exigem sessão (401 sem cookie), aninhadas na mesa (§2.6). DT
 
 O agregado também inclui documentos autorizados (públicos ou ocultos próprios), sem corpo. Ancestrais de documentos visíveis integram a árvore. Excluir pasta move documentos ao pai na mesma transação, conservando texto e donos. GET /scenes conserva o contrato anterior. Ver [documents.md](documents.md).
 
+## Mapas
+
+O agregado `GET …/library` leva `maps` (resumos sem regiões, filtrados por `LibraryMapAccessBo.canSee`: o mestre todos, os outros os públicos e o Principal, mesmo privado) e `mainMapId` (`null` sem Principal). As pastas dos mapas visíveis entram nos ancestrais do `visibleTo`. Excluir pasta sobe os mapas ao pai na mesma transação (`LibraryMapsDao.moveFromFolder`, sem somar a versão). CRUD, Principal e rotas em [library-maps.md](library-maps.md).
+
 ## Modelos de ficha e fichas
 
 A pasta também guarda **modelos de ficha** (`sheet_templates`) e **fichas** (`token_sheets.folder_id`, `0074`), as duas com FK composta `SET NULL ("folder_id")`. Excluir pasta sobe modelos e fichas ao pai na mesma transação (`SheetTemplatesDao.moveFromFolder` e `SheetsDao.moveFromFolder`, sem somar a versão). O agregado `GET …/library` leva `sheetTemplates` (sem código) só ao mestre e `sheets` (resumos sem valores: o mestre todas, os outros as que leem; as pastas delas entram nos ancestrais visíveis). Criar, renomear, mover, dar, tirar do dono, mudar visibilidade ou modelo e excluir uma ficha publicam `library:changed`; valores, não. Ver [sheets/server.md](sheets/server.md).
+
+## Pasta privada
+
+`scene_folders.visibility` (enum `scene_visibility`, padrão **`public`**, migração `0093_scene_folder_visibility`; o enum mora em `scenes/scene-visibility.po.ts` porque `scenes.po` importa `scene-folders.po`). O mestre escolhe ao criar (`createSceneFolderRequestDto.visibility`, opcional) e por `PATCH` (`updateSceneFolderRequestDto.visibility`); `sceneFolderDto` sempre leva o campo.
+
+Uma pasta privada esconde de quem não é mestre (jogador e espectador) tudo que está nela e nas subpastas, **mesmo item público**, na lista e no acesso direto por id. Tornar a pasta pública devolve cada item ao que estava marcado.
+
+- **Onde se decide:** cada DAO calcula a coluna `hiddenByFolder` no SQL (`hiddenByFolderSql('"tabela"."folder_id"')`, `src/database/hidden-by-folder-sql.ts`, recursiva sobre `parent_id`) e cada BO de acesso a recebe como campo obrigatório: `SceneAccessBo` (`GridReach`), `DocumentAccessBo`, `SheetAccessBo` (`SheetReach`), `LibraryMapAccessBo`/`isMapOpenToTable` e `canReadLibraryImage`. Linha nova que chega a um desses BOs precisa da coluna: o `tsc` acusa a falta. `FolderPrivacyBo` dá a mesma resposta para uma árvore já em memória.
+- **Continua visível apesar da pasta:** o grid do grupo, o mapa Principal, a imagem apresentada, a imagem já ligada a um documento que o leitor vê (`DocumentAssetReadPolicy`), a ficha que o leitor controla e o documento de que é dono. A pasta aparece para ele no caminho desses itens (`visibleTo`), só com eles dentro.
+- **Ficha em token:** o `toSheetAccessBo` também esconde a ficha de quem só a lê como mesa quando o grid do token está em pasta privada (salvo o grid do grupo).
+- **Expulsão:** tornar a pasta privada, mover uma pasta ou mover um grid para dentro de uma cadeia privada tira quem tinha o grid aberto (`scene:closed`, `private`), depois do commit e antes do `library:changed` (`SceneLibraryBo.gridsHiddenBy` compara a tabela antes e depois). Documento, imagem, mapa e ficha não têm sala: somem no `library:changed` e na próxima leitura.
+- **Excluir pasta privada** sobe o conteúdo ao pai, e os itens públicos passam a aparecer: a confirmação do client avisa.
+- Testes: `folder-privacy.bo.spec.ts`, os specs dos BOs de acesso e `server/test/integration/library-folder-privacy.spec.ts`.

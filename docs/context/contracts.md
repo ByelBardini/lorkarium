@@ -50,7 +50,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 `asset.dto.ts` — a imagem da mesa (detalhe em [`assets.md`](assets.md)).
 
 - `ASSET_MAX_BYTES` (20 MiB, antes de decodificar), `ASSET_MIME_TYPES` (`image/png`, `image/jpeg`, `image/webp`, `image/gif`; o GIF só é guardado na finalidade `aura`, SVG fora) e `assetMimeTypeDto`; `ASSET_URL_MAX_LENGTH` (2048).
-- `assetPurposeDto` (`background` | `token` | `cover` | `condition` | `aura` | `library_image`) e `ASSET_MAX_SIDE` (`{ background: 4096, token: 1024, cover: 1600, condition: 256, aura: 512, library_image: 4096 }`, o maior lado em px que o server guarda; o badge da condição chega a ~120 px na tela, 240 em tela 2x). O `purpose` decide o tamanho (na `condition`, que o server recorta em quadrado; na `aura`, que o GIF fica animado): um asset de token pode virar fundo; `library_image` é reservado à biblioteca e sua autorização de leitura depende do item/apresentação.
+- `assetPurposeDto` (`background` | `token` | `cover` | `condition` | `aura` | `library_image` | `library_map` | `document_image`) e `ASSET_MAX_SIDE` (`{ background: 4096, token: 1024, cover: 1600, condition: 256, aura: 512, library_image: 4096, library_map: 8192, document_image: 4096 }`, o maior lado em px que o server guarda; o badge da condição chega a ~120 px na tela, 240 em tela 2x; o mapa é feito para dar zoom e é desenhado como imagem, não textura). O `purpose` decide o tamanho (na `condition`, que o server recorta em quadrado; na `aura`, que o GIF fica animado): um asset de token pode virar fundo; `library_image` e `library_map` são reservados à biblioteca e sua autorização de leitura depende do item/apresentação.
 - `AURA_ANIMATION_LIMITS` `{ maxFrames: 120, maxDecodedPixels: 16_000_000 }` — o orçamento do GIF da aura (o server reduz o lado para caber, ver `assets.md`).
 - `assetDto` `{ id, mimeType, width, height }` (o tamanho **depois** de normalizado) e `assetResponseDto` `{ asset }` — resposta dos dois `POST`.
 - `uploadAssetQueryDto` `{ purpose }` — query de `POST /api/campaigns/:campaignId/assets` (o corpo é o próprio arquivo).
@@ -78,13 +78,13 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 
 ### Biblioteca (`library/`)
 
-Imagem, agregado e apresentação versionada: [contracts/biblioteca.md](contracts/biblioteca.md).
+Imagem, agregado e apresentação versionada: [contracts/biblioteca.md](contracts/biblioteca.md). Mapas (geometria normalizada, regiões, link projetado por leitor, limites, `library:mapChanged` e `library:mapRegionShown`): [contracts/mapas.md](contracts/mapas.md).
 
 `library.dto.ts` — os grids e as pastas da mesa por REST (detalhe e rotas em [`library.md`](library.md)).
 
 - Limites e textos: `SCENE_NAME_MAX_LENGTH` (60), `SCENE_FOLDER_NAME_MAX_LENGTH` (40), `SCENE_FOLDER_DEPTH_MAX` (5), `UNNAMED_SCENE_NAME` (`'Grid sem nome'`), `SCENE_COPY_SUFFIX` (`' (cópia)'`).
-- `sceneVisibilityDto` (`private` | `public`), `sceneFolderDto` `{ id, name, parentId | null }`, `librarySceneDto` `{ id, name, folderId | null, visibility, widthCells, heightCells, background | null, tokenCount (null para o jogador), updatedAt (ISO) }` e `libraryDto` `{ activeSceneId | null, folders, scenes }` (resposta do `GET …/scenes`).
-- Corpos: `createLibrarySceneRequestDto` `{ name?, folderId? }`, `updateLibrarySceneRequestDto` `{ name?, folderId? (null = raiz), visibility? }` (ao menos uma chave), `createSceneFolderRequestDto` `{ name, parentId? }` e `updateSceneFolderRequestDto` `{ name?, parentId? (null = raiz) }` (ao menos uma chave). Nomes aparados, de 1 ao limite; estritos (um `campaignId` no corpo é recusado: a mesa vem da URL).
+- `sceneVisibilityDto` (`private` | `public`), `sceneFolderDto` `{ id, name, parentId | null, visibility }`, `librarySceneDto` `{ id, name, folderId | null, visibility, widthCells, heightCells, background | null, tokenCount (null para o jogador), updatedAt (ISO) }` e `libraryDto` `{ activeSceneId | null, folders, scenes }` (resposta do `GET …/scenes`).
+- Corpos: `createLibrarySceneRequestDto` `{ name?, folderId? }`, `updateLibrarySceneRequestDto` `{ name?, folderId? (null = raiz), visibility? }` (ao menos uma chave), `createSceneFolderRequestDto` `{ name, parentId?, visibility? }` e `updateSceneFolderRequestDto` `{ name?, parentId? (null = raiz) }` (ao menos uma chave). Nomes aparados, de 1 ao limite; estritos (um `campaignId` no corpo é recusado: a mesa vem da URL).
 - Params: `librarySceneParamsDto` `{ campaignId, sceneId }` e `sceneFolderParamsDto` `{ campaignId, folderId }` (a borda usa o `shape` de cada campo).
 - Evento `libraryChangedDto` `{ campaignId, at }` (`library:changed`, sem dado de grid) e o mapa `LibraryServerEvents`, que entra no `TableServerEvents`.
 - Ativação e expulsão: `sceneActivatedDto` `{ campaignId, sceneId, previousSceneId | null, at }` (`scene:activated`, à mesa), `sceneClosedReasonDto` (`private` | `deleted`) e `sceneClosedDto` `{ campaignId, sceneId, reason, at }` (`scene:closed`, a cada socket tirado do grid); os dois entram no `LibraryServerEvents`.

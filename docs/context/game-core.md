@@ -13,6 +13,7 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `src/token-form.ts` — `formBoxIn(cena, caixa, tamanho)`: a caixa do token ao trocar de forma; o canto de cima à esquerda fica e recua para dentro da cena só o que o tamanho novo pede (sem paredes nem colisão, §12); tamanho fora dos passos → `RangeError` do `tokenSize`; maior que a cena → `RangeError` citando "3×3" e "scene 2×2"
 - `src/token-initials.ts` — `initialsOf(nome)`: as iniciais do token (primeira letra das duas primeiras palavras que não são conectivo, ou as duas primeiras letras de uma palavra só; "Ogro das Cinzas" → "OC"). O server a usa no personagem criado ao virar jogador; o client (avatar, chat, formulário do token) importa a mesma daqui (não há cópia no client)
 - `src/drawing-box.vo.ts` — a caixa do desenho em casas fracionárias (VO)
+- `src/map-region.vo.ts` — a geometria de uma região de mapa da biblioteca (VO), os limites do mapa, a área, o ponto de foco e a ordem de pintura
 - `src/bar.ts` — ajuste de barra (PV e qualquer outra)
 - `src/initiative.vo.ts` — o valor da iniciativa (VO)
 - `src/initiative-order.ts` — a ordem de turno e o empate
@@ -68,6 +69,16 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `DrawingBox` `{ x, y, width, height }` — a caixa de um desenho em **casas fracionárias** (x = 3,5 é o meio da quarta coluna), nunca em pixels: zoom e tamanho de pixel do renderer não movem desenho. `drawingBox(x, y, w, h)` devolve o valor congelado e lança `RangeError` citando o eixo e o valor quando não é "número finito ≥ 0" (NaN e Infinity também). Largura ou altura 0 vale (linha reta da mão livre).
 - `boxFits(scene, box)` — cabe se `x + width ≤ widthCells` e `y + height ≤ heightCells`; encostar na borda cabe. A comparação é em centésimos (o desenho é guardado a 0,01), então `19,9 + 0,1` não estoura 20. É a regra que o client (corte antes do comando) e o server (`OUT_OF_SCENE`) dividem.
 - `translateBox(box, dx, dy)` — a caixa nova deslocada; a original fica intacta; sair antes da origem lança o `RangeError` do `drawingBox`.
+
+## Região de mapa
+
+- `MapPoint` `{ x, y }` é uma **fração da imagem** (0 a 1, canto superior esquerdo em `{ 0, 0 }`), nunca pixel: a região sobrevive a qualquer tamanho de imagem, zoom e pan. `MapRegionGeometry` = `{ shape: 'polygon', points }` | `{ shape: 'pin', point }`.
+- Limites (o contracts repete, porque só depende do `zod`): `MAP_NAME_MAX_LENGTH` e `MAP_REGION_NAME_MAX_LENGTH` 60, `MAP_REGION_DESCRIPTION_MAX_LENGTH` 500, `MAP_REGIONS_MAX` 300, `MAP_POLYGON_VERTICES_MIN` 3 e `MAP_POLYGON_VERTICES_MAX` 128.
+- `mapRegionGeometry(g)` confere e devolve uma cópia congelada (o tipo é mutável porque é também a forma do DTO e da coluna jsonb). Erro é `RangeError` com o valor: "Map polygon has 2 vertices: expected 3 to 128.", "Map point (1.01, 0.5) is invalid: expected x and y from 0 to 1." (`NaN` e `Infinity` também) e "Map polygon has area 0: expected more than 1e-12 (not all on one line).". A folga de 1e-12 cobre o resto de arredondamento de pontos colineares e fica muito abaixo de um pixel do maior mapa (8192 px). Polígono que cruza a si mesmo não é recusado, só o de área zero.
+- `polygonArea(pontos)` — área como fração do mapa, igual em sentido horário e anti-horário.
+- `regionFocusPoint(g)` — onde centralizar a vista: o próprio pino ou o **centro de massa** do polígono (pesa a área, não a quantidade de vértices; num polígono muito côncavo, como um C, pode cair fora dele). Recebe geometria validada: polígono de área zero não tem centro.
+- `regionsPaintOrder(regiões)` — a ordem de pintura, em lista nova: **maior primeiro**, para a menor sobreposta seguir visível e clicável; pino sempre por último; empate pelo id em ordem de code unit (sem `localeCompare`, que varia com o idioma e faria clientes diferentes pintarem diferente). Genérica no tipo da região (`PaintableMapRegion` `{ id, geometry }`), devolve os mesmos objetos.
+- `mapRegionParents(regiões)` — `id → id` do menor polígono que contém a região inteira; só sobreposta fica de fora, e polígonos iguais não viram pais um do outro.
 
 ## Barra
 

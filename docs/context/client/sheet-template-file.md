@@ -24,7 +24,7 @@ Porta `FileDownload` (`save(text, fileName, type?)`) com `BrowserFileDownload` s
 
 ## Importar (`src/features/library/`)
 
-- Entradas: "Criar item" → "Importar modelo de ficha" (raiz); no menu da raiz "Importar modelo de ficha" e no da pasta "Importar modelo aqui" (`ImportTemplateItem`).
+- Entradas: "Importar de um arquivo" no card "Modelo de ficha" do diálogo "Novo item" (na pasta de destino dele) e "Importar modelo…" no menu da raiz e no da pasta (`CreateItems`).
 - `use-sheet-template-import.ts`: `choose(pasta)` guarda a pasta e clica o input; `readFile` recusa o grande demais sem ler, senão `readSheetTemplateFile`; recusa → `problem` (`role="alert"` na biblioteca, sem diálogo); aceito → `pending`. `confirm(nome)` espera o `importTemplate` (o intent `createSheetTemplate` de `use-sheet-template-create.ts`, que resolve depois de reler a biblioteca) e então lê o `refusal` da biblioteca: com recusa o diálogo fica aberto com ela; sem, fecha e o modelo novo é escolhido (o editor abre).
 - `import-sheet-template-dialog.tsx`: `SheetTemplateImport` monta o input escondido (`sr-only`, `accept=".lksheet"`, `aria-label="Arquivo de modelo de ficha"`, valor zerado depois de cada escolha para o mesmo arquivo disparar de novo), o alerta e o diálogo "Importar modelo de ficha": "Nome do modelo" (editável; vazio desabilita "Importar"), "Tamanho do código" ("12,3 KiB de 512 KiB"), o aviso "O código foi escrito por outra pessoa e roda isolado, sem acesso à rede nem à sua conta.", "Cancelar" e "Importar" (desabilitado sem conexão).
 - `use-sheet-template-files.ts` junta exportar e importar para o `LibraryBrowser` (`templateFiles` do modelo).
