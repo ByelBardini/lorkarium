@@ -6,7 +6,7 @@
 
 - `effect_areas`: `id`, `scene_id` (cascade, indexado), `author_id` (`users`, **`set null`**: área sem autor só o mestre edita), `area_order` (identidade: a ordem de criação e de desenho), `kind` (enum `effect_area_kind`, as 9 formas), `x`, `y`, `width`, `height`, `reach` em `numeric(8,2)` (casas fracionárias; chegam como string `"2.50"`; **0 quando a forma não usa o campo**), `facing` `smallint` (padrão 0), `color` (`text`: nome da paleta dos desenhos ou `#rrggbb`, `CHECK` `effect_areas_color_value`), `created_at`.
 - `CHECK effect_areas_facing_range` (0–359) e `effect_areas_sizes_range` (tudo ≥ 0). As regras por forma moram no game-core (`effectArea`) e no DTO; o banco só confere as faixas.
-- O enum novo está exportado em `server/src/database/schema.ts` (armadilha do [`tokens.md`](tokens.md)). O `truncateAllTables` dos testes inclui `effect_areas`.
+- O enum novo está exportado em `server/src/database/schema.ts` (armadilha em [`tokens/armadilhas.md`](tokens/armadilhas.md)). O `truncateAllTables` dos testes inclui `effect_areas`.
 
 ## DAO (`effect-areas.dao.ts`)
 

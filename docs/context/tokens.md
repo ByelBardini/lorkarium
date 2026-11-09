@@ -93,16 +93,4 @@ Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de c
 | `token:unlinkFromCharacter` (e `token:unlinkFromCard`)  | mestre                                                          | `token:updated` no grid (o token fica com a cópia do que mostrava)                                                                                                   |
 | `token:addPlayers`                                      | mestre                                                          | `token:createdMany` no grid; ack `{ ok, version, createdIds, skippedMemberIds }` · `NO_FREE_CELLS` (pelos personagens, [`characters/ligar.md`](characters/ligar.md)) |
 
-## Direção e aparência (`token-appearance.service.ts`)
-
-- `faceMany`, `restyleMany` e `resizeMany` (`TokenAppearanceService`, plugin `appearance`): [`tokens/aparencia.md`](tokens/aparencia.md).
-
-## Testes
-
-Ver [`tokens/testes.md`](tokens/testes.md).
-
-## Armadilhas
-
-Em [`tokens/armadilhas.md`](tokens/armadilhas.md).
-
 Assets library_image são reservados à biblioteca/apresentação: requireAssetsOf recusa em tokens, formas, auras e condições (ASSET_NOT_FOUND antes de gravar). Ver [library/images.md](library/images.md).
