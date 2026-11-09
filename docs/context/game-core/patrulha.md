@@ -6,8 +6,8 @@ A rota que um token repete sozinho (guarda de vigia, carroça, animal). Server e
 
 ## VO (`token-patrol.vo.ts`)
 
-- `TokenPatrol` `{ path, repeat, speed, turns }`: `path` são **origens** do token (canto de cima à esquerda, de meia em meia casa, como `col`/`row`); `PatrolRepeat` = `loop` (circuito, último → primeiro) | `bounce` (ida e volta); `speed` em casas por segundo; `turns` = "Virar para onde anda".
-- `tokenPatrol(valor)` confere e devolve congelado (o `path` também), nesta ordem: 2 a `PATROL_POINTS_MAX` (32) pontos ("Patrol path has 1 points; expected 2 to 32."); cada ponto pelo `cell` (1,25 → o `RangeError` do `cell`); velocidade de `PATROL_SPEED_MIN` (0,25) a `PATROL_SPEED_MAX` (4) em passos de `PATROL_SPEED_STEP` (0,25) ("Patrol speed 0.3 is invalid: expected 0.25 to 4 in steps of 0.25.", NaN também); rota que não sai da primeira casa ("Patrol path (1, 1) → (1, 1) does not move: expected at least 2 cells in the cycle.").
+- `TokenPatrol` `{ path, repeat, speed, turns }`: `path` são **origens** do token (canto de cima à esquerda, em passos de 1/64 de casa, como `col`/`row`); `PatrolRepeat` = `loop` (circuito, último → primeiro) | `bounce` (ida e volta); `speed` em casas por segundo; `turns` = "Virar para onde anda"; `gait` (`PatrolGait`) = `glide` (desliza o passo inteiro) | `step` (passo curto e para na casa), só desenho: nenhuma conta do game-core o lê, e o `patrolCycle` pede só `path` e `repeat`.
+- `tokenPatrol(valor)` confere e devolve congelado (o `path` também), nesta ordem: 2 a `PATROL_POINTS_MAX` (32) pontos ("Patrol path has 1 points; expected 2 to 32."); cada ponto pelo `cell` (1,01 → o `RangeError` do `cell`); velocidade de `PATROL_SPEED_MIN` (0,25) a `PATROL_SPEED_MAX` (4) em passos de `PATROL_SPEED_STEP` (0,25) ("Patrol speed 0.3 is invalid: expected 0.25 to 4 in steps of 0.25.", NaN também); rota que não sai da primeira casa ("Patrol path (1, 1) → (1, 1) does not move: expected at least 2 cells in the cycle.").
 - Não confere se a rota cabe na cena (depende do tamanho do token): é o `patrolFits`.
 
 ## Ciclo (`token-patrol.ts`)

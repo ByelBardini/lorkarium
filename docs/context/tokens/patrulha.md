@@ -2,9 +2,9 @@
 
 Detalhe do hub [`../tokens.md`](../tokens.md): o token que anda sozinho por uma rota em loop (guarda de vigia, carroça, animal). A conta (ciclo, pose no instante, rota na cena) é do game-core ([`../game-core/patrulha.md`](../game-core/patrulha.md)); os DTOs em [`../contracts/patrulha.md`](../contracts/patrulha.md). **Nada no server mexe em token com o tempo:** o server guarda a linha do tempo (`started_at`, `step`) e cada tela calcula a casa de agora; o server só calcula a pose de agora quando um comando precisa dela (pausar, mover, a porta vista).
 
-## Tabela (`token-patrols.po.ts`, migração `0082_token_patrols`)
+## Tabela (`token-patrols.po.ts`, migrações `0082_token_patrols` e `0096_token_patrol_gait`)
 
-- `token_patrols`: `token_id` (PK → `tokens`, **cascade**: apagar o token apaga a patrulha), `path` `jsonb` (`[col, row][]`, origens do token em meia casa), `repeat` (enum `token_patrol_repeat`: `loop` | `bounce`), `speed` `numeric(4,2)` (casas/s; chega como string `"1.50"`), `turns` (`boolean`, padrão `true`), `step` (`integer`, padrão 0: a casa do ciclo de onde parte), `started_at` (`timestamptz` nulo = pausada). `CHECK token_patrols_speed` (0,25 a 4) e `token_patrols_step` (≥ 0). Tabela e enum exportados em `src/database/schema.ts`; o `truncateAllTables` inclui `token_patrols`.
+- `token_patrols`: `token_id` (PK → `tokens`, **cascade**: apagar o token apaga a patrulha), `path` `jsonb` (`[col, row][]`, origens do token em múltiplos de 1/64, como `col`/`row`), `repeat` (enum `token_patrol_repeat`: `loop` | `bounce`), `speed` `numeric(4,2)` (casas/s; chega como string `"1.50"`), `turns` (`boolean`, padrão `true`), `gait` (enum `token_patrol_gait`: `glide` | `step`, padrão `glide`: só o desenho, a linha do tempo é a mesma), `step` (`integer`, padrão 0: a casa do ciclo de onde parte), `started_at` (`timestamptz` nulo = pausada). `CHECK token_patrols_speed` (0,25 a 4) e `token_patrols_step` (≥ 0). Tabela e enum exportados em `src/database/schema.ts`; o `truncateAllTables` inclui `token_patrols`.
 - Ligada, `tokens.col`/`row` ficam onde o token estava ao ligar: é a **origem da volta** (o game-core anda dali até `ciclo[step]` e segue o ciclo).
 
 ## DAO (`token-patrols.dao.ts`)
