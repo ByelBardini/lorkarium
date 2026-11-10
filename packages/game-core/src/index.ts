@@ -53,10 +53,15 @@ export {
 export {
   adjustBarValues,
   applyBarChange,
+  spendBars,
   type BarAdjustment,
   type BarChange,
+  type BarCost,
+  type BarsSpent,
   type BarValues,
+  type SpendableBar,
 } from './bar';
+export { barLabelKey, missingManifestBars, type ManifestBarsPlan } from './manifest-bars';
 export { INITIATIVE_LIMIT, initiative, type Initiative } from './initiative.vo';
 export {
   moveWithinTie,

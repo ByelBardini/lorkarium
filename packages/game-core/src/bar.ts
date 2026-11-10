@@ -63,3 +63,54 @@ function wholeTemp(value: number, limit: number): number {
     `Bar temp ${String(value)} is invalid: expected a whole number from 0 to ${limit}.`,
   );
 }
+
+/** A bar a cost may be charged to: its current value pays, its temp never does. */
+export type SpendableBar = Readonly<{ id: string; label: string; current: number }>;
+
+export type BarCost = Readonly<{ barId: string; amount: number }>;
+
+export type BarsSpent<T extends SpendableBar> =
+  | Readonly<{ ok: true; spent: T[] }>
+  | Readonly<{ ok: false; bar: string; has: number; needs: number }>;
+
+/** Charges every cost or none: each bar must hold, in its current value alone, the sum of its
+ *  costs; else the first bar short comes back by label with what it has and needs. `spent` lists
+ *  each bar that paid once, in the order of `bars`, with only `current` changed.
+ *
+ *  Example: `spendBars(bars, [{ barId: mp.id, amount: 6 }, { barId: ef.id, amount: 6 }])` */
+export function spendBars<T extends SpendableBar>(
+  bars: readonly T[],
+  costs: readonly BarCost[],
+): BarsSpent<T> {
+  const due = dueByBar(bars, costs);
+  const spent: T[] = [];
+  for (const bar of bars) {
+    const needs = due.get(bar.id);
+    if (needs === undefined) continue;
+    if (bar.current < needs) return { ok: false, bar: bar.label, has: bar.current, needs };
+    spent.push({ ...bar, current: bar.current - needs });
+  }
+  return { ok: true, spent };
+}
+
+function dueByBar(bars: readonly SpendableBar[], costs: readonly BarCost[]): Map<string, number> {
+  const due = new Map<string, number>();
+  for (const { barId, amount } of costs) {
+    requireCost(amount);
+    if (!bars.some((bar) => bar.id === barId)) throw unknownCostBar(bars, barId);
+    due.set(barId, (due.get(barId) ?? 0) + amount);
+  }
+  return due;
+}
+
+function requireCost(amount: number): void {
+  if (Number.isInteger(amount) && amount >= 1) return;
+  throw new RangeError(
+    `Bar cost ${String(amount)} is invalid: expected a whole number of at least 1.`,
+  );
+}
+
+function unknownCostBar(bars: readonly SpendableBar[], barId: string): RangeError {
+  const ids = bars.map((bar) => `"${bar.id}"`).join(', ') || 'none';
+  return new RangeError(`Bar cost on "${barId}" is invalid: expected the id of one of: ${ids}.`);
+}
