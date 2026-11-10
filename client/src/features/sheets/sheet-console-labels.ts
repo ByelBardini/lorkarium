@@ -1,4 +1,4 @@
-import type { SheetCodePosition } from '@/sheet-sandbox/sheet-srcdoc';
+import type { SheetScriptPosition } from '@/sheet-sandbox/sheet-srcdoc';
 
 /** "2 erros", "1 erro", "Sem erros".
  *
@@ -8,9 +8,9 @@ export function consoleErrorCountLabel(errors: number): string {
   return errors === 1 ? '1 erro' : `${errors} erros`;
 }
 
-/** "linha 3, coluna 9": where in the editor's JS file an error came from.
+/** "a.js, linha 3, coluna 9": which JS file of the template an error came from, and where.
  *
- *  Example: `consolePositionLabel({ line: 3, column: 9 })` */
-export function consolePositionLabel(position: SheetCodePosition): string {
-  return `linha ${position.line}, coluna ${position.column}`;
+ *  Example: `consolePositionLabel({ path: 'a.js', line: 3, column: 9 })` */
+export function consolePositionLabel(position: SheetScriptPosition): string {
+  return `${position.path}, linha ${position.line}, coluna ${position.column}`;
 }

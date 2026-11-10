@@ -140,7 +140,7 @@ function ConsoleLine({ entry }: Readonly<{ entry: SheetConsoleEntry }>): React.J
         {entry.text}
         {entry.position && (
           <span className="ml-2 font-sans text-muted-foreground">
-            ({consolePositionLabel(entry.position)} do JS)
+            ({consolePositionLabel(entry.position)})
           </span>
         )}
       </span>

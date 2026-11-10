@@ -1,4 +1,7 @@
-import type { CreateSheetTemplateRequestDto } from '@lorkarium/contracts';
+import type {
+  CreateSheetTemplateRequestDto,
+  SheetTemplateAssetMimeTypeDto,
+} from '@lorkarium/contracts';
 import {
   useSheetTemplateExport,
   type SheetTemplateExportPorts,
@@ -30,7 +33,11 @@ export function useSheetTemplateFiles(input: SheetTemplateFilesInput): SheetTemp
   const { sheetTemplatesApi: api, fileDownload, campaignId } = input;
   const exportPorts = api && fileDownload ? { api, fileDownload, campaignId } : undefined;
   const exporter = useSheetTemplateExport(exportPorts);
-  const importer = useSheetTemplateImport(input);
+  const uploadAsset = api
+    ? (bytes: ArrayBuffer, type: SheetTemplateAssetMimeTypeDto) =>
+        api.uploadAsset(campaignId, bytes, type)
+    : undefined;
+  const importer = useSheetTemplateImport({ ...input, uploadAsset });
   return {
     importer,
     exportPorts,

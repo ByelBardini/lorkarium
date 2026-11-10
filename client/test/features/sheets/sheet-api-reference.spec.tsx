@@ -22,10 +22,21 @@ const CALLS = [
   'values.get',
   'values.all',
   'values.set',
+  'values.patch',
+  'lists.add',
+  'lists.remove',
+  'lists.items',
   'bars.list',
   'bars.get',
   'bars.adjust',
+  'bars.spend',
   'dice.roll',
+  'html.sanitize',
+  'character.get',
+  'character.set',
+  'character.setImage',
+  'assets.upload',
+  'assets.read',
 ];
 
 // Every code the host, the preview or the frame's bars.get can produce.
@@ -40,6 +51,12 @@ const CODES = [
   'PREVIEW_ONLY',
   'INVALID_MESSAGE',
   'NOT_FOUND',
+  'PERMISSION_NOT_DECLARED',
+  'NO_CHARACTER',
+  'INSUFFICIENT_BAR',
+  'ASSET_NOT_FOUND',
+  'TOO_LARGE',
+  'UNSUPPORTED_IMAGE',
 ];
 
 function allDocumentedCode(): string {
@@ -86,7 +103,15 @@ describe('SheetApiReference', () => {
     const fields = within(table)
       .getAllByRole('rowheader')
       .map((cell) => cell.textContent);
-    expect(fields).toEqual(['token', 'token.name', 'token.image', 'bars', 'values', 'canEdit']);
+    expect(fields).toEqual([
+      'token',
+      'token.name',
+      'token.image',
+      'bars',
+      'values',
+      'canEdit',
+      'character',
+    ]);
   });
 
   it('the error table lists every code the bridge can answer', () => {
@@ -113,5 +138,12 @@ describe('SheetApiReference', () => {
     const limits = screen.getByRole('region', { name: 'Limites da ficha' });
     for (const text of ['512 KiB', '256 KiB', '1000 chaves', '8 níveis', '10 rolagens a cada 10 s'])
       expect(limits).toHaveTextContent(text);
+  });
+
+  it('the limits say inline handlers do not run and to bind events with addEventListener', () => {
+    render(<SheetApiReference />);
+    const limits = screen.getByRole('region', { name: 'Limites da ficha' });
+    expect(limits).toHaveTextContent('atributos de evento (onclick, onerror…)');
+    expect(limits).toHaveTextContent('addEventListener');
   });
 });

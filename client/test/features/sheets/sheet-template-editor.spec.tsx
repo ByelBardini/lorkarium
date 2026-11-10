@@ -10,7 +10,12 @@ import { codeTextOf, replaceCode } from '../../support/code-editor-input';
 import { FileDownloadFake } from '../../support/file-download-fake';
 import { TORMENTA_TEMPLATE_ID } from '../../support/sheet-fixtures';
 import { SheetChannelsFake } from '../../support/sheet-frame-fakes';
-import { tormentaTemplate } from '../../support/sheet-template-fixtures';
+import {
+  contentOf,
+  tormentaFiles,
+  tormentaTemplate,
+  withContent,
+} from '../../support/sheet-template-fixtures';
 import { SheetTemplatesApiFake } from '../../support/sheet-templates-api-fake';
 
 let api: SheetTemplatesApiFake;
@@ -36,13 +41,20 @@ async function openTormenta(live = true) {
   render(
     <SheetTemplateEditor draft={tormentaDraft()} live={live} createChannel={channels.create} />,
   );
-  await screen.findByRole('textbox', { name: 'HTML do modelo' });
+  await screen.findByRole('textbox', { name: 'Arquivo index.html' });
   return user;
 }
 
+const PATH_OF = { HTML: 'index.html', CSS: 'style.css', JS: 'script.js' } as const;
+
 async function showCode(user: ReturnType<typeof userEvent.setup>, title: 'HTML' | 'CSS' | 'JS') {
-  await user.click(screen.getByRole('tab', { name: title }));
-  return screen.findByRole('textbox', { name: `${title} do modelo` });
+  return showFile(user, PATH_OF[title]);
+}
+
+async function showFile(user: ReturnType<typeof userEvent.setup>, path: string) {
+  const list = screen.getByRole('list', { name: 'Arquivos do modelo' });
+  await user.click(within(list).getByRole('button', { name: path }));
+  return screen.findByRole('textbox', { name: `Arquivo ${path}` });
 }
 
 async function openTormentaWithExport() {
@@ -54,13 +66,20 @@ async function openTormentaWithExport() {
       exportPorts={{ api, fileDownload, campaignId: VHARN.id }}
     />,
   );
-  await screen.findByRole('textbox', { name: 'HTML do modelo' });
+  await screen.findByRole('textbox', { name: 'Arquivo index.html' });
   return user;
 }
 
 function exportedJs(): string | null {
   const reading = readSheetTemplateFile(fileDownload.saves[0]?.text ?? '');
-  return reading.ok ? reading.template.js : null;
+  return reading.ok ? (contentOf(reading.template.files, 'script.js') ?? null) : null;
+}
+
+// The bytes of the Tormenta files but the script (all ASCII).
+function otherFilesLength(): number {
+  return tormentaFiles()
+    .filter(({ path }) => path !== 'script.js')
+    .reduce((sum, { content }) => sum + content.length, 0);
 }
 
 function saveButton(): HTMLElement {
@@ -71,25 +90,25 @@ describe('SheetTemplateEditor', () => {
   it('loads the template: name and the HTML first', async () => {
     await openTormenta();
     expect(screen.getByRole('textbox', { name: 'Nome do modelo' })).toHaveValue('Ficha Tormenta');
-    expect(codeTextOf('HTML do modelo')).toBe('<p id="pv">PV</p>');
+    expect(codeTextOf('Arquivo index.html')).toBe('<p id="pv">PV</p>');
   });
 
-  it('switching between HTML, CSS and JS keeps the text of each one', async () => {
+  it('switching between the files keeps the text of each one', async () => {
     const user = await openTormenta();
-    replaceCode('HTML do modelo', '<p>Força</p>');
+    replaceCode('Arquivo index.html', '<p>Força</p>');
     await showCode(user, 'CSS');
-    replaceCode('CSS do modelo', 'p { color: gold; }');
+    replaceCode('Arquivo style.css', 'p { color: gold; }');
     await showCode(user, 'JS');
-    expect(codeTextOf('JS do modelo')).toBe('lorkarium.ready();');
+    expect(codeTextOf('Arquivo script.js')).toBe('lorkarium.ready();');
     await showCode(user, 'HTML');
-    expect(codeTextOf('HTML do modelo')).toBe('<p>Força</p>');
+    expect(codeTextOf('Arquivo index.html')).toBe('<p>Força</p>');
     await showCode(user, 'CSS');
-    expect(codeTextOf('CSS do modelo')).toBe('p { color: gold; }');
+    expect(codeTextOf('Arquivo style.css')).toBe('p { color: gold; }');
   });
 
-  it('saving sends the three sources and the name against the version read', async () => {
+  it('saving sends every file and the name against the version read', async () => {
     const user = await openTormenta();
-    replaceCode('HTML do modelo', '<p>Força</p>');
+    replaceCode('Arquivo index.html', '<p>Força</p>');
     await user.clear(screen.getByRole('textbox', { name: 'Nome do modelo' }));
     await user.type(screen.getByRole('textbox', { name: 'Nome do modelo' }), 'Ficha T20');
     await user.click(saveButton());
@@ -97,13 +116,34 @@ describe('SheetTemplateEditor', () => {
       {
         expectedVersion: 3,
         name: 'Ficha T20',
-        html: '<p>Força</p>',
-        css: 'p { color: red; }',
-        js: 'lorkarium.ready();',
+        files: withContent(tormentaFiles(), 'index.html', '<p>Força</p>'),
+        manifest: { permissions: [], bars: [], assets: [] },
       },
     ]);
     expect(await screen.findByText('Salvo.')).toBeInTheDocument();
     expect(saveButton()).toBeDisabled();
+  });
+
+  it('a manifest declaring permissions is saved with the code', async () => {
+    const user = await openTormenta();
+    await user.click(screen.getByRole('tab', { name: 'Manifesto' }));
+    replaceCode('Manifesto do modelo', '{"permissions":["character:stats","sheet:images"]}');
+    await user.click(saveButton());
+    expect(api.updates.at(-1)?.input.manifest).toEqual({
+      permissions: ['character:stats', 'sheet:images'],
+      bars: [],
+      assets: [],
+    });
+  });
+
+  it('a manifest the contract refuses blocks the save, Ctrl+S included', async () => {
+    const user = await openTormenta();
+    await user.click(screen.getByRole('tab', { name: 'Manifesto' }));
+    replaceCode('Manifesto do modelo', '{"permissions":["network"]}');
+    expect(saveButton()).toBeDisabled();
+    expect(screen.getByText('Corrija o manifesto para salvar.')).toBeInTheDocument();
+    await user.keyboard('{Control>}s{/Control}');
+    expect(api.updates).toEqual([]);
   });
 
   it('nothing changed: save is disabled', async () => {
@@ -113,7 +153,7 @@ describe('SheetTemplateEditor', () => {
 
   it('reconnecting: save is disabled even with changes', async () => {
     await openTormenta(false);
-    replaceCode('HTML do modelo', '<p>Força</p>');
+    replaceCode('Arquivo index.html', '<p>Força</p>');
     expect(saveButton()).toBeDisabled();
   });
 
@@ -147,10 +187,9 @@ describe('SheetTemplateEditor', () => {
 
   it('past 512 KiB the size turns red and save is disabled', async () => {
     const user = await openTormenta();
-    const { html, css } = tormentaTemplate();
-    const fill = SHEET_TEMPLATE_SOURCE_MAX_BYTES - html.length - css.length + 1;
+    const fill = SHEET_TEMPLATE_SOURCE_MAX_BYTES - otherFilesLength() + 1;
     await showCode(user, 'JS');
-    replaceCode('JS do modelo', 'x'.repeat(fill));
+    replaceCode('Arquivo script.js', 'x'.repeat(fill));
     const size = screen.getByLabelText('Tamanho do código');
     expect(size).toHaveAttribute('data-over-budget', 'true');
     expect(size).toHaveClass('text-destructive-text');
@@ -160,11 +199,10 @@ describe('SheetTemplateEditor', () => {
 
   it('exactly 512 KiB still saves', async () => {
     const user = await openTormenta();
-    const { html, css } = tormentaTemplate();
     await showCode(user, 'JS');
     replaceCode(
-      'JS do modelo',
-      'x'.repeat(SHEET_TEMPLATE_SOURCE_MAX_BYTES - html.length - css.length),
+      'Arquivo script.js',
+      'x'.repeat(SHEET_TEMPLATE_SOURCE_MAX_BYTES - otherFilesLength()),
     );
     expect(screen.getByLabelText('Tamanho do código')).toHaveAttribute('data-over-budget', 'false');
     expect(saveButton()).toBeEnabled();
@@ -172,17 +210,26 @@ describe('SheetTemplateEditor', () => {
 
   it('another master saved: "Carregar versão atual" shows it and keeps my text to put back', async () => {
     const user = await openTormenta();
-    api.templates.set(TORMENTA_TEMPLATE_ID, tormentaTemplate({ version: 4, html: '<p>dele</p>' }));
-    replaceCode('HTML do modelo', '<p>meu</p>');
+    api.templates.set(
+      TORMENTA_TEMPLATE_ID,
+      tormentaTemplate({
+        version: 4,
+        files: withContent(tormentaFiles(), 'index.html', '<p>dele</p>'),
+      }),
+    );
+    replaceCode('Arquivo index.html', '<p>meu</p>');
     await user.click(saveButton());
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Outro mestre salvou');
     await user.click(within(alert).getByRole('button', { name: 'Carregar versão atual' }));
-    await waitFor(() => expect(codeTextOf('HTML do modelo')).toBe('<p>dele</p>'));
+    await waitFor(() => expect(codeTextOf('Arquivo index.html')).toBe('<p>dele</p>'));
     await user.click(screen.getByRole('button', { name: 'Voltar ao meu texto' }));
-    expect(codeTextOf('HTML do modelo')).toBe('<p>meu</p>');
+    expect(codeTextOf('Arquivo index.html')).toBe('<p>meu</p>');
     await user.click(saveButton());
-    expect(api.updates.at(-1)?.input).toMatchObject({ expectedVersion: 4, html: '<p>meu</p>' });
+    expect(api.updates.at(-1)?.input).toMatchObject({
+      expectedVersion: 4,
+      files: withContent(tormentaFiles(), 'index.html', '<p>meu</p>'),
+    });
   });
 
   it('a template that cannot be read shows the reason and "Tentar de novo"', async () => {
@@ -192,7 +239,7 @@ describe('SheetTemplateEditor', () => {
     expect(await screen.findByText(/Sem conexão/)).toBeInTheDocument();
     api.detailResult = null;
     await user.click(screen.getByRole('button', { name: 'Tentar de novo' }));
-    expect(await screen.findByRole('textbox', { name: 'HTML do modelo' })).toBeInTheDocument();
+    expect(await screen.findByRole('textbox', { name: 'Arquivo index.html' })).toBeInTheDocument();
   });
 
   it('shows only the moves offered: "Abrir modelo em aba", "… em janela", "Fechar modelo"', async () => {
@@ -225,13 +272,13 @@ describe('SheetTemplateEditor', () => {
         fileName: 'Ficha Tormenta.lksheet',
         type: 'application/json',
       });
-      expect(exportedJs()).toBe(tormentaTemplate().js);
+      expect(exportedJs()).toBe(contentOf(tormentaTemplate().files, 'script.js'));
     });
 
     it('with JS typed and not saved it says so, and the file carries the server JS', async () => {
       const user = await openTormentaWithExport();
       await showCode(user, 'JS');
-      replaceCode('JS do modelo', 'lorkarium.onState(() => {});');
+      replaceCode('Arquivo script.js', 'lorkarium.onState(() => {});');
       const button = screen.getByRole('button', { name: 'Exportar modelo' });
       expect(button).toHaveAccessibleDescription(UNSAVED_NOTE);
       await user.click(button);

@@ -1,18 +1,29 @@
-import { lazy, Suspense } from 'react';
+import { SHEET_TEMPLATE_ENTRY_PATH, sheetTemplateFileKindOf } from '@lorkarium/contracts';
+import { lazy, Suspense, useState } from 'react';
 import type { CodeLanguage } from '@/code-editor/code-editor-setup';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { sheetSdkCompletionSource } from '@/lib/sheet-sdk-completions';
+import { editTemplateFile, type TemplateFile } from '@/lib/sheet-template-files';
+import { readSheetManifestText } from '@/lib/sheet-template-manifest';
 import type { TemplateDraft } from '@/stores/sheet-template-draft-store';
+import { SDK_CALLS } from './sheet-api-reference-content';
+import { SheetFileTree } from './sheet-file-tree';
+import {
+  SheetTemplateAssetsPanel,
+  type SheetTemplateAssetPorts,
+} from './sheet-template-assets-panel';
+import { sheetManifestProblemMessage } from './sheet-manifest-messages';
 
 const CodeEditor = lazy(() => import('@/code-editor/code-editor'));
 
-type SourceKey = 'html' | 'css' | 'js';
-type CodeTab = Readonly<{ key: SourceKey; title: string; language: CodeLanguage }>;
+const LANGUAGE_OF_KIND: Readonly<Record<'html' | 'css' | 'js', CodeLanguage>> = {
+  html: 'html',
+  css: 'css',
+  js: 'javascript',
+};
 
-const CODE_TABS: readonly CodeTab[] = [
-  { key: 'html', title: 'HTML', language: 'html' },
-  { key: 'css', title: 'CSS', language: 'css' },
-  { key: 'js', title: 'JS', language: 'javascript' },
-];
+// The SDK only exists in the JS files: the HTML and the manifest get no suggestion.
+const SDK_COMPLETIONS = sheetSdkCompletionSource(SDK_CALLS);
 
 /** The editor's tabs (code and preview): the active one is a lighter surface over the gold
  *  underline, so it reads at a glance against the dark code. */
@@ -22,21 +33,30 @@ export const EDITOR_TAB_CLASS =
 export type SheetCodeTabsProps = Readonly<{
   draft: TemplateDraft;
   onEdit: (changes: Partial<TemplateDraft>) => void;
+  /** Sends the fonts and images the manifest declares; without it, the manifest only lists them. */
+  assetPorts?: SheetTemplateAssetPorts;
 }>;
 
-/** HTML, CSS and JS of a template, one tab each. The three editors stay mounted (hidden when
- *  not shown), so switching keeps each text and its undo history.
+/** The files of a template (a list to pick, create, rename, remove and reorder, and the editor of
+ *  the picked one) and its manifest, one tab each. Every editor stays mounted (hidden when not
+ *  shown), so switching keeps each text and its undo history; a manifest the contract refuses is
+ *  said under its editor (the save stays blocked by the draft).
  *
  *  Example: `<SheetCodeTabs draft={model.draft} onEdit={model.edit} />` */
-export function SheetCodeTabs({ draft, onEdit }: SheetCodeTabsProps): React.JSX.Element {
+export function SheetCodeTabs({
+  draft,
+  onEdit,
+  assetPorts,
+}: SheetCodeTabsProps): React.JSX.Element {
   return (
-    <Tabs defaultValue="html" className="min-h-0 flex-1">
+    <Tabs defaultValue="files" className="min-h-0 flex-1">
       <TabsList aria-label="Código do modelo" className="gap-0 bg-panel px-2">
-        {CODE_TABS.map((tab) => (
-          <TabsTrigger key={tab.key} value={tab.key} className={EDITOR_TAB_CLASS}>
-            {tab.title}
-          </TabsTrigger>
-        ))}
+        <TabsTrigger value="files" className={EDITOR_TAB_CLASS}>
+          Arquivos
+        </TabsTrigger>
+        <TabsTrigger value="manifest" className={EDITOR_TAB_CLASS}>
+          Manifesto
+        </TabsTrigger>
       </TabsList>
       <Suspense
         fallback={
@@ -45,22 +65,67 @@ export function SheetCodeTabs({ draft, onEdit }: SheetCodeTabsProps): React.JSX.
           </p>
         }
       >
-        {CODE_TABS.map((tab) => (
-          <TabsContent
-            key={tab.key}
-            value={tab.key}
-            forceMount
-            className="data-[state=inactive]:hidden"
-          >
-            <CodeEditor
-              value={draft[tab.key]}
-              language={tab.language}
-              label={`${tab.title} do modelo`}
-              onChange={(text) => onEdit({ [tab.key]: text })}
-            />
-          </TabsContent>
-        ))}
+        <TabsContent value="files" forceMount className="flex data-[state=inactive]:hidden">
+          <TemplateFilesPane files={draft.files} onFiles={(files) => onEdit({ files })} />
+        </TabsContent>
+        <TabsContent value="manifest" forceMount className="data-[state=inactive]:hidden">
+          <CodeEditor
+            value={draft.manifest}
+            language="javascript"
+            label="Manifesto do modelo"
+            onChange={(manifest) => onEdit({ manifest })}
+          />
+          <ManifestProblem text={draft.manifest} />
+          <SheetTemplateAssetsPanel
+            manifest={draft.manifest}
+            onManifest={(manifest) => onEdit({ manifest })}
+            ports={assetPorts}
+          />
+        </TabsContent>
       </Suspense>
     </Tabs>
+  );
+}
+
+type TemplateFilesPaneProps = Readonly<{
+  files: readonly TemplateFile[];
+  onFiles: (files: readonly TemplateFile[]) => void;
+}>;
+
+// The picked file falls back to the entry page when it is gone (renamed, removed, or another
+// version loaded).
+function TemplateFilesPane({ files, onFiles }: TemplateFilesPaneProps): React.JSX.Element {
+  const [picked, setPicked] = useState(SHEET_TEMPLATE_ENTRY_PATH);
+  const selected = files.some(({ path }) => path === picked) ? picked : SHEET_TEMPLATE_ENTRY_PATH;
+  return (
+    <>
+      <SheetFileTree files={files} selected={selected} onSelect={setPicked} onChange={onFiles} />
+      <div className="min-w-0 flex-1">
+        {files.map((file) => {
+          const kind = sheetTemplateFileKindOf(file.path);
+          return (
+            <div key={file.path} hidden={file.path !== selected}>
+              <CodeEditor
+                value={file.content}
+                language={LANGUAGE_OF_KIND[kind]}
+                label={`Arquivo ${file.path}`}
+                onChange={(text) => onFiles(editTemplateFile(files, file.path, text))}
+                completions={kind === 'js' ? SDK_COMPLETIONS : undefined}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function ManifestProblem({ text }: Readonly<{ text: string }>): React.JSX.Element | null {
+  const reading = readSheetManifestText(text);
+  if (reading.ok) return null;
+  return (
+    <p role="alert" className="border-t border-border px-4 py-2 text-sm text-destructive-text">
+      {sheetManifestProblemMessage(reading.problem)}
+    </p>
   );
 }

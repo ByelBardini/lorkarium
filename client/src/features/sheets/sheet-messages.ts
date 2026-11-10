@@ -1,4 +1,5 @@
 import {
+  MAX_BARS_PER_TOKEN,
   SHEET_NAME_MAX_LENGTH,
   type SheetSummaryDto,
   type SheetVisibilityDto,
@@ -40,6 +41,16 @@ const SHEET_FAILURE: Readonly<Partial<Record<SheetsFailure['kind'], string>>> = 
  *  Example: `sheetCommandFailureMessage('Criar', { kind: 'member_not_found' }) // 'Esse jogador não está mais na mesa.'` */
 export function sheetCommandFailureMessage(action: string, failure: SheetsFailure): string {
   return SHEET_FAILURE[failure.kind] ?? `${action} a ficha não deu certo. Tente de novo.`;
+}
+
+/** What the room says after giving a sheet whose template's bars did not all fit its holder
+ *  (`skippedBars` of the receipt); `null` when they all did.
+ *
+ *  Example: `skippedBarsNotice(['ES']) // 'A ficha foi dada. Não couberam: ES (limite de 8 barras).'` */
+export function skippedBarsNotice(skippedBars: readonly string[]): string | null {
+  if (skippedBars.length === 0) return null;
+  const labels = skippedBars.join(', ');
+  return `A ficha foi dada. Não couberam: ${labels} (limite de ${MAX_BARS_PER_TOKEN} barras).`;
 }
 
 /** The name a sheet made from a menu starts with: "<template> · <holder>", cut with "…" to fit.

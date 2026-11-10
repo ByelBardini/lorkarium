@@ -1,10 +1,10 @@
 import type { SheetTemplateCodeDto } from '@lorkarium/contracts';
+import type { SheetAssetData } from '@/sheet-sandbox/sheet-page-assembly';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { SheetBridgeHost } from '@/sheet-sandbox/sheet-bridge-host';
-import { SheetFrame, type SheetChannel } from '@/sheet-sandbox/sheet-frame';
-import { buildSheetSrcdoc } from '@/sheet-sandbox/sheet-srcdoc';
+import { SheetSourceFrame, type SheetChannel } from '@/sheet-sandbox/sheet-frame';
 
 /** How long a new frame has to say `ready` before the room offers "Recarregar". */
 export const SHEET_READY_TIMEOUT_MS = 5000;
@@ -17,6 +17,8 @@ export type SheetFrameHealth = 'starting' | 'ready' | 'silent' | 'reloaded';
 
 export type SheetSandboxViewProps = Readonly<{
   code: SheetTemplateCodeDto;
+  /** The data of the template's assets by path, embedded as `data:` urls. */
+  assets?: ReadonlyMap<string, SheetAssetData>;
   title: string;
   clock: InteractionClock;
   /** Speaks for the frame on its port; `onReady` is the frame's `ready`. */
@@ -24,8 +26,8 @@ export type SheetSandboxViewProps = Readonly<{
   createChannel?: () => SheetChannel;
 }>;
 
-/** One sheet's frame and its watchdog: a new frame per template version and per "Recarregar",
- *  the bridge of the old one disposed. No `ready` in `SHEET_READY_TIMEOUT_MS` says "A ficha não
+/** One sheet's frame and its watchdog: a new frame per template version and per
+ *  "Recarregar", the bridge of the old one disposed. No `ready` in `SHEET_READY_TIMEOUT_MS` says "A ficha não
  *  respondeu" over the frame; a second `load` leaves only "Ficha recarregada".
  *
  *  Example: `<SheetSandboxView code={template} title="Ficha · Lyra" clock={clock} connect={bridgeOf} />` */
@@ -33,8 +35,10 @@ export function SheetSandboxView(props: SheetSandboxViewProps): React.JSX.Elemen
   const [generation, setGeneration] = useState(0);
   const frameKey = `${props.code.version}:${generation}`;
   const { health, onReady, onReloaded } = useFrameHealth(props.clock, frameKey);
+  const { files } = props.code;
+  const { assets } = props;
+  const source = useMemo(() => ({ files, assets }), [files, assets]);
   const bridge = useSheetBridge(props.connect, onReady);
-  const srcdoc = useMemo(() => buildSheetSrcdoc(props.code), [props.code]);
   const reload = (): void => {
     bridge.dispose();
     setGeneration((current) => current + 1);
@@ -53,9 +57,9 @@ export function SheetSandboxView(props: SheetSandboxViewProps): React.JSX.Elemen
       {health === 'silent' && (
         <SheetProblem title={SHEET_SILENT} detail="Ela pode estar travada." onReload={reload} />
       )}
-      <SheetFrame
+      <SheetSourceFrame
         key={frameKey}
-        srcdoc={srcdoc}
+        source={source}
         title={props.title}
         onConnect={bridge.attach}
         onReloaded={onReloaded}

@@ -13,7 +13,9 @@ describe('consoleErrorCountLabel', () => {
 });
 
 describe('consolePositionLabel', () => {
-  it('says the line and the column of the JS file', () => {
-    expect(consolePositionLabel({ line: 3, column: 9 })).toBe('linha 3, coluna 9');
+  it('says the JS file, the line and the column', () => {
+    expect(consolePositionLabel({ path: 'scripts/a.js', line: 3, column: 9 })).toBe(
+      'scripts/a.js, linha 3, coluna 9',
+    );
   });
 });

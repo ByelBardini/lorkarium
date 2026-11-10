@@ -1,6 +1,7 @@
 import {
   SHEET_TEMPLATE_FILE_EXTENSION,
   SHEET_TEMPLATE_NAME_MAX_LENGTH,
+  type SheetTemplateManifestDto,
 } from '@lorkarium/contracts';
 import { useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import {
+  SHEET_MANIFEST_NO_PERMISSIONS,
+  sheetManifestBarsLabel,
+  sheetManifestPermissionLabel,
+} from '@/features/sheets/sheet-manifest-messages';
 import { sheetSourceSizeLabel } from '@/features/sheets/sheet-template-messages';
 import { sourceBytes } from '@/stores/sheet-template-draft-store';
 import type {
@@ -99,6 +105,8 @@ function ImportSheetTemplateDialog({ importer, pending, live }: DialogProps) {
           <p aria-label="Tamanho do código" className="text-xs text-muted-foreground tabular-nums">
             {sheetSourceSizeLabel(sourceBytes(pending.template))}
           </p>
+          <ManifestSummary manifest={pending.template.manifest} />
+          <FileAssetsSummary count={pending.template.assets?.length ?? 0} />
           {importer.sendError && (
             <p role="alert" className="text-sm text-destructive-text">
               {importer.sendError}
@@ -115,5 +123,33 @@ function ImportSheetTemplateDialog({ importer, pending, live }: DialogProps) {
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// What the imported code may ask the table for, read before it is created.
+function ManifestSummary({ manifest }: Readonly<{ manifest: SheetTemplateManifestDto }>) {
+  const bars = sheetManifestBarsLabel(manifest);
+  return (
+    <div className="flex flex-col gap-1 text-sm">
+      {manifest.permissions.length === 0 ? (
+        <p className="text-muted-foreground">{SHEET_MANIFEST_NO_PERMISSIONS}</p>
+      ) : (
+        <ul aria-label="Permissões pedidas" className="list-disc pl-5">
+          {manifest.permissions.map((permission) => (
+            <li key={permission}>{sheetManifestPermissionLabel(permission)}</li>
+          ))}
+        </ul>
+      )}
+      {bars && <p className="text-muted-foreground">Barras esperadas: {bars}</p>}
+    </div>
+  );
+}
+
+function FileAssetsSummary({ count }: Readonly<{ count: number }>): React.JSX.Element | null {
+  if (count === 0) return null;
+  return (
+    <p aria-label="Assets do arquivo" className="text-xs text-muted-foreground">
+      {count === 1 ? '1 fonte ou imagem vai junto.' : `${count} fontes e imagens vão junto.`}
+    </p>
   );
 }

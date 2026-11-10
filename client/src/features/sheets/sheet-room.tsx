@@ -1,8 +1,13 @@
-import type { CampaignDetailDto, UpdateSheetRequestDto } from '@lorkarium/contracts';
+import type {
+  CampaignDetailDto,
+  SheetWriteResponseDto,
+  UpdateSheetRequestDto,
+} from '@lorkarium/contracts';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
-import type { SheetsResult } from '@/services/sheets-api';
-import { sheetCommandFailureMessage } from './sheet-messages';
+import { cn } from '@/lib/utils';
+import type { SheetsFailure, SheetsResult } from '@/services/sheets-api';
+import { sheetCommandFailureMessage, skippedBarsNotice } from './sheet-messages';
 import {
   SheetRoomContext,
   type SheetRoom,
@@ -10,11 +15,14 @@ import {
   type SheetRoomServices,
 } from './sheet-room-context';
 
-type SayFailure = (message: string | null) => void;
+/** What the room says under the board: a refusal, or a note about a command that went through. */
+type RoomLine = Readonly<{ message: string; tone: 'failure' | 'notice' }>;
+type SayLine = (line: RoomLine) => void;
 type SheetUpdate = Omit<UpdateSheetRequestDto, 'actionId'>;
 
 /** Gives the play room of `campaign` its sheet commands, and says their refusals itself (the
- *  menu that asked is already closed by then).
+ *  menu that asked is already closed by then), and the template's bars a given sheet could not
+ *  add to its holder.
  *
  *  Example: `<SheetRoomProvider campaign={campaign} services={deps}><PlayRoomPage … /></SheetRoomProvider>` */
 export function SheetRoomProvider({
@@ -26,15 +34,15 @@ export function SheetRoomProvider({
   services: SheetRoomServices;
   children: ReactNode;
 }>): React.JSX.Element {
-  const [failure, setFailure] = useState<string | null>(null);
+  const [line, setLine] = useState<RoomLine | null>(null);
   const room = useMemo<SheetRoom>(
-    () => ({ ...services, campaign, actions: sheetActionsOf(campaign, services, setFailure) }),
+    () => ({ ...services, campaign, actions: sheetActionsOf(campaign, services, setLine) }),
     [campaign, services],
   );
   return (
     <SheetRoomContext value={room}>
       {children}
-      {failure && <SheetFailureLine message={failure} onDismiss={() => setFailure(null)} />}
+      {line && <SheetRoomLine line={line} onDismiss={() => setLine(null)} />}
     </SheetRoomContext>
   );
 }
@@ -42,7 +50,7 @@ export function SheetRoomProvider({
 function sheetActionsOf(
   campaign: CampaignDetailDto,
   services: SheetRoomServices,
-  sayFailure: SayFailure,
+  say: SayLine,
 ): SheetRoomActions {
   const actionId = services.newActionId ?? (() => crypto.randomUUID());
   const api = services.sheetsApi;
@@ -50,8 +58,11 @@ function sheetActionsOf(
     void services.workspace
       .getState()
       .openSheet({ campaign, sheetId: sheet.id, sheetName: sheet.name });
-  const answered = (action: string) => (result: SheetsResult<unknown>) =>
-    !result.ok && sayFailure(sheetCommandFailureMessage(action, result.failure));
+  const answered = (action: string) => (result: SheetsResult<SheetWriteResponseDto>) => {
+    if (!result.ok) return say(failureLine(action, result.failure));
+    const notice = skippedBarsNotice(result.value.receipt.skippedBars);
+    if (notice) say({ message: notice, tone: 'notice' });
+  };
   const update = (sheetId: string, changes: SheetUpdate, action: string): void =>
     void api
       .update(campaign.id, sheetId, { actionId: actionId(), ...changes })
@@ -61,23 +72,31 @@ function sheetActionsOf(
     create: (sheet) =>
       void api.create(campaign.id, { actionId: actionId(), ...sheet }).then((result) => {
         if (result.ok) open(result.value.sheet);
-        else answered('Criar')(result);
+        answered('Criar')(result);
       }),
     setVisibility: (sheet, visibility) => update(sheet.id, { visibility }, 'Mudar'),
     give: (sheet, holder) => update(sheet.id, { holder }, holder ? 'Dar' : 'Tirar'),
   };
 }
 
-function SheetFailureLine({
-  message,
+function failureLine(action: string, failure: SheetsFailure): RoomLine {
+  return { message: sheetCommandFailureMessage(action, failure), tone: 'failure' };
+}
+
+function SheetRoomLine({
+  line,
   onDismiss,
-}: Readonly<{ message: string; onDismiss: () => void }>): React.JSX.Element {
+}: Readonly<{ line: RoomLine; onDismiss: () => void }>): React.JSX.Element {
+  const failed = line.tone === 'failure';
   return (
     <div
-      role="alert"
-      className="fixed bottom-16 left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-md border border-divider bg-panel px-4 py-2 text-sm text-destructive-text shadow-lg"
+      role={failed ? 'alert' : 'status'}
+      className={cn(
+        'fixed bottom-16 left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-md border border-divider bg-panel px-4 py-2 text-sm shadow-lg',
+        failed ? 'text-destructive-text' : 'text-foreground',
+      )}
     >
-      <p className="min-w-0 flex-1">{message}</p>
+      <p className="min-w-0 flex-1">{line.message}</p>
       <Button size="sm" variant="ghost" onClick={onDismiss}>
         Entendi
       </Button>

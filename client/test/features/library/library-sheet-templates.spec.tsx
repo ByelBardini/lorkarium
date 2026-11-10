@@ -17,6 +17,7 @@ import {
 } from '../../support/library-tree';
 import { TORMENTA_TEMPLATE_ID } from '../../support/sheet-fixtures';
 import {
+  contentOf,
   NEW_TEMPLATE_ID,
   tormentaSummary,
   tormentaTemplate,
@@ -34,7 +35,7 @@ function withTormenta(folderId: string | null = null): TestDependencies {
 async function openTormentaEditor(deps: TestDependencies) {
   const room = await openLibrary(deps);
   await userEvent.click(treeItem('Ficha Tormenta'));
-  await screen.findByRole('textbox', { name: 'HTML do modelo' });
+  await screen.findByRole('textbox', { name: 'Arquivo index.html' });
   return room;
 }
 
@@ -90,9 +91,10 @@ describe('sheet templates in the library', () => {
     const { input } = deps.sheetTemplatesApi.creates[0] ?? { input: null };
     expect(input?.folderId).toBe(ATO_1.id);
     for (const call of ['ready()', 'onState(', 'values.set(', 'bars.adjust(', 'dice.roll('])
-      expect(input?.js).toContain(`lorkarium.${call}`);
-    expect(input?.js).toMatch(/^\/\/ /mu);
-    expect(input?.html).toContain('<!--');
+      expect(contentOf(input?.files ?? [], 'script.js')).toContain(`lorkarium.${call}`);
+    expect(contentOf(input?.files ?? [], 'script.js')).toMatch(/^\/\/ /mu);
+    expect(contentOf(input?.files ?? [], 'index.html')).toContain('<!--');
+    expect(input?.files?.map(({ path }) => path)).toEqual(['index.html', 'style.css', 'script.js']);
     expect(await screen.findByRole('textbox', { name: 'Nome do modelo' })).toHaveValue(
       'Modelo sem nome',
     );
@@ -124,10 +126,10 @@ describe('sheet templates in the library', () => {
       expect(deps.sheetTemplatesApi.detailCalls).toEqual([TORMENTA_TEMPLATE_ID]);
       const [saved] = deps.fileDownload.saves;
       expect(saved).toMatchObject({ fileName: 'Ficha Tormenta.lksheet', type: 'application/json' });
-      const { name, html, css, js } = tormentaTemplate();
+      const { name, files, manifest } = tormentaTemplate();
       expect(readSheetTemplateFile(saved?.text ?? '')).toEqual({
         ok: true,
-        template: { name, html, css, js },
+        template: { name, files, manifest },
       });
     });
 
@@ -186,7 +188,7 @@ describe('sheet templates in the library', () => {
   it('picking another item with unsaved code asks first; "Continuar editando" stays', async () => {
     const deps = withTormenta();
     await openTormentaEditor(deps);
-    replaceCode('HTML do modelo', '<p>novo</p>');
+    replaceCode('Arquivo index.html', '<p>novo</p>');
     await userEvent.click(treeItem('Cena 1'));
     expect(
       await screen.findByRole('alertdialog', { name: 'Descartar o código não salvo?' }),
@@ -202,7 +204,7 @@ describe('sheet templates in the library', () => {
   it('Esc inside the code field belongs to the editor: the library stays open', async () => {
     const deps = withTormenta();
     const { router } = await openTormentaEditor(deps);
-    screen.getByRole('textbox', { name: 'HTML do modelo' }).focus();
+    screen.getByRole('textbox', { name: 'Arquivo index.html' }).focus();
     await userEvent.keyboard('{Escape}');
     // Closing would navigate on a later task; give it the time it takes.
     await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
@@ -234,7 +236,7 @@ describe('sheet templates in the library', () => {
   it('closing the library with unsaved code asks first', async () => {
     const deps = withTormenta();
     await openTormentaEditor(deps);
-    replaceCode('HTML do modelo', '<p>novo</p>');
+    replaceCode('Arquivo index.html', '<p>novo</p>');
     await userEvent.click(screen.getByRole('button', { name: 'Fechar biblioteca' }));
     expect(
       await screen.findByRole('alertdialog', { name: 'Descartar o código não salvo?' }),

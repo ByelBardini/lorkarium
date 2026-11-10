@@ -20,15 +20,22 @@ import {
   lyraCharacter,
   syncedCharacters,
 } from '../../support/character-fixtures';
+import { AssetsApiFake } from '../../support/assets-api-fake';
+import { CharacterCommandsFake } from '../../support/character-commands-fake';
 import { DiceCommandsFake } from '../../support/dice-commands-fake';
 import { InteractionClockFake } from '../../support/interaction-clock-fake';
 import { SheetCommandsFake } from '../../support/sheet-commands-fake';
 import { LYRA_SHEET_ID, lyraSheet, sheetResponse } from '../../support/sheet-fixtures';
 import { SheetChannelsFake } from '../../support/sheet-frame-fakes';
 import { SheetsApiFake } from '../../support/sheets-api-fake';
+import { expectedScriptSrcOf, scriptSrcOf, sheetPolicyOf } from '../../support/sheet-srcdoc-policy';
 import { BIA_AT_TABLE, vharnBoard, vharnState } from '../../support/table-session-fixtures';
 
 const TITLE = 'Ficha · Lyra de Vharn';
+
+function frameScriptSrcOf(frame: HTMLIFrameElement): string {
+  return scriptSrcOf(sheetPolicyOf(frame.getAttribute('srcdoc') ?? ''));
+}
 
 describe('SheetPanel', () => {
   let api: SheetsApiFake;
@@ -55,6 +62,8 @@ describe('SheetPanel', () => {
     const services = {
       sheetsApi: api,
       sheetCommands: new SheetCommandsFake(),
+      boardCommands: new CharacterCommandsFake(),
+      assets: new AssetsApiFake(),
       dice: new DiceCommandsFake(),
       clock,
     };
@@ -112,6 +121,19 @@ describe('SheetPanel', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.getByTitle(TITLE)).not.toBe(first);
     expect(channels.created[0]?.port1.closed).toBe(true);
+  });
+
+  it('the frame lists the hash of each of its scripts, and "Recarregar" keeps the same list', async () => {
+    await renderLyra();
+    const first = loadFrame();
+    const firstScriptSrc = frameScriptSrcOf(first);
+    expect(firstScriptSrc).toBe(expectedScriptSrcOf(first.getAttribute('srcdoc') ?? ''));
+    expect(firstScriptSrc).not.toContain("'nonce-");
+    act(() => clock.advance(SHEET_READY_TIMEOUT_MS));
+    fireEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: 'Recarregar' }));
+    const second = screen.getByTitle(TITLE) as HTMLIFrameElement;
+    expect(second).not.toBe(first);
+    expect(frameScriptSrcOf(second)).toBe(firstScriptSrc);
   });
 
   it('a frame that says `ready` in time is left alone', async () => {

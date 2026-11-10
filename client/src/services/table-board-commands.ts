@@ -25,6 +25,7 @@ import {
   BoardCommandSender,
   type BoardCommandResult,
   type BoardScope,
+  type TableScope,
 } from './board-command-sender';
 import { RealtimeCombatCommands, type CombatCommands } from './combat-commands';
 import {
@@ -205,7 +206,7 @@ export class RealtimeTableBoardCommands
   }
 
   updateCharacter(
-    scope: BoardScope,
+    scope: TableScope,
     characterId: string,
     changes: CharacterChangesInput,
   ): Promise<BoardCommandResult> {

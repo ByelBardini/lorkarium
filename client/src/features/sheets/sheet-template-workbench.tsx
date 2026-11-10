@@ -1,3 +1,4 @@
+import type { SheetManifestPermissionDto } from '@lorkarium/contracts';
 import { AppWindowIcon, Maximize2Icon, Minimize2Icon } from 'lucide-react';
 import { useMemo, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
@@ -6,13 +7,18 @@ import type { SheetEditorLayoutMemory } from '@/lib/sheet-editor-layout';
 import type { ChatWindowHost } from '@/services/chat-window-host';
 import type { Clipboard } from '@/services/clipboard';
 import type { SheetChannel } from '@/sheet-sandbox/sheet-frame';
+import { readSheetManifestText } from '@/lib/sheet-template-manifest';
+import { declaredAssetsOf } from '@/lib/sheet-manifest-assets';
+import { SAMPLE_SHEET_PREVIEW_DATA, type SheetPreviewData } from '@/lib/sheet-preview-data';
 import type { TemplateDraft } from '@/stores/sheet-template-draft-store';
 import { EditorSplitHandle } from './editor-split-handle';
 import { SheetApiReference } from './sheet-api-reference';
 import { EDITOR_TAB_CLASS, SheetCodeTabs } from './sheet-code-tabs';
 import { EditorConsoleDock } from './sheet-editor-console';
 import { PreviewInWindowNotice, SheetPreviewWindowPortal } from './sheet-preview-window';
+import type { SheetTemplateAssetPorts } from './sheet-template-assets-panel';
 import { SheetTemplatePreview } from './sheet-template-preview';
+import { useSheetAssetData } from './use-sheet-asset-data';
 import { useSheetConsole } from './use-sheet-console';
 import { useSheetEditorLayout } from './use-sheet-editor-layout';
 import { useSheetPreviewWindow } from './use-sheet-preview-window';
@@ -31,6 +37,8 @@ export type SheetTemplateWorkbenchProps = Readonly<{
   now?: () => Date;
   /** "Copiar documentação" of the API tab; without it, not offered. */
   clipboard?: Clipboard;
+  /** Sends the fonts and images and reads them for the preview; without it, none is embedded. */
+  assetPorts?: SheetTemplateAssetPorts;
 }>;
 
 /** The template editor's body: the code, the divider, and beside it the preview (docked, full
@@ -54,9 +62,9 @@ export function SheetTemplateWorkbench(props: SheetTemplateWorkbenchProps): Reac
       style={share}
       className="flex min-h-0 flex-1 flex-col lg:flex-row"
     >
-      {/* Hidden, never unmounted: the three editors keep their text and undo history. */}
+      {/* Hidden, never unmounted: the file editors keep their text and undo history. */}
       <div hidden={full} className="flex min-h-0 flex-col lg:w-(--code-share) lg:shrink-0">
-        <SheetCodeTabs draft={props.draft} onEdit={props.onEdit} />
+        <SheetCodeTabs draft={props.draft} onEdit={props.onEdit} assetPorts={props.assetPorts} />
       </div>
       {!full && (
         <EditorSplitHandle
@@ -79,8 +87,13 @@ type WorkbenchSideProps = SheetTemplateWorkbenchProps &
   }>;
 
 function WorkbenchSide(props: WorkbenchSideProps): React.JSX.Element {
-  const { html, css, js, name } = props.draft;
-  const source = useMemo(() => ({ html, css, js }), [html, css, js]);
+  const { files, name, manifest } = props.draft;
+  const declared = useMemo(() => declaredAssetsOf(manifest), [manifest]);
+  const assetLoad = useSheetAssetData(props.assetPorts?.api, declared);
+  const assets = assetLoad.status === 'ready' ? assetLoad.assets : undefined;
+  const source = useMemo(() => ({ files, assets }), [files, assets]);
+  const permissions = useDeclaredPermissions(props.draft.manifest);
+  const [testData, setTestData] = useState<SheetPreviewData>(SAMPLE_SHEET_PREVIEW_DATA);
   const sheetConsole = useSheetConsole();
   const previewWindow = useSheetPreviewWindow(props.templateId, props.windows);
   const inWindow = previewWindow.status === 'detached';
@@ -90,7 +103,8 @@ function WorkbenchSide(props: WorkbenchSideProps): React.JSX.Element {
   };
   const preview = (actions: ReactNode) => (
     <SheetTemplatePreview
-      {...{ source, actions, now: props.now, createChannel: props.createChannel }}
+      {...{ source, actions, permissions, now: props.now, createChannel: props.createChannel }}
+      {...{ testData, onTestData: setTestData }}
       onConsole={sheetConsole.append}
       onRun={sheetConsole.clear}
     />
@@ -181,4 +195,12 @@ function PreviewActions({ full, onFull, onOpenWindow }: PreviewActionsProps): Re
       )}
     </>
   );
+}
+
+// A manifest the contract refuses declares nothing: the preview grants only what would save.
+function useDeclaredPermissions(manifest: string): readonly SheetManifestPermissionDto[] {
+  return useMemo(() => {
+    const reading = readSheetManifestText(manifest);
+    return reading.ok ? reading.manifest.permissions : [];
+  }, [manifest]);
 }

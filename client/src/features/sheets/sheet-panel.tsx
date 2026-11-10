@@ -6,8 +6,11 @@ import { Button } from '@/components/ui/button';
 import { rollAspectOf } from '@/lib/dice-tray';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { DiceCommands } from '@/services/dice-commands';
+import type { AssetsApi } from '@/services/assets-api';
 import type { SheetCommands } from '@/services/sheet-commands';
+import type { SheetTemplateAssetReader } from '@/services/sheet-templates-api';
 import type { SheetsApi } from '@/services/sheets-api';
+import type { SheetCharacterCommands } from '@/sheet-sandbox/sheet-bridge-character';
 import { createSheetBridgeHost } from '@/sheet-sandbox/sheet-bridge-host';
 import { consoleEntryOf, type SheetConsoleSink } from '@/sheet-sandbox/sheet-console';
 import type { SheetChannel } from '@/sheet-sandbox/sheet-frame';
@@ -17,16 +20,23 @@ import type { SheetStoreState } from '@/stores/sheet-store';
 import { SheetConsoleButton } from './sheet-console-button';
 import { SheetFrameChrome } from './sheet-frame-chrome';
 import { SheetSandboxView } from './sheet-sandbox-view';
+import { useSheetAssetData, type SheetAssetLoad } from './use-sheet-asset-data';
 import { useSheetConsole, type SheetConsoleModel } from './use-sheet-console';
 
 /** What the panel's bridge turns the frame's requests into. */
 export type SheetPanelServices = Readonly<{
-  sheetsApi: Pick<SheetsApi, 'image'>;
+  sheetsApi: Pick<SheetsApi, 'image' | 'uploadImage'>;
   sheetCommands: SheetCommands;
+  /** The character's `character:update` (the sheet's AC, DC and portrait). */
+  boardCommands: SheetCharacterCommands;
+  /** Where the sheet's new portrait goes up (a `token` image). */
+  assets: Pick<AssetsApi, 'upload'>;
   dice: DiceCommands;
   clock: InteractionClock;
   /** The clock of the console's lines (the master's mark). */
   now?: () => Date;
+  /** Where the template's fonts and images are read from, to embed them in the frame. */
+  templateAssets?: SheetTemplateAssetReader;
 }>;
 
 export type SheetPanelProps = Readonly<{
@@ -64,6 +74,10 @@ export function SheetPanel(props: SheetPanelProps): React.JSX.Element {
   const sheetConsole = useTemplateConsole(template);
   const onConsole = useConsoleSink(canManage ? template : null, sheetConsole, props.services.now);
   const connect = useBridgeOf(props, holder === NOBODY, onConsole);
+  const assetLoad = useSheetAssetData(
+    props.services.templateAssets,
+    template?.manifest.assets ?? NO_DECLARED_ASSETS,
+  );
   return (
     <SheetFrameChrome
       title={props.title}
@@ -76,15 +90,18 @@ export function SheetPanel(props: SheetPanelProps): React.JSX.Element {
         canManage && <SheetConsoleButton log={sheetConsole.log} onClear={sheetConsole.clear} />
       }
     >
-      {status === 'ready' && template ? (
+      {status === 'ready' && template && assetLoad.status === 'ready' ? (
         <SheetSandboxView
           key={holderKeyOf(holder, props.tokens)}
           code={template}
+          assets={assetLoad.assets}
           title={props.title}
           clock={props.services.clock}
           connect={connect}
           createChannel={props.createChannel}
         />
+      ) : status === 'ready' && template ? (
+        <SheetAssetsState load={assetLoad} />
       ) : (
         <SheetLoadState status={status} onRetry={() => void store.getState().load()} />
       )}
@@ -93,6 +110,21 @@ export function SheetPanel(props: SheetPanelProps): React.JSX.Element {
 }
 
 const NOBODY = 'nobody';
+const NO_DECLARED_ASSETS: readonly [] = [];
+
+function SheetAssetsState({ load }: Readonly<{ load: SheetAssetLoad }>): React.JSX.Element {
+  if (load.status === 'failed')
+    return (
+      <p role="alert" className="p-5 text-sm text-destructive-text">
+        {`Não deu para ler o asset "${load.path}" do modelo. Recarregue a ficha.`}
+      </p>
+    );
+  return (
+    <p role="status" className="p-5 text-sm text-muted-foreground">
+      Carregando as fontes e imagens da ficha…
+    </p>
+  );
+}
 
 // Who holds the sheet, as a key: `undefined` while the sheet is not read yet.
 function holderOf(sheet: SheetStoreState['sheet']): string | undefined {
@@ -150,6 +182,8 @@ function useBridgeOf(
         token: tokenSourceOf(holderless, tokens),
         images: services.sheetsApi,
         commands: services.sheetCommands,
+        characters: services.boardCommands,
+        assets: services.assets,
         dice: services.dice,
         clock: services.clock,
         diceAspect: () => rollAspectOf({ width: window.innerWidth, height: window.innerHeight }),

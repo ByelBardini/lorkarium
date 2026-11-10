@@ -10,9 +10,11 @@ import type { SheetChannel } from '@/sheet-sandbox/sheet-frame';
 import type { SheetTemplateDraftState } from '@/stores/sheet-template-draft-store';
 import type { StoreApi } from 'zustand/vanilla';
 import {
+  InlineHandlerNotice,
   TemplateEditorMoveButtons,
   type TemplateEditorMoves,
 } from './sheet-template-editor-actions';
+import type { SheetTemplateAssetPorts } from './sheet-template-assets-panel';
 import { SheetTemplateExportButton } from './sheet-template-export-button';
 import { sheetSourceSizeLabel } from './sheet-template-messages';
 import { SheetTemplateWorkbench } from './sheet-template-workbench';
@@ -41,9 +43,11 @@ export type SheetTemplateEditorProps = Readonly<{
   clipboard?: Clipboard;
   /** "Exportar modelo": reads the saved version and downloads it as a `.lksheet`. */
   exportPorts?: SheetTemplateExportPorts;
+  /** Sends the template's fonts and images and reads them for the preview. */
+  assetPorts?: SheetTemplateAssetPorts;
 }>;
 
-/** The master's editor of one sheet template: name, HTML/CSS/JS with highlight, the size against
+/** The master's editor of one sheet template: name, its files (HTML, CSS, JS) with highlight, the size against
  *  the budget, save against the version read, the live preview (resizable, full screen or in its
  *  own window) with its console, and the API reference.
  *
@@ -68,6 +72,9 @@ export function SheetTemplateEditor(props: SheetTemplateEditorProps): React.JSX.
         exportPorts={props.exportPorts}
       />
       <EditorProblem model={model} />
+      <InlineHandlerNotice
+        savedFiles={model.phase === 'saved' ? (model.base?.files ?? null) : null}
+      />
       <SheetTemplateWorkbench
         templateId={model.base?.id ?? ''}
         draft={model.draft}
@@ -77,6 +84,7 @@ export function SheetTemplateEditor(props: SheetTemplateEditorProps): React.JSX.
         windows={props.windows}
         now={props.now}
         clipboard={props.clipboard}
+        assetPorts={props.assetPorts}
       />
       {leaveDialog}
     </section>
@@ -152,13 +160,16 @@ function EditorHeader({ model, live, moves, exportPorts }: EditorHeaderProps) {
   );
 }
 
-// The button and Ctrl+S follow one rule: nothing changed, offline, saving or past the budget.
+// The button and Ctrl+S follow one rule: nothing changed, offline, saving, past the budget or
+// with a manifest the contract refuses.
 function saveBlocked(model: TemplateDraftModel, live: boolean): boolean {
-  return !live || model.phase === 'saving' || model.overBudget || !model.dirty;
+  if (!live || model.phase === 'saving' || !model.dirty) return true;
+  return model.overBudget || model.manifestInvalid;
 }
 
 function statusText(model: TemplateDraftModel): string {
   if (model.overBudget) return 'Grande demais para salvar.';
+  if (model.manifestInvalid) return 'Corrija o manifesto para salvar.';
   if (model.phase === 'saved' && !model.dirty) return 'Salvo.';
   return model.dirty ? 'Alterações não salvas.' : '';
 }

@@ -40,6 +40,7 @@ export function WorkspaceSheetTemplate({
             fileDownload: deps.fileDownload,
             campaignId: entry.campaign.id,
           }}
+          assetPorts={{ api: deps.sheetTemplatesApi, campaignId: entry.campaign.id }}
           now={deps.now}
         />
       )}

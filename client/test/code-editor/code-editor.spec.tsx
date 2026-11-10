@@ -1,7 +1,13 @@
+import {
+  acceptCompletion,
+  completionStatus,
+  currentCompletions,
+  startCompletion,
+} from '@codemirror/autocomplete';
 import { undo } from '@codemirror/commands';
-import { act, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
-import CodeEditor, { type CodeLanguage } from '@/code-editor/code-editor';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import CodeEditor, { type CodeCompletions, type CodeLanguage } from '@/code-editor/code-editor';
 import { codeTextOf, codeViewOf, replaceCode } from '../support/code-editor-input';
 
 const LABEL = 'JS do modelo';
@@ -10,13 +16,20 @@ function Field({
   value,
   language = 'javascript',
   changes,
-}: Readonly<{ value: string; language?: CodeLanguage; changes: string[] }>) {
+  completions,
+}: Readonly<{
+  value: string;
+  language?: CodeLanguage;
+  changes: string[];
+  completions?: CodeCompletions;
+}>) {
   return (
     <CodeEditor
       value={value}
       language={language}
       label={LABEL}
       onChange={(next) => changes.push(next)}
+      completions={completions}
     />
   );
 }
@@ -94,5 +107,75 @@ describe('CodeEditor', () => {
     unmount();
     expect(container.querySelector('.cm-editor')).toBeNull();
     expect(view.dom.isConnected).toBe(false);
+  });
+});
+
+// Suggests "ready" and "bars" after "lorkarium." and nothing anywhere else.
+const SAMPLE_COMPLETIONS: CodeCompletions = (textBefore) =>
+  textBefore.endsWith('lorkarium.')
+    ? {
+        from: textBefore.length,
+        options: [
+          { label: 'ready', kind: 'function', signature: 'lorkarium.ready()', summary: 'Pronta.' },
+          { label: 'bars', kind: 'namespace', signature: 'lorkarium.bars', summary: '' },
+        ],
+      }
+    : null;
+
+// CodeMirror accepts a suggestion only once it has been on screen a moment (its interaction delay).
+const SUGGESTION_SHOWN_MS = 100;
+
+function elapsed(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// The field's view with the cursor at the end of `text`, the suggestions asked as Ctrl+Space does.
+function askCompletionsAt(text: string, completions?: CodeCompletions) {
+  render(<Field value={text} changes={[]} completions={completions} />);
+  const view = codeViewOf(LABEL);
+  act(() => {
+    view.dispatch({ selection: { anchor: text.length } });
+    startCompletion(view);
+  });
+  return view;
+}
+
+describe('CodeEditor suggestions', () => {
+  // jsdom has no layout: the suggestion box measures the text it sits under.
+  const measure = Range.prototype.getClientRects;
+  beforeAll(() => {
+    Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
+  });
+  afterAll(() => {
+    Range.prototype.getClientRects = measure;
+  });
+
+  it('offers what the source gives at the cursor, in its order, with the signature beside each', async () => {
+    const view = askCompletionsAt('await lorkarium.', SAMPLE_COMPLETIONS);
+    await waitFor(() => expect(completionStatus(view.state)).toBe('active'));
+    expect(currentCompletions(view.state)).toEqual([
+      expect.objectContaining({ label: 'ready', type: 'function', detail: 'lorkarium.ready()' }),
+      expect.objectContaining({ label: 'bars', type: 'namespace', detail: 'lorkarium.bars' }),
+    ]);
+  });
+
+  it('accepting a suggestion writes it after the dot', async () => {
+    const view = askCompletionsAt('lorkarium.', SAMPLE_COMPLETIONS);
+    await waitFor(() => expect(currentCompletions(view.state)).toHaveLength(2));
+    await act(() => elapsed(SUGGESTION_SHOWN_MS));
+    act(() => void acceptCompletion(view));
+    expect(view.state.doc.toString()).toBe('lorkarium.ready');
+  });
+
+  it('where the source has nothing, nothing is offered', async () => {
+    const view = askCompletionsAt('document.', SAMPLE_COMPLETIONS);
+    await act(() => elapsed(SUGGESTION_SHOWN_MS));
+    expect(currentCompletions(view.state)).toEqual([]);
+  });
+
+  it('a field with no source offers nothing, not even the language keywords', async () => {
+    const view = askCompletionsAt('lorkarium.');
+    await act(() => elapsed(SUGGESTION_SHOWN_MS));
+    expect(completionStatus(view.state)).toBeNull();
   });
 });

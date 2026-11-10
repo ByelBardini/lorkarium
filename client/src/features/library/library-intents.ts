@@ -85,5 +85,11 @@ export type LibraryIntent = z.infer<typeof libraryIntentDto>;
 /** What the action answers: the id the server gave (a new grid, copy or folder), or the
  *  refusal already worded for the status line. */
 export type LibraryOutcome =
-  | Readonly<{ intent: LibraryIntent['intent']; ok: true; createdId: string | null }>
+  | Readonly<{
+      intent: LibraryIntent['intent'];
+      ok: true;
+      createdId: string | null;
+      /** A note about a change that went through (a given sheet's bars that did not fit). */
+      notice: string | null;
+    }>
   | Readonly<{ intent: LibraryIntent['intent']; ok: false; message: string }>;

@@ -1,5 +1,10 @@
 import { BOARD_EVENTS, type BarChangeDto, type CharacterChangesInput } from '@lorkarium/contracts';
-import type { BoardCommandResult, BoardCommandSender, BoardScope } from './board-command-sender';
+import type {
+  BoardCommandResult,
+  BoardCommandSender,
+  BoardScope,
+  TableScope,
+} from './board-command-sender';
 
 /** The commands of a table's character (its player or a master); each answers with its ack,
  *  never throws. Only the scope's table goes out: a character belongs to no grid. The change itself arrives as `character:changed`, like everyone else's.
@@ -8,7 +13,7 @@ import type { BoardCommandResult, BoardCommandSender, BoardScope } from './board
 export interface CharacterCommands {
   /** Changes the card fields: an absent one stays, `null` (or an empty text) clears it. */
   updateCharacter(
-    scope: BoardScope,
+    scope: TableScope,
     characterId: string,
     changes: CharacterChangesInput,
   ): Promise<BoardCommandResult>;
@@ -34,7 +39,7 @@ export class RealtimeCharacterCommands implements CharacterCommands {
   constructor(private readonly sender: BoardCommandSender) {}
 
   updateCharacter(
-    scope: BoardScope,
+    scope: TableScope,
     characterId: string,
     changes: CharacterChangesInput,
   ): Promise<BoardCommandResult> {

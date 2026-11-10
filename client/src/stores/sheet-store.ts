@@ -1,10 +1,14 @@
-import type {
-  SheetChangedEventDto,
-  SheetDto,
-  SheetResponseDto,
-  SheetTemplateCodeDto,
-  SheetValueDto,
-  SheetValuesDto,
+import {
+  SHEET_VALUE_PATCHES_MAX,
+  applySheetValueEdits,
+  type SheetChangedEventDto,
+  type SheetDto,
+  type SheetResponseDto,
+  type SheetTemplateCodeDto,
+  type SheetValueDto,
+  type SheetValuePathPatchDto,
+  type SheetValuesDto,
+  type UpdateSheetValuesRequestDto,
 } from '@lorkarium/contracts';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { InteractionClock } from '@/lib/interaction-clock';
@@ -29,6 +33,10 @@ export type SheetStoreState = Readonly<{
   /** Queues changed keys (`null` removes one); they go together `SHEET_VALUES_BATCH_MS` after the
    *  first, and the promise settles with the patch that carried them. */
   setValues: (changes: SheetValuesDto) => Promise<SheetValuesOutcome>;
+  /** Queues path patches (`null` removes the path) in the same batch as `setValues`: a patch
+   *  under a key set in the batch folds into it, a key set later drops the patches under it, the
+   *  same path again keeps the last. The patches come validated (`sheetValuePathPatchesDto`). */
+  patchValues: (patches: readonly SheetValuePathPatchDto[]) => Promise<SheetValuesOutcome>;
   flush: () => Promise<void>;
   /** Sends what is queued without waiting, and no later answer touches the store again. */
   dispose: () => void;
@@ -47,7 +55,12 @@ export const SHEET_VALUES_BATCH_MS = 500;
 
 type Changes = Record<string, SheetValueDto>;
 type Waiter = (outcome: SheetValuesOutcome) => void;
-type Batch = { actionId: string; changes: Changes; waiters: Waiter[] };
+type Batch = {
+  actionId: string;
+  changes: Changes;
+  patches: SheetValuePathPatchDto[];
+  waiters: Waiter[];
+};
 type Queue = {
   disposed: boolean;
   pending: Batch | null;
@@ -80,7 +93,9 @@ export function createSheetStore(options: SheetStoreOptions): StoreApi<SheetStor
     saveStatus: 'saved',
     load: () => read(options, store, queue),
     changed: (event) => changed(options, store, queue, event),
-    setValues: (changes) => queueChanges(options, store, queue, changes),
+    setValues: (changes) => queueEdit(options, store, queue, (batch) => setInto(batch, changes)),
+    patchValues: (patches) =>
+      queueEdit(options, store, queue, (batch) => patchInto(batch, patches)),
     flush: () => flush(options, store, queue),
     dispose: () => dispose(options, queue),
   }));
@@ -129,23 +144,57 @@ function changed(
   void read(options, store, queue);
 }
 
-function queueChanges(
+function queueEdit(
   options: SheetStoreOptions,
   store: StoreApi<SheetStoreState>,
   queue: Queue,
-  changes: SheetValuesDto,
+  edit: (batch: Batch) => void,
 ): Promise<SheetValuesOutcome> {
   const { status, sheet } = store.getState();
   if (queue.disposed || status !== 'ready' || sheet === null) return refusal('not_found');
   if (!sheet.canEdit) return refusal('forbidden');
   return new Promise((resolve) => {
-    const pending = (queue.pending ??= { actionId: '', changes: {}, waiters: [] });
-    pending.changes = { ...pending.changes, ...changes };
+    const pending = (queue.pending ??= { actionId: '', changes: {}, patches: [], waiters: [] });
     pending.waiters.push(resolve);
     store.setState({ saveStatus: 'pending' });
+    edit(pending);
     refreshValues(store, queue);
+    if (pending.patches.length > SHEET_VALUE_PATCHES_MAX) foldPatches(store, pending);
     schedule(options, store, queue);
   });
+}
+
+// The server applies the changes before the patches: a key set now wins over earlier patches.
+function setInto(batch: Batch, changes: SheetValuesDto): void {
+  batch.changes = { ...batch.changes, ...changes };
+  batch.patches = batch.patches.filter(({ path }) => !Object.hasOwn(changes, path[0] ?? ''));
+}
+
+function patchInto(batch: Batch, patches: readonly SheetValuePathPatchDto[]): void {
+  for (const patch of patches) {
+    const root = patch.path[0] ?? '';
+    if (Object.hasOwn(batch.changes, root)) {
+      batch.changes = { ...batch.changes, [root]: patchedKey(batch.changes, root, patch) };
+      continue;
+    }
+    const samePath = (other: SheetValuePathPatchDto) =>
+      other.path.join('/') === patch.path.join('/');
+    batch.patches = [...batch.patches.filter((other) => !samePath(other)), patch];
+  }
+}
+
+function patchedKey(changes: Changes, root: string, patch: SheetValuePathPatchDto): SheetValueDto {
+  const value = changes[root];
+  const base: SheetValuesDto = value === null || value === undefined ? {} : { [root]: value };
+  return applySheetValueEdits(base, { patches: [patch] })[root] ?? null;
+}
+
+// Past the request's limit, each patched key goes whole, as the frame sees it now.
+function foldPatches(store: StoreApi<SheetStoreState>, batch: Batch): void {
+  const { values } = store.getState();
+  const roots = new Set(batch.patches.map(({ path }) => path[0] ?? ''));
+  for (const root of roots) batch.changes = { ...batch.changes, [root]: values[root] ?? null };
+  batch.patches = [];
 }
 
 function schedule(
@@ -200,7 +249,7 @@ async function send(
 ): Promise<void> {
   queue.sending = batch;
   store.setState({ saveStatus: 'saving' });
-  const input = { actionId: batch.actionId, changes: batch.changes };
+  const input = requestOf(batch.actionId, batch);
   const result = await options.api.saveValues(options.campaignId, options.sheetId, input);
   queue.sending = null;
   if (queue.disposed) return;
@@ -245,8 +294,7 @@ function dispose(options: SheetStoreOptions, queue: Queue): void {
   queue.disposed = true;
   for (const batch of [queue.retry, queue.pending]) {
     if (batch === null) continue;
-    const actionId = batch.actionId || options.newActionId();
-    const input = { actionId, changes: batch.changes };
+    const input = requestOf(batch.actionId || options.newActionId(), batch);
     void options.api.saveValues(options.campaignId, options.sheetId, input);
     settle(batch, { ok: false, failure: { kind: 'not_found' } });
   }
@@ -254,21 +302,20 @@ function dispose(options: SheetStoreOptions, queue: Queue): void {
   queue.pending = null;
 }
 
+// Only what the batch carries: the request refuses an empty `changes` or `patches`.
+function requestOf(actionId: string, batch: Batch): UpdateSheetValuesRequestDto {
+  const changes = Object.keys(batch.changes).length > 0 ? { changes: batch.changes } : {};
+  const patches = batch.patches.length > 0 ? { patches: batch.patches } : {};
+  return { actionId, ...changes, ...patches };
+}
+
+// The same merge the server makes, so what the frame sees is what will be confirmed.
 function refreshValues(store: StoreApi<SheetStoreState>, queue: Queue): void {
   const confirmed = store.getState().sheet?.values ?? {};
   const layers = [queue.retry, queue.sending, queue.pending].filter((batch) => batch !== null);
   store.setState({
-    values: layers.reduce((values, batch) => merged(values, batch.changes), confirmed),
+    values: layers.reduce((values, batch) => applySheetValueEdits(values, batch), confirmed),
   });
-}
-
-function merged(values: SheetValuesDto, changes: Changes): SheetValuesDto {
-  const next: Changes = { ...values };
-  for (const [key, value] of Object.entries(changes)) {
-    if (value === null) delete next[key];
-    else next[key] = value;
-  }
-  return next;
 }
 
 function settle(batch: Batch, outcome: SheetValuesOutcome): void {

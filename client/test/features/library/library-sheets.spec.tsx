@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import type { SheetSummaryDto } from '@lorkarium/contracts';
+import type { SheetDto, SheetSummaryDto } from '@lorkarium/contracts';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { charactersSynced, kaelCharacter } from '../../support/character-fixtures';
@@ -23,6 +23,7 @@ import {
   SPARE_SHEET_ID,
   TORMENTA_TEMPLATE_ID,
   lyraSummary,
+  sheetWrite,
   spareSummary,
 } from '../../support/sheet-fixtures';
 import { tormentaSummary } from '../../support/sheet-template-fixtures';
@@ -60,6 +61,16 @@ async function openWithHolders(deps: TestDependencies, options: LibraryRoomOptio
     });
   });
   return room;
+}
+
+const SKIPPED_NOTICE = 'A ficha foi dada. Não couberam: ES (limite de 8 barras).';
+
+function caioSheet(): SheetDto {
+  return { ...CAIO_SHEET, values: {}, canEdit: true, canManage: true };
+}
+
+function givenWith(skippedBars: string[]) {
+  return { ok: true as const, value: sheetWrite(caioSheet(), 'update', 'a', skippedBars) };
 }
 
 async function filterSheets(): Promise<void> {
@@ -160,6 +171,27 @@ describe('sheets in the library', () => {
     });
   });
 
+  it('giving a sheet whose template bars did not all fit says which ones in the status line', async () => {
+    const deps = withSheets();
+    deps.sheetsApi.updateResult = givenWith(['ES']);
+    await openWithHolders(deps);
+    const menu = await openTreeMenu(treeItem('Ficha reserva'));
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Dar a' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Caio (Kael)' }));
+    expect(await screen.findByText(SKIPPED_NOTICE)).toHaveClass('text-foreground');
+  });
+
+  it('giving a sheet whose bars all fit says nothing about bars', async () => {
+    const deps = withSheets();
+    deps.sheetsApi.updateResult = givenWith([]);
+    await openWithHolders(deps);
+    const menu = await openTreeMenu(treeItem('Ficha reserva'));
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Dar a' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Caio (Kael)' }));
+    await waitFor(() => expect(deps.sheetsApi.updates).toHaveLength(1));
+    expect(screen.queryByText(/Não couberam/)).not.toBeInTheDocument();
+  });
+
   it('"Tirar do dono" and "Quem vê ▸ A mesa toda" change the sheet held by a token', async () => {
     const deps = withSheets();
     await openWithHolders(deps);
@@ -245,7 +277,10 @@ describe('a new sheet from the library', () => {
       ok: true,
       value: {
         sheet: { ...CAIO_SHEET, values: {}, canEdit: true, canManage: true },
-        receipt: { actionId: 'a', sheetId: CAIO_SHEET.id, version: 0, operation: 'create' },
+        receipt: {
+          ...{ actionId: 'a', sheetId: CAIO_SHEET.id, version: 0 },
+          ...{ operation: 'create', skippedBars: [] },
+        },
       },
     };
     await openWithHolders(deps);
@@ -282,6 +317,21 @@ describe('a new sheet from the library', () => {
       name: 'Capitão',
       folderId: ATO_1.id,
     });
+  });
+
+  it('a new sheet given to a player whose bars did not all fit says which ones', async () => {
+    const deps = withSheets([]);
+    deps.sheetsApi.createResult = {
+      ok: true,
+      value: sheetWrite(caioSheet(), 'create', 'a', ['MP', 'ES']),
+    };
+    await openWithHolders(deps);
+    await startHeaderNewItem('Ficha');
+    const dialog = await fillNewSheet('Kael de Vharn', 'Caio (Kael)');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Criar' }));
+    expect(
+      await screen.findByText('A ficha foi dada. Não couberam: MP, ES (limite de 8 barras).'),
+    ).toBeInTheDocument();
   });
 
   it('a blank name cannot be sent, and a refusal is said in the status line', async () => {

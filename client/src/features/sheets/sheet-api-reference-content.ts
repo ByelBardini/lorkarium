@@ -1,4 +1,6 @@
 import {
+  ASSET_MAX_BYTES,
+  CHARACTER_STAT_MAX,
   DICE_EXPRESSION_MAX_LENGTH,
   DICE_ROLL_LABEL_MAX_LENGTH,
   MAX_BARS_PER_TOKEN,
@@ -8,7 +10,12 @@ import {
   SHEET_VALUES_MAX_DEPTH,
   SHEET_VALUES_MAX_KEYS,
 } from '@lorkarium/contracts';
-import { SHEET_DICE_RATE } from '@/sheet-sandbox/sheet-bridge-host';
+import {
+  SHEET_ASSET_READ_RATE,
+  SHEET_CHARACTER_RATE,
+  SHEET_DICE_RATE,
+  SHEET_UPLOAD_RATE,
+} from '@/sheet-sandbox/sheet-bridge-host';
 import { SHEET_VALUES_BATCH_MS } from '@/stores/sheet-store';
 import { SHEET_READY_TIMEOUT_MS } from './sheet-sandbox-view';
 
@@ -56,6 +63,10 @@ export const SHEET_STATE_FIELDS: readonly ReferenceRow[] = [
   [
     'canEdit',
     'true se quem olha pode mudar valores e barras; false é só leitura (values.set e bars.adjust são recusados com FORBIDDEN).',
+  ],
+  [
+    'character',
+    'O personagem dono da ficha: { name, armorClass, difficultyClass } (CA e CD, número ou null). É null numa ficha de token solto ou sem dono. Muda quando alguém mexe no personagem.',
   ],
 ];
 
@@ -125,6 +136,55 @@ export const SDK_CALLS: readonly SdkCallDoc[] = [
     example: 'await lorkarium.values.set({ forca: 16, notas: null });',
   },
   {
+    signature: 'lorkarium.values.patch([{ path, value }])',
+    summary: `Troca só o valor num caminho de chaves, sem reescrever o resto da árvore: editar a habilidade 2 não apaga a 5. Os objetos do caminho são criados se faltarem; null apaga só aquele ponto. Vai no mesmo envio de ${SHEET_VALUES_BATCH_MS} ms do values.set.`,
+    params: [
+      [
+        'path',
+        `lista de 1 a ${SHEET_VALUES_MAX_DEPTH} chaves, como ['habilidades', 'k3f9', 'efeito']`,
+      ],
+      ['value', 'o valor JSON a gravar ali, ou null para apagar'],
+    ],
+    returns: 'Promessa que resolve quando o servidor salvou.',
+    errors: ['FORBIDDEN', 'OFFLINE', 'INVALID_MESSAGE'],
+    example:
+      "await lorkarium.values.patch([{ path: ['habilidades', 'k3f9', 'efeito'], value: 'Cura 2d8' }]);",
+  },
+  {
+    signature: 'lorkarium.lists.add(lista, item?)',
+    summary:
+      'Cria um item numa lista repetível (habilidades, itens) com um id novo de 8 letras e dígitos, que nunca muda: editar ou apagar um item não mexe nos outros. Grava por values.patch. A ordem das chaves não é garantida: para ordenar, guarde um campo no item.',
+    params: [
+      ['lista', "o caminho da lista com pontos, como 'habilidades' ou 'inventario.itens'"],
+      ['item', 'opcional: o objeto do item ({} se faltar)'],
+    ],
+    returns: 'Promessa que resolve com o id do item quando o servidor salvou.',
+    errors: ['FORBIDDEN', 'OFFLINE', 'INVALID_MESSAGE', 'TypeError (caminho ou item inválido)'],
+    example: "const id = await lorkarium.lists.add('habilidades', { nome: 'Golpe', custo: 2 });",
+  },
+  {
+    signature: 'lorkarium.lists.remove(lista, id)',
+    summary: 'Apaga só aquele item da lista; os outros ficam.',
+    params: [
+      ['lista', "o caminho da lista, como 'habilidades'"],
+      ['id', 'o id que o lists.add devolveu'],
+    ],
+    returns: 'Promessa que resolve quando o servidor salvou.',
+    errors: ['FORBIDDEN', 'OFFLINE', 'TypeError (caminho ou id inválido)'],
+    example: "await lorkarium.lists.remove('habilidades', id);",
+  },
+  {
+    signature: 'lorkarium.lists.items(lista)',
+    summary:
+      'Lê os itens da lista no último estado, sem perguntar à mesa. Cada um vem com o id e uma cópia do que guarda.',
+    params: [['lista', "o caminho da lista, como 'habilidades'"]],
+    returns: 'Lista de { id, value } ([] se o caminho não guarda uma lista).',
+    errors: ['TypeError se o caminho é inválido'],
+    example: `for (const { id, value } of lorkarium.lists.items('habilidades')) {
+  console.log(id, value.nome);
+}`,
+  },
+  {
     signature: 'lorkarium.bars.list()',
     summary:
       'Uma cópia das barras do último estado, na ordem do token. É aqui que se vê o id de cada barra.',
@@ -156,6 +216,28 @@ export const SDK_CALLS: readonly SdkCallDoc[] = [
     example: "await lorkarium.bars.adjust('PV', { op: 'add', amount: -5 });",
   },
   {
+    signature: 'lorkarium.bars.spend([{ bar, amount }])',
+    summary: `Paga um custo de várias barras de uma vez, tudo ou nada: se uma não tem saldo, nenhuma muda. Só o valor atual paga (o temporário não). A mesma barra repetida soma os custos. Até ${MAX_BARS_PER_TOKEN} custos.`,
+    params: [
+      ['bar', 'o nome da barra ("MP") ou o id dela'],
+      ['amount', 'quanto tirar: inteiro maior que zero'],
+    ],
+    returns: 'Promessa que resolve quando o servidor debitou.',
+    errors: [
+      'INSUFFICIENT_BAR',
+      'FORBIDDEN',
+      'NO_TOKEN',
+      'BAR_NOT_FOUND',
+      'BAR_AMBIGUOUS',
+      'OFFLINE',
+    ],
+    example: `try {
+  await lorkarium.bars.spend([{ bar: 'MP', amount: 6 }, { bar: 'EF', amount: 6 }]);
+} catch (erro) {
+  if (erro.code === 'INSUFFICIENT_BAR') console.warn(erro.message);
+}`,
+  },
+  {
     signature: 'lorkarium.dice.roll({ expression, label?, visibility? })',
     summary: `Rola os dados 3D para a mesa. O rótulo sai como "<nome do modelo> · <label>" (até ${DICE_ROLL_LABEL_MAX_LENGTH} caracteres). visibility: 'public' (padrão, todos veem) ou 'masters' (só os mestres). O resultado aparece no histórico de dados; a ficha não recebe o total.`,
     params: [
@@ -166,6 +248,85 @@ export const SDK_CALLS: readonly SdkCallDoc[] = [
     returns: 'Promessa que resolve quando a mesa aceitou a rolagem.',
     errors: ['INVALID_DICE_EXPRESSION', 'RATE_LIMITED', 'PREVIEW_ONLY', 'OFFLINE'],
     example: "await lorkarium.dice.roll({ expression: '1d20+5', label: 'Ataque' });",
+  },
+  {
+    signature: 'lorkarium.html.sanitize(html)',
+    summary:
+      'Limpa o HTML de um texto rico antes de mostrar com innerHTML. Ficam p, br, hr, strong, b, em, i, u, s, span, blockquote, ul, ol, li, h1 a h6 e img só com src blob: ou data:image/; div vira p; no style só color e text-align. Somem script, style, iframe, svg e tudo que eles têm, todo atributo de evento (onclick…), links e qualquer outro atributo; uma tag desconhecida some e o texto fica. Mesmo sem limpar, a ficha não executa script vindo dos dados; limpar mantém a formatação previsível.',
+    params: [['html', 'o texto com HTML, como o que um campo de texto rico guardou']],
+    returns: 'O HTML limpo, na hora (não é promessa nem fala com a mesa).',
+    errors: ['TypeError se html não é texto'],
+    example: `const descricao = lorkarium.values.get('descricao') ?? '';
+document.getElementById('descricao').innerHTML = lorkarium.html.sanitize(descricao);`,
+  },
+  {
+    signature: 'lorkarium.character.get()',
+    summary:
+      'Lê o personagem do último estado (nome, CA e CD), sem perguntar à mesa. Devolve uma cópia.',
+    params: [],
+    returns:
+      'O personagem, ou null numa ficha que não é de personagem (ou antes do primeiro estado).',
+    errors: [],
+    example: "const ca = lorkarium.character.get()?.armorClass ?? '–';",
+  },
+  {
+    signature: 'lorkarium.character.set({ armorClass?, difficultyClass? })',
+    summary: `Grava a CA e/ou a CD no personagem dono da ficha, para toda a mesa. O mesmo valor que ele já tem não envia nada. Exige "character:stats" no manifesto. Até ${SHEET_CHARACTER_RATE.limit} gravações a cada ${SHEET_CHARACTER_RATE.windowMs / 1000} s.`,
+    params: [
+      ['armorClass', `opcional: inteiro de 0 a ${CHARACTER_STAT_MAX}`],
+      ['difficultyClass', `opcional: inteiro de 0 a ${CHARACTER_STAT_MAX}`],
+    ],
+    returns: 'Promessa que resolve quando a mesa gravou. O estado novo chega em seguida.',
+    errors: ['PERMISSION_NOT_DECLARED', 'FORBIDDEN', 'NO_CHARACTER', 'RATE_LIMITED', 'OFFLINE'],
+    example: 'await lorkarium.character.set({ armorClass: 14, difficultyClass: 12 });',
+  },
+  {
+    signature: 'lorkarium.character.setImage(imagem)',
+    summary:
+      'Troca o retrato do personagem (e dos tokens ligados a ele) por uma imagem: um File de um <input type="file">, um Blob ou { type, bytes }. PNG, JPEG ou WebP. Exige "character:portrait" no manifesto.',
+    params: [['imagem', 'File | Blob | { type, bytes } (bytes: ArrayBuffer ou Uint8Array)']],
+    returns: 'Promessa que resolve quando o retrato foi trocado.',
+    errors: [
+      'PERMISSION_NOT_DECLARED',
+      'FORBIDDEN',
+      'NO_CHARACTER',
+      'TOO_LARGE',
+      'UNSUPPORTED_IMAGE',
+      'RATE_LIMITED',
+    ],
+    example: `document.getElementById('foto').addEventListener('change', (evento) => {
+  const arquivo = evento.target.files[0];
+  if (arquivo) lorkarium.character.setImage(arquivo).catch((erro) => console.error(erro.code));
+});`,
+  },
+  {
+    signature: 'lorkarium.assets.upload(imagem)',
+    summary: `Envia uma imagem para esta ficha (até ${ASSET_MAX_BYTES / 1024 / 1024} MiB; PNG, JPEG ou WebP) e devolve o id dela, para guardar nos valores. Quem lê a ficha lê a imagem. Exige "sheet:images" no manifesto. Até ${SHEET_UPLOAD_RATE.limit} envios a cada ${SHEET_UPLOAD_RATE.windowMs / 1000} s (somando os retratos).`,
+    params: [
+      [
+        'imagem',
+        'File | Blob | { type, bytes } — de um <input type="file">, de colar ou de arrastar',
+      ],
+    ],
+    returns: 'Promessa que resolve com { assetId }.',
+    errors: [
+      'PERMISSION_NOT_DECLARED',
+      'FORBIDDEN',
+      'TOO_LARGE',
+      'UNSUPPORTED_IMAGE',
+      'RATE_LIMITED',
+    ],
+    example: `const { assetId } = await lorkarium.assets.upload(arquivo);
+await lorkarium.values.patch([{ path: ['habilidades', 'k3f9', 'imagem'], value: assetId }]);`,
+  },
+  {
+    signature: 'lorkarium.assets.read(assetId)',
+    summary: `Lê os bytes de uma imagem pelo id (a ficha não acessa a rede). Mostre por um blob:, como o retrato. Exige "sheet:images" no manifesto. Até ${SHEET_ASSET_READ_RATE.limit} leituras a cada ${SHEET_ASSET_READ_RATE.windowMs / 1000} s.`,
+    params: [['assetId', 'o id que o assets.upload devolveu']],
+    returns: 'Promessa que resolve com { type, bytes }.',
+    errors: ['PERMISSION_NOT_DECLARED', 'ASSET_NOT_FOUND', 'RATE_LIMITED', 'OFFLINE'],
+    example: `const imagem = await lorkarium.assets.read(assetId);
+img.src = URL.createObjectURL(new Blob([imagem.bytes], { type: imagem.type }));`,
   },
 ];
 
@@ -200,18 +361,30 @@ const inventario = lorkarium.values.get('inventario') ?? { ouro: 0, itens: [] };
 inventario.ouro += 10;
 lorkarium.values.set({ inventario });`;
 
-export const INPUT_BINDING_EXAMPLE = `<!-- HTML -->
-<label>Notas <textarea id="notas"></textarea></label>
+export const INPUT_BINDING_EXAMPLE = `<!-- HTML: data-lk="caminho" carrega e grava sozinho, por values.patch -->
+<input type="number" data-lk="atributos.forca.base">
+<input type="checkbox" data-lk="pericias.atletismo">
+<select data-lk="classe"><option>guerreiro</option><option>mago</option></select>
+<div contenteditable="true" data-lk="notas"></div>   <!-- grava o HTML limpo por html.sanitize -->
+<span data-lk="atributos.forca.total"></span>        <!-- outro elemento só mostra o valor -->
 
-// JS
-const notas = document.getElementById('notas');
-lorkarium.onState((estado) => {
-  notas.disabled = !estado.canEdit;
-  // Não troque o texto de quem está digitando.
-  if (document.activeElement !== notas) notas.value = lorkarium.values.get('notas') ?? '';
-});
-notas.addEventListener('change', () => {
-  lorkarium.values.set({ notas: notas.value }).catch((erro) => console.error(erro.code));
+<!-- data-lk-roll troca cada @caminho pelo número guardado e rola -->
+<button data-lk-roll="1d20+@atributos.forca.total" data-lk-label="Força">Força</button>
+<button data-lk-roll="1d8+@{golpe-duplo.dano}" data-lk-visibility="masters">Golpe</button>
+
+<!-- Regras:
+  - caminho de 1 a 8 chaves separadas por ponto; um inválido vai ao console com o elemento,
+    e os outros campos seguem ligados;
+  - o campo em que alguém digita não é sobrescrito pelo estado novo;
+  - número vazio apaga o valor; checkbox grava true/false; só leitura (canEdit: false) não grava;
+  - no data-lk-roll o valor precisa ser inteiro; se faltar, a rolagem não sai e o console diz
+    qual @caminho; chave com hífen vai entre chaves. -->
+
+// JS: um elemento criado depois (um item de lista) se liga sozinho.
+lorkarium.lists.add('habilidades', { nome: 'Golpe' }).then((id) => {
+  const campo = document.createElement('input');
+  campo.setAttribute('data-lk', 'habilidades.' + id + '.nome');
+  document.getElementById('habilidades').append(campo);
 });
 lorkarium.ready();`;
 
@@ -238,6 +411,21 @@ export const SHEET_ERROR_CODES: readonly ReferenceRow[] = [
     'O pedido está fora do formato: chave de valor inválida, mudança de barra errada, expressão vazia… A message cita o problema.',
   ],
   ['NOT_FOUND', 'A ficha foi fechada ou desligada enquanto o pedido estava a caminho.'],
+  [
+    'PERMISSION_NOT_DECLARED',
+    'O modelo não declarou no manifesto a permissão que a função exige (a message diz qual). Valores, barras e dados não precisam.',
+  ],
+  [
+    'NO_CHARACTER',
+    'A ficha não é de um personagem (token solto ou sem dono): não há CA, CD nem retrato para gravar.',
+  ],
+  [
+    'INSUFFICIENT_BAR',
+    'Uma barra não tem saldo para o bars.spend; nenhuma mudou. A message cita a barra, o saldo e o custo.',
+  ],
+  ['ASSET_NOT_FOUND', 'A imagem não existe ou quem olha não pode lê-la.'],
+  ['TOO_LARGE', 'A imagem passa do limite de tamanho.'],
+  ['UNSUPPORTED_IMAGE', 'O arquivo não é uma imagem PNG, JPEG ou WebP que o servidor leia.'],
   ['UNEXPECTED', 'Resposta inesperada do servidor. Outros códigos do servidor chegam como vieram.'],
 ];
 
@@ -266,12 +454,15 @@ document.getElementById('curar').addEventListener('click', () => {
 lorkarium.ready();`;
 
 export const SHEET_LIMITS: readonly string[] = [
-  `Código: html + css + js até ${SHEET_TEMPLATE_SOURCE_MAX_BYTES / 1024} KiB.`,
+  `Código: todos os arquivos juntos até ${SHEET_TEMPLATE_SOURCE_MAX_BYTES / 1024} KiB.`,
+  'Arquivos: index.html é a página; <lk-include src="paginas/perfil.html"></lk-include> põe outra página no lugar (até 8 níveis). O CSS e o JS rodam na ordem da lista de arquivos, cada JS no seu próprio <script>.',
+  'Fontes e imagens: envie na aba Manifesto e use url("asset:fontes/x.woff2") no CSS ou src="asset:img/a.png" no HTML; viram data: ao montar (até 8 MiB juntos, fonte WOFF2 até 2 MiB).',
   `Valores: até ${SHEET_VALUES_MAX_BYTES / 1024} KiB, ${SHEET_VALUES_MAX_KEYS} chaves (somando as aninhadas) e ${SHEET_VALUES_MAX_DEPTH} níveis.`,
   `Chave de valor: letras sem acento, dígitos, _ ou - (até ${SHEET_VALUE_KEY_MAX_LENGTH}); nunca __proto__, constructor nem prototype.`,
   `Dados: até ${SHEET_DICE_RATE.limit} rolagens a cada ${SHEET_DICE_RATE.windowMs / 1000} s.`,
   'Sem rede: fetch, imagens, fontes e scripts externos são bloqueados. Embuta o que usar (data:).',
   'A ficha roda isolada: não lê a página da mesa, cookies nem armazenamento, e não abre janelas.',
+  'Script só nos arquivos .js: <script> escrito no HTML, atributos de evento (onclick, onerror…) e links javascript: não rodam, nem no HTML do modelo nem no que vier dos valores. Ligue eventos com addEventListener no JS; ao salvar, o editor avisa a linha de cada atributo que não vai rodar.',
 ];
 
 /** The titles of the reference's sections, in the order they show (and are copied). */
@@ -292,7 +483,7 @@ export const TOKEN_IMAGE_CAPTION = 'Mostrar o retrato do token num <img id="retr
 export const STATE_TABLE_HEAD = ['Campo', 'O que é'] as const;
 export const VALUES_INTRO =
   'Os valores são o que a ficha guarda no servidor (atributos, notas, inventário). Cada ficha tem os seus; todos que veem a ficha recebem os mesmos.';
-export const INPUT_BINDING_TITLE = 'Um campo ligado a um valor';
+export const INPUT_BINDING_TITLE = 'Campos ligados a valores (data-lk)';
 export const ERRORS_INTRO =
   'Quando a mesa recusa, a promessa rejeita com um Error que tem code (abaixo) e message.';
 export const ERRORS_TABLE_HEAD = ['code', 'Quando'] as const;

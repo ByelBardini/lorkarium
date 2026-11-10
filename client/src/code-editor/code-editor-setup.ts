@@ -1,3 +1,9 @@
+import {
+  autocompletion,
+  type Completion,
+  type CompletionContext,
+  type CompletionResult,
+} from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { css } from '@codemirror/lang-css';
 import { html } from '@codemirror/lang-html';
@@ -22,6 +28,19 @@ import { tags } from '@lezer/highlight';
 
 /** The languages a sheet template is written in. */
 export type CodeLanguage = 'html' | 'css' | 'javascript';
+
+/** One suggestion of a field: a group of calls or a call, with its signature and summary. */
+export type CodeCompletionOption = Readonly<{
+  label: string;
+  kind: 'namespace' | 'function';
+  signature: string;
+  summary: string;
+}>;
+
+/** Reads the line up to the cursor and says what to suggest, from where; `null` = nothing. */
+export type CodeCompletions = (
+  textBefore: string,
+) => Readonly<{ from: number; options: readonly CodeCompletionOption[] }> | null;
 
 const LANGUAGES: Readonly<Record<CodeLanguage, () => Extension>> = {
   html: () => html(),
@@ -74,6 +93,18 @@ export const CODE_EDITOR_THEME_RULES = {
   '.cm-searchMatch': { backgroundColor: 'rgba(197, 164, 109, 0.25)' },
   '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'rgba(197, 164, 109, 0.5)' },
   '.cm-panels': { backgroundColor: 'var(--card)', color: 'var(--foreground)' },
+  '.cm-tooltip': {
+    backgroundColor: 'var(--card)',
+    color: 'var(--foreground)',
+    border: '1px solid var(--border)',
+  },
+  '.cm-tooltip-autocomplete > ul': { fontFamily: 'var(--font-mono)', fontSize: '13px' },
+  '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
+    backgroundColor: SELECTION_FOCUSED,
+    color: 'var(--foreground)',
+  },
+  '.cm-completionDetail': { color: 'var(--muted-foreground)', fontStyle: 'normal' },
+  '.cm-completionInfo': { maxWidth: '28rem', padding: '6px 8px' },
   '.cm-panels.cm-panels-bottom': { borderTop: '1px solid var(--border)' },
   '.cm-panel input, .cm-panel button': {
     backgroundColor: 'var(--background)',
@@ -86,11 +117,17 @@ export const CODE_EDITOR_THEME_RULES = {
 const appTheme = EditorView.theme(CODE_EDITOR_THEME_RULES, { dark: true });
 
 /** Everything a code field has besides its text: keys (undo, search, Tab indents; Esc then Tab
- *  leaves), line numbers, the app colors and the language.
+ *  leaves), line numbers, the app colors, the language and, when given, the suggestions (only
+ *  those: the language's own keyword list stays off).
  *
  *  Example: `EditorState.create({ doc, extensions: codeEditorExtensions('css', 'CSS do modelo') })` */
-export function codeEditorExtensions(language: CodeLanguage, label: string): Extension[] {
+export function codeEditorExtensions(
+  language: CodeLanguage,
+  label: string,
+  completions?: CodeCompletions,
+): Extension[] {
   return [
+    ...(completions ? [autocompletion({ override: [completionSourceOf(completions)] })] : []),
     lineNumbers(),
     highlightActiveLineGutter(),
     highlightActiveLine(),
@@ -105,4 +142,30 @@ export function codeEditorExtensions(language: CodeLanguage, label: string): Ext
     appTheme,
     EditorView.contentAttributes.of({ 'aria-label': label }),
   ];
+}
+
+function completionSourceOf(
+  completions: CodeCompletions,
+): (context: CompletionContext) => CompletionResult | null {
+  return (context) => {
+    const line = context.state.doc.lineAt(context.pos);
+    const found = completions(line.text.slice(0, context.pos - line.from));
+    if (!found) return null;
+    return {
+      from: line.from + found.from,
+      options: found.options.map(completionOf),
+      validFor: /^[\w$]*$/,
+    };
+  };
+}
+
+// The source's order wins over CodeMirror's alphabetical one while nothing is typed yet.
+function completionOf(option: CodeCompletionOption, index: number): Completion {
+  return {
+    boost: -Math.min(index, 99),
+    label: option.label,
+    type: option.kind,
+    detail: option.signature,
+    info: option.summary || undefined,
+  };
 }

@@ -14,7 +14,7 @@ import { isSheetTemplateIntent, runSheetTemplateIntent } from './sheet-template-
 type Intent<K extends LibraryIntent['intent']> = Extract<LibraryIntent, { intent: K }>;
 
 type IntentAnswer =
-  | Readonly<{ ok: true; createdId: string | null }>
+  | Readonly<{ ok: true; createdId: string | null; notice?: string | null }>
   | Readonly<{ ok: false; message: string; signedOut: boolean }>;
 
 /** The library's mutations, by `intent` (JSON from the library fetcher): REST through the
@@ -26,7 +26,10 @@ export function libraryAction(deps: AppDependencies): ActionFunction {
   return async ({ request, params }): Promise<LibraryOutcome> => {
     const intent = libraryIntentDto.parse(await request.json());
     const answer = await runIntent(deps, params.campaignId ?? '', intent);
-    if (answer.ok) return { intent: intent.intent, ok: true, createdId: answer.createdId };
+    if (answer.ok) {
+      const { createdId, notice = null } = answer;
+      return { intent: intent.intent, ok: true, createdId, notice };
+    }
     if (answer.signedOut) {
       deps.sessionStore.getState().signedOut();
       throw redirect(loginPathFor(new URL(request.url)));

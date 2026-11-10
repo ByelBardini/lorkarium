@@ -1,5 +1,5 @@
 import type { CreateSheetTemplateRequestDto } from '@lorkarium/contracts';
-import { STARTER_SHEET_SOURCE } from '@/features/sheets/sheet-template-starter';
+import { STARTER_SHEET_FILES } from '@/features/sheets/sheet-template-starter';
 import type { LibrarySubmit } from './use-library-submit';
 
 export type SheetTemplateCreate = Readonly<{
@@ -25,7 +25,7 @@ export function useSheetTemplateCreate(
     createSheetTemplate: (folderId, name) =>
       void importSheetTemplate({
         folderId,
-        ...STARTER_SHEET_SOURCE,
+        files: [...STARTER_SHEET_FILES],
         ...(name === '' ? {} : { name }),
       }),
     importSheetTemplate,
