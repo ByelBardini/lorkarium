@@ -433,10 +433,11 @@ select.in option {
 }
 
 /* ---------- texto rico ---------- */
-/* texto rico sem caixa: um fio à esquerda marca o campo e fica dourado no foco */
+/* texto rico sem caixa: um fio à esquerda marca o campo e fica dourado no foco; começa com uma
+   linha e cresce com o texto, para não deixar um vão entre um item e outro */
 .rt-ed {
   position: relative;
-  min-height: 110px;
+  min-height: calc(1.62em + 10px);
   padding: 4px 0 6px 18px;
   background: transparent;
   border: 0;
@@ -452,9 +453,6 @@ select.in option {
 }
 .rt-ed:focus {
   border-left-color: var(--gold);
-}
-.tall .rt-ed {
-  min-height: 190px;
 }
 .free .rt-ed {
   min-height: 62vh;
