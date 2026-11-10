@@ -51,7 +51,7 @@ const MANIFEST = {
   bars: [
     { label: 'HP', color: 'ember', max: 12 },
     { label: 'MP', color: 'steel', max: 10 },
-    { label: 'EF', color: 'moss', max: 10 },
+    { label: 'EN', color: 'moss', max: 10 },
     { label: 'ES', color: 'ash', max: 15 },
   ],
   // The ids are the table's: the import uploads each asset and writes them anew.

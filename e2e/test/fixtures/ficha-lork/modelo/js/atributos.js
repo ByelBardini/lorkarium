@@ -28,13 +28,13 @@ const attrGroup = (g, label, color) =>
     .join('')}`;
 function pgAtributos() {
   const head = COLS.map(([, l]) => `<th scope="col">${l}</th><th></th>`).join('');
-  // a opção vazia é a Constituição, a conta padrão do EF
-  const efSel =
-    '<select data-lk="res.ef.attr" aria-label="Atributo do EF"><option value="">Cons</option><option value="sab">Sab</option></select>';
+  // a opção vazia é a Constituição, a conta padrão do EN
+  const enSel =
+    '<select data-lk="res.en.attr" aria-label="Atributo do EN"><option value="">Cons</option><option value="sab">Sab</option></select>';
   const forms = {
     hp: '12 + (Cons×2 + Força) + (Base×Nível)',
     mp: '10 + (Sab×2 + Int) + (Base×Nível)',
-    ef: `10 + (Dex×2 + ${efSel}) + (Base×Nível)`,
+    en: `10 + (Dex×2 + ${enSel}) + (Base×Nível)`,
     es: '15 + 2×(Nível − 1)',
   };
   const rows = RES.map(

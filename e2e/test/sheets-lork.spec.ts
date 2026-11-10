@@ -33,7 +33,7 @@ async function importLorkTemplate(admin: Page): Promise<void> {
     confirm.getByRole('list', { name: 'Permissões pedidas' }).getByRole('listitem'),
   ).toHaveText(['Gravar CA e CD do personagem', 'Trocar o retrato', 'Enviar imagens']);
   await expect(confirm).toContainText(
-    'Barras esperadas: HP (até 12), MP (até 10), EF (até 10), ES (até 15)',
+    'Barras esperadas: HP (até 12), MP (até 10), EN (até 10), ES (até 15)',
   );
   await expect(confirm).toContainText('4 fontes e imagens vão junto.');
   await confirm.getByRole('button', { name: 'Importar', exact: true }).click();
@@ -108,7 +108,7 @@ test('Ana imports the Lork sheet and gives it to Lyra; the armor Bia wears is th
     PV: '10 / 10',
     HP: '12 / 12',
     MP: '10 / 10',
-    EF: '10 / 10',
+    EN: '10 / 10',
     ES: '15 / 15',
   });
 
@@ -134,7 +134,7 @@ test('Ana imports the Lork sheet and gives it to Lyra; the armor Bia wears is th
   ).toHaveValue('14');
 });
 
-test('"Usar habilidade" spends MP and EF at once, refuses without balance, and the comfortable long rest fills them back', async ({
+test('"Usar habilidade" spends MP and EN at once, refuses without balance, and the comfortable long rest fills them back', async ({
   newPlayerPage,
 }) => {
   test.setTimeout(240_000);
@@ -147,27 +147,27 @@ test('"Usar habilidade" spends MP and EF at once, refuses without balance, and t
   await expect(skill.locator('.cost')).toHaveCount(1);
   await skill.getByRole('button', { name: 'Vincular barra', exact: true }).click();
   await expect(skill.locator('.cost')).toHaveCount(2);
-  await skill.getByRole('combobox', { name: 'Barra que paga o custo' }).nth(1).selectOption('EF');
+  await skill.getByRole('combobox', { name: 'Barra que paga o custo' }).nth(1).selectOption('EN');
   await skill.getByRole('textbox', { name: 'Quanto sai da barra' }).nth(0).fill('6');
   await skill.getByRole('textbox', { name: 'Quanto sai da barra' }).nth(1).fill('6');
-  await expect.poll(() => savedCostsOf(bia, campaignId, sheetId)).toEqual(['EF 6', 'MP 6']);
+  await expect.poll(() => savedCostsOf(bia, campaignId, sheetId)).toEqual(['EN 6', 'MP 6']);
 
   const used = skill.getByRole('status');
   await skill.getByRole('button', { name: 'Usar habilidade' }).click();
-  await expect(used).toHaveText('Gastou 6 de MP, 6 de EF.');
-  await expectLyraBars(admin, { MP: '4 / 10', EF: '4 / 10' });
+  await expect(used).toHaveText('Gastou 6 de MP, 6 de EN.');
+  await expectLyraBars(admin, { MP: '4 / 10', EN: '4 / 10' });
 
-  // MP 4 cannot pay 6: bars.spend is all or nothing, so EF keeps its 4 too.
+  // MP 4 cannot pay 6: bars.spend is all or nothing, so EN keeps its 4 too.
   await skill.getByRole('button', { name: 'Usar habilidade' }).click();
   await expect(used).toHaveText('MP insuficiente: tem 4, precisa de 6.');
-  await expectLyraBars(admin, { MP: '4 / 10', EF: '4 / 10' });
+  await expectLyraBars(admin, { MP: '4 / 10', EN: '4 / 10' });
 
   await showSheetPage(sheet, 'Regras');
   await sheet.getByRole('button', { name: 'Descansar: longo em lugar confortável' }).click();
   await expect(sheet.locator('#rest-msg')).toHaveText(
-    'Descanso longo em lugar confortável: MP 4 → 10, EF 4 → 10, ES 15 → 7.',
+    'Descanso longo em lugar confortável: MP 4 → 10, EN 4 → 10, ES 15 → 7.',
   );
-  await expectLyraBars(admin, { MP: '10 / 10', EF: '10 / 10', ES: '7 / 15' });
+  await expectLyraBars(admin, { MP: '10 / 10', EN: '10 / 10', ES: '7 / 15' });
 });
 
 test('the image Bia puts on a skill is seen by Caio on a table sheet, which he cannot edit', async ({

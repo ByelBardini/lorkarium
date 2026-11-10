@@ -1,11 +1,11 @@
 /* ---------- barras ---------- */
-/* As barras são as do personagem na mesa (o manifesto cria HP, MP, EF e ES ao dar a ficha).
-   A ficha calcula o máximo de HP/MP/EF/ES pelas regras e o grava por bars.adjust; o atual
+/* As barras são as do personagem na mesa (o manifesto cria HP, MP, EN e ES ao dar a ficha).
+   A ficha calcula o máximo de HP/MP/EN/ES pelas regras e o grava por bars.adjust; o atual
    muda por bars.adjust (editar), bars.spend (Usar habilidade) e os descansos. */
 const RES = [
   ['hp', 'HP', '#c9705a'],
   ['mp', 'MP', '#7f9fd6'],
-  ['ef', 'EF', '#8fb39a'],
+  ['en', 'EN', '#8fb39a'],
   ['es', 'ES', '#b29ad6'],
 ];
 const PALETTE = {
@@ -33,11 +33,11 @@ const trainBonus = () => (filled(getP('f.treino')) ? num(getP('f.treino')) : aut
 function autoMax(t) {
   const lv = level();
   const b = (k) => num(getP(`res.${k}.base`)) * lv;
-  const efAttr = getP('res.ef.attr') === 'sab' ? t.sab : t.con;
+  const enAttr = getP('res.en.attr') === 'sab' ? t.sab : t.con;
   return {
     hp: 12 + (t.con * 2 + t.for) + b('hp'),
     mp: 10 + (t.sab * 2 + t.int) + b('mp'),
-    ef: 10 + (t.des * 2 + efAttr) + b('ef'),
+    en: 10 + (t.des * 2 + enAttr) + b('en'),
     es: 15 + 2 * (lv - 1),
   };
 }

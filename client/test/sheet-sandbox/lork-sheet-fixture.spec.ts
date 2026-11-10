@@ -32,7 +32,7 @@ function assetsOf(template: SheetTemplateFileContent): ReadonlyMap<string, Sheet
 }
 
 describe('the Lork sheet fixture as a .lksheet', () => {
-  it('reads as a template asking for the three permissions and the bars HP, MP, EF and ES', () => {
+  it('reads as a template asking for the three permissions and the bars HP, MP, EN and ES', () => {
     const template = lorkTemplate();
     expect(template.name).toBe('Ficha de Lork');
     expect(template.manifest.permissions).toEqual([
@@ -43,7 +43,7 @@ describe('the Lork sheet fixture as a .lksheet', () => {
     expect(template.manifest.bars.map(({ label, max }) => [label, max])).toEqual([
       ['HP', 12],
       ['MP', 10],
-      ['EF', 10],
+      ['EN', 10],
       ['ES', 15],
     ]);
     expect(template.assets?.map(({ path, type }) => [path, type])).toEqual([
@@ -77,14 +77,14 @@ describe('the Lork sheet fixture as a .lksheet', () => {
 type Message = Readonly<{ type?: string; requestId?: string } & Record<string, unknown>>;
 
 const LYRA = { name: 'Lyra', armorClass: null, difficultyClass: null };
-// HP, MP, EF and ES, in this order.
+// HP, MP, EN and ES, in this order.
 const BAR_IDS = [0, 1, 2, 3].map((i) => `0000000${i}-0000-4000-8000-00000000000${i}`);
 
 function tableBars(current: Readonly<Record<string, number>>): unknown[] {
   return [
     ['HP', 12, 'ember'],
     ['MP', 10, 'steel'],
-    ['EF', 10, 'moss'],
+    ['EN', 10, 'moss'],
     ['ES', 15, 'ash'],
   ].map(([label, max, color], position) => ({
     id: BAR_IDS[position],
@@ -162,7 +162,7 @@ const SKILL = {
     k1: {
       ordem: 1,
       nome: 'Golpe arcano',
-      custos: { c1: { ordem: 1, bar: 'MP', v: '6' }, c2: { ordem: 2, bar: 'EF', v: '6' } },
+      custos: { c1: { ordem: 1, bar: 'MP', v: '6' }, c2: { ordem: 2, bar: 'EN', v: '6' } },
     },
   },
 };
@@ -186,14 +186,14 @@ describe('the Lork sheet running on a page', () => {
     expect(element('[data-page="inventario"]').getAttribute('aria-selected')).toBe('true');
   });
 
-  it('"Usar habilidade" spends MP and EF in one bars.spend', async () => {
+  it('"Usar habilidade" spends MP and EN in one bars.spend', async () => {
     deliverState(SKILL);
     await settled();
     click('[data-use="k1"]');
     expect(sent('bars.spend').map(({ costs }) => costs)).toEqual([
       [
         { bar: 'MP', amount: 6 },
-        { bar: 'EF', amount: 6 },
+        { bar: 'EN', amount: 6 },
       ],
     ]);
   });
@@ -214,8 +214,8 @@ describe('the Lork sheet running on a page', () => {
     expect(element('#use-k1').classList.contains('bad')).toBe(true);
   });
 
-  it('the comfortable long rest fills MP and EF back by bars.adjust', async () => {
-    deliverState({}, { bars: tableBars({ MP: 4, EF: 4 }) });
+  it('the comfortable long rest fills MP and EN back by bars.adjust', async () => {
+    deliverState({}, { bars: tableBars({ MP: 4, EN: 4 }) });
     click('[aria-label="Descansar: longo em lugar confortável"]');
     await settled();
     expect(sent('bars.adjust').map(({ bar, change }) => [bar, change])).toEqual([
