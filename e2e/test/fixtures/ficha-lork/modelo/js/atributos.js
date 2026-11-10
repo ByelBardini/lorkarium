@@ -50,6 +50,7 @@ function pgAtributos() {
     <section class="blk"><div class="blk-hd"><h2 class="h2">Contas das barras</h2><p class="hint">O máximo de HP, MP, EN e ES segue a conta fixa, a menos que se escreva outro no Perfil. Outras barras da mesa podem ganhar uma conta: números, + − × ÷, parênteses, FOR, DES, CON, INT, CAR, SAB, Nível e Treino.</p></div>
       <div class="tbl-wrap"><table class="res"><thead><tr><th>Barra</th><th>Fórmula</th><th style="text-align:right">Máximo</th><th></th></tr></thead><tbody>${rows}</tbody><tbody id="contas"></tbody></table></div>
       <button type="button" class="sk-add" data-add="contas" data-edit-only>${ic('plus', 12)}Adicionar conta</button>
+      <p class="hint" id="contas-none" hidden>Para dar uma conta a outra barra, crie a barra no card do personagem na mesa.</p>
     </section>`;
 }
 

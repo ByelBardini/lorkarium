@@ -364,4 +364,14 @@ describe('the bar formulas of the Lork sheet', () => {
     await settled();
     expect(sent('values.patch').at(-1)?.patches).toEqual([{ path: ['contas', 'c1'], value: null }]);
   });
+
+  it('with no bar left without a fixed formula it says to create one instead of an empty choice', async () => {
+    deliverState({});
+    await settled();
+    expect(element<HTMLButtonElement>('[data-add="contas"]').hidden).toBe(true);
+    expect(element('#contas-none').hidden).toBe(false);
+    deliverState({}, { bars: tableBars({}, true) });
+    expect(element<HTMLButtonElement>('[data-add="contas"]').hidden).toBe(false);
+    expect(element('#contas-none').hidden).toBe(true);
+  });
 });

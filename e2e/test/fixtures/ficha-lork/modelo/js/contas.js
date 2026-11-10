@@ -95,9 +95,7 @@ function evalConta(text, vals) {
 
 /* só barras sem conta fixa; a guardada fica na lista mesmo se a barra sumiu da mesa */
 function contaBarOptions(stored) {
-  const labels = sortedBars()
-    .filter((b) => !resOf(b))
-    .map((b) => b.label);
+  const labels = freeBars().map((b) => b.label);
   if (filled(stored) && !labels.some((l) => barKey(l) === barKey(stored))) labels.push(stored);
   return (
     '<option value="">Escolha a barra</option>' +
@@ -113,9 +111,15 @@ function contaRow([id]) {
     <td class="rv" id="cv-${id}">—</td>
     <td class="rx"><button type="button" class="sk-x" data-rm="contas:${id}" data-arm-icon data-edit-only aria-label="Tirar a conta">${ic('x', 12)}</button></td></tr>`;
 }
+const freeBars = () => sortedBars().filter((b) => !resOf(b));
+/* sem barra livre na mesa não há o que escolher: no lugar do botão, a dica de criar uma */
 function renderContas() {
   const box = document.getElementById('contas');
-  if (box) box.innerHTML = itemsOf('contas').map(contaRow).join('');
+  if (!box) return;
+  box.innerHTML = itemsOf('contas').map(contaRow).join('');
+  const none = freeBars().length === 0;
+  document.querySelector('[data-add="contas"]').hidden = none;
+  document.getElementById('contas-none').hidden = !none || !VIEW.canEdit;
 }
 function calcContas(t) {
   const vals = contaValues(t);

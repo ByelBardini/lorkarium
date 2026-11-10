@@ -1296,6 +1296,43 @@ select.in option {
 .cost-bar {
   cursor: pointer;
 }
+/* select customizável (Chromium/WebView2): a lista abre no tema da ficha, não na do sistema */
+.cost-bar,
+.cost-bar::picker(select) {
+  appearance: base-select;
+}
+.cost-bar::picker-icon {
+  color: var(--dim);
+  transition: rotate 0.15s;
+}
+.cost-bar:open::picker-icon {
+  rotate: 180deg;
+}
+.cost-bar::picker(select) {
+  margin-top: 4px;
+  padding: 4px;
+  background: var(--card);
+  border: 1px solid var(--input);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+}
+.cost-bar option {
+  padding: 6px 10px;
+  border-radius: 4px;
+  color: var(--fg);
+  font: 500 14px var(--sans);
+}
+.cost-bar option::checkmark {
+  display: none;
+}
+.cost-bar option:hover,
+.cost-bar option:focus-visible {
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+  color: var(--gold-l);
+}
+.cost-bar option:checked {
+  color: var(--gold-l);
+}
 .cost-bar option {
   background: var(--card);
 }
