@@ -1,3 +1,13 @@
+// Relative on purpose, as in sheet-srcdoc.ts: the e2e imports this chain from outside the client.
+import {
+  SHEET_FRAME_BINDINGS_SOURCE,
+  type SheetBindingScope,
+  type SheetFrameBindingsFactory,
+  type SheetFrameLists,
+} from './sheet-frame-bindings';
+import { SHEET_FRAME_CONSOLE_SOURCE, type SheetFrameConsoleFactory } from './sheet-frame-console';
+import { SHEET_HTML_SANITIZER_SOURCE, type SheetHtmlSanitizer } from './sheet-html-sanitizer';
+
 /** The frame's end of the host's `MessageChannel` (a `MessagePort` inside the frame). */
 export interface SheetSdkPort {
   postMessage(message: unknown): void;
@@ -79,6 +89,24 @@ export interface SheetFrameBar {
   readonly [field: string]: unknown;
 }
 
+/** The character that holds the sheet, as the last `state` had it. */
+export interface SheetFrameCharacter {
+  readonly name: string;
+  readonly armorClass: number | null;
+  readonly difficultyClass: number | null;
+}
+
+/** A `File` or `Blob` (its own `type`), or bytes with their type. */
+export type SheetImageInput =
+  | { readonly type: string; arrayBuffer(): Promise<ArrayBuffer> }
+  | { readonly type: string; readonly bytes: ArrayBuffer | ArrayBufferView };
+
+/** An image read through the host: the author makes a `blob:` URL of it. */
+export interface SheetFrameImage {
+  readonly type: string;
+  readonly bytes: ArrayBuffer;
+}
+
 /** `window.lorkarium`, the only door from the author's code to the table. Every request settles
  *  when the host answers `result` (resolves) or `error` (rejects with `code` and `message`).
  *  `get`, `all` and `list` read copies of the last `state` and never ask the host. */
@@ -87,22 +115,40 @@ export interface LorkariumSdk {
   onState(listener: (state: unknown) => void): () => void;
   readonly bars: {
     adjust(bar: string, change: SheetBarChange): Promise<undefined>;
+    /** Every cost or none (`INSUFFICIENT_BAR`), from the current value only. */
+    spend(costs: ReadonlyArray<{ bar: string; amount: number }>): Promise<undefined>;
     list(): SheetFrameBar[];
     get(bar: string): SheetFrameBar | undefined;
   };
   readonly dice: { roll(request: SheetDiceRequest): Promise<undefined> };
   readonly values: {
     set(changes: Record<string, unknown>): Promise<undefined>;
+    /** Replaces only the value at each path of keys (`null` removes it). */
+    patch(patches: ReadonlyArray<{ path: string[]; value: unknown }>): Promise<undefined>;
     get(key: string): unknown;
     all(): Record<string, unknown>;
   };
+  readonly character: {
+    get(): SheetFrameCharacter | null;
+    set(changes: { armorClass?: number; difficultyClass?: number }): Promise<undefined>;
+    setImage(image: SheetImageInput): Promise<undefined>;
+  };
+  readonly assets: {
+    upload(image: SheetImageInput): Promise<{ assetId: string }>;
+    read(assetId: string): Promise<SheetFrameImage>;
+  };
+  /** Clean html of a rich text before showing it: formatting stays, anything that runs or loads
+   *  goes. Synchronous, no host request. */
+  readonly html: { sanitize(html: string): string };
+  /** Repeated sections under a value path, each item at a stable 8-character id. */
+  readonly lists: SheetFrameLists;
 }
 
 /** The `type` of the window message that carries the port on the frame's first `load`. */
 export const SHEET_PORT_HANDOFF = 'lorkarium:port';
 
 interface PendingRequest {
-  resolve(value: undefined): void;
+  resolve(value: unknown): void;
   reject(error: Error): void;
 }
 
@@ -111,6 +157,7 @@ interface FrameState {
   bars: unknown;
   values: unknown;
   canEdit: unknown;
+  character: unknown;
 }
 
 interface HostAnswer {
@@ -122,6 +169,8 @@ interface HostAnswer {
   bars?: unknown;
   values?: unknown;
   canEdit?: unknown;
+  character?: unknown;
+  value?: unknown;
 }
 
 // Serialized by `toString` into the srcdoc, so it may reference nothing outside its own body (the
@@ -130,18 +179,20 @@ interface HostAnswer {
 // timer and the clock are captured before the author's code runs, so replacing those globals
 // cannot bend the SDK. The bar lookup repeats `resolveSheetBar`'s rule for the same reason; the
 // host's copy is the one that counts.
-function installLorkariumSdk(scope: SheetFrameScope, limits: SheetConsoleFrameLimits): void {
+function installLorkariumSdk(
+  scope: SheetFrameScope,
+  limits: SheetConsoleFrameLimits,
+  sanitizeHtml: SheetHtmlSanitizer,
+  createConsole: SheetFrameConsoleFactory,
+  createBindings: SheetFrameBindingsFactory,
+): void {
   const parse = JSON.parse;
   const stringify = JSON.stringify;
   const isFiniteNumber = Number.isFinite;
   const freeze = Object.freeze;
-  const now = Date.now;
-  const later = scope.setTimeout.bind(scope);
-  const frameConsole = scope.console;
   const hasOwn = Object.prototype.hasOwnProperty;
-  const levels = ['log', 'info', 'warn', 'error', 'debug'] as const;
-  const originals: Partial<Record<string, (...args: unknown[]) => void>> = Object.create(null);
-  const lineWindow = { start: -Infinity, lines: 0, dropped: 0, flushing: false };
+  const toTag = Object.prototype.toString;
+  const isView = ArrayBuffer.isView;
   const pending: Record<string, PendingRequest> = Object.create(null);
   const queued: object[] = [];
   const stateListeners: Array<(state: unknown) => void> = [];
@@ -169,14 +220,52 @@ function installLorkariumSdk(scope: SheetFrameScope, limits: SheetConsoleFrameLi
     else port.postMessage(message);
   }
 
-  function request(type: string, fieldsOf: () => object): Promise<undefined> {
-    return new Promise<undefined>((resolve, reject) => {
-      const body = snapshot(fieldsOf());
+  const frameConsole = createConsole(scope, limits, send);
+
+  function sent<T>(body: object, type: string): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
       requestCount += 1;
       const requestId = `${requestCount}`;
-      pending[requestId] = { resolve, reject };
+      pending[requestId] = { resolve: resolve as (value: unknown) => void, reject };
       send({ ...body, type, requestId });
     });
+  }
+
+  function request<T = undefined>(type: string, fieldsOf: () => object): Promise<T> {
+    try {
+      return sent<T>(snapshot(fieldsOf()), type);
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  }
+
+  // Bytes cannot go through the JSON copy: a fresh ArrayBuffer is cloned to the host instead.
+  async function bytesOf(image: SheetImageInput): Promise<{ type: string; bytes: ArrayBuffer }> {
+    const input = image as { type?: unknown; bytes?: unknown; arrayBuffer?: unknown } | null;
+    if (typeof input !== 'object' || input === null || typeof input.type !== 'string')
+      throw new TypeError('lorkarium: image is not a File, a Blob or { type, bytes }');
+    const { type, bytes } = input;
+    if (typeof input.arrayBuffer === 'function')
+      return { type, bytes: await (image as Blob).arrayBuffer() };
+    if (toTag.call(bytes) === '[object ArrayBuffer]')
+      return { type, bytes: (bytes as ArrayBuffer).slice(0) };
+    if (!isView(bytes)) throw new TypeError('lorkarium: image.bytes is not an ArrayBuffer');
+    const view = new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    return { type, bytes: view.slice().buffer };
+  }
+
+  async function imageRequest<T>(type: string, image: SheetImageInput): Promise<T> {
+    return sent<T>({ image: await bytesOf(image) }, type);
+  }
+
+  // Only the two shapes a `result` may carry reach the author, as fresh objects.
+  function resultValueOf(value: unknown): unknown {
+    const found = value as { assetId?: unknown; type?: unknown; bytes?: unknown } | null;
+    if (typeof found !== 'object' || found === null) return undefined;
+    if (typeof found.assetId === 'string') return freeze({ assetId: found.assetId });
+    if (typeof found.type === 'string' && toTag.call(found.bytes) === '[object ArrayBuffer]')
+      return freeze({ type: found.type, bytes: found.bytes });
+    return undefined;
   }
 
   function settle(answer: HostAnswer, ok: boolean): void {
@@ -184,7 +273,7 @@ function installLorkariumSdk(scope: SheetFrameScope, limits: SheetConsoleFrameLi
     if (typeof id !== 'string' || !(id in pending)) return;
     const entry = pending[id] as PendingRequest;
     delete pending[id];
-    if (ok) return entry.resolve(undefined);
+    if (ok) return entry.resolve(resultValueOf(answer.value));
     const message = typeof answer.message === 'string' ? answer.message : 'request failed';
     entry.reject(codedError(typeof answer.code === 'string' ? answer.code : 'UNKNOWN', message));
   }
@@ -209,6 +298,13 @@ function installLorkariumSdk(scope: SheetFrameScope, limits: SheetConsoleFrameLi
     return typeof values === 'object' && values !== null
       ? copyOf(values as Record<string, unknown>)
       : {};
+  }
+
+  function currentCharacter(): SheetFrameCharacter | null {
+    const character = lastState === null ? null : lastState.state.character;
+    return typeof character === 'object' && character !== null
+      ? copyOf(character as SheetFrameCharacter)
+      : null;
   }
 
   function currentBars(): SheetFrameBar[] {
@@ -239,135 +335,8 @@ function installLorkariumSdk(scope: SheetFrameScope, limits: SheetConsoleFrameLi
     try {
       listener(state);
     } catch (error) {
-      logged('error', ['lorkarium: an onState listener threw', error]);
+      frameConsole.logged('error', ['lorkarium: an onState listener threw', error]);
     }
-  }
-
-  function flushDropped(): void {
-    lineWindow.flushing = false;
-    if (lineWindow.dropped === 0) return;
-    send({ type: 'console.dropped', count: lineWindow.dropped });
-    lineWindow.dropped = 0;
-  }
-
-  // A fixed window: a `console.log` loop sends `lines` per window and one count of the rest.
-  function admitLine(): boolean {
-    const at = now();
-    if (at - lineWindow.start >= limits.windowMs) {
-      flushDropped();
-      lineWindow.start = at;
-      lineWindow.lines = 0;
-    }
-    if (lineWindow.lines < limits.lines) {
-      lineWindow.lines += 1;
-      return true;
-    }
-    lineWindow.dropped += 1;
-    if (!lineWindow.flushing) {
-      lineWindow.flushing = true;
-      later(flushDropped, lineWindow.start + limits.windowMs - at);
-    }
-    return false;
-  }
-
-  function errorTextOf(error: Error): string {
-    const code = (error as { code?: unknown }).code;
-    const name = typeof code === 'string' ? `${error.name} ${code}` : error.name;
-    return `${name}: ${error.message}`;
-  }
-
-  // Whatever the author logs becomes plain text here: a cycle, a throwing getter, a Proxy or a
-  // DOM node never reach `postMessage`, which would throw or clone too much.
-  function plainOf(value: unknown, seen: WeakSet<object>): unknown {
-    if (typeof value === 'function') return `[function ${value.name || 'anonymous'}]`;
-    if (typeof value === 'bigint') return `${value}n`;
-    if (typeof value === 'symbol') return String(value);
-    if (typeof value !== 'object' || value === null) return value;
-    if (value instanceof Error) return errorTextOf(value);
-    const node = value as { nodeType?: unknown; nodeName?: unknown };
-    if (typeof node.nodeType === 'number' && typeof node.nodeName === 'string')
-      return `<${node.nodeName.toLowerCase()}>`;
-    if (seen.has(value)) return '[circular]';
-    seen.add(value);
-    return value;
-  }
-
-  function textOf(value: unknown): string {
-    try {
-      if (typeof value === 'string') return value;
-      const root = plainOf(value, new WeakSet());
-      if (typeof root !== 'object' || root === null) return String(root);
-      const seen = new WeakSet<object>();
-      const text: unknown = stringify(value, (_key, inner: unknown) => plainOf(inner, seen));
-      return typeof text === 'string' ? text : '[object]';
-    } catch {
-      return '[unreadable value]';
-    }
-  }
-
-  function cut(text: string): string {
-    if (text.length <= limits.messageLength) return text;
-    return `${text.slice(0, limits.messageLength - 1)}…`;
-  }
-
-  function positionsOf(error: unknown): Array<{ line: number; column: number }> {
-    const found: Array<{ line: number; column: number }> = [];
-    try {
-      const stack = (error as { stack?: unknown } | null | undefined)?.stack;
-      if (typeof stack !== 'string') return found;
-      const pattern = /about:srcdoc:(\d+):(\d+)/g;
-      let match = pattern.exec(stack);
-      while (match && found.length < limits.positions) {
-        found[found.length] = { line: Number(match[1]), column: Number(match[2]) };
-        match = pattern.exec(stack);
-      }
-    } catch {
-      // A stack that cannot be read has no position.
-    }
-    return found.filter((position) => position.line >= 1);
-  }
-
-  function report(level: string, message: string, at: Array<{ line: number; column: number }>) {
-    if (!admitLine()) return;
-    send({ type: 'console', level, message: cut(message), at: at.slice(0, limits.positions) });
-  }
-
-  function logged(level: string, args: unknown[]): void {
-    const original = originals[level];
-    if (original) original.apply(frameConsole, args);
-    try {
-      const error = args.find((arg) => arg instanceof Error);
-      report(level, args.map(textOf).join(' '), positionsOf(error));
-    } catch {
-      // The console never breaks the author's code.
-    }
-  }
-
-  function wrapConsole(): void {
-    const methods = frameConsole as unknown as Record<string, unknown>;
-    for (let index = 0; index < levels.length; index += 1) {
-      const level = levels[index]!;
-      const original = methods[level];
-      if (typeof original !== 'function') continue;
-      originals[level] = original as (...args: unknown[]) => void;
-      methods[level] = (...args: unknown[]) => logged(level, args);
-    }
-  }
-
-  function scriptPositionOf(event: SheetFrameErrorEvent): Array<{ line: number; column: number }> {
-    const { lineno, colno } = event;
-    if (typeof lineno !== 'number' || !(lineno >= 1)) return [];
-    return [{ line: lineno, column: typeof colno === 'number' && colno >= 0 ? colno : 0 }];
-  }
-
-  function onScriptError(event: SheetFrameErrorEvent): void {
-    const said = event.message;
-    const message = typeof said === 'string' && said !== '' ? said : textOf(event.error);
-    report('error', message, scriptPositionOf(event).concat(positionsOf(event.error)));
-  }
-
-  function onRejection(event: SheetFrameRejectionEvent): void {
-    report('error', `Uncaught (in promise) ${textOf(event.reason)}`, positionsOf(event.reason));
   }
 
   function publishState(answer: HostAnswer): void {
@@ -376,6 +345,7 @@ function installLorkariumSdk(scope: SheetFrameScope, limits: SheetConsoleFrameLi
       bars: answer.bars,
       values: answer.values,
       canEdit: answer.canEdit,
+      character: answer.character,
     };
     lastState = { state };
     const listeners = stateListeners.slice();
@@ -428,32 +398,64 @@ function installLorkariumSdk(scope: SheetFrameScope, limits: SheetConsoleFrameLi
     return { expression: roll.expression, label: roll.label, visibility: roll.visibility };
   }
 
+  function patchValues(patches: ReadonlyArray<{ path: string[]; value: unknown }>) {
+    return request('values.patch', () => ({ patches: snapshot({ patches }).patches }));
+  }
+
+  function roll(dice: SheetDiceRequest): Promise<undefined> {
+    return request('dice.roll', () => rollOf(dice));
+  }
+
+  // `data-lk`, `data-lk-roll` and the lists ride on the same requests the author has.
+  const bindings = createBindings(scope as unknown as SheetBindingScope, {
+    onState,
+    patch: patchValues,
+    roll,
+    sanitize: sanitizeHtml,
+    report: (...args: unknown[]) => frameConsole.logged('error', args),
+  });
+
   const sdk: LorkariumSdk = freeze({
     ready: () => request('ready', () => ({})),
     onState,
     bars: freeze({
       adjust: (bar: string, change: SheetBarChange) =>
         request('bars.adjust', () => ({ bar, change })),
+      spend: (costs: ReadonlyArray<{ bar: string; amount: number }>) =>
+        request('bars.spend', () => ({ costs: snapshot({ costs }).costs })),
       list: () => copyOf(currentBars()),
       get: (bar: string) => findBar(bar),
     }),
-    dice: freeze({ roll: (roll: SheetDiceRequest) => request('dice.roll', () => rollOf(roll)) }),
+    dice: freeze({ roll }),
     values: freeze({
       set: (changes: Record<string, unknown>) =>
         request('values.set', () => ({ changes: snapshot(changes) })),
+      patch: patchValues,
       get: (key: string) => valueOf(key),
       all: () => allValues(),
+    }),
+    html: freeze({ sanitize: (html: string) => sanitizeHtml(html) }),
+    lists: freeze(bindings.lists),
+    character: freeze({
+      get: () => currentCharacter(),
+      set: (changes: { armorClass?: number; difficultyClass?: number }) =>
+        request('character.set', () => ({ changes: snapshot(changes) })),
+      setImage: (image: SheetImageInput) => imageRequest<undefined>('character.setImage', image),
+    }),
+    assets: freeze({
+      upload: (image: SheetImageInput) => imageRequest<{ assetId: string }>('assets.upload', image),
+      read: (assetId: string) => request<SheetFrameImage>('assets.read', () => ({ assetId })),
     }),
   });
   Object.defineProperty(scope, 'lorkarium', { value: sdk, enumerable: true });
   scope.addEventListener('message', onWindowMessage);
-  scope.addEventListener('error', onScriptError);
-  scope.addEventListener('unhandledrejection', onRejection);
-  wrapConsole();
+  scope.addEventListener('error', frameConsole.onScriptError);
+  scope.addEventListener('unhandledrejection', frameConsole.onRejection);
+  frameConsole.wrap();
 }
 
 /** The script the srcdoc runs before any author code: defines `window.lorkarium`, waits for the
  *  host's port and sends the frame's console (and uncaught errors) to the host.
  *
  *  Example: `<script>${SHEET_BRIDGE_BOOTSTRAP}</script>` */
-export const SHEET_BRIDGE_BOOTSTRAP = `'use strict';(${installLorkariumSdk.toString()})(window, ${JSON.stringify(SHEET_CONSOLE_FRAME_LIMITS)});`;
+export const SHEET_BRIDGE_BOOTSTRAP = `'use strict';(${installLorkariumSdk.toString()})(window, ${JSON.stringify(SHEET_CONSOLE_FRAME_LIMITS)}, (${SHEET_HTML_SANITIZER_SOURCE})(window.DOMParser), ${SHEET_FRAME_CONSOLE_SOURCE}, ${SHEET_FRAME_BINDINGS_SOURCE});`;

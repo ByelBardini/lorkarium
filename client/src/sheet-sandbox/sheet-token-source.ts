@@ -1,14 +1,23 @@
-import type { TokenBarDto, TokenDto } from '@lorkarium/contracts';
+import type { CharacterDto, TokenBarDto, TokenDto } from '@lorkarium/contracts';
 import type { StoreApi } from 'zustand/vanilla';
 import type { BoardStore } from '@/stores/board-store';
 import { characterOfUser, type CharactersStore } from '@/stores/characters-store';
 
+/** The character that holds a sheet: the id stays in the host (the frame gets the rest). */
+export type SheetCharacterView = Readonly<{
+  id: string;
+  name: string;
+  armorClass: number | null;
+  difficultyClass: number | null;
+}>;
+
 /** What the frame learns of the sheet's holder (a token or a character); the bars are the
- *  viewer's (already redacted). */
+ *  viewer's (already redacted). `character` is `null` for a loose token. */
 export type SheetTokenView = Readonly<{
   name: string;
   imageAssetId: string | null;
   bars: readonly TokenBarDto[];
+  character: SheetCharacterView | null;
 }>;
 
 /** Where the host reads the sheet's holder: `current()` keeps the same object while nothing
@@ -45,8 +54,9 @@ export function firstTokenSource(
 ): SheetHolderSource {
   const tokenIn = (board: StoreApi<BoardStore>): TokenDto | undefined =>
     board.getState().board?.tokens.find((token) => token.id === tokenId);
+  const viewOf = memoizedView((token: TokenDto) => ({ ...token, character: null }));
   return {
-    current: () => boards.map(tokenIn).find((token) => token !== undefined) ?? null,
+    current: () => viewOf(boards.map(tokenIn).find((token) => token !== undefined) ?? null),
     subscribe: (listener) => {
       const unsubscribers = boards.map((board) => board.subscribe(listener));
       return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
@@ -63,8 +73,29 @@ export function characterSource(
   characters: StoreApi<CharactersStore>,
   userId: string,
 ): SheetHolderSource {
+  const viewOf = memoizedView((character: CharacterDto) => ({
+    ...character,
+    character: {
+      id: character.id,
+      name: character.name,
+      armorClass: character.armorClass,
+      difficultyClass: character.difficultyClass,
+    },
+  }));
   return {
-    current: () => characterOfUser(characters.getState().characters, userId),
+    current: () => viewOf(characterOfUser(characters.getState().characters, userId)),
     subscribe: (listener) => characters.subscribe(listener),
+  };
+}
+
+// The same view while the store keeps the same object: a new one tells the host to look again.
+function memoizedView<T extends object>(
+  toView: (item: T) => SheetHolderView,
+): (item: T | null) => SheetHolderView | null {
+  let last: Readonly<{ item: T; view: SheetHolderView }> | null = null;
+  return (item) => {
+    if (item === null) return null;
+    if (last?.item !== item) last = { item, view: toView(item) };
+    return last.view;
   };
 }

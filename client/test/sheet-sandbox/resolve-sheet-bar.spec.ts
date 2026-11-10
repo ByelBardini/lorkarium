@@ -1,14 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { resolveSheetBar, sheetBarLabelKey } from '@/sheet-sandbox/resolve-sheet-bar';
+import { resolveSheetBar } from '@/sheet-sandbox/resolve-sheet-bar';
 
 const PV = { id: 'f1e2d3c4-b5a6-4978-8a9b-0c1d2e3f4a5b', label: 'PV' };
 const INSPIRATION = { id: '2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e', label: 'Inspiração' };
 const BARS = [PV, INSPIRATION];
-
-describe('sheetBarLabelKey', () => {
-  it('drops case, accents and edge spaces', () =>
-    expect(sheetBarLabelKey('  Pontos de AÇÃO ')).toBe('pontos de acao'));
-});
 
 describe('resolveSheetBar', () => {
   it('finds a bar by its exact id', () =>

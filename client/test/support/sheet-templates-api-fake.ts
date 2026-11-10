@@ -1,17 +1,25 @@
 import {
   UNNAMED_SHEET_TEMPLATE_NAME,
   type CreateSheetTemplateRequestDto,
+  type SheetTemplateAssetDto,
+  type SheetTemplateAssetMimeTypeDto,
   type SheetTemplateDto,
   type UpdateSheetTemplateRequestDto,
 } from '@lorkarium/contracts';
-import type { SheetTemplatesApi, SheetTemplatesResult } from '@/services/sheet-templates-api';
+import type {
+  SheetTemplateAssetData,
+  SheetTemplatesApi,
+  SheetTemplatesResult,
+} from '@/services/sheet-templates-api';
 import { NEW_TEMPLATE_ID, tormentaTemplate } from './sheet-template-fixtures';
 
 type Recorded<T> = Readonly<{ campaignId: string; templateId: string; input: T }>;
 
 /** The master's templates on an in-memory server: `update` refuses a stale `expectedVersion`
  *  with `conflict` and bumps the version; `create` answers `NEW_TEMPLATE_ID`; `answer` overrides
- *  the next write; `detailResult` overrides the reads, `detailCalls` counts them.
+ *  the next write; `detailResult` overrides the reads, `detailCalls` counts them. Template
+ *  assets: `uploadAsset` keeps the bytes under `asset-<n>` ids (`uploads` in order, `assetAnswer`
+ *  overrides the next one), `asset` reads them back (`assetReads` counts them).
  *
  *  Example: `api.templates.set(id, tormentaTemplate({ version: 4 })) // another master saved` */
 export class SheetTemplatesApiFake implements SheetTemplatesApi {
@@ -58,6 +66,32 @@ export class SheetTemplatesApiFake implements SheetTemplatesApi {
     const saved = { ...current, ...changes, version: expectedVersion + 1 };
     this.templates.set(templateId, saved);
     return { ok: true, value: saved };
+  }
+  /** The stored template assets by id: what `asset` reads back. */
+  readonly assetFiles = new Map<string, SheetTemplateAssetData>();
+  readonly uploads: Readonly<{
+    campaignId: string;
+    type: SheetTemplateAssetMimeTypeDto;
+    bytes: ArrayBuffer;
+  }>[] = [];
+  readonly assetReads: string[] = [];
+  assetAnswer: SheetTemplatesResult<never> | null = null;
+
+  async uploadAsset(
+    campaignId: string,
+    bytes: ArrayBuffer,
+    type: SheetTemplateAssetMimeTypeDto,
+  ): Promise<SheetTemplatesResult<SheetTemplateAssetDto>> {
+    this.uploads.push({ campaignId, type, bytes });
+    if (this.assetAnswer) return this.assetAnswer;
+    const id = `00000000-0000-4000-8000-${String(this.uploads.length).padStart(12, '0')}`;
+    this.assetFiles.set(id, { type, bytes });
+    return { ok: true, value: { id, mimeType: type, sizeBytes: Math.max(1, bytes.byteLength) } };
+  }
+  async asset(assetId: string): Promise<SheetTemplatesResult<SheetTemplateAssetData>> {
+    this.assetReads.push(assetId);
+    const data = this.assetFiles.get(assetId);
+    return data ? { ok: true, value: data } : notFound();
   }
   async remove(_: string, templateId: string): Promise<SheetTemplatesResult<null>> {
     this.removals.push(templateId);

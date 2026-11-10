@@ -27,7 +27,16 @@ function gridWithLyra() {
 describe('boardTokenSource', () => {
   it('reads the token of the board store by its id', () => {
     const source = boardTokenSource(gridWithLyra(), LYRA_ID);
-    expect(source.current()).toEqual(lyra());
+    expect(source.current()).toEqual({ ...lyra(), character: null });
+  });
+
+  it('a loose token has no character, and stays the same object while the store keeps it', () => {
+    const source = boardTokenSource(gridWithLyra(), LYRA_ID);
+    const first = source.current();
+    expect({ character: first?.character, same: source.current() === first }).toEqual({
+      character: null,
+      same: true,
+    });
   });
 
   it('a token the store does not have (or a store still loading) is null', () => {
@@ -53,8 +62,29 @@ describe('characterSource', () => {
     const source = characterSource(characters, CAIO_AT_TABLE.userId);
     const first = source.current();
     characters.getState().apply(characterChangedAt(4, lyraCharacter({ armorClass: 18 })));
-    expect(first).toEqual(kaelCharacter());
+    expect(first).toMatchObject(kaelCharacter());
     expect(source.current()).toBe(first);
+  });
+
+  it('carries the character id, name, AC and DC for the frame', () => {
+    const characters = syncedCharacters(lyraCharacter({ armorClass: 14, difficultyClass: 12 }));
+    expect(characterSource(characters, BIA_AT_TABLE.userId).current()?.character).toEqual({
+      id: lyraCharacter().id,
+      name: 'Lyra',
+      armorClass: 14,
+      difficultyClass: 12,
+    });
+  });
+
+  it('a new character object (AC changed) is a new view', () => {
+    const characters = syncedCharacters(lyraCharacter());
+    const source = characterSource(characters, BIA_AT_TABLE.userId);
+    const first = source.current();
+    characters.getState().apply(characterChangedAt(4, lyraCharacter({ armorClass: 18 })));
+    expect({
+      same: source.current() === first,
+      ac: source.current()?.character?.armorClass,
+    }).toEqual({ same: false, ac: 18 });
   });
 
   it('before the first sync, or for a player whose character this viewer does not see, is null', () => {

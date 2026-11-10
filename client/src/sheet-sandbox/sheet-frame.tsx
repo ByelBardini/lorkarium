@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { SHEET_PORT_HANDOFF } from './sheet-bridge-bootstrap';
+import { SheetBuildError, sheetBuildErrorText } from './sheet-page-assembly';
+import { buildSheetSrcdoc, type SheetSource } from './sheet-srcdoc';
 
 /** The two ends of a `MessageChannel`; a parameter so the component spec can hand in fakes. */
 export interface SheetChannel {
@@ -75,4 +77,32 @@ export function SheetFrame({
       onLoad={handleLoad}
     />
   );
+}
+
+export type SheetSourceFrameProps = Omit<SheetFrameProps, 'srcdoc'> &
+  Readonly<{ source: SheetSource }>;
+
+/** A `SheetFrame` built once per mount from the author's files (a new `key` builds a new frame).
+ *  Files that do not make a page (a missing include, a cycle, an undeclared asset) show why
+ *  instead of a frame.
+ *
+ *  Example: `<SheetSourceFrame key={run} source={{ files }} title="Prévia da ficha" onConnect={attach} onReloaded={showReloaded} />` */
+export function SheetSourceFrame({ source, ...frame }: SheetSourceFrameProps): React.JSX.Element {
+  const [built] = useState(() => srcdocOrProblem(source));
+  if (typeof built !== 'string')
+    return (
+      <p role="alert" className="p-4 text-sm text-destructive">
+        {`A ficha não pôde ser montada: ${sheetBuildErrorText(built)}.`}
+      </p>
+    );
+  return <SheetFrame srcdoc={built} {...frame} />;
+}
+
+function srcdocOrProblem(source: SheetSource): string | SheetBuildError {
+  try {
+    return buildSheetSrcdoc(source);
+  } catch (error) {
+    if (error instanceof SheetBuildError) return error;
+    throw error;
+  }
 }
