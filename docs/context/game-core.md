@@ -14,7 +14,8 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 - `src/token-initials.ts` — `initialsOf(nome)`: as iniciais do token (primeira letra das duas primeiras palavras que não são conectivo, ou as duas primeiras letras de uma palavra só; "Ogro das Cinzas" → "OC"). O server a usa no personagem criado ao virar jogador; o client (avatar, chat, formulário do token) importa a mesma daqui (não há cópia no client)
 - `src/drawing-box.vo.ts` — a caixa do desenho em casas fracionárias (VO)
 - `src/map-region.vo.ts` — a geometria de uma região de mapa da biblioteca (VO), os limites do mapa, a área, o ponto de foco e a ordem de pintura
-- `src/bar.ts` — ajuste de barra (PV e qualquer outra)
+- `src/bar.ts` — ajuste de barra (PV e qualquer outra) e débito de várias de uma vez
+- `src/manifest-bars.ts` — o rótulo de barra comparável e as barras do manifesto da ficha que faltam
 - `src/initiative.vo.ts` — o valor da iniciativa (VO)
 - `src/initiative-order.ts` — a ordem de turno e o empate
 - `src/turn.ts` — avançar e voltar turno, sair do combate, duração de condição
@@ -82,7 +83,7 @@ Regra de jogo pura, calculada igual no server e no client. Vive em `packages/gam
 
 ## Barra
 
-- `BarChange` = `{ op: 'add', amount }` ("−7", "+5") | `{ op: 'set', value }` ("12"). `applyBarChange(atual, mudança, limite)` devolve o valor novo: **livre** (negativo e acima do máximo valem, nada automático no zero, spec §2.1), só travado em ±`limite`. O limite vem por parâmetro (`BAR_VALUE_LIMIT` do contracts), porque o game-core não importa o contracts. Valor não inteiro lança `RangeError` citando o valor. `BarAdjustment` = `BarChange` | `{ op: 'max' | 'temp', value }`; `adjustBarValues({ current, max, temp }, ajuste, limite)` devolve os três: `max` (1 a `limite`) e `temp` (0 a `limite`) trocam só o seu (fora → `RangeError`); a subtração gasta o temp antes do atual; o resto passa pelo `applyBarChange` ([`tokens/temp.md`](tokens/temp.md)).
+Ajuste (`applyBarChange`, `adjustBarValues`), débito em lote tudo ou nada (`spendBars`), rótulo sem acento/caixa (`barLabelKey`) e barras do manifesto que faltam (`missingManifestBars`): [`game-core/barra.md`](game-core/barra.md).
 
 ## Combate
 
