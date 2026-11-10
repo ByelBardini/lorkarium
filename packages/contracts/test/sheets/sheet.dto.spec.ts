@@ -4,6 +4,8 @@ import {
   sheetAdjustBarCommandDto,
   sheetChangedEventDto,
   sheetDto,
+  sheetReceiptDto,
+  sheetSpendBarsCommandDto,
   sheetSummaryDto,
   tokenSheetsResponseDto,
   updateSheetRequestDto,
@@ -28,6 +30,7 @@ const lyraSummary = {
 const lyraSheet = { ...lyraSummary, values: { forca: 16 }, canEdit: true, canManage: false };
 const adjust = { actionId, campaignId, sheetId, barId, change: { op: 'add', amount: -5 } };
 const create = { actionId, templateId: actionId, name: 'Lyra' };
+const spend = { actionId, campaignId, sheetId, costs: [{ barId, amount: 6 }] };
 
 describe('sheet', () => {
   it.each(['controllers', 'table'])('accepts the visibility %s', (visibility) =>
@@ -111,4 +114,58 @@ describe('sheet events', () => {
         values: { forca: 16 },
       }).success,
     ).toBe(false));
+});
+
+describe('sheet:spendBars', () => {
+  const cost = (amount: number) => ({ barId, amount });
+  const costsOf = (count: number) => Array.from({ length: count }, () => cost(1));
+
+  it('accepts one cost', () => expect(sheetSpendBarsCommandDto.parse(spend)).toEqual(spend));
+
+  it('accepts 8 costs, the same bar repeated', () =>
+    expect(sheetSpendBarsCommandDto.parse({ ...spend, costs: costsOf(8) }).costs).toHaveLength(8));
+
+  it.each([
+    ['no cost', []],
+    ['9 costs', costsOf(9)],
+    ['a cost of 0', [cost(0)]],
+    ['a negative cost', [cost(-2)]],
+    ['a fractional cost', [cost(1.5)]],
+    ['a cost past the bar limit', [cost(100_000)]],
+    ['a bar that is not a uuid', [{ barId: 'MP', amount: 1 }]],
+    ['a cost with an extra field', [{ barId, amount: 1, temp: true }]],
+  ])('refuses %s', (_case, costs) =>
+    expect(sheetSpendBarsCommandDto.safeParse({ ...spend, costs }).success).toBe(false),
+  );
+
+  it('accepts a cost at the bar limit', () =>
+    expect(sheetSpendBarsCommandDto.parse({ ...spend, costs: [cost(99_999)] }).costs).toEqual([
+      cost(99_999),
+    ]));
+
+  it.each([
+    ['tokenId', tokenId],
+    ['sceneId', campaignId],
+    ['userId', actionId],
+  ])('refuses sheet:spendBars carrying %s', (field, value) =>
+    expect(sheetSpendBarsCommandDto.safeParse({ ...spend, [field]: value }).success).toBe(false),
+  );
+});
+
+describe('sheet receipt', () => {
+  const receipt = { actionId, sheetId, version: 5, operation: 'update' };
+
+  it('reads a receipt saved without skippedBars as none skipped', () =>
+    expect(sheetReceiptDto.parse(receipt).skippedBars).toEqual([]));
+
+  it('keeps the labels of the bars that did not fit', () =>
+    expect(sheetReceiptDto.parse({ ...receipt, skippedBars: ['ES'] }).skippedBars).toEqual(['ES']));
+
+  it.each([
+    ['an empty label', ['']],
+    ['9 labels', Array.from({ length: 9 }, (_, index) => `B${index}`)],
+    ['a label of 25', ['x'.repeat(25)]],
+  ])('refuses skippedBars with %s', (_case, skippedBars) =>
+    expect(sheetReceiptDto.safeParse({ ...receipt, skippedBars }).success).toBe(false),
+  );
 });

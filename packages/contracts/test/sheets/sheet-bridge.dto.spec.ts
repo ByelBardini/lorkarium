@@ -31,6 +31,7 @@ function stateWith(image: unknown): unknown {
     bars: [hp],
     values: { forca: 16 },
     canEdit: true,
+    character: null,
   };
 }
 
@@ -161,11 +162,18 @@ describe('host to frame messages', () => {
         bars: [],
         values: {},
         canEdit: true,
+        character: null,
       }).success,
     ).toBe(true));
   it('refuses a state without the token field', () =>
     expect(
-      sheetHostMessageDto.safeParse({ type: 'state', bars: [], values: {}, canEdit: true }).success,
+      sheetHostMessageDto.safeParse({
+        type: 'state',
+        bars: [],
+        values: {},
+        canEdit: true,
+        character: null,
+      }).success,
     ).toBe(false));
   it('refuses image bytes that are a view instead of an ArrayBuffer', () =>
     expect(

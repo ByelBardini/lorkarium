@@ -1,39 +1,13 @@
 import { z } from 'zod';
 import { stateVersionDto } from '../http/realtime-ack.dto';
-import { utf8Length } from '../utf8-length';
+import { sheetTemplateManifestDto } from './sheet-manifest.dto';
+import { sheetTemplateFilesDto } from './sheet-template-files.dto';
 
-export const SHEET_TEMPLATE_SOURCE_MAX_BYTES = 512 * 1024;
 export const SHEET_TEMPLATE_NAME_MAX_LENGTH = 60;
 export const UNNAMED_SHEET_TEMPLATE_NAME = 'Modelo sem nome';
-const SOURCE_KEYS = ['html', 'css', 'js'] as const;
-const CHANGE_KEYS = ['name', 'folderId', ...SOURCE_KEYS] as const;
+const CHANGE_KEYS = ['name', 'folderId', 'files', 'manifest'] as const;
 
 export const sheetTemplateNameDto = z.string().trim().min(1).max(SHEET_TEMPLATE_NAME_MAX_LENGTH);
-// Characters never outnumber UTF-8 bytes, so this cheap cap runs before the byte count.
-const sourceTextDto = z.string().max(SHEET_TEMPLATE_SOURCE_MAX_BYTES);
-export const sheetTemplateSourceShape = {
-  html: sourceTextDto,
-  css: sourceTextDto,
-  js: sourceTextDto,
-};
-
-interface PartialSource {
-  html?: string;
-  css?: string;
-  js?: string;
-}
-
-export function checkSheetTemplateSourceBudget(
-  source: PartialSource,
-  context: z.RefinementCtx,
-): void {
-  const bytes = SOURCE_KEYS.reduce((sum, key) => sum + utf8Length(source[key] ?? ''), 0);
-  if (bytes <= SHEET_TEMPLATE_SOURCE_MAX_BYTES) return;
-  context.addIssue({
-    code: 'custom',
-    message: `html + css + js have ${bytes} bytes; expected at most ${SHEET_TEMPLATE_SOURCE_MAX_BYTES}`,
-  });
-}
 
 /** A template as the library lists it (master only): no code, so the aggregate stays small.
  *
@@ -47,51 +21,48 @@ export const sheetTemplateSummaryDto = z.strictObject({
 });
 export type SheetTemplateSummaryDto = z.infer<typeof sheetTemplateSummaryDto>;
 
-/** A template with its code, as the master's editor reads it; html + css + js fit the budget.
+/** A template with its files and manifest, as the master's editor reads it.
  *
- *  Example: `sheetTemplateDto.parse({ ...summary, html: '<p></p>', css: '', js: '' })` */
-export const sheetTemplateDto = z
-  .strictObject({ ...sheetTemplateSummaryDto.shape, ...sheetTemplateSourceShape })
-  .superRefine(checkSheetTemplateSourceBudget);
+ *  Example: `sheetTemplateDto.parse({ ...summary, files: [{ path: 'index.html', content: '<p></p>' }], manifest })` */
+export const sheetTemplateDto = z.strictObject({
+  ...sheetTemplateSummaryDto.shape,
+  files: sheetTemplateFilesDto,
+  manifest: sheetTemplateManifestDto,
+});
 export type SheetTemplateDto = z.infer<typeof sheetTemplateDto>;
 
-/** The code a sheet runs, sent with the sheet so one read mounts the frame.
+/** The code a sheet runs and the manifest the host enforces, sent with the sheet so one read
+ *  mounts the frame.
  *
- *  Example: `sheetTemplateCodeDto.parse({ name: 'Ficha Tormenta', version: 3, html, css, js })` */
-export const sheetTemplateCodeDto = z
-  .strictObject({
-    name: sheetTemplateNameDto,
-    version: stateVersionDto,
-    ...sheetTemplateSourceShape,
-  })
-  .superRefine(checkSheetTemplateSourceBudget);
+ *  Example: `sheetTemplateCodeDto.parse({ name: 'Ficha Tormenta', version: 3, files, manifest })` */
+export const sheetTemplateCodeDto = z.strictObject({
+  name: sheetTemplateNameDto,
+  version: stateVersionDto,
+  files: sheetTemplateFilesDto,
+  manifest: sheetTemplateManifestDto,
+});
 export type SheetTemplateCodeDto = z.infer<typeof sheetTemplateCodeDto>;
 
 /** Body of `POST /campaigns/:campaignId/sheet-templates` (master only): no name =
- *  `UNNAMED_SHEET_TEMPLATE_NAME`, no folder = the root.
+ *  `UNNAMED_SHEET_TEMPLATE_NAME`, no folder = the root, no manifest = one that declares nothing.
  *
- *  Example: `createSheetTemplateRequestDto.parse({ name: ' Ficha Tormenta ', html, css, js })` */
-export const createSheetTemplateRequestDto = z
-  .strictObject({
-    name: sheetTemplateNameDto.optional(),
-    folderId: z.uuid().nullable().optional(),
-    ...sheetTemplateSourceShape,
-  })
-  .superRefine(checkSheetTemplateSourceBudget);
+ *  Example: `createSheetTemplateRequestDto.parse({ name: ' Ficha Tormenta ', files })` */
+export const createSheetTemplateRequestDto = z.strictObject({
+  name: sheetTemplateNameDto.optional(),
+  folderId: z.uuid().nullable().optional(),
+  files: sheetTemplateFilesDto,
+  manifest: sheetTemplateManifestDto.optional(),
+});
 export type CreateSheetTemplateRequestDto = z.infer<typeof createSheetTemplateRequestDto>;
 
-interface TemplateChanges extends PartialSource {
+interface TemplateChanges {
   name?: string;
   folderId?: string | null;
+  files?: unknown;
+  manifest?: unknown;
 }
 
 function checkTemplateChanges(changes: TemplateChanges, context: z.RefinementCtx): void {
-  const present = SOURCE_KEYS.filter((key) => changes[key] !== undefined);
-  if (present.length > 0 && present.length < SOURCE_KEYS.length)
-    context.addIssue({
-      code: 'custom',
-      message: `source has only ${present.join(', ')}; expected html, css and js together`,
-    });
   if (CHANGE_KEYS.some((key) => changes[key] !== undefined)) return;
   context.addIssue({
     code: 'custom',
@@ -99,24 +70,21 @@ function checkTemplateChanges(changes: TemplateChanges, context: z.RefinementCtx
   });
 }
 
-/** Body of `PATCH /campaigns/:campaignId/sheet-templates/:templateId`: the code goes as a whole
- *  (html, css and js together) so the budget is checked at the edge; `folderId: null` takes it to
- *  the root; `expectedVersion` refuses saving over another master's save.
+/** Body of `PATCH /campaigns/:campaignId/sheet-templates/:templateId`: the files go as a whole
+ *  list (a reorder is a change too) so the budget is checked at the edge; the manifest goes whole
+ *  too; `folderId: null` takes it to the root; `expectedVersion` refuses saving over another
+ *  master's save.
  *
- *  Example: `updateSheetTemplateRequestDto.parse({ expectedVersion: 3, html, css, js })` */
+ *  Example: `updateSheetTemplateRequestDto.parse({ expectedVersion: 3, files })` */
 export const updateSheetTemplateRequestDto = z
   .strictObject({
     expectedVersion: stateVersionDto,
     name: sheetTemplateNameDto.optional(),
     folderId: z.uuid().nullable().optional(),
-    html: sourceTextDto.optional(),
-    css: sourceTextDto.optional(),
-    js: sourceTextDto.optional(),
+    files: sheetTemplateFilesDto.optional(),
+    manifest: sheetTemplateManifestDto.optional(),
   })
-  .superRefine((changes, context) => {
-    checkTemplateChanges(changes, context);
-    checkSheetTemplateSourceBudget(changes, context);
-  });
+  .superRefine(checkTemplateChanges);
 export type UpdateSheetTemplateRequestDto = z.infer<typeof updateSheetTemplateRequestDto>;
 
 /** Params of the routes of one sheet template. */

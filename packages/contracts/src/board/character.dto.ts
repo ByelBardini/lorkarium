@@ -97,10 +97,12 @@ const CHARACTER_CHANGE_FIELDS = [
   'difficultyClass',
   'noteOne',
   'noteTwo',
+  'imageAssetId',
 ] as const;
 
 /** The card fields of a character to change: absent stays, `null` (or only spaces) clears a note
- *  or a number; the name is trimmed and never empty.
+ *  or a number; the name is trimmed and never empty. `imageAssetId` is the portrait its linked
+ *  tokens wear (the server wants a `token` image of the same table), `null` takes it off.
  *
  *  Example: `characterChangesDto.parse({ armorClass: 15 })` */
 export const characterChangesDto = z
@@ -110,6 +112,7 @@ export const characterChangesDto = z
     difficultyClass: characterStatDto('difficultyClass').optional(),
     noteOne: characterTextDto('noteOne', CHARACTER_NOTE_MAX).optional(),
     noteTwo: characterTextDto('noteTwo', CHARACTER_NOTE_MAX).optional(),
+    imageAssetId: z.uuid().nullable().optional(),
   })
   .superRefine((changes, context) => {
     if (Object.keys(changes).length > 0) return;

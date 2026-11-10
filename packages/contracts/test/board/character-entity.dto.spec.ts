@@ -105,6 +105,23 @@ describe('the character changes', () => {
       'armorClass 1000 is invalid; expected a whole number from 0 to 999',
     );
   });
+
+  it('takes the id of a portrait image, or null to take the portrait off', () => {
+    const imageAssetId = '4a3b2c1d-0e9f-4a8b-9c7d-6e5f4a3b2c1d';
+    expect(characterChangesDto.parse({ imageAssetId })).toEqual({ imageAssetId });
+    expect(characterChangesDto.parse({ imageAssetId: null })).toEqual({ imageAssetId: null });
+  });
+
+  it('a portrait that is not a uuid is refused', () => {
+    const result = characterChangesDto.safeParse({ imageAssetId: 'lyra.png' });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['imageAssetId']);
+  });
+
+  it('the message of empty changes names the portrait among the fields', () => {
+    const result = characterChangesDto.safeParse({});
+    expect(result.error?.issues[0]?.message).toMatch(/imageAssetId/);
+  });
 });
 
 describe('the character commands', () => {

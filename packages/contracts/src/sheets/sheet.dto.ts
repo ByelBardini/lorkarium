@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { barChangeDto } from '../board/token.dto';
+import {
+  BAR_LABEL_MAX_LENGTH,
+  BAR_VALUE_LIMIT,
+  MAX_BARS_PER_TOKEN,
+  barChangeDto,
+} from '../board/token.dto';
 import { stateVersionDto } from '../http/realtime-ack.dto';
 import { sheetTemplateCodeDto } from './sheet-template.dto';
 import { sheetValuesDto } from './sheet-values.dto';
@@ -109,12 +114,18 @@ export type DeleteSheetRequestDto = z.infer<typeof deleteSheetRequestDto>;
 export const sheetParamsDto = z.strictObject({ campaignId: z.uuid(), sheetId: z.uuid() });
 export const tokenSheetParamsDto = z.strictObject({ campaignId: z.uuid(), tokenId: z.uuid() });
 
-/** What a write did, without the values: a repeated `actionId` gets the same receipt back. */
+/** What a write did, without the values: a repeated `actionId` gets the same receipt back.
+ *  `skippedBars`: the template's bars that giving the sheet could not add to its holder (the bar
+ *  cap), by label; a receipt saved before the list existed reads as none. */
 export const sheetReceiptDto = z.strictObject({
   actionId: z.uuid(),
   sheetId: z.uuid(),
   version: stateVersionDto,
   operation: z.enum(['create', 'update', 'values', 'delete']),
+  skippedBars: z
+    .array(z.string().trim().min(1).max(BAR_LABEL_MAX_LENGTH))
+    .max(MAX_BARS_PER_TOKEN)
+    .default([]),
 });
 export type SheetReceiptDto = z.infer<typeof sheetReceiptDto>;
 
@@ -145,3 +156,23 @@ export const sheetAdjustBarCommandDto = z.strictObject({
   change: barChangeDto,
 });
 export type SheetAdjustBarCommandDto = z.infer<typeof sheetAdjustBarCommandDto>;
+
+/** One charge of `sheet:spendBars`: a whole amount out of a bar's current value. */
+export const sheetBarCostDto = z.strictObject({
+  barId: z.uuid(),
+  amount: z.number().int().min(1).max(BAR_VALUE_LIMIT),
+});
+export type SheetBarCostDto = z.infer<typeof sheetBarCostDto>;
+
+/** `sheet:spendBars`: several bars of the sheet's holder paid at once, all or nothing, from the
+ *  current value only (the temp never pays); one bar short is INSUFFICIENT_BAR and nothing changes.
+ *  A bar may repeat: its costs add up.
+ *
+ *  Example: `sheetSpendBarsCommandDto.parse({ actionId, campaignId, sheetId, costs: [{ barId: mp, amount: 6 }] })` */
+export const sheetSpendBarsCommandDto = z.strictObject({
+  actionId: z.uuid(),
+  campaignId: z.uuid(),
+  sheetId: z.uuid(),
+  costs: z.array(sheetBarCostDto).min(1).max(MAX_BARS_PER_TOKEN),
+});
+export type SheetSpendBarsCommandDto = z.infer<typeof sheetSpendBarsCommandDto>;

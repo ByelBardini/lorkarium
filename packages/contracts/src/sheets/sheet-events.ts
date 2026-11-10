@@ -1,9 +1,14 @@
 import type { BoardCommandAckDto } from '../board/board.dto';
-import type { SheetAdjustBarCommandDto, SheetChangedEventDto } from './sheet.dto';
+import type {
+  SheetAdjustBarCommandDto,
+  SheetChangedEventDto,
+  SheetSpendBarsCommandDto,
+} from './sheet.dto';
 
 /** Sheet command and event names on the table connection. */
 export const SHEET_EVENTS = {
   adjustBar: 'sheet:adjustBar',
+  spendBars: 'sheet:spendBars',
   changed: 'sheet:changed',
 } as const;
 
@@ -11,6 +16,10 @@ export const SHEET_EVENTS = {
 export type SheetClientEvents = {
   'sheet:adjustBar': (
     command: SheetAdjustBarCommandDto,
+    ack: (answer: BoardCommandAckDto) => void,
+  ) => void;
+  'sheet:spendBars': (
+    command: SheetSpendBarsCommandDto,
     ack: (answer: BoardCommandAckDto) => void,
   ) => void;
 };

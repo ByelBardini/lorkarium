@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ASSET_MAX_SIDE,
   assetOutlineResponseDto,
+  assetPurposeDto,
   importAssetRequestDto,
   sightOutlineDto,
   uploadAssetQueryDto,
@@ -70,6 +72,13 @@ describe('uploadAssetQueryDto', () => {
     const result = uploadAssetQueryDto.safeParse({ purpose: 'icon' });
 
     expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['purpose']);
+  });
+});
+
+describe('assetPurposeDto', () => {
+  it('sheet_image is an asset purpose kept up to 4096 px', () => {
+    expect(assetPurposeDto.parse('sheet_image')).toBe('sheet_image');
+    expect(ASSET_MAX_SIDE.sheet_image).toBe(4096);
   });
 });
 
