@@ -334,7 +334,7 @@ describe('the bar formulas of the Lork sheet', () => {
     expect(sent('bars.adjust')).toEqual([]);
   });
 
-  it('offers only the bars with no fixed formula, and "Adicionar conta" adds one by lists', async () => {
+  it('suggests only the bars with no fixed formula, and "Adicionar conta" adds one by lists', async () => {
     deliverState({}, { bars: tableBars({}, true) });
     await settled();
     click('[data-add="contas"]');
@@ -345,9 +345,8 @@ describe('the bar formulas of the Lork sheet', () => {
         value: { ordem: expect.any(Number) },
       },
     ]);
-    deliverState({ contas: { c1: { ordem: 1 } } }, { bars: tableBars({}, true) });
-    const options = [...frame.document.querySelectorAll('[data-lk="contas.c1.bar"] option')];
-    expect(options.map((option) => option.textContent)).toEqual(['Escolha a barra', 'Fôlego']);
+    const options = [...frame.document.querySelectorAll('#contas-bars option')];
+    expect(options.map((option) => option.getAttribute('value'))).toEqual(['Fôlego']);
   });
 
   it('removing a formula keeps its icon on the first click and takes it out on the second', async () => {
@@ -365,13 +364,16 @@ describe('the bar formulas of the Lork sheet', () => {
     expect(sent('values.patch').at(-1)?.patches).toEqual([{ path: ['contas', 'c1'], value: null }]);
   });
 
-  it('with no bar left without a fixed formula it says to create one instead of an empty choice', async () => {
-    deliverState({});
+  it('"Adicionar conta" is always there, and a bar the table lacks or with a fixed formula is told', async () => {
+    deliverState({
+      contas: { c1: { ordem: 1, bar: 'Sorte', f: '10' }, c2: { ordem: 2, bar: 'hp', f: '10' } },
+    });
     await settled();
-    expect(element<HTMLButtonElement>('[data-add="contas"]').hidden).toBe(true);
-    expect(element('#contas-none').hidden).toBe(false);
-    deliverState({}, { bars: tableBars({}, true) });
     expect(element<HTMLButtonElement>('[data-add="contas"]').hidden).toBe(false);
-    expect(element('#contas-none').hidden).toBe(true);
+    expect(element('#cb-c1').textContent).toBe('A mesa ainda não tem essa barra.');
+    expect(element('#cb-c2').textContent).toBe('HP já tem conta fixa.');
+    typeInto('[data-lk="contas.c1.f"]');
+    await settled(700);
+    expect(sent('bars.adjust')).toEqual([]);
   });
 });

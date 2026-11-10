@@ -93,33 +93,24 @@ function evalConta(text, vals) {
   }
 }
 
-/* só barras sem conta fixa; a guardada fica na lista mesmo se a barra sumiu da mesa */
-function contaBarOptions(stored) {
-  const labels = freeBars().map((b) => b.label);
-  if (filled(stored) && !labels.some((l) => barKey(l) === barKey(stored))) labels.push(stored);
-  return (
-    '<option value="">Escolha a barra</option>' +
-    labels.map((l) => `<option value="${esc(l)}">${esc(l)}</option>`).join('')
-  );
-}
+const freeBars = () => sortedBars().filter((b) => !resOf(b));
+/* o nome da barra é livre: as barras da mesa sem conta fixa só aparecem como sugestão */
 function contaRow([id]) {
   const p = 'contas.' + id;
   const b = tableBar(getP(p + '.bar'));
   return `<tr style="--c:${b ? colorOfBar(b) : 'var(--dim)'}">
-    <td class="rn"><select class="cost-bar conta-bar" data-lk="${p}.bar" aria-label="Barra da conta">${contaBarOptions(getP(p + '.bar'))}</select></td>
+    <td class="rn">${bare(p + '.bar', 'Nome da barra', 'in conta-bar', 'list="contas-bars" maxlength="24" aria-label="Barra da conta"')}<p class="conta-why" id="cb-${id}" role="status"></p></td>
     <td class="rf">${bare(p + '.f', 'ex.: 10 + DES×2 + Nível', 'in conta-f', 'aria-label="Fórmula da conta"')}<p class="conta-why bad" id="cw-${id}" role="status"></p></td>
     <td class="rv" id="cv-${id}">—</td>
     <td class="rx"><button type="button" class="sk-x" data-rm="contas:${id}" data-arm-icon data-edit-only aria-label="Tirar a conta">${ic('x', 12)}</button></td></tr>`;
 }
-const freeBars = () => sortedBars().filter((b) => !resOf(b));
-/* sem barra livre na mesa não há o que escolher: no lugar do botão, a dica de criar uma */
 function renderContas() {
   const box = document.getElementById('contas');
   if (!box) return;
   box.innerHTML = itemsOf('contas').map(contaRow).join('');
-  const none = freeBars().length === 0;
-  document.querySelector('[data-add="contas"]').hidden = none;
-  document.getElementById('contas-none').hidden = !none || !VIEW.canEdit;
+  document.getElementById('contas-bars').innerHTML = freeBars()
+    .map((b) => `<option value="${esc(b.label)}"></option>`)
+    .join('');
 }
 function calcContas(t) {
   const vals = contaValues(t);
@@ -130,7 +121,16 @@ function calcContas(t) {
     const r = filled(c.f) ? evalConta(c.f, vals) : null;
     out.textContent = r && r.ok ? r.value : '—';
     why.textContent = r && !r.ok ? `Conta inválida: ${r.why}.` : '';
+    const barNote = document.getElementById('cb-' + id);
+    if (barNote) barNote.textContent = contaBarNote(c.bar);
   }
+}
+/* a conta de uma barra com conta fixa não vale; uma barra que a mesa não tem ainda não recebe */
+function contaBarNote(label) {
+  if (!filled(label)) return '';
+  const b = tableBar(label);
+  if (b && resOf(b)) return `${b.label} já tem conta fixa.`;
+  return b ? '' : 'A mesa ainda não tem essa barra.';
 }
 /* [barra da mesa, máximo] das contas válidas; duas contas na mesma barra: vale a última */
 function contaMaxes(t) {

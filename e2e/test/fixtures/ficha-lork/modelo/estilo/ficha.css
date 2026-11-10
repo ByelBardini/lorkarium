@@ -1520,7 +1520,11 @@ table.res {
 }
 .res .conta-bar {
   width: 100%;
-  max-width: 150px;
+  max-width: 180px;
+  color: var(--c);
+  font: 600 15px var(--sans);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
 }
 .res .conta-f {
   width: 100%;
