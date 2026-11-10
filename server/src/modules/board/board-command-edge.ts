@@ -24,7 +24,7 @@ import { EffectAreaError } from '../effect-areas/effect-areas.error';
 import { LightError } from '../lights/lights.error';
 import { SceneError } from '../scenes/scenes.error';
 import { SessionEndedError, SessionError } from '../sessions/sessions.error';
-import { SheetError } from '../sheets/sheets.error';
+import { InsufficientBarError, SheetError } from '../sheets/sheets.error';
 import { TokenError } from '../tokens/tokens.error';
 import { WallError } from '../walls/walls.error';
 import { BoardError, CommandRateLimitedError } from './board.error';
@@ -160,7 +160,8 @@ function toAckError(deps: CommandEdgeDeps, error: unknown): ApiErrorDto {
     };
   }
   // The person's own text and which piece to fix: the same answer as the saved rolls give.
-  if (error instanceof InvalidDiceExpressionError) {
+  // The bar short by its label, its balance and the cost: what the sheet shows the one who pays.
+  if (error instanceof InvalidDiceExpressionError || error instanceof InsufficientBarError) {
     return { code: error.code, message: error.message };
   }
   if (isKnown(error)) {

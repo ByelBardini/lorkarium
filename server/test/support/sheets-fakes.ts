@@ -1,4 +1,4 @@
-import type { SheetChangedEventDto } from '@lorkarium/contracts';
+import type { SheetChangedEventDto, SheetManifestBarDto } from '@lorkarium/contracts';
 import type { CharacterRow } from '../../src/modules/characters/characters.dao';
 import { SheetHolderService } from '../../src/modules/sheets/sheet-holder.service';
 import type { SheetPublisherPort } from '../../src/modules/sheets/sheet-publisher.port';
@@ -31,9 +31,13 @@ import {
   LibraryPublisherFake,
   SceneFoldersDaoFake,
 } from './library-fakes';
-import { VHARN_SCENE_ID } from './scenes-factories';
+import { BoardPublisherFake } from './board-publisher-fake';
+import { ConditionsDaoFake } from './conditions-fakes';
+import { SheetTokensFake } from './manifest-bars-fakes';
+import { ScenesDaoFake } from './scenes-fakes';
+import { VHARN_SCENE_ID, scenePo } from './scenes-factories';
 import { QUELM_TEMPLATE_ID, SheetTemplatesDaoFake, sheetTemplatePo } from './sheet-templates-fakes';
-import { BRAM_ID, LOBO_ID, LYRA_ID } from './tokens-factories';
+import { BRAM_ID, LOBO_ID, LYRA_ID, bramRow } from './tokens-factories';
 
 export const LYRA_SHEET_ID = 'ab9c8d7e-6f5a-4b4c-9d3e-2f1a0b9c8d7e';
 export const QUELM_SHEET_ID = 'bc0d9e8f-7a6b-4c5d-8e4f-3a2b1c0d9e8f';
@@ -150,6 +154,16 @@ export class SheetsDaoFake implements SheetOperations {
     for (const key of change.removed) delete values[key];
     return Object.assign(row, { values, version: row.version + 1, updatedAt: change.updatedAt });
   }
+  async replaceValues(
+    campaignId: string,
+    sheetId: string,
+    change: Readonly<{ values: SheetValuesPo; updatedAt: Date }>,
+  ): Promise<SheetRow> {
+    this.journal.push('replace values');
+    const row = await this.required(campaignId, sheetId);
+    const { values, updatedAt } = change;
+    return Object.assign(row, { values, version: row.version + 1, updatedAt });
+  }
   async update(campaignId: string, sheetId: string, changes: SheetChangesPo): Promise<SheetRow> {
     this.journal.push('update');
     return Object.assign(await this.required(campaignId, sheetId), changes);
@@ -236,22 +250,33 @@ export class SheetsHarness {
   readonly publisher = new SheetPublisherFake(this.journal);
   readonly characterPublisher = new CharacterPublisherFake(this.journal);
   readonly library = new LibraryPublisherFake(this.journal);
+  /** The Salão of Vharn at version 7, where the loose Bram (Caio's, no bars) stands. */
+  readonly scenes = new ScenesDaoFake([scenePo({ version: 7 })]);
+  readonly tokens = new SheetTokensFake(this.journal, [
+    { sceneId: VHARN_SCENE_ID, row: bramRow() },
+  ]);
+  readonly board = new BoardPublisherFake();
   readonly members = new CampaignMembersDaoFake(new CampaignsDaoFake(), {}, [
     campaignMemberPo({ userId: ANA_ID, role: 'master', campaignId: VHARN_ID }),
     campaignMemberPo({ userId: BIA_ID, role: 'player', campaignId: VHARN_ID }),
     campaignMemberPo({ userId: CAIO_ID, role: 'player', campaignId: VHARN_ID }),
     campaignMemberPo({ userId: DUDA_ID, role: 'spectator', campaignId: VHARN_ID }),
   ]);
+  readonly templates = new SheetTemplatesDaoFake(this.journal, [
+    sheetTemplatePo({ version: 2 }),
+    sheetTemplatePo({ id: QUELM_TEMPLATE_ID, campaignId: QUELM_ID }),
+  ]);
   readonly daos: SheetDaos = {
     campaigns: new LibraryCampaignsDaoFake(this.journal, [campaignPo({ id: VHARN_ID })]),
     members: this.members,
     sheets: this.sheets,
-    templates: new SheetTemplatesDaoFake(this.journal, [
-      sheetTemplatePo({ version: 2 }),
-      sheetTemplatePo({ id: QUELM_TEMPLATE_ID, campaignId: QUELM_ID }),
-    ]),
+    templates: this.templates,
     folders: new SceneFoldersDaoFake(this.journal, [sceneFolderPo({ id: ATO_1_ID })]),
     characters: this.characters,
+    scenes: this.scenes,
+    tokens: this.tokens,
+    tokenBars: this.tokens,
+    conditions: new ConditionsDaoFake(this.journal),
   };
   failCommit = false;
   readonly clock = new ClockFake(new Date('2026-10-31T15:00:00Z'));
@@ -263,6 +288,7 @@ export class SheetsHarness {
     publisher: this.publisher,
     library: this.library,
     characterPublisher: this.characterPublisher,
+    board: this.board,
     holders: new SheetHolderService(),
   };
   constructor() {
@@ -275,6 +301,12 @@ export class SheetsHarness {
   /** Lyra's sheet with `overrides`. */
   withLyraSheet(overrides: Partial<SheetRow> = {}): this {
     this.sheets.rows.push(sheetPo(overrides));
+    return this;
+  }
+  /** Ficha Tormenta of Vharn declares these bars. */
+  withManifestBars(bars: SheetManifestBarDto[]): this {
+    const template = this.templates.rows.find(({ id }) => id === sheetTemplatePo().id);
+    if (template) Object.assign(template, { manifest: { permissions: [], bars } });
     return this;
   }
   /** The main sheet of a character, as if saved before. */
@@ -290,6 +322,7 @@ export class SheetsHarness {
   private async inTransaction<T>(work: (daos: SheetDaos) => Promise<T>): Promise<T> {
     const saved = structuredClone({ rows: this.sheets.rows, actions: this.sheets.actions });
     const characters = structuredClone(this.characters.rows);
+    const tokens = structuredClone(this.tokens.placed);
     try {
       const result = await work(this.daos);
       if (this.failCommit) throw new Error('commit failed');
@@ -298,6 +331,7 @@ export class SheetsHarness {
     } catch (error) {
       Object.assign(this.sheets, saved);
       this.characters.rows.splice(0, this.characters.rows.length, ...characters);
+      this.tokens.placed.splice(0, this.tokens.placed.length, ...tokens);
       throw error;
     }
   }

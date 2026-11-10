@@ -21,16 +21,21 @@ export const assetPurpose = pgEnum('asset_purpose', [
   'library_image',
   'document_image',
   'library_map',
+  'sheet_image',
+  'sheet_template_asset',
 ]);
-// GIF is kept only for an aura (the processor refuses it for any other purpose).
+// GIF is kept only for an aura (the processor refuses it for any other purpose); a WOFF2 font only
+// as an asset of a sheet template.
 export const assetMimeType = pgEnum('asset_mime_type', [
   'image/png',
   'image/jpeg',
   'image/webp',
   'image/gif',
+  'font/woff2',
 ]);
 
-/** An image of one campaign (spec §6 `Asset`); the bytes live in the S3 under `storage_key`. */
+/** An image (or a sheet template font) of one campaign (spec §6 `Asset`); the bytes live in the
+ *  S3 under `storage_key`. A font has no pixels: its width and height are 0. */
 export const assets = pgTable(
   'assets',
   {

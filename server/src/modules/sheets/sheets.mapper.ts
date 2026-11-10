@@ -157,8 +157,10 @@ export function toSheetReceiptDto(
   actionId: string,
   sheet: Pick<SheetPo, 'id' | 'version'>,
   operation: SheetReceiptDto['operation'],
+  skippedBars: readonly string[] = [],
 ): SheetReceiptDto {
-  return { actionId, sheetId: sheet.id, version: sheet.version, operation };
+  const { id: sheetId, version } = sheet;
+  return { actionId, sheetId, version, operation, skippedBars: [...skippedBars] };
 }
 
 /** A patch split as the DAO writes it: the keys set and the keys `null` removes.

@@ -1,0 +1,1 @@
+ALTER TABLE "sheet_templates" ADD COLUMN "manifest" jsonb DEFAULT '{"permissions":[],"bars":[]}'::jsonb NOT NULL;

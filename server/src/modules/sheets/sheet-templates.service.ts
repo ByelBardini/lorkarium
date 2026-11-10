@@ -1,9 +1,13 @@
 import {
+  emptySheetTemplateManifest,
+  SHEET_TEMPLATE_ASSETS_MAX_BYTES,
   UNNAMED_SHEET_TEMPLATE_NAME,
   type CreateSheetTemplateRequestDto,
   type SheetTemplateDto,
+  type SheetTemplateManifestDto,
   type UpdateSheetTemplateRequestDto,
 } from '@lorkarium/contracts';
+import type { AssetsDao } from '../assets/assets.dao';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import type { CampaignsDao } from '../campaigns/campaigns.dao';
@@ -12,6 +16,7 @@ import { memberAccessOf, viewerAccessOf } from '../campaigns/member-access';
 import type { SceneFoldersDao } from '../library/scene-folders.dao';
 import type { LibraryPublisherPort } from '../library/library-publisher.port';
 import type { LibraryRequester } from '../library/library.service';
+import { SheetTemplateAssetBo } from './sheet-template-asset.bo';
 import { SheetTemplateBo } from './sheet-template.bo';
 import type { SheetTemplatesDao } from './sheet-templates.dao';
 import { toSheetTemplateChangesPo, toSheetTemplateDto } from './sheet-templates.mapper';
@@ -28,6 +33,7 @@ export type SheetTemplateDaos = Readonly<{
   folders: Pick<SceneFoldersDao, 'listOfCampaign'>;
   templates: Pick<SheetTemplatesDao, 'findInCampaign' | 'insert' | 'update' | 'delete'>;
   uses: TemplateUseCounter;
+  assets: Pick<AssetsDao, 'findManyInCampaign'>;
 }>;
 
 export type SheetTemplatesServiceDeps = Readonly<{
@@ -43,7 +49,7 @@ type TemplateEdit = Readonly<{ daos: SheetTemplateDaos; rules: SheetTemplateBo }
 /** The sheet templates of the library: only masters read or write them. Every write locks the
  *  table (like the library), commits, and only then tells it `library:changed`.
  *
- *  Example: `await templates.create({ userId, campaignId }, { name: 'Ficha Tormenta', html, css, js })` */
+ *  Example: `await templates.create({ userId, campaignId }, { name: 'Ficha Tormenta', files })` */
 export class SheetTemplatesService {
   constructor(private readonly deps: SheetTemplatesServiceDeps) {}
 
@@ -60,15 +66,17 @@ export class SheetTemplatesService {
     return this.edit(requester, 'create a sheet template', async ({ daos, rules }) => {
       const folderId = input.folderId ?? null;
       await this.requireFolder(daos, rules, requester, folderId);
-      const { html, css, js } = input;
+      const { files } = input;
+      if (input.manifest) await requireManifestAssets(daos, requester, input.manifest);
       const name = input.name ?? UNNAMED_SHEET_TEMPLATE_NAME;
+      const manifest = input.manifest ?? emptySheetTemplateManifest();
       const { campaignId, userId } = requester;
-      const row = { campaignId, folderId, name, html, css, js, createdBy: userId };
+      const row = { campaignId, folderId, name, files, manifest, createdBy: userId };
       return toSheetTemplateDto(await daos.templates.insert(row));
     });
   }
 
-  /** Renames, moves or replaces the code; refused when another master saved after the version
+  /** Renames, moves or replaces the files or the manifest; refused when another master saved after the version
    *  read (SHEET_TEMPLATE_VERSION_CONFLICT). Every save bumps the version. */
   async update(
     requester: LibraryRequester,
@@ -80,6 +88,7 @@ export class SheetTemplatesService {
       rules.requireVersion(found, input.expectedVersion);
       if (input.folderId !== undefined)
         await this.requireFolder(daos, rules, requester, input.folderId);
+      if (input.manifest) await requireManifestAssets(daos, requester, input.manifest);
       const changes = toSheetTemplateChangesPo(input);
       const saved = await daos.templates.update(requester.campaignId, templateId, {
         ...changes,
@@ -138,4 +147,17 @@ export class SheetTemplatesService {
       folderId,
     );
   }
+}
+
+// Under the table's lock with the rest of the save: an asset of another table, of another purpose
+// or missing refuses the whole save.
+async function requireManifestAssets(
+  daos: SheetTemplateDaos,
+  requester: LibraryRequester,
+  manifest: SheetTemplateManifestDto,
+): Promise<void> {
+  const ids = [...new Set(manifest.assets.map(({ assetId }) => assetId))];
+  const stored = await daos.assets.findManyInCampaign(requester.campaignId, ids);
+  const rules = new SheetTemplateAssetBo(requester.campaignId, SHEET_TEMPLATE_ASSETS_MAX_BYTES);
+  rules.requireDeclared(manifest.assets, stored);
 }

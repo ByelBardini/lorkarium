@@ -3,19 +3,24 @@ import {
   ASSET_MAX_BYTES,
   ASSET_MAX_SIDE,
   AURA_ANIMATION_LIMITS,
+  SHEET_TEMPLATE_FONT_MAX_BYTES,
+  SHEET_TEMPLATE_FONT_MIME_TYPE,
   type AssetDto,
-  type AssetMimeTypeDto,
   type AssetOutlineResponseDto,
   type AssetPurposeDto,
+  type SheetTemplateAssetDto,
+  type SheetTemplateAssetMimeTypeDto,
 } from '@lorkarium/contracts';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
 import {
   animationFor,
+  dedicatedEndpointOf,
   isMasterOnlyAssetPurpose,
   isProtectedAssetPurpose,
   outlineFor,
   requireSize,
+  requireWoff2,
   resizeFor,
 } from './asset-upload.bo';
 import type { AssetStoragePort, StoredObject } from './asset-storage.port';
@@ -28,7 +33,14 @@ import {
   LinkUnreachableError,
   UnsupportedImageError,
 } from './assets.error';
-import { storageKeyOf, toAssetDto, toAssetOutlineDto, toNewAssetPo } from './assets.mapper';
+import {
+  storageKeyOf,
+  toAssetDto,
+  toAssetOutlineDto,
+  toNewAssetPo,
+  toNewFontAssetPo,
+  toSheetTemplateAssetDto,
+} from './assets.mapper';
 import type { AssetPo } from './assets.po';
 import type { FetchRefusal, ImageFetcherPort } from './image-fetcher.port';
 import type { ImageProcessorPort, NormalizedImage, NormalizeOptions } from './image-processor.port';
@@ -47,7 +59,7 @@ export type AssetsServiceDeps = Readonly<{
 export type OpenedAsset = Readonly<{
   body: StoredObject['body'];
   size: number;
-  mimeType: AssetMimeTypeDto;
+  mimeType: AssetPo['mimeType'];
   cacheControl?: string;
 }>;
 
@@ -66,11 +78,51 @@ export class AssetsService {
     campaignId: string,
     file: Readonly<{ bytes: Uint8Array; purpose: AssetPurposeDto }>,
   ): Promise<AssetDto> {
-    if (file.purpose === 'document_image') {
-      const access = await memberAccessOf(this.deps.members, campaignId, userId);
-      access.forbid('upload document_image through generic assets', 'the document image endpoint');
-    }
+    await this.refuseDedicated(userId, campaignId, `upload ${file.purpose}`, file.purpose);
     return this.uploadFor(userId, campaignId, file);
+  }
+
+  /** Who may read a sheet image is decided by the sheet route, which authorizes before and
+   *  associates after. */
+  async uploadSheetImage(userId: string, campaignId: string, bytes: Uint8Array): Promise<AssetDto> {
+    return this.uploadFor(userId, campaignId, { bytes, purpose: 'sheet_image' });
+  }
+
+  /** A font or an image of a sheet template, sent by a master; the template route authorizes and
+   *  the template's manifest associates it. A font is kept as sent once its signature says WOFF2
+   *  and it fits `SHEET_TEMPLATE_FONT_MAX_BYTES`; an image goes through the processor.
+   *
+   *  Example: `await assets.uploadSheetTemplateAsset(userId, campaignId, { bytes, mimeType: 'font/woff2' })` */
+  async uploadSheetTemplateAsset(
+    userId: string,
+    campaignId: string,
+    file: Readonly<{ bytes: Uint8Array; mimeType: SheetTemplateAssetMimeTypeDto }>,
+  ): Promise<SheetTemplateAssetDto> {
+    const purpose = 'sheet_template_asset';
+    const access = await memberAccessOf(this.deps.members, campaignId, userId);
+    access.requireMaster(`upload a ${purpose}`);
+    if (file.mimeType === SHEET_TEMPLATE_FONT_MIME_TYPE)
+      return toSheetTemplateAssetDto(await this.keepFont({ campaignId, userId }, file.bytes));
+    requireSize(file.bytes.byteLength, ASSET_MAX_BYTES);
+    const normalized = await this.deps.processor.normalize(file.bytes, keptAs(purpose));
+    if (!normalized.ok) throw new UnsupportedImageError(normalized.refusal.detail);
+    const row = await this.keepRow({ campaignId, userId, purpose }, normalized.image);
+    return toSheetTemplateAssetDto(row);
+  }
+
+  // A font is not decoded (no processor reads fonts): it is checked by its signature and size.
+  private async keepFont(
+    owner: Readonly<{ campaignId: string; userId: string }>,
+    bytes: Uint8Array,
+  ): Promise<AssetPo> {
+    requireSize(bytes.byteLength, SHEET_TEMPLATE_FONT_MAX_BYTES);
+    requireWoff2(bytes);
+    const assetId = this.deps.newId();
+    await this.deps.storage.put(storageKeyOf(assetId), bytes, SHEET_TEMPLATE_FONT_MIME_TYPE);
+    const { campaignId, userId } = owner;
+    return this.deps.assets.insert(
+      toNewFontAssetPo({ assetId, campaignId, ownerId: userId, bytes }),
+    );
   }
 
   async uploadDocumentImage(
@@ -99,15 +151,25 @@ export class AssetsService {
     campaignId: string,
     link: Readonly<{ url: string; purpose: AssetPurposeDto }>,
   ): Promise<AssetDto> {
-    if (link.purpose === 'document_image') {
-      const access = await memberAccessOf(this.deps.members, campaignId, userId);
-      access.forbid('import document_image through generic assets', 'the document image endpoint');
-    }
+    await this.refuseDedicated(userId, campaignId, `import ${link.purpose}`, link.purpose);
     return this.importFor(userId, campaignId, link);
   }
 
   async importDocumentImage(userId: string, campaignId: string, url: string): Promise<AssetDto> {
     return this.importFor(userId, campaignId, { url, purpose: 'document_image' });
+  }
+
+  // Before any I/O: a reserved image sent here would have no owner to authorize its readers.
+  private async refuseDedicated(
+    userId: string,
+    campaignId: string,
+    action: string,
+    purpose: AssetPurposeDto,
+  ): Promise<void> {
+    const endpoint = dedicatedEndpointOf(purpose);
+    if (endpoint === null) return;
+    const access = await memberAccessOf(this.deps.members, campaignId, userId);
+    access.forbid(`${action} through generic assets`, endpoint);
   }
 
   private async importFor(
@@ -171,12 +233,15 @@ export class AssetsService {
   }
 
   private async keep(incoming: Incoming, image: NormalizedImage): Promise<AssetDto> {
+    return toAssetDto(await this.keepRow(incoming, image));
+  }
+
+  private async keepRow(incoming: Incoming, image: NormalizedImage): Promise<AssetPo> {
     const assetId = this.deps.newId();
     await this.deps.storage.put(storageKeyOf(assetId), image.bytes, image.mimeType);
-    const row = await this.deps.assets.insert(
+    return this.deps.assets.insert(
       toNewAssetPo({ ...incoming, ownerId: incoming.userId, assetId, image }),
     );
-    return toAssetDto(row);
   }
 }
 

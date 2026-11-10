@@ -36,6 +36,8 @@ async function bytesOf(stream: Readable): Promise<number[]> {
   return [...Buffer.concat(chunks)];
 }
 
+const WOFF2 = new Uint8Array([0x77, 0x4f, 0x46, 0x32, 0x00, 0x01, 0x00, 0x00]);
+
 describe('AssetsService', () => {
   let journal: string[];
   let storage: AssetStorageFake;
@@ -90,6 +92,128 @@ describe('AssetsService', () => {
     expect(processor.resizes).toEqual([{ maxSide: 4096, square: false }]);
     expect(assets.rows[0]).toMatchObject({ purpose: 'document_image', ownerId: BIA_ID });
     expect(journal).toEqual(['normalize', 'put', 'insert']);
+  });
+
+  it.each(['upload', 'import'] as const)(
+    'generic %s refuses a sheet image before any processing or fetch, even for the master',
+    async (route) => {
+      const sent =
+        route === 'upload'
+          ? service.upload(ANA_ID, VHARN_ID, { bytes: PNG, purpose: 'sheet_image' })
+          : service.importLink(ANA_ID, VHARN_ID, {
+              url: 'https://example.com/a.png',
+              purpose: 'sheet_image',
+            });
+
+      await expect(sent).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+        message: expect.stringContaining('the sheet image endpoint'),
+      });
+      expect(fetcher.fetched).toEqual([]);
+      expect(journal).toEqual([]);
+    },
+  );
+
+  it('sheet ingestion keeps a still image within 4096 px under the sheet purpose', async () => {
+    const result = await service.uploadSheetImage(BIA_ID, VHARN_ID, PNG);
+
+    expect(result).toEqual({ id: NEW_ID, mimeType: 'image/png', width: 1024, height: 512 });
+    expect(processor.resizes).toEqual([{ maxSide: 4096, square: false }]);
+    expect(assets.rows[0]).toMatchObject({ purpose: 'sheet_image', ownerId: BIA_ID });
+    expect(journal).toEqual(['normalize', 'put', 'insert']);
+  });
+
+  it('a master sends a template font: kept as sent, 0 × 0, under the template purpose', async () => {
+    const asset = await service.uploadSheetTemplateAsset(ANA_ID, VHARN_ID, {
+      bytes: WOFF2,
+      mimeType: 'font/woff2',
+    });
+
+    expect(asset).toEqual({ id: NEW_ID, mimeType: 'font/woff2', sizeBytes: WOFF2.byteLength });
+    expect(assets.rows[0]).toMatchObject({
+      purpose: 'sheet_template_asset',
+      mimeType: 'font/woff2',
+      width: 0,
+      height: 0,
+    });
+    expect(journal).toEqual(['put', 'insert']);
+  });
+
+  it('a master sends a template image through the processor, within 4096 px', async () => {
+    const asset = await service.uploadSheetTemplateAsset(ANA_ID, VHARN_ID, {
+      bytes: PNG,
+      mimeType: 'image/png',
+    });
+
+    expect(asset).toMatchObject({ id: NEW_ID, mimeType: 'image/png' });
+    expect(processor.resizes).toEqual([{ maxSide: 4096, square: false }]);
+    expect(journal).toEqual(['normalize', 'put', 'insert']);
+  });
+
+  it('a TTF sent as a template font is UNSUPPORTED_FONT and nothing is kept', async () => {
+    const ttf = new Uint8Array([0x00, 0x01, 0x00, 0x00, 0x00, 0x10]);
+
+    await expect(
+      service.uploadSheetTemplateAsset(ANA_ID, VHARN_ID, { bytes: ttf, mimeType: 'font/woff2' }),
+    ).rejects.toMatchObject({ code: 'UNSUPPORTED_FONT' });
+    expect(journal).toEqual([]);
+  });
+
+  it('a template font over 2 MiB is ASSET_TOO_LARGE before its signature is read', async () => {
+    const huge = new Uint8Array(2 * 1024 * 1024 + 1);
+
+    await expect(
+      service.uploadSheetTemplateAsset(ANA_ID, VHARN_ID, { bytes: huge, mimeType: 'font/woff2' }),
+    ).rejects.toMatchObject({ code: 'ASSET_TOO_LARGE' });
+    expect(journal).toEqual([]);
+  });
+
+  it('Bia, a player, sending a template asset is FORBIDDEN before anything is kept', async () => {
+    await expect(
+      service.uploadSheetTemplateAsset(BIA_ID, VHARN_ID, { bytes: WOFF2, mimeType: 'font/woff2' }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(journal).toEqual([]);
+  });
+
+  it.each(['upload', 'import'] as const)(
+    'generic %s refuses a template asset before any processing or fetch',
+    async (route) => {
+      const purpose = 'sheet_template_asset';
+      const sent =
+        route === 'upload'
+          ? service.upload(ANA_ID, VHARN_ID, { bytes: PNG, purpose })
+          : service.importLink(ANA_ID, VHARN_ID, { url: 'https://example.com/a.png', purpose });
+
+      await expect(sent).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(journal).toEqual([]);
+    },
+  );
+
+  it('a template font is read only through the policy, with private no-store caching', async () => {
+    await service.uploadSheetTemplateAsset(ANA_ID, VHARN_ID, {
+      bytes: WOFF2,
+      mimeType: 'font/woff2',
+    });
+    policy.allowed = false;
+    await expect(service.open(BIA_ID, NEW_ID)).rejects.toMatchObject({ code: 'ASSET_NOT_FOUND' });
+    policy.allowed = true;
+    expect(await service.open(BIA_ID, NEW_ID)).toMatchObject({
+      mimeType: 'font/woff2',
+      cacheControl: 'private, no-store',
+    });
+  });
+
+  it('a sheet image is read only through the policy, with private no-store caching', async () => {
+    policy.allowed = true;
+    assets.rows.push(lyraPortraitPo({ purpose: 'sheet_image' }));
+    storage.objects.set(lyraPortraitPo().storageKey, { bytes: PNG, contentType: 'image/png' });
+
+    const opened = await service.open(BIA_ID, lyraPortraitPo().id);
+
+    expect(opened.cacheControl).toBe('private, no-store');
+    expect(policy.checks).toEqual([
+      { userId: BIA_ID, campaignId: VHARN_ID, assetId: lyraPortraitPo().id },
+    ]);
   });
 
   it('a player cannot upload a library image and processing never starts', async () => {

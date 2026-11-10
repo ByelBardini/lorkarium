@@ -81,7 +81,13 @@ describe('sheets mapper', () => {
       sheetId: LYRA_SHEET_ID,
       version: 4,
       operation: 'values',
+      skippedBars: [],
     });
+  });
+
+  it('the receipt of a gift lists the bars that did not fit', () => {
+    const receipt = toSheetReceiptDto(SHEET_ACTION_ID, sheetPo(), 'update', ['ES']);
+    expect(receipt.skippedBars).toEqual(['ES']);
   });
 
   it('a patch splits into the keys set and the keys null removes', () => {

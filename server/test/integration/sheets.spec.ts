@@ -17,7 +17,7 @@ import type { Table } from '../support/tables';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
-const CODE = { html: '<p id="pv"></p>', css: '', js: '' };
+const CODE = { files: [{ path: 'index.html', content: '<p id="pv"></p>' }] };
 
 function sheetsUrl(table: Table = live.vharn): string {
   return `/api/campaigns/${table.id}/sheets`;
@@ -103,7 +103,7 @@ describe('sheets linked to tokens over HTTP', () => {
     expect(await sheetIdsOf(live.bia, lyraOfEstrada)).toEqual([sheet.id]);
     expect(await sheetIdsOfCharacter(live.bia, character.id)).toEqual([sheet.id]);
     const read = sheetResponseDto.parse((await readSheet(live.bia, sheet.id)).json());
-    expect(read.template).toMatchObject({ name: 'Ficha Tormenta', html: CODE.html });
+    expect(read.template).toMatchObject({ name: 'Ficha Tormenta', files: CODE.files });
     expect(read.sheet).toMatchObject({ name: 'Lyra', memberId: live.bia.id, folderId: null });
   });
 
@@ -334,6 +334,136 @@ describe('sheets linked to tokens over HTTP', () => {
     expect(response.json()).toMatchObject({
       code: 'SHEET_TEMPLATE_IN_USE',
       message: expect.stringContaining('2 sheets'),
+    });
+  });
+});
+
+function patchValues(user: SignedInUser, sheetId: string, body: object, actionId?: string) {
+  const payload = { actionId: actionId ?? crypto.randomUUID(), ...body };
+  const url = `${sheetsUrl()}/${sheetId}/values`;
+  return live.http(user, { method: 'PATCH', url, payload });
+}
+
+async function valuesOf(user: SignedInUser, sheetId: string) {
+  return sheetResponseDto.parse((await readSheet(user, sheetId)).json()).sheet;
+}
+
+describe('sheet values by path over HTTP', () => {
+  const abilities = { hab: { k3f9: { efeito: 'Cura', custo: 2 }, p2a1: { efeito: 'Raio' } } };
+
+  it('Bia and Ana patching different abilities at the same time keep both', async () => {
+    const { lyra } = await lyraPoisonedAtVharn(live);
+    const { sheet } = await linked(lyra.id);
+    await writeValues(live.bia, sheet.id, abilities);
+
+    await Promise.all([
+      patchValues(live.bia, sheet.id, { patches: [{ path: ['hab', 'k3f9', 'custo'], value: 3 }] }),
+      patchValues(live.ana, sheet.id, { patches: [{ path: ['hab', 'p2a1', 'custo'], value: 1 }] }),
+    ]);
+
+    const read = await valuesOf(live.bia, sheet.id);
+    expect(read.values).toEqual({
+      hab: { k3f9: { efeito: 'Cura', custo: 3 }, p2a1: { efeito: 'Raio', custo: 1 } },
+    });
+    expect(read.version).toBe(3);
+  });
+
+  it('a path over a number turns it into an object, and Caio hears sheet:changed', async () => {
+    const { caio, lyra } = await lyraPoisonedAtVharn(live);
+    const { sheet } = await linked(lyra.id, { visibility: 'table' });
+    await writeValues(live.bia, sheet.id, { forca: 16 });
+    await silence();
+    const caioEvents = recordEventsOf(caio);
+
+    const response = await patchValues(live.bia, sheet.id, {
+      patches: [{ path: ['forca', 'base'], value: 2 }],
+    });
+
+    expect(response.statusCode).toBe(200);
+    const written = sheetWriteResponseDto.parse(response.json());
+    expect(written.sheet.values).toEqual({ forca: { base: 2 } });
+    const heard = sheetChangedEventDto.parse(await eventPayload(caioEvents, 'sheet:changed'));
+    expect(heard.version).toBe(written.sheet.version);
+  });
+
+  it('a patch past 256 KiB is 400 and nothing is saved', async () => {
+    const { lyra } = await lyraPoisonedAtVharn(live);
+    const { sheet } = await linked(lyra.id);
+    const big = 'a'.repeat(200 * 1024);
+    await writeValues(live.bia, sheet.id, { historia: big });
+
+    const response = await patchValues(live.bia, sheet.id, {
+      patches: [{ path: ['bio', 'texto'], value: big }],
+    });
+
+    expect(response.statusCode).toBe(400);
+    const read = await valuesOf(live.bia, sheet.id);
+    expect([Object.keys(read.values), read.version]).toEqual([['historia'], 1]);
+  });
+
+  it('the same actionId and patch again answers the receipt without a new version', async () => {
+    const { lyra } = await lyraPoisonedAtVharn(live);
+    const { sheet } = await linked(lyra.id);
+    const actionId = crypto.randomUUID();
+    const body = { patches: [{ path: ['hab', 'a'], value: 1 }] };
+    await patchValues(live.bia, sheet.id, body, actionId);
+
+    const again = await patchValues(live.bia, sheet.id, body, actionId);
+    const reused = await patchValues(
+      live.bia,
+      sheet.id,
+      { patches: [{ path: ['hab', 'a'], value: 2 }] },
+      actionId,
+    );
+
+    expect(sheetWriteResponseDto.parse(again.json()).receipt).toMatchObject({ version: 1 });
+    expect(reused.statusCode).toBe(409);
+    expect((await valuesOf(live.bia, sheet.id)).values).toEqual({ hab: { a: 1 } });
+  });
+
+  it('Caio on a table sheet of Lyra is 403 and nothing is saved', async () => {
+    const { lyra } = await lyraPoisonedAtVharn(live);
+    const { sheet } = await linked(lyra.id, { visibility: 'table' });
+
+    const response = await patchValues(live.caio, sheet.id, {
+      patches: [{ path: ['hab', 'a'], value: 1 }],
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect((await valuesOf(live.bia, sheet.id)).values).toEqual({});
+  });
+
+  it('a sheet of Quelm patched through Vharn is 404 SHEET_NOT_FOUND', async () => {
+    await live.atTable(live.caio, live.quelm);
+    const templateId = await templateOf(live.caio, live.quelm);
+    const create = { actionId: crypto.randomUUID(), templateId, name: 'Quelm' };
+    const created = await live.http(live.caio, {
+      method: 'POST',
+      url: sheetsUrl(live.quelm),
+      payload: create,
+    });
+    const quelmSheet = sheetWriteResponseDto.parse(created.json()).sheet.id;
+
+    const response = await patchValues(live.ana, quelmSheet, {
+      patches: [{ path: ['hab', 'a'], value: 1 }],
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toMatchObject({ code: 'SHEET_NOT_FOUND' });
+  });
+
+  it('a forbidden key in the path is 400 citing it', async () => {
+    const { lyra } = await lyraPoisonedAtVharn(live);
+    const { sheet } = await linked(lyra.id);
+
+    const response = await patchValues(live.bia, sheet.id, {
+      patches: [{ path: ['hab', 'constructor'], value: 1 }],
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      code: 'INVALID_BODY',
+      message: expect.stringContaining('"constructor"'),
     });
   });
 });

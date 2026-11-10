@@ -4,7 +4,10 @@ export type SheetErrorCode =
   | 'SHEET_TEMPLATE_IN_USE'
   | 'SHEET_NOT_FOUND'
   | 'SHEET_ACTION_REUSED'
-  | 'SHEET_HAS_NO_TOKEN';
+  | 'SHEET_HAS_NO_TOKEN'
+  | 'INSUFFICIENT_BAR'
+  | 'SHEET_TEMPLATE_ASSET_NOT_FOUND'
+  | 'SHEET_TEMPLATE_ASSETS_TOO_LARGE';
 
 /** Every refusal of the sheets of its own; the edge turns `code` into the HTTP status. */
 export class SheetError extends Error {
@@ -61,6 +64,32 @@ export class SheetHasNoTokenError extends SheetError {
     super(
       'SHEET_HAS_NO_TOKEN',
       `Sheet ${sheetId} has no holder; expected a sheet held by a token or a character`,
+    );
+  }
+}
+
+// The label, not the id: the one who pays sees the bar by its name on the sheet.
+export class InsufficientBarError extends SheetError {
+  constructor(label: string, has: number, needs: number) {
+    super('INSUFFICIENT_BAR', `Bar "${label}" has ${has}; expected at least ${needs}`);
+  }
+}
+
+// Also for an asset of another table or of another purpose: telling them apart leaks ids (§2.6).
+export class SheetTemplateAssetNotFoundError extends SheetError {
+  constructor(campaignId: string, path: string, assetId: string) {
+    super(
+      'SHEET_TEMPLATE_ASSET_NOT_FOUND',
+      `Manifest asset "${path}" is ${assetId}; expected a sheet template asset of campaign ${campaignId}`,
+    );
+  }
+}
+
+export class SheetTemplateAssetsTooLargeError extends SheetError {
+  constructor(bytes: number, limit: number) {
+    super(
+      'SHEET_TEMPLATE_ASSETS_TOO_LARGE',
+      `The template assets have ${bytes} bytes; expected at most ${limit}`,
     );
   }
 }

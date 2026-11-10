@@ -50,7 +50,7 @@ describe('SheetsService: creating', () => {
     expect([sheet.canEdit, sheet.canManage]).toEqual([true, true]);
     expect(receipt).toEqual({
       ...{ actionId: SHEET_ACTION_ID, sheetId: LYRA_SHEET_ID },
-      ...{ version: 0, operation: 'create' },
+      ...{ version: 0, operation: 'create', skippedBars: [] },
     });
     expect(harness.journal).toEqual([
       'lock',
@@ -493,5 +493,70 @@ describe('SheetsService: managing', () => {
     ]);
     const [change] = harness.characterPublisher.changes;
     expect(change?.characters[0]?.privileged).toMatchObject({ mainSheetId: null });
+  });
+});
+
+function writePaths(harness: SheetsHarness, userId: string, input: object) {
+  const request = { actionId: crypto.randomUUID(), ...input } as never;
+  return new SheetsService(harness.deps).updateValues(harness.as(userId), LYRA_SHEET_ID, request);
+}
+
+describe('SheetsService: values by path', () => {
+  const abilities = { hab: { k3f9: { efeito: 'Cura' }, p2a1: { efeito: 'Raio' } } };
+
+  it('Bia patches one ability: the rest of the tree stays, one version and one sheet:changed', async () => {
+    const harness = new SheetsHarness().withLyraSheet({ values: abilities });
+
+    const { sheet, receipt } = await writePaths(harness, BIA_ID, {
+      patches: [{ path: ['hab', 'k3f9', 'efeito'], value: 'Luz' }],
+    });
+
+    expect(sheet.values).toEqual({ hab: { k3f9: { efeito: 'Luz' }, p2a1: { efeito: 'Raio' } } });
+    expect(receipt).toMatchObject({ version: 5, operation: 'values' });
+    expect(harness.journal).toEqual([
+      'lock',
+      'replace values',
+      'receipt',
+      'commit',
+      'publish sheet',
+    ]);
+    expect(harness.publisher.events).toHaveLength(1);
+  });
+
+  it('root changes and path patches in one request both land, the changes first', async () => {
+    const harness = new SheetsHarness().withLyraSheet({ values: abilities });
+
+    const { sheet } = await writePaths(harness, BIA_ID, {
+      changes: { forca: 16, hab: { novo: { efeito: 'Eco' } } },
+      patches: [{ path: ['hab', 'novo', 'custo'], value: 2 }],
+    });
+
+    expect(sheet.values).toEqual({ forca: 16, hab: { novo: { efeito: 'Eco', custo: 2 } } });
+  });
+
+  it('a merge over the budget is refused and nothing is saved', async () => {
+    const big = 'a'.repeat(200 * 1024);
+    const harness = new SheetsHarness().withLyraSheet({ values: { historia: big } });
+
+    const writing = writePaths(harness, BIA_ID, {
+      patches: [{ path: ['bio', 'texto'], value: big }],
+    });
+
+    await expect(writing).rejects.toThrow('exceed 262144 bytes');
+    expect(harness.sheets.rows.find(({ id }) => id === LYRA_SHEET_ID)?.values).toEqual({
+      historia: big,
+    });
+    expect(harness.journal).not.toContain('replace values');
+  });
+
+  it('Caio on a table sheet is FORBIDDEN and nothing is saved', async () => {
+    const harness = new SheetsHarness().withLyraSheet({ visibility: 'table', values: abilities });
+
+    const writing = writePaths(harness, CAIO_ID, {
+      patches: [{ path: ['hab', 'k3f9', 'efeito'], value: 'Luz' }],
+    });
+
+    await expect(writing).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(harness.sheets.rows.find(({ id }) => id === LYRA_SHEET_ID)?.values).toEqual(abilities);
   });
 });

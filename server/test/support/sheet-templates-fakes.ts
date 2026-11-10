@@ -8,6 +8,7 @@ import type {
   SheetTemplateChangesPo,
   SheetTemplatePo,
 } from '../../src/modules/sheets/sheet-templates.po';
+import { AssetsDaoFake } from './assets-fakes';
 import { ClockFake } from './auth-fakes';
 import { ANA_ID } from './auth-factories';
 import { CampaignMembersDaoFake, CampaignsDaoFake } from './campaigns-fakes';
@@ -24,7 +25,13 @@ import { LibraryCampaignsDaoFake, SceneFoldersDaoFake } from './library-fakes';
 
 export const TORMENTA_ID = '4e5f6a7b-8c9d-4e0f-8a1b-3c4d5e6f7a8b';
 export const QUELM_TEMPLATE_ID = '5f6a7b8c-9d0e-4f1a-9b2c-4d5e6f7a8b9c';
-export const SHEET_TEMPLATE_CODE = { html: '<p id="pv"></p>', css: 'p { color: red; }', js: '' };
+export const SHEET_TEMPLATE_CODE = {
+  files: [
+    { path: 'index.html', content: '<p id="pv"></p>' },
+    { path: 'style.css', content: 'p { color: red; }' },
+    { path: 'script.js', content: '' },
+  ],
+};
 
 /** Ficha Tormenta of Vharn, at the root, version 0, by Ana. */
 export function sheetTemplatePo(overrides: Partial<SheetTemplatePo> = {}): SheetTemplatePo {
@@ -34,6 +41,7 @@ export function sheetTemplatePo(overrides: Partial<SheetTemplatePo> = {}): Sheet
     folderId: null,
     name: 'Ficha Tormenta',
     ...SHEET_TEMPLATE_CODE,
+    manifest: { permissions: [], bars: [] },
     version: 0,
     createdBy: ANA_ID,
     createdAt: new Date('2026-10-31T12:00:00Z'),
@@ -101,6 +109,7 @@ export class SheetTemplatesHarness {
     sheetTemplatePo({ id: QUELM_TEMPLATE_ID, campaignId: QUELM_ID, name: 'Ficha de Quelm' }),
   ]);
   readonly uses = new TemplateUseCounterFake();
+  readonly assets = new AssetsDaoFake(this.journal);
   readonly requester = { campaignId: VHARN_ID, userId: ANA_ID };
   readonly daos: SheetTemplateDaos = {
     campaigns: new LibraryCampaignsDaoFake(this.journal, [campaignPo({ id: VHARN_ID })]),
@@ -110,6 +119,7 @@ export class SheetTemplatesHarness {
     ]),
     templates: this.templates,
     uses: this.uses,
+    assets: this.assets,
   };
   readonly members = new CampaignMembersDaoFake(new CampaignsDaoFake(), {}, [
     campaignMemberPo({ userId: ANA_ID, role: 'master', campaignId: VHARN_ID }),

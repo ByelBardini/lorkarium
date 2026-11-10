@@ -14,7 +14,15 @@ import type { Table } from '../support/tables';
 import { useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
-const CODE = { html: '<p id="pv"></p>', css: 'p { color: red; }', js: '' };
+const INDEX = { path: 'index.html', content: '<p id="pv"></p>' };
+const CODE = { files: [INDEX, { path: 'style.css', content: 'p { color: red; }' }] };
+const FIVE_FILES = [
+  INDEX,
+  { path: 'paginas/perfil.html', content: '<h2>Perfil</h2>' },
+  { path: 'estilo.css', content: 'p{}' },
+  { path: 'a.js', content: 'lorkarium.ready();' },
+  { path: 'b.js', content: '' },
+];
 
 function templatesUrl(table: Table = live.vharn): string {
   return `/api/campaigns/${table.id}/sheet-templates`;
@@ -42,23 +50,24 @@ function patchTemplate(user: SignedInUser, templateId: string, payload: object) 
 }
 
 describe('sheet templates of the library over HTTP', () => {
-  it('Ana creates "Ficha Tormenta" in Sistemas, edits its JS and her library lists it without code', async () => {
+  it('Ana creates "Ficha Tormenta" in Sistemas, saves five files and her library lists it without code', async () => {
     const sistemas = await folderOf(live.ana, live.vharn, 'Sistemas');
     const tormenta = await created({ name: 'Ficha Tormenta', folderId: sistemas, ...CODE });
 
     const edit = await patchTemplate(live.ana, tormenta.id, {
-      ...{ expectedVersion: 0, html: CODE.html, css: CODE.css, js: 'lorkarium.ready();' },
+      expectedVersion: 0,
+      files: FIVE_FILES,
     });
 
     expect(edit.statusCode).toBe(200);
     expect(sheetTemplateResponseDto.parse(edit.json()).template).toMatchObject({
       version: 1,
-      js: 'lorkarium.ready();',
+      files: FIVE_FILES,
     });
     expect((await libraryOf(live.ana)).sheetTemplates).toEqual([
       expect.objectContaining({ id: tormenta.id, name: 'Ficha Tormenta', folderId: sistemas }),
     ]);
-    expect((await libraryOf(live.ana)).sheetTemplates?.[0]).not.toHaveProperty('js');
+    expect((await libraryOf(live.ana)).sheetTemplates?.[0]).not.toHaveProperty('files');
   });
 
   it('Ana reads the code back by id, and the answer is not cached', async () => {
@@ -67,8 +76,41 @@ describe('sheet templates of the library over HTTP', () => {
     const url = `${templatesUrl()}/${tormenta.id}`;
     const response = await live.http(live.ana, { method: 'GET', url });
 
-    expect(sheetTemplateResponseDto.parse(response.json()).template.html).toBe(CODE.html);
+    expect(sheetTemplateResponseDto.parse(response.json()).template.files).toEqual(CODE.files);
     expect(response.headers['cache-control']).toBe('private, no-store');
+  });
+
+  it('saving only another order of the same files bumps the version and keeps the new order', async () => {
+    const tormenta = await created({ files: FIVE_FILES });
+    const reordered = [FIVE_FILES[0], FIVE_FILES[4], FIVE_FILES[3], FIVE_FILES[2], FIVE_FILES[1]];
+
+    await patchTemplate(live.ana, tormenta.id, { expectedVersion: 0, files: reordered });
+
+    const url = `${templatesUrl()}/${tormenta.id}`;
+    const read = sheetTemplateResponseDto.parse(
+      (await live.http(live.ana, { method: 'GET', url })).json(),
+    );
+    expect(read.template).toMatchObject({ version: 1, files: reordered });
+  });
+
+  it('Caio, master of Quelm, reading the files of a Vharn template from Quelm is 404 without them', async () => {
+    const tormenta = await created({ files: FIVE_FILES });
+
+    const url = `${templatesUrl(live.quelm)}/${tormenta.id}`;
+    const asked = await live.http(live.caio, { method: 'GET', url });
+
+    expect(asked.statusCode).toBe(404);
+    expect(asked.body).not.toContain('Perfil');
+  });
+
+  it('a file path that leaves the template is 400 citing it and nothing is saved', async () => {
+    const payload = { files: [INDEX, { path: '../fora.js', content: '' }] };
+
+    const response = await live.http(live.ana, { method: 'POST', url: templatesUrl(), payload });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({ message: expect.stringContaining('"../fora.js"') });
+    expect((await libraryOf(live.ana)).sheetTemplates).toEqual([]);
   });
 
   it('a save over the version another master saved is 409 SHEET_TEMPLATE_VERSION_CONFLICT', async () => {
@@ -142,9 +184,14 @@ describe('sheet templates of the library over HTTP', () => {
     expect(asked.json()).toMatchObject({ code: 'SHEET_TEMPLATE_NOT_FOUND' });
   });
 
-  it('html + css + js one byte over 512 KiB is 400 and nothing is saved', async () => {
+  it('files one byte over 512 KiB in total is 400 and nothing is saved', async () => {
     const html = 'a'.repeat(SHEET_TEMPLATE_SOURCE_MAX_BYTES - 1);
-    const payload = { html, css: 'b', js: 'c' };
+    const payload = {
+      files: [
+        { path: 'index.html', content: html },
+        { path: 'a.js', content: 'cc' },
+      ],
+    };
 
     const response = await live.http(live.ana, { method: 'POST', url: templatesUrl(), payload });
 
@@ -173,5 +220,90 @@ describe('sheet templates of the library over HTTP', () => {
     const url = `${templatesUrl()}/${tormenta.id}`;
     const response = await live.http(live.ana, { method: 'GET', url });
     expect(sheetTemplateResponseDto.parse(response.json()).template.name).toBe('Ficha Tormenta');
+  });
+});
+
+describe('the manifest of a sheet template over HTTP', () => {
+  const manifest = {
+    permissions: ['character:stats', 'character:portrait', 'sheet:images'],
+    bars: [{ label: 'HP', color: 'ember', max: 12 }],
+  };
+
+  function readTemplate(user: SignedInUser, templateId: string, table: Table = live.vharn) {
+    return live.http(user, { method: 'GET', url: `${templatesUrl(table)}/${templateId}` });
+  }
+
+  it('Ana creates Ficha de Lork with a manifest and reads it back', async () => {
+    const lork = await created({ name: 'Ficha de Lork', ...CODE, manifest });
+
+    const read = sheetTemplateResponseDto.parse((await readTemplate(live.ana, lork.id)).json());
+
+    expect(lork.manifest).toEqual({ ...manifest, assets: [] });
+    expect(read.template.manifest).toEqual({ ...manifest, assets: [] });
+  });
+
+  it('a template created without a manifest declares nothing', async () => {
+    const tormenta = await created(CODE);
+
+    expect(tormenta.manifest).toEqual({ permissions: [], bars: [], assets: [] });
+  });
+
+  it('saving only the manifest bumps the version and keeps the code', async () => {
+    const tormenta = await created(CODE);
+
+    const saved = await patchTemplate(live.ana, tormenta.id, { expectedVersion: 0, manifest });
+
+    expect(saved.statusCode).toBe(200);
+    expect(sheetTemplateResponseDto.parse(saved.json()).template).toMatchObject({
+      version: 1,
+      manifest,
+      files: CODE.files,
+    });
+  });
+
+  it('Bia, a player, saving a manifest is 403 and it stays empty', async () => {
+    const tormenta = await created(CODE);
+
+    const refused = await patchTemplate(live.bia, tormenta.id, { expectedVersion: 0, manifest });
+
+    expect(refused.statusCode).toBe(403);
+    const read = sheetTemplateResponseDto.parse((await readTemplate(live.ana, tormenta.id)).json());
+    expect(read.template).toMatchObject({ version: 0, manifest: { permissions: [], bars: [] } });
+  });
+
+  it('Caio, master of Quelm, asking for the manifest of a Vharn template from Quelm is 404', async () => {
+    const lork = await created({ ...CODE, manifest });
+
+    const asked = await readTemplate(live.caio, lork.id, live.quelm);
+
+    expect(asked.statusCode).toBe(404);
+    expect(asked.json()).toMatchObject({ code: 'SHEET_TEMPLATE_NOT_FOUND' });
+    expect(asked.body).not.toContain('character:stats');
+  });
+
+  it('an unknown permission is 400 citing it, on create and on save, and nothing is saved', async () => {
+    const tormenta = await created(CODE);
+    const network = { permissions: ['network'], bars: [] };
+
+    const create = await live.http(live.ana, {
+      method: 'POST',
+      url: templatesUrl(),
+      payload: { ...CODE, name: 'Com rede', manifest: network },
+    });
+    const save = await patchTemplate(live.ana, tormenta.id, {
+      expectedVersion: 0,
+      manifest: network,
+    });
+
+    expect([create.statusCode, save.statusCode]).toEqual([400, 400]);
+    expect(save.json()).toMatchObject({
+      code: 'INVALID_BODY',
+      message: expect.stringContaining('permission "network"'),
+    });
+    expect((await libraryOf(live.ana)).sheetTemplates?.map(({ name }) => name)).toEqual([
+      'Modelo sem nome',
+    ]);
+    const read = sheetTemplateResponseDto.parse((await readTemplate(live.ana, tormenta.id)).json());
+    expect(read.template.version).toBe(0);
   });
 });

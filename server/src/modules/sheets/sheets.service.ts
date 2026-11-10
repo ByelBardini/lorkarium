@@ -1,5 +1,6 @@
 import {
   sheetReceiptDto,
+  applySheetValueEdits,
   sheetValuesDto,
   type SheetReceiptDto,
   type CreateSheetRequestDto,
@@ -22,7 +23,9 @@ import { commandFingerprint } from '../documents/document-writes.service';
 import type { LibraryPublisherPort } from '../library/library-publisher.port';
 import type { LibraryRequester } from '../library/library.service';
 import type { SceneFoldersDao } from '../library/scene-folders.dao';
+import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { publishCharactersChange } from '../tokens/character-writes';
+import { publishTokenChange } from '../tokens/token-veil';
 import type { SheetAccessBo } from './sheet-access.bo';
 import {
   characterPlaceIn,
@@ -30,6 +33,7 @@ import {
   type SheetHolderService,
 } from './sheet-holder.service';
 import { keepMainSheet, type MainSheetDaos, type SavedMainSheets } from './main-sheet-writes';
+import { giveManifestBars, type ManifestBarDaos, type SavedTokenBars } from './manifest-bar-writes';
 import { SheetItemBo } from './sheet-item.bo';
 import type { SheetPublisherPort } from './sheet-publisher.port';
 import type { SheetTemplatesDao } from './sheet-templates.dao';
@@ -53,6 +57,7 @@ import {
 
 export type SheetDaos = SheetHolderDaos &
   MainSheetDaos &
+  ManifestBarDaos &
   Readonly<{
     campaigns: Pick<CampaignsDao, 'lockById'>;
     members: Pick<CampaignMembersDao, 'findMembership'>;
@@ -65,6 +70,7 @@ export type SheetDaos = SheetHolderDaos &
       | 'characterPlaceOfUser'
       | 'insert'
       | 'patchValues'
+      | 'replaceValues'
       | 'update'
       | 'delete'
       | 'placeOf'
@@ -83,25 +89,30 @@ export type SheetsServiceDeps = Readonly<{
   publisher: SheetPublisherPort;
   /** `library:changed` after a sheet appears, goes, or changes its line in the library. */
   library: Pick<LibraryPublisherPort, 'libraryChanged'>;
-  /** `character:changed` after a character's main sheet changes. */
+  /** `character:changed` after a character's main sheet or bars change. */
   characterPublisher: CharacterPublisherPort;
+  /** `token:updated` after giving a sheet adds bars to a loose token. */
+  board: Pick<BoardPublisherPort, 'tokenChanged' | 'veiledLightsChanged'>;
   holders: SheetHolderService;
 }>;
 
 /** One sheet loaded for a command: the row, its holder's place and what the requester may do. */
 type SheetScope = Readonly<{
   daos: SheetDaos;
+  access: CampaignAccessBo;
   sheet: SheetRow;
   place: SheetHolderPlacePo | null;
   rules: SheetAccessBo;
 }>;
 /** What a transaction answers and what to tell after the commit: the sheet's new version, whether
- *  its library line changed, and the characters whose main sheet it changed. */
+ *  its library line changed, the characters whose main sheet or bars it changed, and the loose
+ *  token it added bars to. */
 type Applied<T> = Readonly<{
   value: T;
   changed: Readonly<{ sheetId: string; version: number }> | null;
   library: boolean;
   characters: SavedMainSheets | null;
+  token?: SavedTokenBars | null;
 }>;
 /** The receipt a write gets: which action, its fingerprint and what it did. */
 type ReceiptCommand = Readonly<{
@@ -109,7 +120,12 @@ type ReceiptCommand = Readonly<{
   fingerprint: string;
   operation: SheetReceiptDto['operation'];
 }>;
-type Saved = Readonly<{ sheet: SheetRow; characters: SavedMainSheets | null }>;
+type Saved = Readonly<{
+  sheet: SheetRow;
+  characters: SavedMainSheets | null;
+  token?: SavedTokenBars | null;
+  skippedBars?: readonly string[];
+}>;
 type WriteInput = UpdateSheetValuesRequestDto | UpdateSheetRequestDto;
 /** What a write is, for the receipt, what it takes of the requester (checked on a replay too)
  *  and whether the library shows what it changes. */
@@ -208,7 +224,7 @@ export class SheetsService {
   ): Promise<Saved> {
     const campaignId = access.campaignIdOf();
     const folderId = input.folderId ?? null;
-    await this.templateOf(daos, campaignId, input.templateId);
+    const template = await this.templateOf(daos, campaignId, input.templateId);
     await this.requireFolder(daos, campaignId, folderId);
     const holder = await this.deps.holders.resolve(daos, campaignId, input.holder ?? null);
     const columns = toHolderColumns(holder);
@@ -218,7 +234,9 @@ export class SheetsService {
       visibility: input.visibility ?? 'controllers',
     });
     const move = { from: null, to: columns.characterId };
-    return { sheet, characters: await keepMainSheet(daos, campaignId, sheet.id, move) };
+    const mainSheets = await keepMainSheet(daos, campaignId, sheet.id, move);
+    const gift = { access, place: holder, template, mainSheets };
+    return { sheet, ...(await giveManifestBars(daos, gift)) };
   }
 
   /** Each key replaces the stored one, `null` removes it; the last write wins per key. The merged
@@ -228,9 +246,17 @@ export class SheetsService {
     sheetId: string,
     input: UpdateSheetValuesRequestDto,
   ): Promise<SheetWriteResponseDto> {
-    return this.write(requester, sheetId, input, VALUES_WRITE, async ({ daos }) => {
-      const change = { ...toValuesChange(input.changes), updatedAt: this.deps.clock.now() };
-      const saved = await daos.sheets.patchValues(requester.campaignId, sheetId, change);
+    const { campaignId } = requester;
+    return this.write(requester, sheetId, input, VALUES_WRITE, async ({ daos, sheet }) => {
+      const updatedAt = this.deps.clock.now();
+      if (input.patches) {
+        // Merged here, under the table's lock, by the same rule the client shows.
+        const values = sheetValuesDto.parse(applySheetValueEdits(sheet.values, input));
+        const saved = await daos.sheets.replaceValues(campaignId, sheetId, { values, updatedAt });
+        return { sheet: saved, characters: null };
+      }
+      const change = { ...toValuesChange(input.changes ?? {}), updatedAt };
+      const saved = await daos.sheets.patchValues(campaignId, sheetId, change);
       sheetValuesDto.parse(saved.values);
       return { sheet: saved, characters: null };
     });
@@ -244,7 +270,7 @@ export class SheetsService {
     input: UpdateSheetRequestDto,
   ): Promise<SheetWriteResponseDto> {
     const { campaignId } = requester;
-    return this.write(requester, sheetId, input, MANAGE_WRITE, async ({ daos, sheet }) => {
+    return this.write(requester, sheetId, input, MANAGE_WRITE, async ({ daos, sheet, access }) => {
       if (input.templateId) await this.templateOf(daos, campaignId, input.templateId);
       if (input.folderId !== undefined) await this.requireFolder(daos, campaignId, input.folderId);
       const holder = await this.holderChangeOf(daos, campaignId, input);
@@ -255,7 +281,11 @@ export class SheetsService {
         updatedAt: this.deps.clock.now(),
       });
       const move = { from, to: saved.characterId };
-      return { sheet: saved, characters: await keepMainSheet(daos, campaignId, sheetId, move) };
+      const mainSheets = await keepMainSheet(daos, campaignId, sheetId, move);
+      if (!holder) return { sheet: saved, characters: mainSheets };
+      const template = await this.templateOf(daos, campaignId, saved.templateId);
+      const gift = { access, place: holder, template, mainSheets };
+      return { sheet: saved, ...(await giveManifestBars(daos, gift)) };
     });
   }
 
@@ -339,7 +369,7 @@ export class SheetsService {
     const place = await this.deps.holders.placeOfSheet(daos, sheet);
     const rules = toSheetAccessBo(access, sheet, place);
     rules.requireRead();
-    return { daos, sheet, place, rules };
+    return { daos, access, sheet, place, rules };
   }
 
   private async templateOf(
@@ -377,12 +407,15 @@ export class SheetsService {
     command: ReceiptCommand,
     saved: Saved,
   ): Promise<Applied<SheetWriteResponseDto>> {
-    const receipt = toSheetReceiptDto(command.actionId, saved.sheet, command.operation);
+    const { operation } = command;
+    const skipped = saved.skippedBars ?? [];
+    const receipt = toSheetReceiptDto(command.actionId, saved.sheet, operation, skipped);
     await this.record(daos, requester, receipt, command.fingerprint);
     const place = await this.deps.holders.placeOfSheet(daos, saved.sheet);
     const sheet = toSheetDto(saved.sheet, place, toSheetAccessBo(access, saved.sheet, place));
     const changed = { sheetId: saved.sheet.id, version: saved.sheet.version };
-    return { value: { sheet, receipt }, changed, library: true, characters: saved.characters };
+    const { characters, token } = saved;
+    return { value: { sheet, receipt }, changed, library: true, characters, token };
   }
 
   /** An action already applied: reauthorized and answered with the current sheet. */
@@ -437,6 +470,10 @@ export class SheetsService {
     const { characters: saved } = result;
     const version = saved?.version ?? null;
     publishCharactersChange({ publisher, clock }, campaignId, version, saved?.rows ?? []);
+    const { token } = result;
+    if (!token) return result.value;
+    const base = { campaignId, sceneId: token.sceneId, version: token.version, at };
+    publishTokenChange(this.deps.board, 'token:updated', base, token.token, token.veiled);
     return result.value;
   }
 }
