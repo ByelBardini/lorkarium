@@ -349,4 +349,19 @@ describe('the bar formulas of the Lork sheet', () => {
     const options = [...frame.document.querySelectorAll('[data-lk="contas.c1.bar"] option')];
     expect(options.map((option) => option.textContent)).toEqual(['Escolha a barra', 'Fôlego']);
   });
+
+  it('removing a formula keeps its icon on the first click and takes it out on the second', async () => {
+    deliverState(folego('10'), { bars: tableBars({}, true) });
+    await settled();
+    const before = sent('values.patch').length;
+    click('[data-rm="contas:c1"]');
+    const remove = element('[data-rm="contas:c1"]');
+    expect(remove.querySelector('svg')).not.toBeNull();
+    expect(remove.textContent).toBe('');
+    expect(remove.getAttribute('aria-label')).toBe('Clique de novo para tirar');
+    expect(sent('values.patch')).toHaveLength(before);
+    click('[data-rm="contas:c1"]');
+    await settled();
+    expect(sent('values.patch').at(-1)?.patches).toEqual([{ path: ['contas', 'c1'], value: null }]);
+  });
 });

@@ -111,7 +111,7 @@ function contaRow([id]) {
     <td class="rn"><select class="cost-bar conta-bar" data-lk="${p}.bar" aria-label="Barra da conta">${contaBarOptions(getP(p + '.bar'))}</select></td>
     <td class="rf">${bare(p + '.f', 'ex.: 10 + DES×2 + Nível', 'in conta-f', 'aria-label="Fórmula da conta"')}<p class="conta-why bad" id="cw-${id}" role="status"></p></td>
     <td class="rv" id="cv-${id}">—</td>
-    <td class="rx"><button type="button" class="sk-x" data-rm="contas:${id}" data-edit-only aria-label="Tirar a conta">${ic('x', 12)}</button></td></tr>`;
+    <td class="rx"><button type="button" class="sk-x" data-rm="contas:${id}" data-arm-icon data-edit-only aria-label="Tirar a conta">${ic('x', 12)}</button></td></tr>`;
 }
 function renderContas() {
   const box = document.getElementById('contas');

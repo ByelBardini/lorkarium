@@ -1694,6 +1694,10 @@ table.res {
   border-radius: 4px;
   color: var(--ph);
 }
+.sk-x[data-armed] {
+  color: var(--err);
+  background: color-mix(in srgb, var(--err) 14%, transparent);
+}
 .sk-x:hover {
   color: var(--err);
 }

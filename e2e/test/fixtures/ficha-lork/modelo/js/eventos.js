@@ -7,12 +7,19 @@ function arm(btn, action) {
     return;
   }
   const label = btn.innerHTML;
+  const aria = btn.getAttribute('aria-label');
   btn.dataset.armed = '1';
-  btn.textContent = btn.dataset.confirm || 'Clique de novo para confirmar';
+  // botão só de ícone não cabe o texto: fica vermelho e a dica pede o segundo clique
+  if (btn.hasAttribute('data-arm-icon')) {
+    btn.setAttribute('aria-label', 'Clique de novo para tirar');
+    btn.title = 'Clique de novo para tirar';
+  } else btn.textContent = btn.dataset.confirm || 'Clique de novo para confirmar';
   setTimeout(() => {
     if (!btn.isConnected || !btn.dataset.armed) return;
     delete btn.dataset.armed;
     btn.innerHTML = label;
+    if (aria) btn.setAttribute('aria-label', aria);
+    btn.removeAttribute('title');
   }, 3500);
 }
 function onCarry(el) {
