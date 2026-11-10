@@ -31,14 +31,14 @@ export function DocumentMapAppearances(
       className="flex max-h-16 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 overflow-y-auto border-b border-divider px-5 py-1.5 text-xs sm:px-8"
     >
       <span className="text-muted-foreground">Aparece em</span>
-      {appearances.map(({ regionId, regionName, ...map }) => (
+      {appearances.map(({ regionId, regionName, tabName, ...map }) => (
         <button
           key={regionId}
           type="button"
           onClick={() => openMapAtRegion(workspace, { campaign, ...map, regionId })}
           className="cursor-pointer rounded-sm text-primary outline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
         >
-          {`${map.mapName} › ${regionName}`}
+          {`${map.mapName} › ${regionName}${tabName ? ` · aba ${tabName}` : ''}`}
         </button>
       ))}
     </div>

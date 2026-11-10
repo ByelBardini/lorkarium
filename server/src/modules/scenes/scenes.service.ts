@@ -39,6 +39,7 @@ export type SceneConfigRequest = Readonly<{
   grid: SceneGrid;
   backgroundAssetId?: BackgroundChoice;
   vision?: VisionChoice;
+  freeMovement?: boolean | undefined;
   sceneId?: string | undefined;
 }>;
 
@@ -81,6 +82,7 @@ async function savedConfigOf(
     ...toSceneGridPo(grid),
     backgroundAssetId: background?.assetId ?? null,
     visionMode: request.vision ?? scene.visionMode,
+    freeMovement: request.freeMovement ?? scene.freeMovement,
   };
   const { hiddenByFolder } = scene;
   return {

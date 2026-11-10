@@ -8,7 +8,7 @@ import type { Camera } from '@/renderer/camera';
 import { ANA } from '../../support/auth-api-fake';
 import { testDependencies } from '../../support/app-dependencies';
 import { VHARN } from '../../support/campaigns-api-fake';
-import { documentFixture, DOCUMENT_ID } from '../../support/documents-fixtures';
+import { documentFixture, DOCUMENT_ID, ITEMS_TAB_ID } from '../../support/documents-fixtures';
 import {
   MUNDO_ID,
   REINO_ID,
@@ -149,6 +149,16 @@ describe('exploring a map', () => {
       expect(deps.documentWorkspace.getState().activeByCampaign[VHARN.id]).toBe(
         deps.documentWorkspace.getState().entries[0]?.key,
       );
+    });
+
+    it('a double click on a link to a tab shows that tab of the document', async () => {
+      const link = { ...LINK_TO.document, tabId: ITEMS_TAB_ID, tabName: 'Itens' };
+      const deps = await exploring([mapRegion({ link })]);
+      await doubleClickCapital();
+      await waitFor(() => {
+        const { entries, activeTabByDocument } = deps.documentWorkspace.getState();
+        expect(activeTabByDocument[entries[0]?.key ?? '']).toBe(ITEMS_TAB_ID);
+      });
     });
 
     it('a double click on a grid opens a personal tab and never moves the group', async () => {

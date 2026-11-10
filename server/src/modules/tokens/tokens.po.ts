@@ -55,7 +55,7 @@ export const tokens = pgTable(
     name: text('name').notNull(),
     initials: text('initials').notNull(),
     side: tokenSide('side').notNull(),
-    // In cells, in steps of half a cell: a width × height box anchored at (col, row).
+    // In cells: a width × height box (steps of half a cell) anchored at (col, row) (steps of 1/64).
     ...boxSizeColumns(),
     col: doublePrecision('col').notNull(),
     row: doublePrecision('row').notNull(),
@@ -132,8 +132,8 @@ export const tokens = pgTable(
     check('tokens_aura_fields', auraFieldsSql(table)),
     check('tokens_aura_color_value', auraColorSql(table)),
     check(
-      'tokens_box_half_cells',
-      sql`${table.col} >= 0 AND ${table.row} >= 0 AND ${table.width} BETWEEN 0.5 AND 10 AND ${table.height} BETWEEN 0.5 AND 10 AND (${table.col} * 2) = floor(${table.col} * 2) AND (${table.row} * 2) = floor(${table.row} * 2) AND (${table.width} * 2) = floor(${table.width} * 2) AND (${table.height} * 2) = floor(${table.height} * 2)`,
+      'tokens_box_steps',
+      sql`${table.col} >= 0 AND ${table.row} >= 0 AND ${table.width} BETWEEN 0.5 AND 10 AND ${table.height} BETWEEN 0.5 AND 10 AND (${table.col} * 64) = floor(${table.col} * 64) AND (${table.row} * 64) = floor(${table.row} * 64) AND (${table.width} * 2) = floor(${table.width} * 2) AND (${table.height} * 2) = floor(${table.height} * 2)`,
     ),
   ],
 );

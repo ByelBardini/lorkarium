@@ -79,7 +79,8 @@ export type TokenView = Readonly<{
   /** On the floor of its layer, under every token of it; `null` without aura or as a silhouette. */
   aura: AuraView | null;
   /** How long its move to this cell glides: a patrol's whole step (`1000 / speed` ms); `null`
-   *  for the short glide of any other move. Never redraws the token. */
+   *  for the short glide of any other move and of a patrol in the `step` gait. Never redraws the
+   *  token. */
   glideMs: number | null;
 }>;
 

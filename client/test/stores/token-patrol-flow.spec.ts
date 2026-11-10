@@ -1,4 +1,5 @@
-import { cell } from '@lorkarium/game-core';
+import { tokenPatrolFieldsDto } from '@lorkarium/contracts';
+import { cell, tokenPatrol } from '@lorkarium/game-core';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
 import {
@@ -40,8 +41,25 @@ describe('the patrol editor', () => {
       repeat: 'loop',
       speed: 1,
       turns: true,
+      gait: 'glide',
       saved: false,
     });
+  });
+
+  it('on a token off the cells the route starts where it stands, and the save is valid', async () => {
+    const fine = cell(4.015625, 2.5);
+    openKael(kael({ col: fine.col, row: fine.row }));
+    editor.getState().addPoint(cell(7, 2));
+
+    await editor.getState().save();
+
+    const [sent] = commands.sentAs('setTokenPatrol');
+    const path = [fine, cell(7, 2)];
+    expect(sent?.fields).toMatchObject({ patrol: { path } });
+    const route = { repeat: 'loop', speed: 1, turns: true, gait: 'glide' } as const;
+    expect(() => tokenPatrol({ path, ...route })).not.toThrow();
+    const wirePath = path.map(({ col, row }) => [col, row]);
+    expect(tokenPatrolFieldsDto.safeParse({ path: wirePath, ...route }).success).toBe(true);
   });
 
   const SQUARE = [cell(0, 0), cell(2, 0), cell(2, 2), cell(0, 2)];
@@ -60,6 +78,27 @@ describe('the patrol editor', () => {
     });
   });
 
+  it('a new patrol starts gliding; a saved one opens in the gait it was saved with', () => {
+    openKael(kael({ col: 4, row: 4 }));
+    expect(editor.getState().draft?.gait).toBe('glide');
+
+    openKael(kael({ col: 4, row: 4, patrol: squarePatrol({ gait: 'step' }) }));
+    expect(editor.getState().draft?.gait).toBe('step');
+  });
+
+  it('"Casa em casa" goes to the server with the route', async () => {
+    openKael(kael({ col: 4, row: 4, patrol: squarePatrol() }));
+    editor.getState().setGait('step');
+
+    await editor.getState().save();
+
+    expect(commands.sent).toEqual([
+      expect.objectContaining({
+        fields: expect.objectContaining({ patrol: expect.objectContaining({ gait: 'step' }) }),
+      }),
+    ]);
+  });
+
   it('a saved route can be saved again with only the speed changed', async () => {
     openKael(kael({ col: 4, row: 4, patrol: squarePatrol() }));
     editor.getState().setSpeed(2);
@@ -72,7 +111,7 @@ describe('the patrol editor', () => {
         ...VHARN_GRID,
         fields: {
           tokenId: KAEL_ID,
-          patrol: { path: SQUARE, repeat: 'loop', speed: 2, turns: true },
+          patrol: { path: SQUARE, repeat: 'loop', speed: 2, turns: true, gait: 'glide' },
         },
       },
     ]);
@@ -160,6 +199,7 @@ describe('the patrol editor', () => {
             repeat: 'loop',
             speed: 1,
             turns: true,
+            gait: 'glide',
           },
         },
       },

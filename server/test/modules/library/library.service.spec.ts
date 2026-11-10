@@ -257,6 +257,7 @@ describe('LibraryService', () => {
       widthCells: 30,
       backgroundAssetId: MAP_ID,
       visionMode: 'dark',
+      freeMovement: true,
     });
 
     const copy = await service.duplicate(ANA, VHARN_SCENE_ID);
@@ -276,7 +277,11 @@ describe('LibraryService', () => {
       visibility: 'private',
       widthCells: 30,
     });
-    expect(scenes.rows.at(-1)).toMatchObject({ backgroundAssetId: MAP_ID, visionMode: 'dark' });
+    expect(scenes.rows.at(-1)).toMatchObject({
+      backgroundAssetId: MAP_ID,
+      visionMode: 'dark',
+      freeMovement: true,
+    });
   });
 
   it('duplicating a grid of 60 characters cuts the name so the suffix fits', async () => {

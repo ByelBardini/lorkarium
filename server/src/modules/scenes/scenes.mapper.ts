@@ -19,6 +19,7 @@ export function toSceneDto(scene: SceneRow): SceneDto {
     gridOpacity: scene.gridOpacity,
     background: backgroundOfScene(scene),
     vision: scene.visionMode,
+    freeMovement: scene.freeMovement,
   };
 }
 

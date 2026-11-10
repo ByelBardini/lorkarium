@@ -27,6 +27,8 @@ function lyraAt(overrides: Partial<AuraViewInput> = {}): AuraViewInput {
     row: 5,
     width: 1,
     height: 1,
+    frame: 'square',
+    imageAssetId: AURA_IMAGE_ID,
     aura: GOLD_TWO,
     hidden: false,
     ...overrides,
@@ -49,6 +51,15 @@ describe('auraViewOf', () => {
   it('radius 0 is only the footprint, with square corners', () => {
     const view = auraViewOf(lyraAt({ aura: { ...GOLD_TWO, radius: 0 } }));
     expect(view).toMatchObject({ box: { x: 320, y: 320, width: 64, height: 64 }, corner: 0 });
+  });
+
+  it.each<[string, Partial<AuraViewInput>, number]>([
+    ['a square image', {}, 0],
+    ['a round image', { frame: 'round' }, 32],
+    ['no image, even with the square frame', { imageAssetId: null }, 32],
+    ['a stretched 2 × 1 disc, by its shorter side', { frame: 'round', width: 2 }, 32],
+  ])('%s rounds the aura by the token body', (_, change, tokenCorner) => {
+    expect(auraViewOf(lyraAt(change))?.tokenCorner).toBe(tokenCorner);
   });
 
   it('a color aura paints its palette tone: ember is 0xb5654f', () => {
@@ -111,6 +122,7 @@ describe('auraKeyOf', () => {
     ['a new color', { aura: { ...GOLD_TWO, color: 'moss' } }],
     ['a new opacity', { aura: { ...GOLD_TWO, opacity: 80 } }],
     ['a new size', { width: 2 }],
+    ['a round frame', { frame: 'round' }],
     ['being hidden', { hidden: true }],
     ['losing the aura', { aura: null }],
   ])('%s changes the key', (_, change) => {
@@ -134,6 +146,12 @@ describe('auraHaloOf', () => {
       [-112, -112, 288, 112],
       [-104, -104, 272, 104],
     ]);
+  });
+
+  it('around a disc every step is a circle: the radius is half its width', () => {
+    const view = auraViewOf(lyraAt({ frame: 'round' }));
+    const steps = view ? auraHaloOf(view) : [];
+    expect(steps.map(({ width, radius }) => radius - width / 2)).toEqual([0, 0, 0, 0]);
   });
 
   it('the steps stack up to the aura opacity in the middle: 0.5 is 0.125, 1/7, 1/6 and 0.2', () => {

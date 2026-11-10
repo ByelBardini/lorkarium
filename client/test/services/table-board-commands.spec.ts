@@ -38,6 +38,16 @@ describe('RealtimeTableBoardCommands', () => {
     ]);
   });
 
+  it('configureScene carries freeMovement when it is given, also when false', () => {
+    void commands.configureScene(VHARN_GRID, GRID, undefined, undefined, false);
+    expect(transport.sent[0]?.payload).toEqual({
+      actionId: ACTION_ID,
+      ...VHARN_GRID,
+      ...GRID,
+      freeMovement: false,
+    });
+  });
+
   describe('token commands', () => {
     const LYRA = '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a';
     const PV = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';

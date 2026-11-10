@@ -29,6 +29,7 @@ import { PaletteColorField } from '@/features/drawings/palette-color-field';
 import { DRAWING_COLORS } from '@/lib/drawing-style';
 import { useDraftField } from '@/lib/use-draft-field';
 import type { LibraryMapsApi } from '@/services/library-maps-api';
+import type { DocumentsApi } from '@/services/documents-api';
 import { MapLinkPicker, type LinkableLibrary } from './map-link-picker';
 import { MAP_REGION_BLANK_NAME, mapRegionFailureMessage } from './map-messages';
 import { MapPinIconField } from './map-pin-icon-field';
@@ -40,6 +41,7 @@ export type MapRegionFormProps = Readonly<{
   /** The region as the server last confirmed it: the owner replaces it on `onRegionChanged`. */
   region: MapRegionDto;
   library: LinkableLibrary;
+  documents: Pick<DocumentsApi, 'detail'>;
   /** Without a connection every field is off. */
   live: boolean;
   onRegionChanged: (region: MapRegionDto) => void;
@@ -79,9 +81,11 @@ function RegionFields(props: MapRegionFormProps): React.JSX.Element {
       )}
       <HiddenSwitch region={region} disabled={off} commands={commands} />
       <MapLinkPicker
+        campaignId={props.campaignId}
         mapId={mapId}
         link={region.link}
         library={library}
+        documents={props.documents}
         disabled={off}
         onChange={(link) => void commands.save({ link })}
       />

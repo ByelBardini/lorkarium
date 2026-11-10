@@ -30,6 +30,7 @@ async function loadLinkTargets(
   return {
     groupSceneId: ids.scenes.length > 0 ? await groupSceneIdOf(daos, campaignId) : null,
     documents: byId(await linkTargets.documentsIn(campaignId, ids.documents)),
+    documentTabs: byId(await linkTargets.documentTabsIn(campaignId, ids.documentTabs)),
     scenes: byId(await linkTargets.scenesIn(campaignId, ids.scenes)),
     maps: byId(await linkTargets.mapsIn(campaignId, ids.maps)),
     images: byId(await linkTargets.imagesIn(campaignId, ids.images)),

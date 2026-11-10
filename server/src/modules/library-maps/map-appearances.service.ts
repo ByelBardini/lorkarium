@@ -25,15 +25,17 @@ export class MapAppearancesService {
       await this.requireReadable(daos, access, documentId);
       const rows = await daos.regions.listAppearances(campaignId, documentId);
       const maps = new LibraryMapAccessBo(access);
-      const seen = rows.filter((row) =>
-        maps.canSeeRegion(
-          {
-            visibility: row.mapVisibility,
-            isMain: row.mapIsMain,
-            hiddenByFolder: row.mapHiddenByFolder,
-          },
-          { hidden: row.regionHidden },
-        ),
+      const seen = rows.filter(
+        (row) =>
+          (access.isMaster() || row.tabVisibility !== 'masters') &&
+          maps.canSeeRegion(
+            {
+              visibility: row.mapVisibility,
+              isMain: row.mapIsMain,
+              hiddenByFolder: row.mapHiddenByFolder,
+            },
+            { hidden: row.regionHidden },
+          ),
       );
       return { appearances: seen.map(toMapAppearanceDto) };
     });

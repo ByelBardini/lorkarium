@@ -110,19 +110,20 @@ function openingOf(
   context: OpenContext,
   showImage: (image: ImageView) => void,
 ): LinkOpening {
-  if (link.kind === 'document') return documentOpening(link.id, library, context);
+  if (link.kind === 'document') return documentOpening(link, library, context);
   if (link.kind === 'scene') return gridOpening(link.id, library, context);
   const image = library.images.find(({ id }) => id === link.id);
   return image ? () => showImage(image) : null;
 }
 
 function documentOpening(
-  documentId: string,
+  { id: documentId, tabId }: OpenLink,
   library: CampaignLibraryDto,
   { deps, campaign }: OpenContext,
 ): LinkOpening {
   const document = library.documents.find(({ id }) => id === documentId);
-  return document ? () => deps.documentWorkspace.getState().open({ campaign, document }) : null;
+  if (!document) return null;
+  return () => void deps.documentWorkspace.getState().open({ campaign, document, tabId });
 }
 
 function gridOpening(

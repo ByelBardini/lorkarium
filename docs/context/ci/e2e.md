@@ -37,6 +37,10 @@ Workspace `e2e/` (`@lorkarium/e2e`, `@playwright/test`, só Chromium), fora do V
 
 `token-patrol.spec.ts`, no grupo `tokens`, Ana (o admin) e Bia, os dois contextos com `reducedMotion: 'reduce'` (o token pula de casa em casa, sem deslizar, então a casa na tela é a do passo). Uma rodada leva ~1,3 min: `--project=tokens --workers=1 token-patrol`. Ver [`../client/token-patrols.md`](../client/token-patrols.md).
 
+## Movimento livre
+
+`free-movement.spec.ts`, no grupo `tokens`, Ana (o admin) e Bia: o mestre liga o modo, a Bia solta o token fora da casa, as duas páginas leem a mesma posição, inclusive depois de recarregar, e desligar deixa o token onde está até o próximo arraste encaixar. A posição é comparada com tolerância na segunda casa decimal, porque um pixel do tabuleiro enquadrado passa de 1/64 de casa. `--project=tokens --workers=1 free-movement`. Ver [`../tokens/movimento-livre.md`](../tokens/movimento-livre.md).
+
 - Onde o Kael está: não há DOM da casa dele (o cartão mostra a casa **gravada**, que durante a patrulha é a origem da volta). O Kael tem o `fixtures/token.png` (bege) e a casa é lida no canvas: `r − b` da amostra de 6 × 6 px (`meanChannelsAt`) acima de 0,15 (o tabuleiro vazio fica perto de 0). Os pontos de tela de cada casa são lidos uma vez por página (`cellCenterOf`).
 - Feliz: a Ana abre "Patrulha…" no Kael (10, 6), clica (12, 6) e (12, 9), escolhe "Devagar" (2 s por casa), salva e liga "Patrulhando" ("Kael patrulhando."); na tela da Bia o Kael sai da partida em até 3 s e passa pelo canto e pelo fim.
 - Arrastar: a Ana espera o Kael no canto (12, 6) na volta seguinte e o arrasta para (8, 9), e o spec espera a casa na tela da Bia **e na da própria Ana** antes do clique direito (ele acerta o que o tabuleiro dela mostra) → "Patrulhando" com `aria-checked="false"`; na Bia ele fica em (8, 9) depois de 4 s, fora da rota, e o cartão diz "Coluna 9, linha 10". Antes de amostrar, a Ana clica numa casa vazia: com o Kael selecionado o traço dourado do mestre cairia sobre as casas da rota.

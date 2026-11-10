@@ -123,7 +123,7 @@ describe('tokenResizeTarget', () => {
 
 describe('resizeTargetOf', () => {
   it('the one selected token is the target, and with the ruler there is none', () => {
-    const grid = { visible: true, opacity: 1, cells: SCENE };
+    const grid = { visible: true, opacity: 1, cells: SCENE, freeMovement: false };
     expect(resizeTargetOf({ tokens: [tokenView()], tool: 'select', grid })?.id).toBe('horse');
     expect(resizeTargetOf({ tokens: [tokenView()], tool: 'ruler', grid })).toBeNull();
   });

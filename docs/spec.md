@@ -120,6 +120,7 @@ Funcionalidades:
 - Alterar opacidade e aparência do grid.
 - Salvar posições dos tokens.
 - Reabrir cenas anteriormente configuradas.
+- Ligar o movimento livre em um grid (extensão aprovada, só o mestre): os tokens arrastados naquele grid caem onde forem soltos, em passos de 1/64 de casa, em vez de encaixar. As paredes continuam barrando o jogador, a régua mostra uma casa decimal, e ao desligar os tokens ficam onde estão e voltam a encaixar quando arrastados. Criar token e pontos de patrulha continuam encaixados.
 
 Inicialmente, somente grids quadrados serão implementados.
 
@@ -173,7 +174,7 @@ Funcionalidades:
 - Vincular token a personagem.
 - Exibir barras de vida.
 - Exibir identificadores e condições.
-- Patrulha do token: o mestre desenha um caminho em loop que o token percorre sozinho para todos (pausa ao ser mexido à mão ou entrar no combate).
+- Patrulha do token: o mestre desenha um caminho em loop que o token percorre sozinho para todos, deslizando ou de casa em casa (pausa ao ser mexido à mão ou entrar no combate).
 
 A posição visual deverá ser derivada de coordenadas de mundo, não de coordenadas da tela.
 
@@ -327,7 +328,7 @@ Contratos, tabelas, rotas e provas: [context/sheets.md](context/sheets.md). Fora
 
 ### 3.13. Mapas interativos na biblioteca
 
-Extensão aprovada em 09/11/2026. O mestre (co-mestre incluso) cria na biblioteca mapas com imagem própria (até 8192 px e 20 MiB) e desenha sobre eles **lugares**: polígonos ou pinos com nome, descrição, cor e, no pino, um ícone. Cada lugar pode levar a um documento, grid, imagem ou outro mapa. Ciclos entre mapas valem. Coordenadas normalizadas (0 a 1) sobre a imagem, e cada lugar grava ao confirmar.
+Extensão aprovada em 09/11/2026. O mestre (co-mestre incluso) cria na biblioteca mapas com imagem própria (até 8192 px e 20 MiB) e desenha sobre eles **lugares**: polígonos ou pinos com nome, descrição, cor e, no pino, um ícone. Cada lugar pode levar a um documento (inteiro ou a uma aba dele), grid, imagem ou outro mapa. Ciclos entre mapas valem. Coordenadas normalizadas (0 a 1) sobre a imagem, e cada lugar grava ao confirmar.
 
 - **Explorar.** Um clique abre, ao lado do ponto, um cartão com nome, descrição e "Abrir"; o duplo clique abre o item. Grid abre em aba pessoal e nunca move o grupo; outro mapa abre na mesma aba, com trilha e voltar. "Lugares neste mapa" lista em hierarquia, cada lugar dentro da região que o contém, com busca.
 - **Spoilers.** Lugar oculto nunca chega ao jogador. Lugar visível com item que o jogador não pode abrir mostra "O mestre ainda não revelou isto", sem nome, tipo ou id do item. A permissão é sempre a do item ligado, calculada no servidor para cada leitor; o aviso por socket não leva nome nem forma.
@@ -335,7 +336,7 @@ Extensão aprovada em 09/11/2026. O mestre (co-mestre incluso) cria na bibliotec
 - **Item excluído.** O lugar fica, sem link, e o mestre vê "Link removido".
 - **Mostrar a todos.** Evento efêmero que abre o mapa e centraliza o lugar para quem está na sala; recusado se os jogadores não puderem vê-lo.
 - **Aparece em.** O documento lista os lugares que levam a ele, filtrados pelo que o leitor pode ver.
-- **Limites.** Nome de 1 a 60 caracteres, descrição até 500, 300 lugares por mapa, polígono de 3 a 128 vértices.
+- **Limites.** Nome de 1 a 60 caracteres, descrição até 500, 300 lugares por mapa, polígono de 3 a 1024 vértices.
 
 Contratos, tabelas, rotas e provas: [context/library-maps.md](context/library-maps.md). Fora desta entrega: camadas e grupos de marcadores, cursores e ping no mapa, janela separada no desktop, ficha como alvo de link, edição por jogadores, imagem em ladrilhos, troca da imagem de um mapa já criado, duplicar e exportar.
 

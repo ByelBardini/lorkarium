@@ -234,6 +234,47 @@ describe('MapRegionsService.update', () => {
     });
   });
 
+  describe('a link to a tab', () => {
+    const CAPITULO_ID = '9b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e';
+    const link = { kind: 'document', id: DIARIO_ID, tabId: CAPITULO_ID } as const;
+    const tabOf = (documentId: string, campaignId: string = VHARN_ID) =>
+      ({
+        id: CAPITULO_ID,
+        campaignId,
+        documentId,
+        name: 'Capítulo',
+        visibility: 'document',
+      }) as const;
+
+    it('saves the tab of that document and answers its name', async () => {
+      const { h, service } = setUp();
+      h.regions.rows.push(mapRegionPo());
+      h.linkTargets.documentTabs.push(tabOf(DIARIO_ID));
+      const region = await service.update(ana, MUNDO_MAP_ID, REINO_REGION_ID, { link });
+      expect(h.regions.rows[0]?.targetDocumentTabId).toBe(CAPITULO_ID);
+      expect(region.link).toMatchObject({ tabId: CAPITULO_ID, tabName: 'Capítulo' });
+    });
+
+    it('refuses a tab of another document, saving nothing', async () => {
+      const { h, service } = setUp();
+      h.regions.rows.push(mapRegionPo());
+      h.linkTargets.documentTabs.push(tabOf(SALAO_ID));
+      await expect(
+        service.update(ana, MUNDO_MAP_ID, REINO_REGION_ID, { link }),
+      ).rejects.toMatchObject({ code: 'MAP_LINK_TARGET_NOT_FOUND' });
+      expect(h.regions.rows[0]?.targetDocumentTabId).toBeNull();
+    });
+
+    it('refuses a tab of another table', async () => {
+      const { h, service } = setUp();
+      h.regions.rows.push(mapRegionPo());
+      h.linkTargets.documentTabs.push(tabOf(DIARIO_ID, QUELM_ID));
+      await expect(
+        service.update(ana, MUNDO_MAP_ID, REINO_REGION_ID, { link }),
+      ).rejects.toMatchObject({ code: 'MAP_LINK_TARGET_NOT_FOUND' });
+    });
+  });
+
   it('link: null removes the link altogether', async () => {
     const { h, service } = setUp();
     h.regions.rows.push(mapRegionPo({ linkKind: 'document', targetDocumentId: DIARIO_ID }));

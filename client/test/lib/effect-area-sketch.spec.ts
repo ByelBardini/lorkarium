@@ -1,4 +1,4 @@
-import type { EffectAreaKindDto } from '@lorkarium/contracts';
+import { effectAreaShapeDto, type EffectAreaKindDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import { effectAreaSketchOf, type AreaFootprint } from '@/lib/effect-area-sketch';
 
@@ -18,6 +18,29 @@ function sketch(
     footprints: [LYRA],
   });
 }
+
+describe('effectAreaSketchOf — an emanation on a token off the cells', () => {
+  function emanationOn(col: number, row: number) {
+    return effectAreaSketchOf({
+      style: { kind: 'emanation', color: 'ember' },
+      press: { x: col + 0.5, y: row + 0.5 },
+      pointer: { x: col + 4, y: row + 0.5 },
+      snap: false,
+      footprints: [{ x: col, y: row, width: 1, height: 1 }],
+    });
+  }
+
+  it('is born with its origin rounded to the hundredth, keeping the sides', () => {
+    expect(emanationOn(3.015625, 2.5)).toMatchObject({ x: 3.02, y: 2.5, width: 1, height: 1 });
+  });
+
+  it('every position a token can have makes an origin the server accepts', () => {
+    for (let steps = 0; steps <= 64 * 99; steps += 1) {
+      const area = emanationOn(steps / 64, steps / 64);
+      expect(effectAreaShapeDto.safeParse(area).success, `at ${steps}/64`).toBe(true);
+    }
+  });
+});
 
 describe('effectAreaSketchOf — grid shapes', () => {
   it('a circle is born on the nearest intersection and reaches the pointer in whole cells', () => {

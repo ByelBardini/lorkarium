@@ -8,13 +8,10 @@ import {
 } from '@lorkarium/contracts';
 import {
   ChevronRightIcon,
-  FolderIcon,
-  FolderOpenIcon,
   LayoutGridIcon,
   ImageIcon,
   FileTextIcon,
   FileCode2Icon,
-  LockIcon,
   MapIcon,
   ScrollTextIcon,
   StarIcon,
@@ -33,6 +30,7 @@ import type { FolderNode } from '@/lib/folder-tree';
 import { cn } from '@/lib/utils';
 import { folderDescription, sceneDescription } from './library-messages';
 import { NO_FOLDER, sceneIdOf, sceneKey } from './library-view';
+import { HiddenItemSeal, TreeFolderIcon } from './tree-icons';
 import { NewNameEntry, RenameField } from './tree-name-fields';
 import { treeItemId } from './tree-navigation';
 
@@ -107,9 +105,16 @@ export function FolderItem({
       level={node.depth}
       description={folderLine(node)}
       count={node.sceneCount}
-      isPrivate={node.folder.visibility === 'private'}
       expanded={expandable ? open : undefined}
-      icon={open ? <FolderOpenIcon aria-hidden="true" /> : <FolderIcon aria-hidden="true" />}
+      icon={
+        node.folder.visibility === 'private' ? (
+          <HiddenItemSeal>
+            <TreeFolderIcon open={open} />
+          </HiddenItemSeal>
+        ) : (
+          <TreeFolderIcon open={open} />
+        )
+      }
     >
       {(open || adding) && (
         <ul role="group" className="flex flex-col gap-0.5">
@@ -149,7 +154,7 @@ export function LooseItem({
       description={folderDescription(scenes.length, groupHere)}
       count={scenes.length}
       expanded={expandable ? open : undefined}
-      icon={<FolderIcon aria-hidden="true" className="opacity-60" />}
+      icon={<TreeFolderIcon open={open} />}
     >
       {open && (
         <ul role="group" className="flex flex-col gap-0.5">
@@ -181,8 +186,13 @@ function SceneItems({ context, scenes, level }: SceneItemsProps): React.JSX.Elem
             description={look.description}
             live={look.isGroupGrid}
             mainMap={look.isMainMap}
-            isPrivate={look.showsLock && scene.visibility === 'private'}
-            icon={look.icon}
+            icon={
+              look.showsHiddenSeal && scene.visibility === 'private' ? (
+                <HiddenItemSeal>{look.icon}</HiddenItemSeal>
+              ) : (
+                look.icon
+              )
+            }
           />
         );
       })}
@@ -195,17 +205,17 @@ type EntryLook = Readonly<{
   icon: ReactNode;
   isGroupGrid: boolean;
   isMainMap?: boolean;
-  /** Templates and sheets say who sees them in the description, without the lock. */
-  showsLock: boolean;
+  /** Templates and sheets say who sees them in the description, without the seal. */
+  showsHiddenSeal: boolean;
 }>;
 
 function entryLookOf(entry: LibraryEntry, context: TreeContext): EntryLook {
   const shown = entry.visibility === 'public' ? 'Público' : 'Privado';
-  const look = (description: string, icon: ReactNode, showsLock = true): EntryLook => ({
+  const look = (description: string, icon: ReactNode, showsHiddenSeal = true): EntryLook => ({
     description,
     icon,
     isGroupGrid: false,
-    showsLock,
+    showsHiddenSeal,
   });
   if ('kind' in entry && entry.kind === 'map') return mapLookOf(entry, shown);
   if ('kind' in entry && entry.kind === 'sheet')
@@ -224,7 +234,7 @@ function mapLookOf(map: MapEntry, shown: string): EntryLook {
     icon: <MapIcon aria-hidden="true" />,
     isGroupGrid: false,
     isMainMap: map.isMain,
-    showsLock: true,
+    showsHiddenSeal: true,
   };
 }
 
@@ -235,7 +245,7 @@ function gridLookOf(scene: LibrarySceneDto, context: TreeContext): EntryLook {
     description: `Grid · ${meta}`,
     icon: <LayoutGridIcon aria-hidden="true" />,
     isGroupGrid,
-    showsLock: true,
+    showsHiddenSeal: true,
   };
 }
 
@@ -252,7 +262,6 @@ type TreeRowProps = Readonly<{
   live?: boolean;
   /** The table's main map: marked with the star. */
   mainMap?: boolean;
-  isPrivate?: boolean;
   /** `undefined` for an item that cannot expand (a grid, an empty folder). */
   expanded?: boolean;
   children?: ReactNode;
@@ -296,7 +305,7 @@ function TreeRowLine(props: TreeRowLineProps): React.JSX.Element {
     <div
       style={{ paddingLeft: `${(props.level - 1) * 14 + 8}px` }}
       className={cn(
-        'flex h-9 items-center gap-2 rounded-md pr-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground [&_svg]:size-4 [&_svg]:shrink-0',
+        'flex h-9 items-center gap-2 rounded-md pr-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground [&_svg]:size-5 [&_svg]:shrink-0',
         selected && 'bg-muted text-foreground [&_svg]:text-primary',
       )}
     >
@@ -314,7 +323,7 @@ function Chevron({ expanded, context, itemKey }: TreeRowLineProps): React.JSX.El
   return (
     <span
       aria-hidden="true"
-      className="flex w-4 justify-center"
+      className="flex w-5 justify-center"
       onClick={(event) => {
         if (expanded === undefined) return;
         event.stopPropagation();
@@ -337,7 +346,6 @@ function ItemName(props: TreeRowLineProps): React.JSX.Element {
   return (
     <>
       <span className="min-w-0 flex-1 truncate">{props.label}</span>
-      {props.isPrivate && <LockIcon aria-hidden="true" className="opacity-50" />}
       {props.mainMap && <StarIcon aria-hidden="true" className="text-primary" />}
       {props.live && <UsersIcon aria-hidden="true" className="text-primary" />}
       {props.count !== undefined && (

@@ -9,6 +9,7 @@ const GOLD_AURA = {
   look: { kind: 'color', color: 0xc5a46d },
   box: { x: -64, y: -64, width: 192, height: 192 },
   corner: 64,
+  tokenCorner: 0,
   alpha: 0.5,
 } as const;
 

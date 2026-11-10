@@ -180,7 +180,7 @@ function rgbOfHex(hex: string): string {
   return [1, 3, 5].map((start) => Number.parseInt(hex.slice(start, start + 2), 16)).join(' ');
 }
 
-// The aura under the token: the footprint grown by the radius, rounded like on the board, in the
+// The aura under the token: the footprint grown by the radius, round around the preview's disc, in the
 // tone the board draws (or the image itself, whole, behind the disc); nothing while mistyped.
 function AuraGlow({
   form,
@@ -214,7 +214,7 @@ function auraGlowStyle(form: TokenFormValues, aura: TokenAuraDto): React.CSSProp
   return {
     width: Math.min(MAX_GLOW_PX, discPx(form.width) + grow),
     height: Math.min(MAX_GLOW_PX, discPx(form.height) + grow),
-    borderRadius: aura.radius * CELL_PX,
+    borderRadius: aura.radius * CELL_PX + Math.min(discPx(form.width), discPx(form.height)) / 2,
     opacity: aura.opacity / 100,
     background: tone ? auraFillOf(rgbOfHex(tone)) : undefined,
   };

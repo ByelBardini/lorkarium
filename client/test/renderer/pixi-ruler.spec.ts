@@ -1,4 +1,4 @@
-import { Graphics } from 'pixi.js';
+import { Container, Graphics, Text } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import type { RulerView } from '@/renderer/board-view';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
@@ -10,12 +10,33 @@ function centerOf(col: number, row: number) {
   return { x: (col + 0.5) * CELL_WORLD_SIZE, y: (row + 0.5) * CELL_WORLD_SIZE };
 }
 
+const FAKE_TEXT_SIZE = { width: 96, height: 18 };
+
+/** A fixed text size, because jsdom measures no text. */
+class RulerTextMeasureFake {
+  readonly measure = () => FAKE_TEXT_SIZE;
+}
+
+function rulerWithFakeMeasure(): PixiRuler {
+  return new PixiRuler(new RulerTextMeasureFake().measure);
+}
+
 function drawn(ruler: RulerView | null, zoom = 1): Graphics {
-  const pixiRuler = new PixiRuler();
+  const pixiRuler = rulerWithFakeMeasure();
   pixiRuler.draw(ruler, zoom);
   const [shape] = pixiRuler.container.children;
   if (!(shape instanceof Graphics)) throw new Error('expected the ruler shape first');
   return shape;
+}
+
+function readingOf(pixiRuler: PixiRuler, ruler: RulerView, zoom = 1) {
+  pixiRuler.draw(ruler, zoom);
+  const reading = pixiRuler.container.children[1];
+  if (!(reading instanceof Container)) throw new Error('expected the reading second');
+  const [plate, text] = reading.children;
+  if (!(plate instanceof Graphics) || !(text instanceof Text))
+    throw new Error('expected the reading to hold a plate and then its text');
+  return { reading, plate, text };
 }
 
 type Circle = Readonly<{ x: number; y: number; radius: number }>;
@@ -152,5 +173,38 @@ describe('PixiRuler', () => {
 
   it('no ruler draws nothing', () => {
     expect(drawn(null).context.instructions).toEqual([]);
+  });
+
+  it('the reading sits on an almost opaque dark plate, light text over it, readable on a white map', () => {
+    const { plate, text } = readingOf(rulerWithFakeMeasure(), dragTrail);
+    const [fill] = plate.context.instructions.filter(({ action }) => action === 'fill');
+    const { color, alpha } = (fill!.data as { style: { color: number; alpha: number } }).style;
+    expect({ color, alpha }).toEqual({ color: 0x15181d, alpha: 0.94 });
+    expect(text.style.fill).toBe(0xeae5da);
+    expect(text.text).toBe(dragTrail.label);
+  });
+
+  it('the plate wraps the whole text, with room on every side', () => {
+    const { plate, text } = readingOf(rulerWithFakeMeasure(), dragTrail);
+    const bounds = plate.getLocalBounds();
+    expect(bounds.minX).toBeLessThan(text.x);
+    expect(bounds.minY).toBeLessThan(text.y);
+    expect(bounds.maxX).toBeGreaterThan(text.x + FAKE_TEXT_SIZE.width);
+    expect(bounds.maxY).toBeGreaterThan(text.y + FAKE_TEXT_SIZE.height);
+  });
+
+  it('the plate keeps its screen size and follows the end of the ruler when zoomed', () => {
+    const { reading } = readingOf(rulerWithFakeMeasure(), dragTrail, 0.5);
+    const end = dragTrail.points.at(-1)!;
+    expect(reading.scale.x).toBe(2);
+    expect(reading.position.x).toBe(end.x + 24);
+    expect(reading.position.y).toBe(end.y - 64);
+  });
+
+  it('clearing the ruler hides the plate with the text', () => {
+    const ruler = rulerWithFakeMeasure();
+    const { reading } = readingOf(ruler, dragTrail);
+    ruler.draw(null, 1);
+    expect(reading.visible).toBe(false);
   });
 });

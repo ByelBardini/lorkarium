@@ -328,6 +328,7 @@ function stressPatrolOf({ col, row }: TokenDto): TokenDto['patrol'] {
     repeat: 'bounce',
     speed: 1,
     turns: true,
+    gait: 'glide',
     step: 0,
     startedAt: STRESS_PATROL_STARTED_AT,
   };

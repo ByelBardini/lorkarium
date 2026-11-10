@@ -15,6 +15,7 @@ const LYRA_BOX = { x: 5 * C, y: 5 * C, width: C, height: C };
 function lyraUniforms(tokenId = 'lyra') {
   return auraUniformsOf({
     box: LYRA_BOX,
+    tokenCorner: 0,
     radiusCells: 2,
     cellSize: C,
     opacity: 100,
@@ -73,6 +74,7 @@ describe('aura uniforms', () => {
   it('opacity 50 becomes 0.5', () => {
     const half = auraUniformsOf({
       box: LYRA_BOX,
+      tokenCorner: 0,
       radiusCells: 1,
       cellSize: C,
       opacity: 50,
@@ -102,6 +104,7 @@ describe('aura uniforms', () => {
   it('a 2×1 token with radius 1 makes a 256 × 192 quad', () => {
     const horse = auraUniformsOf({
       box: { x: 0, y: 0, width: 2 * C, height: C },
+      tokenCorner: 0,
       radiusCells: 1,
       cellSize: C,
       opacity: 100,

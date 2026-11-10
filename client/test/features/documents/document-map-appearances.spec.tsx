@@ -25,12 +25,14 @@ const CAPITAL: MapAppearanceDto = {
   mapName: 'Mundo',
   regionId: CAPITAL_REGION_ID,
   regionName: 'Capital',
+  tabName: null,
 };
 const TAVERNA: MapAppearanceDto = {
   mapId: REINO_ID,
   mapName: 'Reino',
   regionId: TAVERNA_REGION_ID,
   regionName: 'Taverna',
+  tabName: null,
 };
 const CAMPAIGN = detailOf(VHARN);
 const LINE_NAME = 'Aparece em';
@@ -133,6 +135,11 @@ describe('DocumentMapAppearances', () => {
     view.rerender(panel('1'));
     await settle();
     expect(screen.queryByRole('group', { name: LINE_NAME })).not.toBeInTheDocument();
+  });
+
+  it('says which tab a place points at', async () => {
+    await renderWith({ ok: true, value: [{ ...CAPITAL, tabName: 'Itens' }] });
+    expect(screen.getByRole('button', { name: 'Mundo › Capital · aba Itens' })).toBeInTheDocument();
   });
 
   it('an older answer landing after a newer one is dropped', async () => {

@@ -190,6 +190,7 @@ describe('the veil of a patrolling hidden token', () => {
         repeat: 'loop',
         speed: 0.5,
         turns: true,
+        gait: 'glide',
         step: 0,
         startedAt: '2026-11-08T12:00:00.000Z',
       },

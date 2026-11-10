@@ -99,8 +99,8 @@ describe('map region geometry', () => {
   it.each([
     [2, false],
     [3, true],
-    [128, true],
-    [129, false],
+    [1024, true],
+    [1025, false],
   ])('a polygon of %i vertices has success %s', (vertices, accepted) => {
     const body = { ...newRegion, geometry: polygonOf(vertices) };
     expect(createMapRegionRequestDto.safeParse(body).success).toBe(accepted);
@@ -128,6 +128,14 @@ describe('map region bodies', () => {
   it.each([['document'], ['scene'], ['map'], ['image']])('a region may link to a %s', (kind) => {
     const link = { kind, id };
     expect(createMapRegionRequestDto.parse({ ...newRegion, link }).link).toEqual(link);
+  });
+  it('a link to a document may name one of its tabs', () => {
+    const link = { kind: 'document', id, tabId: id };
+    expect(createMapRegionRequestDto.parse({ ...newRegion, link }).link).toEqual(link);
+  });
+  it.each([['scene'], ['map'], ['image']])('a link to a %s cannot name a tab', (kind) => {
+    const link = { kind, id, tabId: id };
+    expect(createMapRegionRequestDto.safeParse({ ...newRegion, link }).success).toBe(false);
   });
   it('a region may be created without a link', () => {
     expect(createMapRegionRequestDto.parse({ ...newRegion, link: null }).link).toBeNull();
@@ -244,7 +252,13 @@ describe('map read models', () => {
     expect(mainMapResponseDto.parse({ map })).toEqual({ map });
   });
   it('an appearance carries only what opens the map at the region', () => {
-    const appearance = { mapId: id, mapName: 'Mundo', regionId: id, regionName: 'Reino' };
+    const appearance = {
+      mapId: id,
+      mapName: 'Mundo',
+      regionId: id,
+      regionName: 'Reino',
+      tabName: null,
+    };
     const answer = { appearances: [appearance] };
     expect(mapAppearancesResponseDto.parse(answer)).toEqual(answer);
     const withGeometry = { appearances: [{ ...appearance, geometry: pin }] };

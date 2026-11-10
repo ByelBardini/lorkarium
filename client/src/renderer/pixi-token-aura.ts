@@ -116,11 +116,12 @@ export class PixiTokenAura implements AnimatedAura {
   private drawEffect(view: AuraView, look: Extract<AuraLook, { kind: 'effect' }>): void {
     if (this.effect?.effect !== look.effect) this.dropEffect();
     const effect = this.effect ?? this.addEffect(look.effect);
-    const { box, corner } = view;
+    const { box, corner, tokenCorner } = view;
     const token = { x: 0, y: 0, width: box.width - corner * 2, height: box.height - corner * 2 };
     effect.update(
       auraUniformsOf({
         box: token,
+        tokenCorner,
         radiusCells: corner / CELL_WORLD_SIZE,
         cellSize: CELL_WORLD_SIZE,
         opacity: view.alpha * 100,

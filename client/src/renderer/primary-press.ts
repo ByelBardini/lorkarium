@@ -203,7 +203,8 @@ export class PrimaryPress {
     return true;
   }
 
-  // Only a new cell is news: the pointer moves many times inside one.
+  // Only a new position is news: the pointer moves many times inside one cell, or one 1/64 of a
+  // cell on a free-movement grid, and each report rebuilds the view.
   private reportDragCell(view: BoardView | null, tokenId: string, over: Cell | null): void {
     const key = over ? `${over.col},${over.row}` : 'off';
     if (key === this.dragCellKey) return;
@@ -239,5 +240,5 @@ export class PrimaryPress {
 function dropCellAt(view: BoardView | null, press: TokenPress, world: Point): Cell | null {
   const token = view?.tokens.find(({ id }) => id === press.tokenId);
   if (!view || !token) return null;
-  return dropCellOf(view.grid.cells, token, heldCenterOf(press, world));
+  return dropCellOf(view.grid.cells, token, heldCenterOf(press, world), view.grid.freeMovement);
 }

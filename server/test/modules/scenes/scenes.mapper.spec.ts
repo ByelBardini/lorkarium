@@ -20,7 +20,12 @@ describe('scenes mapper', () => {
       gridOpacity: 15,
       background: null,
       vision: 'off',
+      freeMovement: false,
     });
+  });
+
+  it('a scene saved with free_movement carries freeMovement true', () => {
+    expect(toSceneDto(sceneRow({ freeMovement: true })).freeMovement).toBe(true);
   });
 
   it('a scene saved with vision_mode daylight carries vision daylight', () => {

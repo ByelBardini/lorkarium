@@ -81,6 +81,7 @@ export function mapRegionPo(changes: Partial<MapRegionPo> = {}): MapRegionPo {
     hidden: false,
     linkKind: null,
     targetDocumentId: null,
+    targetDocumentTabId: null,
     targetSceneId: null,
     targetMapId: null,
     targetImageId: null,

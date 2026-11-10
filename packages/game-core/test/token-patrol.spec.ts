@@ -13,7 +13,7 @@ function patrolOf(
   options: { repeat?: PatrolRepeat; speed?: number; turns?: boolean } = {},
 ): TokenPatrol {
   const { repeat = 'loop', speed = 1, turns = true } = options;
-  return { path, repeat, speed, turns };
+  return { path, repeat, speed, turns, gait: 'glide' };
 }
 
 function squareAt(elapsedMs: number, speed = 1): ReturnType<typeof patrolPoseAt> {

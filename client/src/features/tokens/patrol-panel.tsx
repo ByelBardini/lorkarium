@@ -1,4 +1,4 @@
-import type { TokenPatrolRepeatDto } from '@lorkarium/contracts';
+import type { TokenPatrolGaitDto, TokenPatrolRepeatDto } from '@lorkarium/contracts';
 import { Minus, Plus } from 'lucide-react';
 import { useEffect, useId } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
@@ -38,9 +38,14 @@ const REPEAT_OPTIONS: readonly SegmentOption<TokenPatrolRepeatDto>[] = [
   { value: 'bounce', label: 'Ida e volta' },
 ];
 
+const GAIT_OPTIONS: readonly SegmentOption<TokenPatrolGaitDto>[] = [
+  { value: 'glide', label: 'Deslizando' },
+  { value: 'step', label: 'Casa em casa' },
+];
+
 /** The master's patrol editor, floating over the board while it is open: the speed (shortcuts with their
- *  value, or "Personalizado" in steps of 0,25), what the route does at its end, whether the token turns, the
- *  lap summary and Salvar / Cancelar / Remover patrulha. The points come from clicks on the map;
+ *  value, or "Personalizado" in steps of 0,25), what the route does at its end, how the token moves between
+ *  cells, whether it turns, the lap summary and Salvar / Cancelar / Remover patrulha. The points come from clicks on the map;
  *  Backspace, Enter and Esc work wherever the focus is, outside a field.
  *
  *  Example: `<PatrolPanel editor={patrolEditor} connected={status === 'live'} />` */
@@ -63,6 +68,13 @@ export function PatrolPanel({ editor, connected }: PatrolPanelProps): React.JSX.
         value={draft.repeat}
         options={REPEAT_OPTIONS}
         onChange={editor.getState().setRepeat}
+        fill
+      />
+      <SegmentField
+        legend="Como anda"
+        value={draft.gait}
+        options={GAIT_OPTIONS}
+        onChange={editor.getState().setGait}
         fill
       />
       <TurnsSwitch editor={editor} turns={draft.turns} />

@@ -7,7 +7,13 @@ import { AuraImagesFake, fakeAuraSource } from '../support/aura-decoding-fakes';
 import { AuraEffectsFake } from '../support/aura-effect-fake';
 
 function auraOf(look: AuraLook): AuraView {
-  return { look, box: { x: -64, y: -64, width: 192, height: 192 }, corner: 64, alpha: 0.5 };
+  return {
+    look,
+    box: { x: -64, y: -64, width: 192, height: 192 },
+    corner: 64,
+    tokenCorner: 0,
+    alpha: 0.5,
+  };
 }
 
 function fillColorsOf(aura: PixiTokenAura): number[] {
@@ -173,6 +179,14 @@ describe('PixiTokenAura draws an effect aura by its shader', () => {
       color: 0xff7a2a,
     });
     expect(fillColorsOf(aura)).toEqual([]);
+  });
+
+  it('the effect is told how round the token body is', () => {
+    const { effects, aura } = auraWithEffects();
+
+    aura.draw({ ...fire, tokenCorner: 32 });
+
+    expect(effects.created[0]?.updates[0]?.tokenCorner).toBe(32);
   });
 
   it('a palette tint colors the effect', () => {

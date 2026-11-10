@@ -1,4 +1,4 @@
-import type { TokenDto, TokenPatrolRepeatDto } from '@lorkarium/contracts';
+import type { TokenDto, TokenPatrolGaitDto, TokenPatrolRepeatDto } from '@lorkarium/contracts';
 import { PATROL_POINTS_MAX, cell, sameCell, type Cell } from '@lorkarium/game-core';
 import { useStore } from 'zustand';
 import { createStore, type StoreApi } from 'zustand/vanilla';
@@ -17,6 +17,7 @@ export type PatrolDraft = Readonly<{
   repeat: TokenPatrolRepeatDto;
   speed: number;
   turns: boolean;
+  gait: TokenPatrolGaitDto;
   saved: boolean;
 }>;
 
@@ -49,6 +50,7 @@ export type TokenPatrolEditor = TokenPatrolEditorState &
     setRepeat: (repeat: TokenPatrolRepeatDto) => void;
     setSpeed: (speed: number) => void;
     setTurns: (turns: boolean) => void;
+    setGait: (gait: TokenPatrolGaitDto) => void;
     /** Enter or "Salvar": the route (two points at least) goes to the server; the ok closes. */
     save: () => Promise<void>;
     /** "Remover patrulha": the saved route is taken away; the ok closes. */
@@ -107,11 +109,12 @@ export function createTokenPatrolEditor(deps: TokenPatrolEditorDeps): StoreApi<T
       setRepeat: (repeat) => change({ repeat }),
       setSpeed: (speed) => change({ speed }),
       setTurns: (turns) => change({ turns }),
+      setGait: (gait) => change({ gait }),
       save: () => {
         const draft = get().draft;
         if (!draft || !patrolDraftMoves(draft)) return Promise.resolve();
-        const { path, repeat, speed, turns } = draft;
-        return send({ path, repeat, speed, turns });
+        const { path, repeat, speed, turns, gait } = draft;
+        return send({ path, repeat, speed, turns, gait });
       },
       remove: () => send(null),
       cancel: () => set(CLOSED),
@@ -158,6 +161,7 @@ function draftOf({ scope, token }: PatrolEditorTarget): PatrolDraft {
     repeat: saved?.repeat ?? 'loop',
     speed: saved?.speed ?? 1,
     turns: saved?.turns ?? true,
+    gait: saved?.gait ?? 'glide',
     saved: saved !== null,
   };
 }

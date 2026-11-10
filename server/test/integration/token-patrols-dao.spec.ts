@@ -52,7 +52,14 @@ describe('TokenPatrolsDao on Postgres', () => {
       [4, 4],
       [8, 4],
     ];
-    const base = { tokenId, path, repeat: 'loop' as const, speed: '1.50', turns: true };
+    const base = {
+      tokenId,
+      path,
+      repeat: 'loop' as const,
+      speed: '1.50',
+      turns: true,
+      gait: 'glide' as const,
+    };
     return { ...base, step: 0, startedAt: null, ...overrides };
   }
 
@@ -79,6 +86,7 @@ describe('TokenPatrolsDao on Postgres', () => {
       repeat: 'loop',
       speed: '1.50',
       turns: true,
+      gait: 'glide',
     };
     expect(listed[0]?.patrol).toEqual({
       tokenId: kael.token.id,
@@ -87,6 +95,16 @@ describe('TokenPatrolsDao on Postgres', () => {
       startedAt: null,
     });
     expect(await patrolIn(vharnScene, kael.token.id)).toEqual(listed[0]?.patrol);
+  });
+
+  it('a route walked cell by cell comes back in that gait, and saving again replaces it', async () => {
+    const kael = await tokens.insert(tokenOf('Kael'));
+
+    await tokens.patrols.save(vharnScene, patrolOf(kael.token.id, { gait: 'step' }));
+    expect((await patrolIn(vharnScene, kael.token.id))?.gait).toBe('step');
+
+    await tokens.patrols.save(vharnScene, patrolOf(kael.token.id, { gait: 'glide' }));
+    expect((await patrolIn(vharnScene, kael.token.id))?.gait).toBe('glide');
   });
 
   it('a token without a route reads patrol null', async () => {

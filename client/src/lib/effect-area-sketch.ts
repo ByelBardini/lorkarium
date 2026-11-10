@@ -101,7 +101,9 @@ function emanationOf({ style, press, footprints }: EffectAreaSketchInput): Effec
       press.y < box.y + box.height,
   );
   if (!under) return null;
-  return { kind: 'emanation', ...under, reach: 1, color: style.color };
+  const origin = { x: toHundredth(under.x), y: toHundredth(under.y) };
+  const { width, height } = under;
+  return { kind: 'emanation', ...origin, width, height, reach: 1, color: style.color };
 }
 
 // Cones aim from the center of the cell they leave; the others from their origin.

@@ -23,6 +23,8 @@ function appearance(changes: Partial<MapAppearanceFixture> = {}): MapAppearanceF
     regionId: REINO_REGION_ID,
     regionName: 'Reino',
     regionHidden: false,
+    tabName: null,
+    tabVisibility: null,
     ...changes,
   };
 }
@@ -32,6 +34,7 @@ const PLACE = {
   mapName: 'Mundo',
   regionId: REINO_REGION_ID,
   regionName: 'Reino',
+  tabName: null,
 };
 
 function setUp(
@@ -56,6 +59,22 @@ describe('MapAppearancesService.list', () => {
     const { service } = setUp('private', hidden, secret);
     const { appearances } = await service.list(ana, DOCUMENT_ID);
     expect(appearances.map(({ regionId }) => regionId)).toEqual([REINO_REGION_ID, CIDADE_ID]);
+  });
+
+  it('names the tab the region points at', async () => {
+    const row = appearance({ tabName: 'Capítulo', tabVisibility: 'document' });
+    const { service } = setUp('public', row);
+    await expect(service.list(bia, DOCUMENT_ID)).resolves.toStrictEqual({
+      appearances: [{ ...PLACE, tabName: 'Capítulo' }],
+    });
+  });
+
+  it('Bia does not see a region linked to a masters-only tab, and Ana does', async () => {
+    const row = appearance({ tabName: 'Segredos', tabVisibility: 'masters' });
+    const { service } = setUp('public', row);
+    await expect(service.list(bia, DOCUMENT_ID)).resolves.toEqual({ appearances: [] });
+    const { appearances } = await service.list(ana, DOCUMENT_ID);
+    expect(appearances.map(({ tabName }) => tabName)).toEqual(['Segredos']);
   });
 
   it('Bia does not see a hidden region', async () => {

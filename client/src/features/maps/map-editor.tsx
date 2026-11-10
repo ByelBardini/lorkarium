@@ -53,6 +53,7 @@ function SelectedPlaceForm(props: MapEditorSurfaceProps): React.JSX.Element | nu
         mapId={map.id}
         region={selected}
         library={editor.library}
+        documents={deps.documentsApi}
         live={editor.live}
         onRegionChanged={(region) => view.getState().applyRegion(map.id, region)}
         onRegionRemoved={(regionId) => view.getState().dropRegion(map.id, regionId)}

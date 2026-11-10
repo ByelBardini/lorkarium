@@ -8,7 +8,11 @@ import {
 } from './library-maps.error';
 import type { MapLinkKind, MapRegionLinkColumns } from './map-region-projection.bo';
 
-export type MapLinkChoice = Readonly<{ kind: MapLinkKind; id: string }>;
+export type MapLinkChoice = Readonly<{
+  kind: MapLinkKind;
+  id: string;
+  tabId?: string | undefined;
+}>;
 
 /** A map holds up to `MAP_REGIONS_MAX` regions.
  *
@@ -46,6 +50,7 @@ export function linkColumnsOf(link: MapLinkChoice | null): MapRegionLinkColumns 
   return {
     linkKind: link?.kind ?? null,
     targetDocumentId: targetOf('document'),
+    targetDocumentTabId: link?.kind === 'document' ? (link.tabId ?? null) : null,
     targetSceneId: targetOf('scene'),
     targetMapId: targetOf('map'),
     targetImageId: targetOf('image'),

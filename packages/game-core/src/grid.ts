@@ -49,10 +49,14 @@ function legSteps(from: Cell, to: Cell): Cell[] {
   });
 }
 
-// Whole moves round to whole cells and a half move to half cells, so every step lands on a cell.
+// Whole moves round to whole cells and any other to half cells, so the steps stay on the grid; the
+// last step is the exact move, and a fine move shorter than the rounding must not pass its end
+// (past the scene origin the cell would be refused).
 function spreadMove(move: number, share: number): number {
+  if (share === 1) return move;
   const unit = Number.isInteger(move) ? 1 : 0.5;
-  return Math.sign(move) * Math.round((Math.abs(move) * share) / unit) * unit;
+  const rounded = Math.round((Math.abs(move) * share) / unit) * unit;
+  return Math.sign(move) * Math.min(rounded, Math.abs(move));
 }
 
 /** Whether a token of `size`, anchored at its top-left `origin`, stays inside the scene.

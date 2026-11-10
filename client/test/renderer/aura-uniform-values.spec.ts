@@ -9,6 +9,7 @@ import {
 
 const LYRA = auraUniformsOf({
   box: { x: 320, y: 320, width: 64, height: 64 },
+  tokenCorner: 0,
   radiusCells: 2,
   cellSize: 64,
   opacity: 50,
@@ -32,6 +33,12 @@ describe('aura uniform values', () => {
     expect(values.uOpacity).toBe(0.5);
     expect(Array.from(values.uAuraColor)).toEqual([1, 0, 0]);
     expect(values.uSeed).toBe(LYRA.seed);
+  });
+
+  it('the rounding of the token body reaches the shader', () => {
+    const values = newAuraUniformValues();
+    writeAuraUniformValues(values, { ...LYRA, tokenCorner: 32 });
+    expect(values.uTokenCorner).toBe(32);
   });
 
   it('writing again recolors and resizes in the same arrays, without recreating them', () => {

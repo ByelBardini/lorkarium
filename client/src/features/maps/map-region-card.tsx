@@ -1,15 +1,9 @@
-import type { MapRegionDto, MapRegionLinkKindDto } from '@lorkarium/contracts';
+import type { MapRegionDto } from '@lorkarium/contracts';
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { mapLinkStatusLabel } from './map-messages';
 import type { MapCardPlacement } from './use-map-card-placement';
-
-const LINK_KIND_LABEL: Readonly<Record<MapRegionLinkKindDto, string>> = {
-  document: 'Documento',
-  scene: 'Grid',
-  map: 'Mapa',
-  image: 'Imagem',
-};
 
 export type MapRegionCardProps = Readonly<{
   region: MapRegionDto;
@@ -69,5 +63,5 @@ function MapRegionLinkLine({
 function linkLineText(link: NonNullable<MapRegionDto['link']>): string {
   if (link.state === 'locked') return 'O mestre ainda não revelou isto';
   if (link.state === 'removed') return 'Link removido';
-  return `${LINK_KIND_LABEL[link.kind]}: ${link.name}`;
+  return mapLinkStatusLabel(link);
 }

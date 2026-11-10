@@ -11,7 +11,7 @@ import {
 const SQUARE: readonly Cell[] = [cell(0, 0), cell(2, 0), cell(2, 2), cell(0, 2)];
 
 function patrolOf(path: readonly Cell[], speed = 1): TokenPatrol {
-  return { path, repeat: 'loop', speed, turns: true };
+  return { path, repeat: 'loop', speed, turns: true, gait: 'glide' };
 }
 
 function straightPath(points: number): Cell[] {
@@ -30,6 +30,7 @@ describe('tokenPatrol', () => {
       repeat: 'loop',
       speed: 1,
       turns: true,
+      gait: 'glide',
     });
   });
 
@@ -70,10 +71,10 @@ describe('tokenPatrol', () => {
     );
   });
 
-  it('a point off the half-cell steps is refused with the cell error', () => {
-    const offStep: Cell = { col: 1.25, row: 0 };
+  it('a point off the position steps is refused with the cell error', () => {
+    const offStep: Cell = { col: 1.01, row: 0 };
     expect(() => tokenPatrol(patrolOf([cell(0, 0), offStep]))).toThrow(
-      new RangeError('Cell col 1.25 is invalid: expected a multiple of 0.5 ≥ 0.'),
+      new RangeError('Cell col 1.01 is invalid: expected a multiple of 1/64 ≥ 0.'),
     );
   });
 });

@@ -28,6 +28,7 @@ const CORRIDOR = {
   repeat: 'bounce',
   speed: 1.5,
   turns: true,
+  gait: 'glide',
 };
 const KAEL_PAUSE = { tokenId: KAEL_ID, col: 2, row: 0, facing: 0, step: 2 };
 
@@ -45,6 +46,18 @@ describe('setTokenPatrolCommandDto', () => {
     const command = { ...BASE, tokenId: KAEL_ID, patrol: CORRIDOR };
 
     expect(setTokenPatrolCommandDto.parse(command)).toEqual(command);
+  });
+
+  it('a route walked cell by cell (gait step) is accepted', () => {
+    expect(patrolMessagesOf({ ...CORRIDOR, gait: 'step' })).toEqual([]);
+  });
+
+  it('a gait other than glide or step is refused', () => {
+    expect(patrolMessagesOf({ ...CORRIDOR, gait: 'teleport' })).toHaveLength(1);
+  });
+
+  it('a route without a gait is refused', () => {
+    expect(patrolMessagesOf({ ...CORRIDOR, gait: undefined })).toHaveLength(1);
   });
 
   it('patrol null (taking the route away) is accepted', () => {
@@ -76,16 +89,16 @@ describe('setTokenPatrolCommandDto', () => {
     },
   );
 
-  it('a point at 1.25 is refused by the half cell', () => {
+  it('a point at 1.01 is refused by the 1/64 step', () => {
     expect(
       patrolMessagesOf({
         ...CORRIDOR,
         path: [
           [0, 0],
-          [1.25, 0],
+          [1.01, 0],
         ],
       }),
-    ).toEqual([expect.stringContaining('cell 1.25 is invalid')]);
+    ).toEqual([expect.stringContaining('cell 1.01 is invalid')]);
   });
 
   it('a forged userId is refused (who asks comes from the connection)', () => {

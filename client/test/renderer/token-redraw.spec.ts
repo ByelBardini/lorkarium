@@ -8,6 +8,7 @@ const GOLD_AURA = {
   look: { kind: 'color', color: 0xc5a46d },
   box: { x: -128, y: -128, width: 320, height: 320 },
   corner: 128,
+  tokenCorner: 0,
   alpha: 0.5,
 } as const;
 const ART = { url: '/api/assets/a', frame: 'round', flipX: false, flipY: false } as const;

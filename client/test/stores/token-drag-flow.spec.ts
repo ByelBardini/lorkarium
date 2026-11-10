@@ -145,6 +145,82 @@ describe('dragging a group of tokens', () => {
   });
 });
 
+describe('a fine drag on a free-movement grid', () => {
+  const STEP = 1 / 64;
+  const WALL_DOWN_5 = wall({
+    kind: 'wall',
+    shape: 'line',
+    x: 5,
+    y: 0,
+    width: 0,
+    height: 6,
+    points: [
+      [0, 0],
+      [0, 6],
+    ],
+    doorState: null,
+  });
+  const ALONE: DragGroup = { scene: SCENE, members: [LYRA_MEMBER] };
+  const BEHIND_WALL: DragGroup = { ...ALONE, walls: [WALL_DOWN_5] };
+  let store: StoreApi<BoardInteractionStore>;
+  let commands: TableBoardCommandsFake;
+  let clock: InteractionClockFake;
+
+  beforeEach(() => {
+    commands = new TableBoardCommandsFake();
+    clock = new InteractionClockFake();
+    store = createBoardInteractionStore({
+      scopeOf: () => VHARN_GRID,
+      commands,
+      describeRefusal: (failure) => `recusado: ${failure}`,
+      clock,
+    });
+  });
+
+  const previews = () => commands.sentAs('dragTokens').map(({ fields }) => fields);
+
+  it('30 positions in 300 ms go out as 3 previews, and the last one wins', async () => {
+    for (let index = 0; index < 30; index += 1) {
+      if (index > 0) clock.advance(10);
+      store.getState().dragOver(LYRA_ID, ORIGIN, cell(4 + index * STEP, 4), ALONE);
+      await Promise.resolve();
+      await Promise.resolve();
+    }
+    expect(previews()).toHaveLength(3);
+
+    clock.advance(10);
+
+    expect(previews()).toHaveLength(4);
+    expect(previews().at(-1)).toEqual({
+      drags: [{ tokenId: LYRA_ID, cell: { col: 4 + 29 * STEP, row: 4 } }],
+    });
+  });
+
+  it('released past a wall it stops on the last free position and says so', async () => {
+    const lastFree = cell(4 + 30 * STEP, 4);
+    store.getState().dragOver(LYRA_ID, ORIGIN, lastFree, BEHIND_WALL);
+    store.getState().dragOver(LYRA_ID, ORIGIN, cell(5 + STEP, 4), BEHIND_WALL);
+
+    await store.getState().dropToken(LYRA_ID, cell(5 + STEP, 4));
+
+    expect(commands.sentAs('moveToken').map(({ fields }) => fields)).toEqual([
+      expect.objectContaining({ tokenId: LYRA_ID, col: lastFree.col, row: 4 }),
+    ]);
+    expect(store.getState().notice).toBe('recusado: wall_blocked');
+  });
+
+  it('released exactly where it started the drag is cancelled, nothing moves', async () => {
+    const home = cell(3 + STEP, 4);
+    const fine: DragGroup = { scene: SCENE, members: [{ ...LYRA_MEMBER, col: home.col }] };
+    store.getState().dragOver(LYRA_ID, home, cell(3 + 2 * STEP, 4), fine);
+
+    await store.getState().dropToken(LYRA_ID, home);
+
+    expect(commands.sentAs('moveToken')).toEqual([]);
+    expect(store.getState().drag).toBeNull();
+  });
+});
+
 describe('dragging past walls', () => {
   // A wall down x = 5 from y = 0 to 6: Lyra at (3, 4) gets around it below.
   const WALL_AT_5 = wall({

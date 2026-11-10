@@ -273,6 +273,13 @@ export function squarePatrolPo(overrides: Partial<TokenPatrolPo> = {}): TokenPat
     [2, 2],
     [0, 2],
   ];
-  const route = { tokenId: LYRA_ID, path, repeat: 'loop' as const, speed: '1.00', turns: true };
+  const route = {
+    tokenId: LYRA_ID,
+    path,
+    repeat: 'loop' as const,
+    speed: '1.00',
+    turns: true,
+    gait: 'glide' as const,
+  };
   return { ...route, step: 0, startedAt: null, ...overrides };
 }

@@ -16,6 +16,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { searchText } from '@/lib/search-text';
+import type { DocumentsApi } from '@/services/documents-api';
+import { MapLinkTabField } from './map-link-tab-field';
 import { mapLinkItemLabel, mapLinkKindLabel, mapLinkStatusLabel } from './map-messages';
 
 /** The kinds of item a region can lead to, and the folders they sit in. Sheets stay out: they
@@ -43,10 +45,13 @@ const LINK_KIND_ICONS: Readonly<Record<MapRegionLinkKindDto, LucideIcon>> = {
 };
 
 export type MapLinkPickerProps = Readonly<{
+  campaignId: string;
   /** The map being edited: a region cannot lead to its own map. */
   mapId: string;
   link: MapRegionLinkDto;
   library: LinkableLibrary;
+  /** Reads the tabs of a linked document, for "Abrir em". */
+  documents: Pick<DocumentsApi, 'detail'>;
   disabled?: boolean;
   /** The item picked; `null` takes the link away. */
   onChange: (target: MapRegionLinkTargetDto | null) => void;
@@ -72,6 +77,15 @@ export function MapLinkPicker(props: MapLinkPickerProps): React.JSX.Element {
     <fieldset className="flex min-w-0 flex-col gap-2">
       <legend className="mb-2 text-sm font-medium">Item ligado</legend>
       <p className="text-sm text-muted-foreground">{mapLinkStatusLabel(link)}</p>
+      {link?.state === 'open' && link.kind === 'document' && (
+        <MapLinkTabField
+          campaignId={props.campaignId}
+          link={link}
+          documents={props.documents}
+          disabled={disabled}
+          onChange={(tabId) => onChange({ kind: 'document', id: link.id, ...(tabId && { tabId }) })}
+        />
+      )}
       <LinkActions
         link={link}
         disabled={disabled}

@@ -4,18 +4,18 @@
 
 ## Limites
 
-`MAP_NAME_MAX_LENGTH` (60), `MAP_REGION_NAME_MAX_LENGTH` (60), `MAP_REGION_DESCRIPTION_MAX_LENGTH` (500), `MAP_REGIONS_MAX` (300), `MAP_POLYGON_VERTICES_MIN` (3) e `MAP_POLYGON_VERTICES_MAX` (128). Mesmos nomes e valores no `map-region.vo.ts` do game-core, porque o contracts só depende do `zod`. Nomes aparados, de 1 ao limite; descrição aparada, pode ser vazia.
+`MAP_NAME_MAX_LENGTH` (60), `MAP_REGION_NAME_MAX_LENGTH` (60), `MAP_REGION_DESCRIPTION_MAX_LENGTH` (500), `MAP_REGIONS_MAX` (300), `MAP_POLYGON_VERTICES_MIN` (3) e `MAP_POLYGON_VERTICES_MAX` (1024). Mesmos nomes e valores no `map-region.vo.ts` do game-core, porque o contracts só depende do `zod`. Nomes aparados, de 1 ao limite; descrição aparada, pode ser vazia.
 
 ## Geometria
 
 - `mapPointDto` `{ x, y }`, normalizado de 0 a 1: não varia com zoom nem tamanho de tela.
-- `mapRegionGeometryDto`, união por `shape`: `{ shape: 'polygon', points }` (3 a 128) | `{ shape: 'pin', point }`. Polígono de área zero passa aqui e é recusado pelo game-core.
+- `mapRegionGeometryDto`, união por `shape`: `{ shape: 'polygon', points }` (3 a 1024) | `{ shape: 'pin', point }`. Polígono de área zero passa aqui e é recusado pelo game-core.
 
 ## Link
 
 - `mapRegionLinkKindDto`: `document` · `scene` · `map` · `image`. Ficha fica de fora: depende de dono e sandbox.
-- `mapRegionLinkTargetDto` `{ kind, id }`: o link que o mestre escreve; `null` = sem link.
-- `mapRegionLinkDto`: o link que cada leitor recebe, `null` | `{ state: 'open', kind, id, name }` | `{ state: 'locked' }` | `{ state: 'removed', kind }`. O `locked` não tem campo nenhum, de propósito: o DTO estrito recusa `id`, `name` ou `kind` e o tipo privado não vaza nem por engano. `removed` só vai ao mestre.
+- `mapRegionLinkTargetDto` `{ kind, id, tabId? }`: o link que o mestre escreve; `null` = sem link. `tabId` só com `kind: 'document'` (`refine`).
+- `mapRegionLinkDto`: o link que cada leitor recebe, `null` | `{ state: 'open', kind, id, name, tabId?, tabName? }` | `{ state: 'locked' }` | `{ state: 'removed', kind }`. O `locked` não tem campo nenhum, de propósito: o DTO estrito recusa `id`, `name` ou `kind` e o tipo privado não vaza nem por engano. `removed` só vai ao mestre.
 
 ## Leitura
 
@@ -23,7 +23,7 @@
 - `libraryMapSummaryDto` `{ id, name, folderId | null, visibility, isMain, asset, version, updatedAt }`: a linha da biblioteca, sem regiões. `campaignLibraryDto` leva `maps` (estes resumos) e `mainMapId` (uuid | null), os dois obrigatórios.
 - `libraryMapDetailDto`: o resumo + `regions` (até 300), resposta do `GET …/library-maps/:mapId`.
 - `mainMapResponseDto` `{ map: resumo | null }`, do `GET …/library-maps/main` (`null` = mesa sem Principal).
-- `mapAppearanceDto` `{ mapId, mapName, regionId, regionName }` e `mapAppearancesResponseDto` `{ appearances }`, do "Aparece em" de um documento.
+- `mapAppearanceDto` `{ mapId, mapName, regionId, regionName, tabName | null }` e `mapAppearancesResponseDto` `{ appearances }`, do "Aparece em" de um documento.
 
 ## Corpos e params
 

@@ -19,14 +19,16 @@ export type GridForm = Readonly<{
   cellUnit: string;
   gridVisible: boolean;
   gridOpacity: string;
+  freeMovement: boolean;
 }>;
 
-export type GridFormField = Exclude<keyof GridForm, 'gridVisible'>;
+export type GridFormField = Exclude<keyof GridForm, 'gridVisible' | 'freeMovement'>;
 
 export type GridFormErrors = Partial<Record<GridFormField, string>>;
 
 export type GridFormResult =
-  Readonly<{ ok: true; grid: SceneGridDto }> | Readonly<{ ok: false; errors: GridFormErrors }>;
+  | Readonly<{ ok: true; grid: SceneGridDto; freeMovement: boolean }>
+  | Readonly<{ ok: false; errors: GridFormErrors }>;
 
 const FIELD_ERROR: Readonly<Record<GridFormField, string>> = {
   widthCells: 'Use de 1 a 100 casas.',
@@ -46,6 +48,8 @@ export const VISION_OPTIONS: ReadonlyArray<Readonly<{ value: SceneVisionDto; lab
 
 export const VISION_HINT =
   'Escuro: cada token vê até o seu alcance. Luz do dia: só as paredes escondem.';
+
+export const FREE_MOVEMENT_HINT = 'Os tokens ficam onde forem soltos, sem encaixar nas casas.';
 
 /** The units offered in "Unidade". */
 export const CELL_UNITS: readonly string[] = ['cm', 'm', 'km'];
@@ -71,6 +75,7 @@ export function gridFormOf(scene: SceneDto): GridForm {
     cellUnit: scene.cellUnit,
     gridVisible: scene.gridVisible,
     gridOpacity: String(scene.gridOpacity),
+    freeMovement: scene.freeMovement,
   };
 }
 
@@ -86,7 +91,7 @@ export function parseGridForm(form: GridForm): GridFormResult {
     gridVisible: form.gridVisible,
     gridOpacity: numberOf(form.gridOpacity),
   });
-  if (parsed.success) return { ok: true, grid: parsed.data };
+  if (parsed.success) return { ok: true, grid: parsed.data, freeMovement: form.freeMovement };
   const errors: GridFormErrors = {};
   for (const issue of parsed.error.issues) {
     const field = issue.path[0];

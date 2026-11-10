@@ -6,7 +6,7 @@ Paredes e portas da cena (antecipa o §12: visão individual, fog of war): bloqu
 
 - `walls`: `id`, `scene_id` (cascade, indexado), `wall_order` (identidade: a ordem de criação), `kind` (enum `wall_kind`: `wall` | `grate` | `curtain` | `door`), `shape` (enum `wall_shape`: `line` | `freehand` | `rectangle` | `ellipse`), `x`, `y`, `width`, `height` em `numeric(8,2)` (casas fracionárias; chegam como string `"2.50"`), `points` `jsonb` (`[x, y][]` relativos a `(x, y)`, só reta e mão livre), `door_state` (enum `door_state`: `closed` | `open` | `locked`, nulo), `created_at`. **Sem autor**: só o mestre cria e edita.
 - `CHECK walls_door_state`: `door_state` não nulo **se e só se** `kind = 'door'`. `CHECK walls_door_line`: porta só com `shape = 'line'`.
-- Os três enums e a tabela estão exportados em `server/src/database/schema.ts` (armadilha do [`tokens.md`](tokens.md)). O `truncateAllTables` dos testes inclui `walls`.
+- Os três enums e a tabela estão exportados em `server/src/database/schema.ts` (armadilha em [`tokens/armadilhas.md`](tokens/armadilhas.md)). O `truncateAllTables` dos testes inclui `walls`.
 
 ## DAO (`walls.dao.ts`)
 

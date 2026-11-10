@@ -71,10 +71,37 @@ describe('ConfigureSceneDialog', () => {
           gridOpacity: 30,
           backgroundAssetId: null,
           vision: 'off',
+          freeMovement: false,
         },
       },
     ]);
     expect(closed).toBe(1);
+  });
+
+  const freeMovementBox = () => screen.getByRole('checkbox', { name: 'Movimento livre' });
+  const saveAndSentFree = async (): Promise<unknown> => {
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    return (commands.sent[0]?.fields as { freeMovement?: boolean }).freeMovement;
+  };
+
+  it('the master turns "Movimento livre" on and the command carries it', async () => {
+    renderDialog();
+    expect(freeMovementBox()).not.toBeChecked();
+    await userEvent.click(freeMovementBox());
+    expect(await saveAndSentFree()).toBe(true);
+  });
+
+  it('opens with the mode of the scene, and saving untouched keeps it', async () => {
+    renderDialog(true, { ...VHARN_SCENE, freeMovement: true });
+    expect(freeMovementBox()).toBeChecked();
+    expect(await saveAndSentFree()).toBe(true);
+  });
+
+  it('explains what the mode does', () => {
+    renderDialog();
+    expect(freeMovementBox()).toHaveAccessibleDescription(
+      'Os tokens ficam onde forem soltos, sem encaixar nas casas.',
+    );
   });
 
   it('has no spin buttons: the numbers are text fields that keep only what makes a number', async () => {

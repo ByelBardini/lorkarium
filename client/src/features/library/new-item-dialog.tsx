@@ -126,7 +126,8 @@ function KindCards({ picked, disabled, onPick }: KindCardsProps): React.JSX.Elem
           disabled={disabled}
           onClick={() => onPick(kind)}
           className={cn(
-            'relative flex h-24 flex-col items-center justify-center gap-2 rounded-lg border px-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
+            'relative flex items-center justify-center gap-2 rounded-lg border px-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
+            kind === 'folder' ? 'col-span-full h-12 flex-row' : 'h-24 flex-col',
             picked === kind ? 'border-primary' : 'border-border hover:border-muted-foreground',
           )}
         >

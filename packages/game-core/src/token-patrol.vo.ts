@@ -14,25 +14,31 @@ const PATROL_POINTS_MIN = 2;
 /** What the token does at the last point: close the circuit (`loop`) or walk back (`bounce`). */
 export type PatrolRepeat = 'loop' | 'bounce';
 
+/** How the token shows between two cells: sliding the whole step (`glide`) or a short move and a
+ *  stop on each cell (`step`). Drawing only: the cell of each instant is the same in both. */
+export type PatrolGait = 'glide' | 'step';
+
 /** A token's patrol: the route as token origins (top-left, half-cell steps), what happens at its
- *  end, the speed in cells per second and whether the token turns to where it walks. */
+ *  end, the speed in cells per second, whether the token turns to where it walks and its gait. */
 export type TokenPatrol = Readonly<{
   path: readonly Cell[];
   repeat: PatrolRepeat;
   speed: number;
   turns: boolean;
+  gait: PatrolGait;
 }>;
 
 /** Builds a patrol, refusing a route of other than 2–32 points, a point off the half-cell steps,
  *  a speed off the 0.25 steps from 0.25 to 4, or a route that never leaves its first cell.
  *
- *  Example: `tokenPatrol({ path: [cell(0, 0), cell(3, 0)], repeat: 'bounce', speed: 1, turns: true })` */
+ *  Example: `tokenPatrol({ path: [cell(0, 0), cell(3, 0)], repeat: 'bounce', speed: 1, turns: true, gait: 'glide' })` */
 export function tokenPatrol(value: TokenPatrol): TokenPatrol {
   assertPointCount(value.path.length);
   const path = Object.freeze(value.path.map((point) => cell(point.col, point.row)));
   assertSpeed(value.speed);
   assertMoves(path);
-  return Object.freeze({ path, repeat: value.repeat, speed: value.speed, turns: value.turns });
+  const { repeat, speed, turns, gait } = value;
+  return Object.freeze({ path, repeat, speed, turns, gait });
 }
 
 function assertPointCount(count: number): void {

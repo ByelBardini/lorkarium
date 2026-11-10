@@ -25,6 +25,7 @@ import type {
 } from '@/services/table-board-commands';
 import { DISCONNECTED_COMMAND, boardCommandFailureMessage } from './board-messages';
 import {
+  FREE_MOVEMENT_HINT,
   VISION_HINT,
   VISION_OPTIONS,
   gridFormOf,
@@ -72,6 +73,7 @@ export function ConfigureSceneDialog(props: ConfigureSceneDialogProps): React.JS
       parsed.grid,
       backgroundAssetId,
       look.vision,
+      parsed.freeMovement,
     );
     setSaving(false);
     if (result.ok) return onClose();
@@ -215,7 +217,39 @@ function GridFields({ form, errors, onChange }: GridFieldsProps): React.JSX.Elem
           Grid visível
         </Label>
       </div>
+      <FreeMovementField
+        checked={form.freeMovement}
+        onChange={(freeMovement) => onChange({ ...form, freeMovement })}
+      />
     </>
+  );
+}
+
+type FreeMovementFieldProps = Readonly<{
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}>;
+
+function FreeMovementField({ checked, onChange }: FreeMovementFieldProps): React.JSX.Element {
+  const id = useId();
+  const hintId = `${id}-hint`;
+  return (
+    <div className="flex items-start gap-3">
+      <Checkbox
+        id={id}
+        checked={checked}
+        aria-describedby={hintId}
+        onCheckedChange={(next) => onChange(next === true)}
+      />
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={id} className="text-sm text-label">
+          Movimento livre
+        </Label>
+        <p id={hintId} className="text-[13px] text-muted-foreground">
+          {FREE_MOVEMENT_HINT}
+        </p>
+      </div>
+    </div>
   );
 }
 

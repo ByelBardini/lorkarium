@@ -53,7 +53,7 @@ describe('map limits', () => {
     expect([MAP_NAME_MAX_LENGTH, MAP_REGION_NAME_MAX_LENGTH]).toEqual([60, 60]);
     expect(MAP_REGION_DESCRIPTION_MAX_LENGTH).toBe(500);
     expect(MAP_REGIONS_MAX).toBe(300);
-    expect([MAP_POLYGON_VERTICES_MIN, MAP_POLYGON_VERTICES_MAX]).toEqual([3, 128]);
+    expect([MAP_POLYGON_VERTICES_MIN, MAP_POLYGON_VERTICES_MAX]).toEqual([3, 1024]);
   });
 });
 
@@ -76,7 +76,7 @@ describe('mapRegionGeometry', () => {
     });
   });
 
-  it.each([[3], [128]])('accepts a polygon with %i vertices', (vertices) => {
+  it.each([[3], [1024]])('accepts a polygon with %i vertices', (vertices) => {
     const accepted = mapRegionGeometry(polygon(circleOf(vertices)));
     expect(accepted.shape === 'polygon' && accepted.points.length).toBe(vertices);
   });
@@ -101,10 +101,10 @@ describe('mapRegionGeometry', () => {
     expect(accepted.shape === 'pin' && Object.isFrozen(accepted.point)).toBe(true);
   });
 
-  it.each([[2], [129]])('refuses a polygon with %i vertices, citing the count', (vertices) => {
+  it.each([[2], [1025]])('refuses a polygon with %i vertices, citing the count', (vertices) => {
     const points = vertices === 2 ? TRIANGLE.slice(0, 2) : circleOf(vertices);
     expect(() => mapRegionGeometry(polygon(points))).toThrow(
-      new RangeError(`Map polygon has ${vertices} vertices: expected 3 to 128.`),
+      new RangeError(`Map polygon has ${vertices} vertices: expected 3 to 1024.`),
     );
   });
 

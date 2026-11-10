@@ -220,6 +220,7 @@ export function createBoardGateway(deps: BoardGatewayDeps): (socket: RealtimeSoc
             grid: toSceneGrid(command),
             backgroundAssetId: command.backgroundAssetId,
             vision: command.vision,
+            freeMovement: command.freeMovement,
             sceneId: command.sceneId,
           }),
         ),

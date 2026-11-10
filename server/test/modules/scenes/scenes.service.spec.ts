@@ -148,6 +148,41 @@ describe('ScenesService', () => {
     expect(scenes.rows[0]?.visionMode).toBe('off');
   });
 
+  it('freeMovement true is saved and published with the scene', async () => {
+    await service.configure(ANA_ID, VHARN_ID, { grid: GRID_30_BY_20, freeMovement: true });
+
+    expect(scenes.rows[0]?.freeMovement).toBe(true);
+    expect(publisher.sceneUpdates[0]?.scene.freeMovement).toBe(true);
+    expect(scenes.journal).toEqual(['lock', 'save', 'bump', 'commit', 'publish']);
+  });
+
+  it('freeMovement false turns the mode off on a free grid', async () => {
+    scenes.rows[0]!.freeMovement = true;
+
+    await service.configure(ANA_ID, VHARN_ID, { grid: GRID_30_BY_20, freeMovement: false });
+
+    expect(scenes.rows[0]?.freeMovement).toBe(false);
+    expect(publisher.sceneUpdates[0]?.scene.freeMovement).toBe(false);
+  });
+
+  it('no freeMovement in the command keeps the mode the scene has', async () => {
+    scenes.rows[0]!.freeMovement = true;
+
+    await service.configure(ANA_ID, VHARN_ID, ONLY_GRID);
+
+    expect(scenes.rows[0]?.freeMovement).toBe(true);
+    expect(publisher.sceneUpdates[0]?.scene.freeMovement).toBe(true);
+  });
+
+  it('a player setting freeMovement is refused with FORBIDDEN and the mode stays', async () => {
+    await expect(
+      service.configure(BIA_ID, VHARN_ID, { grid: GRID_30_BY_20, freeMovement: true }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(scenes.journal).toEqual(['lock']);
+    expect(scenes.rows[0]?.freeMovement).toBe(false);
+    expect(publisher.sceneUpdates).toEqual([]);
+  });
+
   it('an asset of another campaign is ASSET_NOT_FOUND without saving, bumping or publishing', async () => {
     const configure = service.configure(ANA_ID, VHARN_ID, {
       grid: GRID_30_BY_20,

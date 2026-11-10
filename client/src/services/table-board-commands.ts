@@ -102,12 +102,13 @@ export interface TableBoardCommands
     TokenLinkCommands,
     TokenAppearanceCommands {
   /** `backgroundAssetId`: an asset of the table sets the background, `null` takes it away,
-   *  absent keeps it; `vision` absent keeps the scene's mode. */
+   *  absent keeps it; `vision` and `freeMovement` absent keep the scene's mode. */
   configureScene(
     scope: BoardScope,
     grid: SceneGridDto,
     backgroundAssetId?: string | null,
     vision?: SceneVisionDto,
+    freeMovement?: boolean,
   ): Promise<BoardCommandResult>;
   createToken(scope: BoardScope, token: NewToken): Promise<BoardCommandResult>;
   updateToken(scope: BoardScope, tokenId: string, edit: TokenEdit): Promise<BoardCommandResult>;
@@ -346,10 +347,13 @@ export class RealtimeTableBoardCommands
     grid: SceneGridDto,
     backgroundAssetId?: string | null,
     vision?: SceneVisionDto,
+    freeMovement?: boolean,
   ): Promise<BoardCommandResult> {
     const background = backgroundAssetId === undefined ? {} : { backgroundAssetId };
     const mode = vision === undefined ? {} : { vision };
-    return this.send(BOARD_EVENTS.configureScene, scope, { ...grid, ...background, ...mode });
+    const movement = freeMovement === undefined ? {} : { freeMovement };
+    const fields = { ...grid, ...background, ...mode, ...movement };
+    return this.send(BOARD_EVENTS.configureScene, scope, fields);
   }
 
   createToken(scope: BoardScope, token: NewToken): Promise<BoardCommandResult> {

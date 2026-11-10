@@ -106,6 +106,15 @@ describe('PatrolPanel', () => {
     expect(editor.getState().draft).toMatchObject({ repeat: 'bounce', turns: false });
   });
 
+  it('"Como anda" starts on "Deslizando" and "Casa em casa" changes the draft', async () => {
+    openOnKael();
+    expect(screen.getByRole('radio', { name: 'Deslizando' })).toBeChecked();
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Casa em casa' }));
+
+    expect(editor.getState().draft?.gait).toBe('step');
+  });
+
   it('sums up the route: "3 pontos · 12 casas por volta · 12 s"', () => {
     openOnKael();
     addKaelRoute();

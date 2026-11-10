@@ -11,6 +11,7 @@ const ROUTE = {
   repeat: 'loop',
   speed: 1,
   turns: true,
+  gait: 'glide',
 } as const;
 
 describe('RealtimeTokenPatrolCommands', () => {
@@ -41,6 +42,7 @@ describe('RealtimeTokenPatrolCommands', () => {
             repeat: 'loop',
             speed: 1,
             turns: true,
+            gait: 'glide',
           },
         },
       },

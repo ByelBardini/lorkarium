@@ -160,7 +160,15 @@ describe('"Aparece em"', () => {
     expect(response.statusCode, response.body).toBe(200);
     expect(response.headers['cache-control']).toBe('private, no-store');
     expect(mapAppearancesResponseDto.parse(response.json())).toStrictEqual({
-      appearances: [{ mapId: map.id, mapName: 'Mundo', regionId: region.id, regionName: 'Reino' }],
+      appearances: [
+        {
+          mapId: map.id,
+          mapName: 'Mundo',
+          regionId: region.id,
+          regionName: 'Reino',
+          tabName: null,
+        },
+      ],
     });
   });
 

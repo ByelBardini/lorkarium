@@ -314,6 +314,11 @@ describe('board store', () => {
       expect(store.getState().board?.version).toBe(5);
     });
 
+    it('a fine preview of another player is kept without rounding', () => {
+      apply(dragged({ col: 1.015625, row: 2 }));
+      expect(store.getState().dragged).toEqual({ [LYRA_ID]: { col: 1.015625, row: 2 } });
+    });
+
     it('a drag that ends with null puts the token back on its confirmed cell', () => {
       apply(dragged({ col: 5, row: 4 }), dragged(null));
       expect(store.getState().dragged).toEqual({});

@@ -1,15 +1,20 @@
-import { BOARD_EVENTS, type TokenPatrolRepeatDto } from '@lorkarium/contracts';
+import {
+  BOARD_EVENTS,
+  type TokenPatrolGaitDto,
+  type TokenPatrolRepeatDto,
+} from '@lorkarium/contracts';
 import type { Cell } from '@lorkarium/game-core';
 import type { BoardCommandResult, BoardCommandSender, BoardScope } from './board-command-sender';
 
 /** A patrol as the master's editor saves it: the route as token origins (the first is where the
- *  token stood when the editor opened), what it does at the end, cells per second and whether it
- *  turns to where it walks. */
+ *  token stood when the editor opened), what it does at the end, cells per second, whether it
+ *  turns to where it walks and how it shows between two cells. */
 export type PatrolRoute = Readonly<{
   path: readonly Cell[];
   repeat: TokenPatrolRepeatDto;
   speed: number;
   turns: boolean;
+  gait: TokenPatrolGaitDto;
 }>;
 
 /** The master's patrol commands; each answers with its ack, never throws. The patrol itself

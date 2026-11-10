@@ -74,7 +74,13 @@ describe('persistent document workspace host', () => {
     deps.libraryMapsApi.answer('appearances', {
       ok: true,
       value: [
-        { mapId: MUNDO_ID, mapName: 'Mundo', regionId: CAPITAL_REGION_ID, regionName: 'Capital' },
+        {
+          mapId: MUNDO_ID,
+          mapName: 'Mundo',
+          regionId: CAPITAL_REGION_ID,
+          regionName: 'Capital',
+          tabName: null,
+        },
       ],
     });
     await act(async () => deps.tableSessionApi.emit({ kind: 'mapChanged', event: mapChanged() }));

@@ -40,9 +40,13 @@ function regionChangesOf(changes: UpdateMapRegionRequestDto): MapRegionChangesPo
 async function targetExists(
   daos: LibraryMapDaos,
   campaignId: string,
-  { kind, id }: MapLinkChoice,
+  { kind, id, tabId }: MapLinkChoice,
 ): Promise<boolean> {
   const { linkTargets } = daos;
+  if (tabId !== undefined) {
+    const tabs = await linkTargets.documentTabsIn(campaignId, [tabId]);
+    return tabs.some(({ documentId }) => documentId === id);
+  }
   const lookup = {
     document: () => linkTargets.documentsIn(campaignId, [id]),
     scene: () => linkTargets.scenesIn(campaignId, [id]),

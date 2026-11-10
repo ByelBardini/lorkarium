@@ -1,4 +1,4 @@
-export { cell, sameCell, type Cell } from './cell.vo';
+export { cell, isPositionStep, POSITION_STEP, sameCell, type Cell } from './cell.vo';
 export { stableHash } from './stable-hash';
 export { COVER_DRAWINGS, COVER_TONES, defaultCoverOf, type DrawnCover } from './campaign-cover';
 export { MEMBER_COLORS, memberColorOf, type MemberColor } from './member-color';
@@ -22,6 +22,7 @@ export {
   PATROL_SPEED_MIN,
   PATROL_SPEED_STEP,
   tokenPatrol,
+  type PatrolGait,
   type PatrolRepeat,
   type TokenPatrol,
 } from './token-patrol.vo';

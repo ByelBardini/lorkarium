@@ -33,8 +33,8 @@ type PatrolStop = Readonly<{ cell: Cell; step: number | null }>;
  *  point (without repeating it); a bounce walks the route and then the same cells backwards
  *  (without repeating either end).
  *
- *  Example: `patrolCycle({ path: [cell(0, 0), cell(3, 0)], repeat: 'bounce', speed: 1, turns: true })` → `(0,0) (1,0) (2,0) (3,0) (2,0) (1,0)` */
-export function patrolCycle(patrol: TokenPatrol): Cell[] {
+ *  Example: `patrolCycle({ path: [cell(0, 0), cell(3, 0)], repeat: 'bounce' })` → `(0,0) (1,0) (2,0) (3,0) (2,0) (1,0)` */
+export function patrolCycle(patrol: Pick<TokenPatrol, 'path' | 'repeat'>): Cell[] {
   return patrol.repeat === 'loop' ? loopCycle(patrol.path) : bounceCycle(patrol.path);
 }
 

@@ -18,7 +18,11 @@ export {
   tokenSide,
   tokens,
 } from '../modules/tokens/tokens.po';
-export { tokenPatrolRepeat, tokenPatrols } from '../modules/tokens/token-patrols.po';
+export {
+  tokenPatrolGait,
+  tokenPatrolRepeat,
+  tokenPatrols,
+} from '../modules/tokens/token-patrols.po';
 export {
   activeConditions,
   conditionDefinitions,

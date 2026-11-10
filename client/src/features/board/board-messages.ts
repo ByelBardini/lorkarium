@@ -10,7 +10,7 @@ import {
   OFFLINE_MESSAGE,
   UNEXPECTED_MESSAGE,
 } from '@/features/campaigns/campaign-messages';
-import { cellsText } from '@/lib/cells-text';
+import { cellsText, positionText } from '@/lib/cells-text';
 import { facingLabel } from '@/lib/facing-label';
 import type { BoardCommandFailure } from '@/services/table-board-commands';
 import type { BoardStatus } from '@/stores/board-store';
@@ -141,7 +141,7 @@ export function tokenCommandFailureMessage(failure: BoardCommandFailure): string
 
 /** Cells are announced from 1, as a person counts them. */
 function cellWords(col: number, row: number): string {
-  return `coluna ${cellsText(col + 1)}, linha ${cellsText(row + 1)}`;
+  return `coluna ${positionText(col + 1)}, linha ${positionText(row + 1)}`;
 }
 
 /** Example: `selectedAnnouncement('Kael', 7, 5) // 'Kael selecionado, coluna 8, linha 6'` */

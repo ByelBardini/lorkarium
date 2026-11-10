@@ -14,6 +14,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { campaigns } from '../campaigns/campaigns.po';
+import { libraryDocumentTabs } from '../documents/document-tabs.po';
 import { libraryDocuments } from '../documents/documents.po';
 import { libraryImages } from '../library/library-images.po';
 import { scenes } from '../scenes/scenes.po';
@@ -46,6 +47,8 @@ export const libraryMapRegions = pgTable(
     hidden: boolean('hidden').notNull().default(false),
     linkKind: mapRegionLinkKind('link_kind'),
     targetDocumentId: uuid('target_document_id'),
+    // Null with a document target = the document as a whole, which is what a deleted tab falls to.
+    targetDocumentTabId: uuid('target_document_tab_id'),
     targetSceneId: uuid('target_scene_id'),
     targetMapId: uuid('target_map_id'),
     targetImageId: uuid('target_image_id'),
@@ -55,6 +58,7 @@ export const libraryMapRegions = pgTable(
   (t) => [
     index('library_map_regions_map_idx').on(t.campaignId, t.mapId),
     index('library_map_regions_target_document_idx').on(t.campaignId, t.targetDocumentId),
+    index('library_map_regions_target_document_tab_idx').on(t.campaignId, t.targetDocumentTabId),
     index('library_map_regions_target_scene_idx').on(t.campaignId, t.targetSceneId),
     index('library_map_regions_target_map_idx').on(t.campaignId, t.targetMapId),
     index('library_map_regions_target_image_idx').on(t.campaignId, t.targetImageId),
@@ -63,11 +67,18 @@ export const libraryMapRegions = pgTable(
       columns: [t.campaignId, t.mapId],
       foreignColumns: [libraryMaps.campaignId, libraryMaps.id],
     }).onDelete('cascade'),
-    // The migration narrows the four below to SET NULL ("target_…"): campaign_id must survive.
+    // The migrations narrow the five below to SET NULL ("target_…"): campaign_id must survive.
     foreignKey({
       name: 'library_map_regions_target_document_fk',
       columns: [t.campaignId, t.targetDocumentId],
       foreignColumns: [libraryDocuments.campaignId, libraryDocuments.id],
+    }).onDelete('set null'),
+    // Not through (document, tab): deleting a document clears both FKs in no set order, and one
+    // that also needs the document column would miss the tab if that column went first.
+    foreignKey({
+      name: 'library_map_regions_target_document_tab_fk',
+      columns: [t.campaignId, t.targetDocumentTabId],
+      foreignColumns: [libraryDocumentTabs.campaignId, libraryDocumentTabs.id],
     }).onDelete('set null'),
     foreignKey({
       name: 'library_map_regions_target_scene_fk',
@@ -93,6 +104,11 @@ export const libraryMapRegions = pgTable(
       'library_map_regions_link_target',
       sql`num_nonnulls(${t.targetDocumentId}, ${t.targetSceneId}, ${t.targetMapId}, ${t.targetImageId}) <= 1 AND (${t.targetDocumentId} IS NULL OR ${t.linkKind} IS NOT DISTINCT FROM 'document') AND (${t.targetSceneId} IS NULL OR ${t.linkKind} IS NOT DISTINCT FROM 'scene') AND (${t.targetMapId} IS NULL OR ${t.linkKind} IS NOT DISTINCT FROM 'map') AND (${t.targetImageId} IS NULL OR ${t.linkKind} IS NOT DISTINCT FROM 'image')`,
     ),
+    // On link_kind, not on target_document_id: the document's SET NULL may run before the tab's.
+    check(
+      'library_map_regions_link_tab',
+      sql`${t.targetDocumentTabId} IS NULL OR ${t.linkKind} IS NOT DISTINCT FROM 'document'`,
+    ),
   ],
 );
 
@@ -111,6 +127,7 @@ export type MapRegionChangesPo = Partial<
     | 'hidden'
     | 'linkKind'
     | 'targetDocumentId'
+    | 'targetDocumentTabId'
     | 'targetSceneId'
     | 'targetMapId'
     | 'targetImageId'

@@ -15,11 +15,12 @@ Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de c
 | [`tokens/testes.md`](tokens/testes.md)                       | Testes do módulo: unit × integração, specs por service e por grid                                      |
 | [`tokens/bloqueio-de-visao.md`](tokens/bloqueio-de-visao.md) | Token que bloqueia a visão: `blocks_sight`, só o mestre, teto de 50 (`TOKEN_BLOCKER_LIMIT`)            |
 | [`tokens/patrulha.md`](tokens/patrulha.md)                   | Patrulha: `token_patrols`, linha do tempo, ligar/desligar, teto de 30, o que pausa, luz que anda       |
-| [`tokens/armadilhas.md`](tokens/armadilhas.md)               | Armadilhas do módulo: migração, enum, `as const`, `CHECK`, nomes no Drizzle                            |
+| [`tokens/movimento-livre.md`](tokens/movimento-livre.md)     | Passo de 1/64, `CHECK tokens_box_steps` e por que o modo não é conferido no server                     |
+| [`tokens/armadilhas.md`](tokens/armadilhas.md)               | Armadilhas do módulo: migração, enum, `as const`, `CHECK`, nomes no Drizzle, SQL cru da patrulha       |
 
-## Tabelas (`tokens.po.ts`, migrações `0003_tokens`, `0006_token_layers`, `0012_token_appearance`, `0013_token_box`, `0014_token_box_drop_size`, `0018_token_sight`, `0021_bar_display`, `0022_token_defeated`, `0023_token_light`, `0026_token_light_color`, `0027_token_cones`, `0053_token_hidden`, `0058_token_aura`, `0061_aura_image_shape`, `0063_token_created_by`, `0065_token_forms`, `0081_token_blocks_sight`, `0082_token_patrols`, `0085_bar_colors_text` e `0088_light_colors_text`)
+## Tabelas (`tokens.po.ts`, migrações `0003_tokens`, `0006_token_layers`, `0012_token_appearance`, `0013_token_box`, `0014_token_box_drop_size`, `0018_token_sight`, `0021_bar_display`, `0022_token_defeated`, `0023_token_light`, `0026_token_light_color`, `0027_token_cones`, `0053_token_hidden`, `0058_token_aura`, `0061_aura_image_shape`, `0063_token_created_by`, `0065_token_forms`, `0081_token_blocks_sight`, `0082_token_patrols`, `0085_bar_colors_text`, `0088_light_colors_text` e `0094_free_movement`)
 
-- `tokens`: `id`, `scene_id` (cascade, indexado), `name`, `initials`, `side` (enum `token_side`), `width`, `height`, `col`, `row` (`double precision`, em casas, de meia em meia: `CHECK tokens_box_half_cells` — origem ≥ 0, lados de 0,5 a 10, todos múltiplos de 0,5), `layer` (enum `token_layer`: `tokens` | `objects` | `background`, padrão `tokens`; a `0006` pôs todo token que existia em `tokens`), `image_asset_id` (→ `assets`, **set null**: perder o asset devolve as iniciais), `frame` (enum `token_frame`: `square` | `round`, padrão `square`), `flip_x`, `flip_y` (padrão `false`), `facing` (`smallint`, padrão 0, `CHECK tokens_facing_range` 0–359), `defeated` (padrão `false`: a marca de abatido; só o `token:restyleMany` a muda — criar e colar nascem vivos), `created_by` (→ `users`, **set null**; o autor, [`tokens/autoria.md`](tokens/autoria.md)), timestamps. A camada, a aparência e a direção são do token inteiro e não são segredo: vão iguais a todos os públicos. `TokenLookPo` = imagem, borda e inverter (o que o `update` aceita); `TokenStylePo` = `TokenLookPo` + `defeated` (o do `restyle`); o `TokenFieldsPo` do `update` aceita a aparência parcial (campo ausente não é escrito).
+- `tokens`: `id`, `scene_id` (cascade, indexado), `name`, `initials`, `side` (enum `token_side`), `width`, `height`, `col`, `row` (`double precision`, em casas: `CHECK tokens_box_steps` — origem ≥ 0 em múltiplos de 1/64, lados de 0,5 a 10 em múltiplos de 0,5), `layer` (enum `token_layer`: `tokens` | `objects` | `background`, padrão `tokens`; a `0006` pôs todo token que existia em `tokens`), `image_asset_id` (→ `assets`, **set null**: perder o asset devolve as iniciais), `frame` (enum `token_frame`: `square` | `round`, padrão `square`), `flip_x`, `flip_y` (padrão `false`), `facing` (`smallint`, padrão 0, `CHECK tokens_facing_range` 0–359), `defeated` (padrão `false`: a marca de abatido; só o `token:restyleMany` a muda — criar e colar nascem vivos), `created_by` (→ `users`, **set null**; o autor, [`tokens/autoria.md`](tokens/autoria.md)), timestamps. A camada, a aparência e a direção são do token inteiro e não são segredo: vão iguais a todos os públicos. `TokenLookPo` = imagem, borda e inverter (o que o `update` aceita); `TokenStylePo` = `TokenLookPo` + `defeated` (o do `restyle`); o `TokenFieldsPo` do `update` aceita a aparência parcial (campo ausente não é escrito).
 - `token_controllers`: PK (`token_id`, `user_id`), os dois cascade — o `TokenController` do §6.
 - `token_forms` e `tokens.active_form_id` (set null): as formas nomeadas, em [`tokens/formas.md`](tokens/formas.md).
 - `token_bars`: `id`, `token_id` (cascade), `position`, `label`, `current`, `max`, `temp`, `color` (`text` + `CHECK`: paleta ou hex), `visibility` (enum `bar_visibility`), `display` (enum `bar_display`: `number` | `percent`, padrão `number`; a `0021` pôs toda barra que existia em `number`); único (`token_id`, `position`). O `display` não é segredo: vai igual a quem recebe a barra. Generaliza o `currentHp`/`maxHp` do §6.
@@ -91,17 +92,5 @@ Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de c
 | `token:linkToCharacter` (e o legado `token:linkToCard`) | mestre                                                          | `token:updated` no grid; só o grid soma ([`characters/ligar.md`](characters/ligar.md))                                                                               |
 | `token:unlinkFromCharacter` (e `token:unlinkFromCard`)  | mestre                                                          | `token:updated` no grid (o token fica com a cópia do que mostrava)                                                                                                   |
 | `token:addPlayers`                                      | mestre                                                          | `token:createdMany` no grid; ack `{ ok, version, createdIds, skippedMemberIds }` · `NO_FREE_CELLS` (pelos personagens, [`characters/ligar.md`](characters/ligar.md)) |
-
-## Direção e aparência (`token-appearance.service.ts`)
-
-- `faceMany`, `restyleMany` e `resizeMany` (`TokenAppearanceService`, plugin `appearance`): [`tokens/aparencia.md`](tokens/aparencia.md).
-
-## Testes
-
-Ver [`tokens/testes.md`](tokens/testes.md).
-
-## Armadilhas
-
-Em [`tokens/armadilhas.md`](tokens/armadilhas.md).
 
 Assets library_image são reservados à biblioteca/apresentação: requireAssetsOf recusa em tokens, formas, auras e condições (ASSET_NOT_FOUND antes de gravar). Ver [library/images.md](library/images.md).

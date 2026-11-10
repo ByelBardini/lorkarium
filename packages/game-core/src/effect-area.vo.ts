@@ -22,7 +22,8 @@ export type RoundArea = Colored &
 export type AimedArea = Colored &
   Origin &
   Readonly<{ kind: AimedAreaKind; reach: number; facing: number }>;
-/** The cells around a token's footprint (`x, y, width, height`, in half cells), up to `reach`. */
+/** The cells around a token's footprint, up to `reach`: `x, y` to the hundredth (a token may stand
+ *  off the cells), `width, height` in half cells. */
 export type EmanationArea = Colored &
   Origin &
   Readonly<{ kind: 'emanation'; width: number; height: number; reach: number }>;
@@ -97,12 +98,7 @@ function originRuleOf(area: EffectArea): OriginRule {
   if (area.kind === 'orthogonal_cone') return coneSideRuleOf(area.facing);
   if (area.kind === 'line')
     return { fits: (x, y) => isHalf(x) && isHalf(y), text: 'a cell center (x and y on .5)' };
-  if (area.kind === 'emanation')
-    return {
-      fits: (x, y) => isHalfStep(x) && isHalfStep(y),
-      text: 'a token footprint on half cells',
-    };
-  if (isSmoothArea(area))
+  if (area.kind === 'emanation' || isSmoothArea(area))
     return {
       fits: (x, y) => isHundredth(x) && isHundredth(y),
       text: 'finite numbers ≥ 0 to the hundredth',

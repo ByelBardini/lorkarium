@@ -118,6 +118,7 @@ describe('HttpLibraryMapsApi', () => {
       mapName: 'Mundo',
       regionId: CAPITAL_REGION_ID,
       regionName: 'Capital',
+      tabName: null,
     };
     const { http, api } = setup(200, { appearances: [appearance] });
     expect(await api.appearances(VHARN.id, DOCUMENT_ID)).toEqual({
