@@ -4,8 +4,12 @@ import {
   type CharacterDto,
 } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { AssetsDao } from '../../src/modules/assets/assets.dao';
+import type { AssetPo } from '../../src/modules/assets/assets.po';
 import { CharactersDao } from '../../src/modules/characters/characters.dao';
-import { envelope, eventPayload, send, silence } from '../support/live-table';
+import { newAssetPo } from '../support/assets-factories';
+import { linkToPlayerCharacter } from '../support/characters';
+import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import { recordEventsOf, type EventRecorder } from '../support/realtime-client';
 import type { SignedInUser } from '../support/sign-in';
 import {
@@ -16,7 +20,7 @@ import {
   charactersSynced,
   giveBars,
 } from '../support/table-characters';
-import { useTokenTable } from '../support/token-table';
+import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const STRANGER_ID = 'f1e2d3c4-b5a6-4978-8a9b-0c1d2e3f4a5b';
 
@@ -158,6 +162,73 @@ describe('characters over Socket.IO', () => {
     });
     await silence();
     expect(quelmEvents.events.map(({ name }) => name)).not.toContain('character:changed');
+  });
+
+  describe('the portrait (imageAssetId)', () => {
+    async function assetOf(campaignId: string, purpose: AssetPo['purpose']): Promise<string> {
+      return (await new AssetsDao(live.connection.db).insert(newAssetPo({ campaignId, purpose })))
+        .id;
+    }
+
+    async function portraitUpdate(
+      client: Parameters<typeof send>[0],
+      imageAssetId: string | null,
+    ): ReturnType<typeof send> {
+      const update = characterUpdate(live.vharn, biaCharacterId, { imageAssetId });
+      return send(client, 'character:update', update);
+    }
+
+    it('Bia puts a token image on her character: Ana hears its id and the linked token wears it', async () => {
+      const ana = await live.atTable(live.ana, live.vharn);
+      const created = recordEventsOf(ana);
+      await send(ana, 'token:create', tokenCommandFor(live.vharn, live.bia.id));
+      const tokenId = (await createdTokenOf(created)).id;
+      await linkToPlayerCharacter(live, ana, live.vharn, { tokenId, memberId: live.bia.id });
+      const anaEvents = recordEventsOf(ana);
+      const bia = await live.atTable(live.bia, live.vharn);
+      const portraitId = await assetOf(live.vharn.id, 'token');
+
+      expect(await portraitUpdate(bia, portraitId)).toMatchObject({ ok: true });
+
+      expect(await changedOf(anaEvents)).toMatchObject({ imageAssetId: portraitId });
+      const token = (await synced(ana, live.vharn)).tokens.find(({ id }) => id === tokenId);
+      expect(token?.imageAssetId).toBe(portraitId);
+    });
+
+    it('null takes the portrait off', async () => {
+      const imageAssetId = await assetOf(live.vharn.id, 'token');
+      await new CharactersDao(live.connection.db).update(biaCharacterId, { imageAssetId });
+      const bia = await live.atTable(live.bia, live.vharn);
+
+      expect(await portraitUpdate(bia, null)).toMatchObject({ ok: true });
+
+      const stream = await charactersSynced(bia, live.vharn);
+      expect(stream.characters.find(({ id }) => id === biaCharacterId)?.imageAssetId).toBeNull();
+    });
+
+    it.each([
+      ['a library image of Vharn', 'vharn', 'library_image'],
+      ['a token image of Quelm', 'quelm', 'token'],
+    ] as const)('%s is ASSET_NOT_FOUND and nobody hears of it', async (_what, table, purpose) => {
+      const anaEvents = recordEventsOf(await live.atTable(live.ana, live.vharn));
+      const bia = await live.atTable(live.bia, live.vharn);
+      const assetId = await assetOf(live[table].id, purpose);
+
+      expect(await portraitUpdate(bia, assetId)).toEqual({
+        ok: false,
+        error: { code: 'ASSET_NOT_FOUND', message: 'Image not found' },
+      });
+      await silence();
+      expect(anaEvents.events.map(({ name }) => name)).not.toContain('character:changed');
+    });
+
+    it('Caio putting a portrait on the character of Bia gets FORBIDDEN', async () => {
+      const caio = await live.atTable(live.caio, live.vharn);
+
+      const ack = await portraitUpdate(caio, await assetOf(live.vharn.id, 'token'));
+
+      expect(ack).toEqual({ ok: false, error: expect.objectContaining({ code: 'FORBIDDEN' }) });
+    });
   });
 
   describe('Duda, a spectator', () => {

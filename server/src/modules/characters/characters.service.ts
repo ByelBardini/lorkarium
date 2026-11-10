@@ -5,6 +5,7 @@ import type {
   SetMainSheetCommandDto,
   UpdateCharacterCommandDto,
 } from '@lorkarium/contracts';
+import type { AssetsDao } from '../assets/assets.dao';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
@@ -12,6 +13,7 @@ import { memberAccessOf, viewerAccessOf } from '../campaigns/member-access';
 import type { ConditionsDao } from '../conditions/conditions.dao';
 import { toConditionDefinitionDto } from '../conditions/conditions.mapper';
 import type { SheetsDao } from '../sheets/sheets.dao';
+import type { BarValuesPo } from '../tokens/tokens.po';
 import type { CharacterBo } from './character.bo';
 import type { CharacterPublisherPort } from './character-publisher.port';
 import type { CharacterRow, CharactersDao } from './characters.dao';
@@ -32,6 +34,10 @@ import {
 export type UpdateCharacter = Omit<UpdateCharacterCommandDto, 'actionId' | 'campaignId'>;
 export type AdjustCharacterBar = Omit<AdjustCharacterBarCommandDto, 'actionId' | 'campaignId'>;
 export type SetMainSheet = Omit<SetMainSheetCommandDto, 'actionId' | 'campaignId'>;
+/** The writes a bar rule answers for a character's bars, by bar id. */
+export type CharacterBarsRewrite = (
+  bars: CharacterRow['bars'],
+) => readonly Readonly<{ barId: string; values: BarValuesPo }>[];
 
 export type CharacterWriteDaos = CharactersLockDaos &
   Readonly<{
@@ -41,6 +47,8 @@ export type CharacterWriteDaos = CharactersLockDaos &
     >;
     /** The sheet a `character:setMainSheet` names, read under the characters' lock. */
     sheets: Pick<SheetsDao, 'find'>;
+    /** The portrait a `character:update` puts on it, read under the characters' lock. */
+    assets: Pick<AssetsDao, 'findInCampaign'>;
   }>;
 
 export type CharacterReadDaos = Readonly<{
@@ -70,10 +78,16 @@ export type CharactersServiceDeps = Readonly<{
 export class CharactersService {
   constructor(private readonly deps: CharactersServiceDeps) {}
 
-  /** The card fields (name, CA, CD, notes): lock → check → write → bump → commit → publish. */
+  /** The card fields (name, CA, CD, notes, portrait): lock → check → write → bump → commit →
+   *  publish. A portrait must be a `token` image of this table (else ASSET_NOT_FOUND). */
   async update(userId: string, campaignId: string, command: UpdateCharacter): Promise<number> {
+    const { imageAssetId } = command.changes;
     return this.write(userId, campaignId, command.characterId, async (daos, bo, row) => {
       bo.requireEdit('change');
+      if (typeof imageAssetId === 'string') {
+        const asset = await daos.assets.findInCampaign(campaignId, imageAssetId);
+        bo.requirePortrait(imageAssetId, asset?.purpose ?? null);
+      }
       await daos.characters.update(row.character.id, toCharacterChangesPo(command.changes));
     });
   }
@@ -88,6 +102,24 @@ export class CharactersService {
     return this.write(userId, campaignId, command.characterId, async (daos, bo, row) => {
       const values = bo.adjustBar(row.bars, barId, change, this.deps.barLimit);
       await daos.characters.setBarValues(barId, values);
+    });
+  }
+
+  /** Several bars at once by a rule the caller owns (`sheet:spendBars`): edit rights first; the
+   *  rule reads the bars under the lock and answers the writes, or throws and nothing is saved.
+   *
+   *  Example: `await characters.rewriteBars(biaId, vharnId, lyraId, (bars) => spentBarWritesOf(holder, bars, costs))` */
+  async rewriteBars(
+    userId: string,
+    campaignId: string,
+    characterId: string,
+    rule: CharacterBarsRewrite,
+  ): Promise<number> {
+    return this.write(userId, campaignId, characterId, async (daos, bo, row) => {
+      bo.requireEdit('change the bars of');
+      for (const { barId, values } of rule(row.bars)) {
+        await daos.characters.setBarValues(barId, values);
+      }
     });
   }
 

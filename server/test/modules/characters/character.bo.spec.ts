@@ -190,3 +190,33 @@ describe('CharacterBo.requireSeen and requireOwnSheet', () => {
     }
   });
 });
+
+describe('CharacterBo.requirePortrait', () => {
+  const ASSET_ID = '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a';
+
+  it('a token image of the table is a portrait', () => {
+    expect(() => lyraFor(BIA_ID, 'player').requirePortrait(ASSET_ID, 'token')).not.toThrow();
+  });
+
+  it('a library image is ASSET_NOT_FOUND citing the asset, the character and the purpose token', () => {
+    expect(() => lyraFor(BIA_ID, 'player').requirePortrait(ASSET_ID, 'library_image')).toThrow(
+      expect.objectContaining({
+        code: 'ASSET_NOT_FOUND',
+        message: expect.stringMatching(
+          new RegExp(
+            `${ASSET_ID}.*${LYRA_CHARACTER_ID}.*purpose token; found an asset of purpose library_image`,
+          ),
+        ),
+      }),
+    );
+  });
+
+  it('no asset of the table (another table, or none) is ASSET_NOT_FOUND', () => {
+    expect(() => lyraFor(BIA_ID, 'player').requirePortrait(ASSET_ID, null)).toThrow(
+      expect.objectContaining({
+        code: 'ASSET_NOT_FOUND',
+        message: expect.stringMatching(/found no asset of campaign/),
+      }),
+    );
+  });
+});

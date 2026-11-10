@@ -85,8 +85,14 @@ import {
   withPatrolPauses,
 } from './token-patrol-pause';
 import type { TokenRow, TokenUpdatePo, TokensDao } from './tokens.dao';
-import type { BarValuesPo } from './tokens.po';
-import { BarNotFoundError } from './tokens.error';
+import {
+  adjustedBarOf,
+  ruledBarWritesOf,
+  type TokenBarsAddress,
+  type TokenBarsRewrite,
+  type TokenBarWrite,
+  type TokenBarWritesOf,
+} from './token-bar-writes';
 import { toAuthoredToken, toEditedToken, toTokenUpdatePo } from './tokens.mapper';
 import type { SceneWallsService } from '../walls/scene-walls.service';
 
@@ -301,9 +307,36 @@ export class TokensService {
   /** The bar of a linked token is its character's: the character changes, in the characters'
    *  version (a `character:changed`), and the grid does not. */
   async adjustBar(userId: string, campaignId: string, command: AdjustBar): Promise<number> {
+    return this.writeBars(userId, campaignId, command, (access, found, scene) => [
+      { barId: command.barId, values: adjustedBarOf(access, found, scene, this.deps, command) },
+    ]);
+  }
+
+  /** Several bars of a token at once by a rule the caller owns (`sheet:spendBars`): control
+   *  first; the rule reads the bars under the lock and answers the writes, or throws and nothing
+   *  is saved. A linked token's bars are its character's, as in `adjustBar`.
+   *
+   *  Example: `await tokens.rewriteBars(caioId, vharnId, { tokenId, sceneId }, (bars) => writes)` */
+  async rewriteBars(
+    userId: string,
+    campaignId: string,
+    address: TokenBarsAddress,
+    rule: TokenBarsRewrite,
+  ): Promise<number> {
+    return this.writeBars(userId, campaignId, address, (access, found) =>
+      ruledBarWritesOf(access, found, rule),
+    );
+  }
+
+  private async writeBars(
+    userId: string,
+    campaignId: string,
+    address: TokenBarsAddress,
+    writesOf: TokenBarWritesOf,
+  ): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
-    const saved = await this.inSharedGrid(access, command.sceneId, (locked) =>
-      this.adjustIn(locked, access, command),
+    const saved = await this.inSharedGrid(access, address.sceneId, (locked) =>
+      this.barsWrittenIn(locked, address.tokenId, (found) => writesOf(access, found, locked.scene)),
     );
     const { changed, shared, veiled } = saved.value;
     publishCharactersChange(
@@ -368,22 +401,22 @@ export class TokensService {
     return { value: { token, shared, veiled }, grid: true, characters: shared !== null };
   }
 
-  // Control and the rule first; then the bar where it lives (the character's, or the token's).
-  private async adjustIn(
+  // Control and the rule first; then the bars where they live (the character's, or the token's).
+  private async barsWrittenIn(
     locked: SharedLocked,
-    access: CampaignAccessBo,
-    command: AdjustBar,
+    tokenId: string,
+    writesOf: (found: TokenRow) => readonly TokenBarWrite[],
   ): Promise<CharactersAndGridChange<AdjustedBar>> {
     const { daos, scene } = locked;
-    const found = await tokenIn(daos, scene, scene.campaignId, command.tokenId);
-    const values = this.adjustedBar(access, found, scene, command);
+    const found = await tokenIn(daos, scene, scene.campaignId, tokenId);
+    const writes = writesOf(found);
     const character = await linkedCharacterIn(locked, found);
+    const bars = character ? daos.characters : daos.tokens;
+    for (const { barId, values } of writes) await bars.setBarValues(barId, values);
     if (character) {
-      await daos.characters.setBarValues(command.barId, values);
       const shared = await characterIn(daos, scene.campaignId, character.character.id);
       return { value: { changed: null, shared, veiled: null }, grid: false, characters: true };
     }
-    await daos.tokens.setBarValues(command.barId, values);
     const changed = await this.reread(daos, scene, found);
     const veiled = await changeSceneOf(daos, scene, found, changed.row, false);
     return { value: { changed, shared: null, veiled }, grid: true, characters: false };
@@ -417,20 +450,6 @@ export class TokensService {
   ): Promise<SavedInScene<T>> {
     const address = { campaignId: access.campaignIdOf(), sceneId, access };
     return inLockedGrid(this.deps.transaction, address, work);
-  }
-
-  // Control first, then the bar of the token and the rule of the game-core (`set` over the max
-  // is cut there).
-  private adjustedBar(
-    access: CampaignAccessBo,
-    found: TokenRow,
-    scene: Pick<ScenePo, 'widthCells' | 'heightCells'>,
-    { tokenId, barId, change }: Pick<AdjustBar, 'tokenId' | 'barId' | 'change'>,
-  ): BarValuesPo {
-    tokenAccessOf(access, found).requireControl('adjust a bar of');
-    const bar = found.bars.find(({ id }) => id === barId);
-    if (!bar) throw new BarNotFoundError(tokenId, barId);
-    return tokenRulesOf(scene, [], this.deps).adjustBar(bar, change);
   }
 
   private passageDeps(): Parameters<typeof requirePassages>[3] {

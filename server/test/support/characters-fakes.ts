@@ -22,6 +22,7 @@ import type {
   CharacterWriteDaos,
 } from '../../src/modules/characters/characters.service';
 import type { SheetsDao } from '../../src/modules/sheets/sheets.dao';
+import { AssetsDaoFake } from './assets-fakes';
 import type { SheetRow } from '../../src/modules/sheets/sheets.dao';
 import { formRowsOf } from '../../src/modules/tokens/token-forms.dao';
 import type { BarValuesPo, TokenFormInputPo } from '../../src/modules/tokens/tokens.po';
@@ -220,12 +221,14 @@ export class CharacterTransactionRunnerFake {
   constructor(
     private readonly characters: CharactersDaoFake,
     private readonly sheets: Pick<SheetsDao, 'find'> = new NoSheetsDaoFake(),
+    private readonly assets: Pick<AssetsDaoFake, 'findInCampaign'> = new AssetsDaoFake(),
   ) {}
 
   readonly run: CharacterTransactionRunner = async <T>(
     work: (daos: CharacterWriteDaos) => Promise<T>,
   ): Promise<T> => {
-    const result = await work({ characters: this.characters, sheets: this.sheets });
+    const { characters, sheets, assets } = this;
+    const result = await work({ characters, sheets, assets });
     this.characters.journal.push('commit');
     return result;
   };

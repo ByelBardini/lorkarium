@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { CharactersService } from '../../../src/modules/characters/characters.service';
+import { LYRA_PORTRAIT_ID, lyraPortraitPo } from '../../support/assets-factories';
+import { AssetsDaoFake } from '../../support/assets-fakes';
 import { ClockFake } from '../../support/auth-fakes';
 import { ANA_ID } from '../../support/auth-factories';
 import { CampaignMembersDaoFake, CampaignsDaoFake } from '../../support/campaigns-fakes';
@@ -30,12 +32,15 @@ const NOW = new Date('2026-10-31T21:00:00Z');
 const STRANGER_ID = 'f1e2d3c4-b5a6-4978-8a9b-0c1d2e3f4a5b';
 const MIRA_ID = '3f2e1d0c-9b8a-4f7e-8d6c-5b4a3f2e1d0c';
 const SOMBRA_ID = '4a3f2e1d-0c9b-4a8f-9e7d-6c5b4a3f2e1d';
+const MAP_IMAGE_ID = '6b5a4f3e-2d1c-4b0a-9f8e-7d6c5b4a3f2e';
+const QUELM_PORTRAIT_ID = '7c6b5a4f-3e2d-4c1b-8a9f-8e7d6c5b4a3f';
 
 describe('CharactersService', () => {
   let journal: string[];
   let characters: CharactersDaoFake;
   let publisher: CharacterPublisherFake;
   let sheets: SheetsDaoFake;
+  let assets: AssetsDaoFake;
   let service: CharactersService;
 
   beforeEach(() => {
@@ -70,9 +75,14 @@ describe('CharactersService', () => {
     );
     publisher = new CharacterPublisherFake(journal);
     sheets = new SheetsDaoFake(journal, characters);
+    assets = new AssetsDaoFake(journal, [
+      lyraPortraitPo(),
+      lyraPortraitPo({ id: MAP_IMAGE_ID, purpose: 'library_image' }),
+      lyraPortraitPo({ id: QUELM_PORTRAIT_ID, campaignId: QUELM_ID }),
+    ]);
     service = new CharactersService({
       members,
-      transaction: new CharacterTransactionRunnerFake(characters, sheets).run,
+      transaction: new CharacterTransactionRunnerFake(characters, sheets, assets).run,
       snapshot: new CharacterSnapshotRunnerFake(characters).run,
       publisher,
       clock: new ClockFake(NOW),
@@ -157,6 +167,60 @@ describe('CharactersService', () => {
     });
   });
 
+  describe('update of the portrait', () => {
+    it('Bia puts a token image of Vharn on Lyra and the change carries its id', async () => {
+      const update = {
+        characterId: LYRA_CHARACTER_ID,
+        changes: { imageAssetId: LYRA_PORTRAIT_ID },
+      };
+
+      await service.update(BIA_ID, VHARN_ID, update);
+
+      expect(characters.rows[0]?.character.imageAssetId).toBe(LYRA_PORTRAIT_ID);
+      expect(publisher.changes[0]?.characters[0]?.others.imageAssetId).toBe(LYRA_PORTRAIT_ID);
+    });
+
+    it('null takes the portrait off without looking for an image', async () => {
+      characters.rows[0] = characterRow({
+        character: characterPo({ imageAssetId: LYRA_PORTRAIT_ID }),
+      });
+
+      await service.update(BIA_ID, VHARN_ID, {
+        characterId: LYRA_CHARACTER_ID,
+        changes: { imageAssetId: null },
+      });
+
+      expect(characters.rows[0]?.character.imageAssetId).toBeNull();
+    });
+
+    it.each([
+      ['a library image of Vharn', MAP_IMAGE_ID],
+      ['a token image of Quelm', QUELM_PORTRAIT_ID],
+      ['an id no table has', STRANGER_ID],
+    ])('%s is ASSET_NOT_FOUND: nothing written, bumped nor published', async (_what, assetId) => {
+      const update = { characterId: LYRA_CHARACTER_ID, changes: { imageAssetId: assetId } };
+
+      await expect(service.update(BIA_ID, VHARN_ID, update)).rejects.toMatchObject({
+        code: 'ASSET_NOT_FOUND',
+        message: expect.stringContaining('purpose token'),
+      });
+      expect(journal).toEqual(['lock characters']);
+      expect(characters.rows[0]?.character.imageAssetId).not.toBe(assetId);
+    });
+
+    it('Caio putting a portrait on Lyra of Bia is FORBIDDEN', async () => {
+      const update = {
+        characterId: LYRA_CHARACTER_ID,
+        changes: { imageAssetId: LYRA_PORTRAIT_ID },
+      };
+
+      await expect(service.update(CAIO_ID, VHARN_ID, update)).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+      });
+      expect(publisher.changes).toEqual([]);
+    });
+  });
+
   describe('adjustBar', () => {
     it('Bia taking 7 from the PV of Lyra writes 18, bumps once and publishes the bar', async () => {
       const adjust = {
@@ -190,6 +254,58 @@ describe('CharactersService', () => {
         code: 'BAR_NOT_FOUND',
       });
       expect(journal).toEqual(['lock characters']);
+    });
+  });
+
+  describe('rewriteBars', () => {
+    const PV_AND_MANA = [
+      { barId: LYRA_CHARACTER_PV_ID, values: { current: 20, max: 30, temp: 0 } },
+      { barId: LYRA_CHARACTER_MANA_ID, values: { current: 0, max: 10, temp: 0 } },
+    ];
+
+    it('Bia rewrites PV and Mana of Lyra in one bump: the rule sees her bars under the lock', async () => {
+      const seen: string[] = [];
+
+      const version = await service.rewriteBars(BIA_ID, VHARN_ID, LYRA_CHARACTER_ID, (bars) => {
+        seen.push(...bars.map(({ label, current }) => `${label} ${current}`));
+        return PV_AND_MANA;
+      });
+
+      expect(version).toBe(5);
+      expect(seen).toEqual(['PV 25', 'Mana 4']);
+      expect(journal).toEqual([
+        'lock characters',
+        'set bar',
+        'set bar',
+        'bump characters',
+        'commit',
+        'publish',
+      ]);
+      const bars = publisher.changes[0]?.characters[0]?.privileged.bars;
+      expect(bars?.map(({ current }) => current)).toEqual([20, 0]);
+    });
+
+    it('Caio, who does not control Lyra, is FORBIDDEN before the rule runs', async () => {
+      let ran = false;
+      const rewriting = service.rewriteBars(CAIO_ID, VHARN_ID, LYRA_CHARACTER_ID, () => {
+        ran = true;
+        return PV_AND_MANA;
+      });
+
+      await expect(rewriting).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(ran).toBe(false);
+      expect(publisher.changes).toEqual([]);
+    });
+
+    it('a rule that throws writes and publishes nothing', async () => {
+      const refusal = new Error('short');
+      const rewriting = service.rewriteBars(BIA_ID, VHARN_ID, LYRA_CHARACTER_ID, () => {
+        throw refusal;
+      });
+
+      await expect(rewriting).rejects.toBe(refusal);
+      expect(journal).toEqual(['lock characters']);
+      expect(publisher.changes).toEqual([]);
     });
   });
 
