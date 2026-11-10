@@ -12,13 +12,20 @@ import {
 import { adminCredentials, signIn } from './support/sign-in';
 import { createTableAndReadCode, enterFromTheList } from './support/tables';
 
-type TemplateCode = Readonly<{ id: string; name: string; html: string; css: string; js: string }>;
+type TemplateCode = Readonly<{ id: string } & SheetSourceCode>;
 
 const EXPORTED: SheetSourceCode = {
   name: 'Modelo exportado',
-  html: '<p id="marca">…</p>',
-  css: '#marca { font-weight: bold; }',
-  js: 'lorkarium.ready(); document.getElementById("marca").textContent = "Exportado da A";',
+  files: [
+    { path: 'index.html', content: '<lk-include src="paginas/marca.html">' },
+    { path: 'paginas/marca.html', content: '<p id="marca">…</p>' },
+    { path: 'estilo.css', content: '#marca { font-weight: bold; }' },
+    { path: 'b.js', content: 'lorkarium.ready();' },
+    {
+      path: 'a.js',
+      content: 'document.getElementById("marca").textContent = "Exportado da A";',
+    },
+  ],
 };
 
 async function templateIdsOf(page: Page, campaignId: string): Promise<string[]> {
@@ -82,7 +89,7 @@ test('a template exported from Mesa A is imported into Mesa B with the same code
   // A file of a newer format is refused before any create: Mesa B keeps one template.
   const newer = testInfo.outputPath('Modelo novo.lksheet');
   const original: unknown = JSON.parse(await readFile(filePath, 'utf8'));
-  await writeFile(newer, JSON.stringify({ ...(original as object), formatVersion: 2 }));
+  await writeFile(newer, JSON.stringify({ ...(original as object), formatVersion: 3 }));
   await importSheetTemplate(library, newer);
   await expect(library.getByRole('alert')).toHaveText(
     'Este arquivo foi feito numa versão mais nova do Lorkarium.',

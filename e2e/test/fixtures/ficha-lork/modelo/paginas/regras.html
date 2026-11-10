@@ -1,0 +1,154 @@
+<header>
+  <p class="eyebrow">Regras</p>
+  <h1 class="h1">Regras</h1>
+</header>
+<section class="blk first">
+  <h2 class="h2">Lvl Up</h2>
+  <!-- data-every: o nível que ganha a regra é múltiplo deste número; data-odd/data-even só ímpar/par -->
+  <ul class="rules" id="level-rules">
+    <li style="--c: var(--moss-l)" data-every="1">
+      <b>Todo nível</b><span>sua barra máxima de Estresse (ES) sobe em 2.</span>
+    </li>
+    <li style="--c: var(--gold-l)" data-odd>
+      <b>Todo nível ímpar</b
+      ><span
+        >você recebe +1 em um atributo, sem poder escolher o mesmo atributo duas vezes
+        seguidas.</span
+      >
+    </li>
+    <li style="--c: var(--gold-l)" data-even>
+      <b>Todo nível par</b
+      ><span
+        >você pode aumentar a base de uma barra em 1, sem poder repetir a mesma barra duas vezes
+        seguidas.</span
+      >
+    </li>
+    <li style="--c: var(--amber)" data-every="3">
+      <b>Cada nível múltiplo de 3</b
+      ><span>você pode criar uma habilidade nova e upar uma que já possua.</span>
+    </li>
+    <li style="--c: var(--ember-l)" data-every="4">
+      <b>Cada nível múltiplo de 4</b><span>seu bônus de treino aumenta em 1.</span>
+    </li>
+    <li style="--c: var(--violet)" data-every="5">
+      <b>Cada nível múltiplo de 5</b><span>sua Classe e seu Original recebem um up.</span>
+    </li>
+    <li style="--c: var(--steel-l)" data-every="10">
+      <b>Cada nível múltiplo de 10</b><span>sua Raça recebe um up.</span>
+    </li>
+  </ul>
+  <div class="next-lv" id="next-lv"></div>
+</section>
+<section class="blk">
+  <h2 class="h2">Levantar aliado caído</h2>
+  <!-- data-share: quanto da vida máxima abaixo de zero marca a faixa -->
+  <ul class="rules fall" id="fall">
+    <li style="--c: #7fbf93" data-fall="0" data-share="0">
+      <b>0% da vida máxima</b><span class="thr"></span
+      ><span>Consegue levantar com uma ação padrão.</span
+      ><span class="here-tag">Você está aqui</span>
+    </li>
+    <li style="--c: var(--moss-l)" data-fall="1" data-share="0.05">
+      <b>−5% da vida máxima</b><span class="thr"></span
+      ><span>Um aliado pode gastar uma ação padrão pra te levantar.</span
+      ><span class="here-tag">Você está aqui</span>
+    </li>
+    <li style="--c: var(--gold-l)" data-fall="2" data-share="0.10">
+      <b>−10% da vida máxima</b><span class="thr"></span
+      ><span>Um teste de Medicina de dificuldade 10, aumentando em 3 a cada vez que cair.</span
+      ><span class="here-tag">Você está aqui</span>
+    </li>
+    <li style="--c: var(--amber)" data-fall="3" data-share="0.40">
+      <b>−40% da vida máxima</b><span class="thr"></span
+      ><span>Um teste de Medicina de dificuldade 15, aumentando em 5 a cada vez que cair.</span
+      ><span class="here-tag">Você está aqui</span>
+    </li>
+    <li style="--c: var(--ember-l)" data-fall="4" data-share="0.70">
+      <b>−70% da vida máxima</b><span class="thr"></span
+      ><span>Um teste de Medicina de dificuldade 20, aumentando em 5 a cada vez que cair.</span
+      ><span class="here-tag">Você está aqui</span>
+    </li>
+  </ul>
+</section>
+<section class="blk">
+  <h2 class="h2">Descanso</h2>
+  <!-- data-bars: quanto do máximo cada barra recupera; data-stress: quanto do máximo o estresse (ES) desce -->
+  <div class="rest-grid">
+    <div class="rest">
+      <h3>Descanso curto</h3>
+      <p>Um descanso curto é feito quando você tem <b>um dia</b> inteiro de descanso.</p>
+      <div class="rest-opt" style="--c: var(--ember-l)">
+        <p>
+          <b>Lugar ruim:</b> regenera <b>20%</b> de todas as barras e seu estresse desce
+          <b>10%</b> do máximo.
+        </p>
+        <button
+          type="button"
+          class="btn-rest"
+          data-rest="Descanso curto em lugar ruim"
+          data-bars="0.2"
+          data-stress="0.1"
+          aria-label="Descansar: curto em lugar ruim"
+        >
+          Descansar
+        </button>
+      </div>
+      <div class="rest-opt" style="--c: var(--moss-l)">
+        <p>
+          <b>Lugar confortável:</b> regenera <b>50%</b> de todas as barras e seu estresse desce
+          <b>20%</b> do máximo.
+        </p>
+        <button
+          type="button"
+          class="btn-rest"
+          data-rest="Descanso curto em lugar confortável"
+          data-bars="0.5"
+          data-stress="0.2"
+          aria-label="Descansar: curto em lugar confortável"
+        >
+          Descansar
+        </button>
+      </div>
+      <p class="rest-note">
+        Você pode fazer no máximo <b>5 descansos curtos</b> antes de fazer um descanso longo.
+      </p>
+    </div>
+    <div class="rest">
+      <h3>Descanso longo</h3>
+      <p>Um descanso longo é feito quando você tem <b>uma semana</b> inteira de descanso.</p>
+      <div class="rest-opt" style="--c: var(--ember-l)">
+        <p>
+          <b>Lugar ruim:</b> regenera <b>100%</b> de todas as barras e seu estresse desce
+          <b>25%</b> do máximo.
+        </p>
+        <button
+          type="button"
+          class="btn-rest"
+          data-rest="Descanso longo em lugar ruim"
+          data-bars="1"
+          data-stress="0.25"
+          aria-label="Descansar: longo em lugar ruim"
+        >
+          Descansar
+        </button>
+      </div>
+      <div class="rest-opt" style="--c: var(--moss-l)">
+        <p>
+          <b>Lugar confortável:</b> regenera <b>100%</b> de todas as barras e seu estresse desce
+          <b>50%</b> do máximo.
+        </p>
+        <button
+          type="button"
+          class="btn-rest"
+          data-rest="Descanso longo em lugar confortável"
+          data-bars="1"
+          data-stress="0.5"
+          aria-label="Descansar: longo em lugar confortável"
+        >
+          Descansar
+        </button>
+      </div>
+    </div>
+  </div>
+  <p class="use-msg rest-msg" id="rest-msg" role="status"></p>
+</section>
