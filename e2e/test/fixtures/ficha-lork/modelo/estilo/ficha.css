@@ -1477,6 +1477,25 @@ table.res {
   color: var(--fg);
   font: inherit;
 }
+.res .rx {
+  width: 30px;
+  padding-right: 0;
+}
+.res .conta-bar {
+  width: 100%;
+  max-width: 150px;
+}
+.res .conta-f {
+  width: 100%;
+  font: 400 16px var(--mono);
+}
+.res .conta-why:empty {
+  display: none;
+}
+.res .conta-why {
+  margin: 6px 0 0;
+  font: 400 12.5px var(--sans);
+}
 .res .rv {
   width: 11%;
   padding-right: 0;

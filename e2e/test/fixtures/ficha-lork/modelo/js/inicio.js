@@ -34,6 +34,7 @@ function signature() {
   return JSON.stringify([
     Object.keys(LISTS).map(ids),
     ids('mochila'),
+    ids('contas'),
     MULTI.map((k) => ids('perlist.' + k)),
     ids('hab').map((id) => ids(`hab.${id}.custos`)),
     sortedBars().map((b) => [b.id, b.label, b.color]),
@@ -43,6 +44,7 @@ let shape = '';
 function renderStructure() {
   shape = signature();
   renderBars();
+  renderContas();
   Object.keys(LISTS).forEach(renderList);
   renderPericias();
   renderBag();
@@ -80,6 +82,7 @@ function recalc() {
   for (const [k] of ATTRS) document.getElementById('tot-' + k).textContent = sign(t[k]);
   checkPoints();
   calcBars(t);
+  calcContas(t);
   calcPericias(t);
   calcLoad(t);
   calcRules();

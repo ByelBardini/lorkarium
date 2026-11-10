@@ -23,6 +23,7 @@ export const LORK_SHEET_FILES = [
   'js/perfil.js',
   'js/origem.js',
   'js/atributos.js',
+  'js/contas.js',
   'js/pericias.js',
   'js/listas.js',
   'js/inventario.js',

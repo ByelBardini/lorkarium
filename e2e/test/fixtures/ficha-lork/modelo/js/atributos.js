@@ -39,7 +39,7 @@ function pgAtributos() {
   };
   const rows = RES.map(
     ([k, l, c]) =>
-      `<tr style="--c:${c}"><td class="rn">${l}</td><td class="rf">${forms[k]}</td><td class="rv" id="rv-${k}">0</td></tr>`,
+      `<tr style="--c:${c}"><td class="rn">${l}</td><td class="rf">${forms[k] ?? '—'}</td><td class="rv" id="rv-${k}">0</td><td class="rx"></td></tr>`,
   ).join('');
   return `${pageHead('Atributos', 'Atributos', 'Começa com 4 pontos, e dá para ganhar no máximo 2 pontos deixando atributos negativos.')}
     <section class="blk first">
@@ -47,8 +47,9 @@ function pgAtributos() {
       <div class="tbl-wrap"><table class="attr"><thead><tr><th></th>${head}<th scope="col">Total</th></tr></thead>
         <tbody>${attrGroup('fis', 'Físicos', 'var(--ember-l)')}${attrGroup('men', 'Mentais', 'var(--steel-l)')}</tbody></table></div>
     </section>
-    <section class="blk"><div class="blk-hd"><h2 class="h2">Contas das barras</h2><p class="hint">O máximo de cada barra na mesa segue esta conta, a menos que se escreva outro no Perfil.</p></div>
-      <div class="tbl-wrap"><table class="res"><thead><tr><th>Barra</th><th>Fórmula</th><th style="text-align:right">Máximo</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <section class="blk"><div class="blk-hd"><h2 class="h2">Contas das barras</h2><p class="hint">O máximo de HP, MP, EN e ES segue a conta fixa, a menos que se escreva outro no Perfil. Outras barras da mesa podem ganhar uma conta: números, + − × ÷, parênteses, FOR, DES, CON, INT, CAR, SAB, Nível e Treino.</p></div>
+      <div class="tbl-wrap"><table class="res"><thead><tr><th>Barra</th><th>Fórmula</th><th style="text-align:right">Máximo</th><th></th></tr></thead><tbody>${rows}</tbody><tbody id="contas"></tbody></table></div>
+      <button type="button" class="sk-add" data-add="contas" data-edit-only>${ic('plus', 12)}Adicionar conta</button>
     </section>`;
 }
 

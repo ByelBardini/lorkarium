@@ -80,14 +80,19 @@ const LYRA = { name: 'Lyra', armorClass: null, difficultyClass: null };
 // HP, MP, EN and ES, in this order.
 const BAR_IDS = [0, 1, 2, 3].map((i) => `0000000${i}-0000-4000-8000-00000000000${i}`);
 
-function tableBars(current: Readonly<Record<string, number>>): unknown[] {
-  return [
+// A bar of the table with no fixed formula on the sheet, after the four of the manifest.
+const FOLEGO_ID = '00000004-0000-4000-8000-000000000004';
+
+function tableBars(current: Readonly<Record<string, number>>, withFolego = false): unknown[] {
+  const bars: [string, number, string][] = [
     ['HP', 12, 'ember'],
     ['MP', 10, 'steel'],
     ['EN', 10, 'moss'],
     ['ES', 15, 'ash'],
-  ].map(([label, max, color], position) => ({
-    id: BAR_IDS[position],
+  ];
+  if (withFolego) bars.push(['Fôlego', 8, 'gold']);
+  return bars.map(([label, max, color], position) => ({
+    id: position === 4 ? FOLEGO_ID : BAR_IDS[position],
     label,
     current: current[label as string] ?? max,
     max,
@@ -267,5 +272,81 @@ describe('the Lork sheet running on a page', () => {
     expect(element<HTMLImageElement>('[data-img="hab.k1.img"] img').getAttribute('src')).toBe(
       'blob:lork',
     );
+  });
+});
+
+describe('the bar formulas of the Lork sheet', () => {
+  const folego = (formula: string) => ({
+    at: { des: { base: '2' } },
+    contas: { c1: { ordem: 1, bar: 'Fôlego', f: formula } },
+  });
+  // DES 2 also moves the fixed EN formula; these scenarios look at the formula bar alone.
+  const folegoChanges = (): unknown[] =>
+    sent('bars.adjust')
+      .filter(({ bar }) => bar === FOLEGO_ID)
+      .map(({ change }) => change);
+  const typeInto = (selector: string): void => {
+    element(selector).dispatchEvent(new frame.view.Event('input', { bubbles: true }));
+  };
+
+  it('shows the fixed formula of each of HP, MP, EN and ES, none undefined', () => {
+    deliverState({});
+    const rows = [...frame.document.querySelectorAll('table.res tbody tr')];
+    expect(rows.map((row) => row.querySelector('.rn')?.textContent)).toEqual([
+      'HP',
+      'MP',
+      'EN',
+      'ES',
+    ]);
+    expect(rows[2]?.querySelector('.rf')?.textContent).toContain('10 + (Dex×2 +');
+    expect(element('table.res').textContent).not.toContain('undefined');
+  });
+
+  it('a formula for another bar of the table shows its maximum and sends it after an edit', async () => {
+    deliverState(folego('10 + DES×2 + Nível'), { bars: tableBars({}, true) });
+    await settled();
+    expect(element('#cv-c1').textContent).toBe('15');
+    expect(element('#cw-c1').textContent).toBe('');
+    typeInto('[data-lk="contas.c1.f"]');
+    await settled(700);
+    expect(folegoChanges()).toEqual([{ op: 'max', value: 15 }]);
+  });
+
+  it('multiplies and divides before adding, by name or initials, and rounds down', async () => {
+    deliverState(folego('2 + 3 × (4 − 1) ÷ 2 + destreza - Des'), { bars: tableBars({}, true) });
+    await settled();
+    expect(element('#cv-c1').textContent).toBe('6');
+  });
+
+  it('a formula it cannot read says why and sends nothing', async () => {
+    deliverState(folego('10 + Sorte'), { bars: tableBars({}, true) });
+    await settled();
+    expect(element('#cv-c1').textContent).toBe('—');
+    expect(element('#cw-c1').textContent).toBe('Conta inválida: não conheço "Sorte".');
+    typeInto('[data-lk="contas.c1.f"]');
+    await settled(700);
+    expect(folegoChanges()).toEqual([]);
+  });
+
+  it('only opening a sheet with a formula sends no maximum', async () => {
+    deliverState(folego('10 + DES×2'), { bars: tableBars({}, true) });
+    await settled(700);
+    expect(sent('bars.adjust')).toEqual([]);
+  });
+
+  it('offers only the bars with no fixed formula, and "Adicionar conta" adds one by lists', async () => {
+    deliverState({}, { bars: tableBars({}, true) });
+    await settled();
+    click('[data-add="contas"]');
+    await settled();
+    expect(sent('values.patch').at(-1)?.patches).toEqual([
+      {
+        path: ['contas', expect.stringMatching(/^[a-z0-9]{8}$/)],
+        value: { ordem: expect.any(Number) },
+      },
+    ]);
+    deliverState({ contas: { c1: { ordem: 1 } } }, { bars: tableBars({}, true) });
+    const options = [...frame.document.querySelectorAll('[data-lk="contas.c1.bar"] option')];
+    expect(options.map((option) => option.textContent)).toEqual(['Escolha a barra', 'Fôlego']);
   });
 });

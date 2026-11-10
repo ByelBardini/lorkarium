@@ -111,6 +111,9 @@ function syncBarMaxes() {
     const want = wantedMax(k, t);
     if (b && want >= 1 && want !== b.max) adjustBar(b.id, { op: 'max', value: want });
   }
+  for (const [b, want] of contaMaxes(t)) {
+    if (want !== b.max) adjustBar(b.id, { op: 'max', value: want });
+  }
 }
 
 /* custo nas barras: hab.<id>.custos.<id> = { bar: rótulo da barra, v }; tudo ou nada (bars.spend) */
