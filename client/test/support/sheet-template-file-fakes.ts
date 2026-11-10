@@ -25,10 +25,12 @@ export class ClaimedSizeFileFake extends File {
   }
 }
 
-/** The name and code of "Ficha Tormenta", as a `.lksheet` would carry them. */
-export function tormentaFileContent(): SheetTemplateFileContent {
-  const { name, html, css, js } = tormentaTemplate();
-  return { name, html, css, js };
+/** The name, code and manifest of "Ficha Tormenta", as a `.lksheet` would carry them. */
+export function tormentaFileContent(
+  overrides: Partial<SheetTemplateFileContent> = {},
+): SheetTemplateFileContent {
+  const { name, files, manifest } = tormentaTemplate();
+  return { name, files, manifest, ...overrides };
 }
 
 /** A `.lksheet` picked from the disk with the text given (a valid file of Tormenta by default).

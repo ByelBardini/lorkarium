@@ -1,9 +1,9 @@
 import { EditorState } from '@codemirror/state';
 import { EditorView, type ViewUpdate } from '@codemirror/view';
 import { useEffect, useEffectEvent, useRef } from 'react';
-import { codeEditorExtensions, type CodeLanguage } from './code-editor-setup';
+import { codeEditorExtensions, type CodeCompletions, type CodeLanguage } from './code-editor-setup';
 
-export type { CodeLanguage } from './code-editor-setup';
+export type { CodeCompletions, CodeLanguage } from './code-editor-setup';
 
 export type CodeEditorProps = Readonly<{
   value: string;
@@ -11,6 +11,8 @@ export type CodeEditorProps = Readonly<{
   /** The accessible name of the text area ("HTML do modelo"). */
   label: string;
   onChange: (value: string) => void;
+  /** What to suggest while typing (fixed per mount, like the language); none without it. */
+  completions?: CodeCompletions;
 }>;
 
 /** A CodeMirror 6 field over one text: what the author types goes to `onChange`, and a `value`
@@ -26,18 +28,18 @@ export default function CodeEditor(props: CodeEditorProps): React.JSX.Element {
   });
   // A remount (another language) starts from the text as it is now.
   const currentText = useEffectEvent(() => props.value);
-  const { language, label } = props;
+  const { language, label, completions } = props;
   useEffect(() => {
     if (!host.current) return;
     const listener = EditorView.updateListener.of((update) => emitChange(update));
-    const extensions = [...codeEditorExtensions(language, label), listener];
+    const extensions = [...codeEditorExtensions(language, label, completions), listener];
     const state = EditorState.create({ doc: currentText(), extensions });
     view.current = new EditorView({ state, parent: host.current });
     return () => {
       view.current?.destroy();
       view.current = null;
     };
-  }, [language, label]);
+  }, [language, label, completions]);
   useEffect(() => replaceText(view.current, props.value), [props.value]);
   return <div ref={host} className="h-full min-h-0 overflow-hidden" />;
 }

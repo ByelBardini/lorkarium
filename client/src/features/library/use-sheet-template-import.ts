@@ -1,6 +1,17 @@
-import type { CreateSheetTemplateRequestDto } from '@lorkarium/contracts';
+import type {
+  CreateSheetTemplateRequestDto,
+  SheetManifestAssetDto,
+  SheetTemplateAssetDto,
+  SheetTemplateAssetMimeTypeDto,
+  SheetTemplateFileAssetDto,
+} from '@lorkarium/contracts';
 import { useState } from 'react';
-import { sheetTemplateFileProblemMessage } from '@/features/sheets/sheet-template-messages';
+import {
+  sheetTemplateFailureMessage,
+  sheetTemplateFileProblemMessage,
+} from '@/features/sheets/sheet-template-messages';
+import { base64ToBytes } from '@/lib/base64';
+import type { SheetTemplatesResult } from '@/services/sheet-templates-api';
 import {
   readSheetTemplateFile,
   sheetTemplateFileTooLarge,
@@ -17,6 +28,11 @@ export type SheetTemplateImportPorts = Readonly<{
   importTemplate: (template: CreateSheetTemplateRequestDto) => Promise<void>;
   /** The library's last refusal, read after the create resolves. */
   refusal: string | null;
+  /** Sends one asset of the file to this table; without it, a file with assets is not imported. */
+  uploadAsset?: (
+    bytes: ArrayBuffer,
+    type: SheetTemplateAssetMimeTypeDto,
+  ) => Promise<SheetTemplatesResult<SheetTemplateAssetDto>>;
 }>;
 
 export type SheetTemplateImporter = Readonly<{
@@ -51,6 +67,7 @@ export function useSheetTemplateImport(ports: SheetTemplateImportPorts): SheetTe
   const [problem, setProblem] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingSheetTemplateImport | null>(null);
   const [phase, setPhase] = useState<'idle' | 'sending' | 'sent'>('idle');
+  const [assetError, setAssetError] = useState<string | null>(null);
   // The library's refusal is only known once the create resolved and the outcome re-rendered.
   const sent = phase === 'sent';
   const imported = sent && !ports.refusal;
@@ -69,7 +86,15 @@ export function useSheetTemplateImport(ports: SheetTemplateImportPorts): SheetTe
   const confirm = async (name: string): Promise<void> => {
     if (!pending) return;
     setPhase('sending');
-    await ports.importTemplate({ ...pending.template, name, folderId: pending.folderId });
+    setAssetError(null);
+    const { assets: carried = [], ...template } = pending.template;
+    const assets = await uploadedAssets(ports, carried);
+    if (typeof assets === 'string') {
+      setAssetError(assets);
+      return setPhase('idle');
+    }
+    const manifest = { ...template.manifest, assets };
+    await ports.importTemplate({ ...template, manifest, name, folderId: pending.folderId });
     setPhase('sent');
   };
   const choose = (folder: string | null): void => {
@@ -83,8 +108,25 @@ export function useSheetTemplateImport(ports: SheetTemplateImportPorts): SheetTe
     problem,
     pending: imported ? null : pending,
     sending: phase === 'sending',
-    sendError: sent ? ports.refusal : null,
+    sendError: assetError ?? (sent ? ports.refusal : null),
     confirm,
     cancel: () => setPending(null),
   };
+}
+
+// Each asset of the file goes up to this table first; the manifest then names the new ids. A
+// refusal stops the import (the ones already sent stay unused, like any orphan asset).
+async function uploadedAssets(
+  ports: SheetTemplateImportPorts,
+  carried: readonly SheetTemplateFileAssetDto[],
+): Promise<SheetManifestAssetDto[] | string> {
+  if (carried.length === 0) return [];
+  if (!ports.uploadAsset) return sheetTemplateFailureMessage('unexpected');
+  const declared: SheetManifestAssetDto[] = [];
+  for (const { path, type, data } of carried) {
+    const sent = await ports.uploadAsset(base64ToBytes(data).buffer, type);
+    if (!sent.ok) return sheetTemplateFailureMessage(sent.failure.kind);
+    declared.push({ path, assetId: sent.value.id });
+  }
+  return declared;
 }

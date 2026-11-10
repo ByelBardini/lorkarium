@@ -1,9 +1,11 @@
 import {
   ASSET_MAX_BYTES,
   assetMimeTypeDto,
+  assetResponseDto,
   sheetResponseDto,
   sheetWriteResponseDto,
   tokenSheetsResponseDto,
+  type AssetDto,
   type AssetMimeTypeDto,
   type CreateSheetRequestDto,
   type DeleteSheetRequestDto,
@@ -14,7 +16,7 @@ import {
   type UpdateSheetValuesRequestDto,
 } from '@lorkarium/contracts';
 import type { z } from 'zod';
-import { callApi, errorCodeOf, parseOk } from './api-call';
+import { callApi, callUpload, errorCodeOf, parseOk, type ApiCall } from './api-call';
 import { assetUrlOf } from './assets-api';
 import type { HttpMethod, HttpResponse, HttpTransport } from './http-transport';
 
@@ -26,6 +28,9 @@ export type SheetsFailure = Readonly<{
     | 'not_found'
     | 'unauthenticated'
     | 'invalid'
+    | 'too_large'
+    | 'unsupported_image'
+    | 'rate_limited'
     | 'offline'
     | 'unexpected';
 }>;
@@ -79,6 +84,13 @@ export interface SheetsApi {
   ): Promise<SheetsResult<null>>;
   /** The bytes of a table image (the token's), for the frame. */
   image(assetId: string): Promise<SheetsResult<SheetImage>>;
+  /** Sends an image to the sheet (`POST …/sheets/:id/images`): who reads the sheet reads it. */
+  uploadImage(
+    campaignId: string,
+    sheetId: string,
+    bytes: ArrayBuffer,
+    type: AssetMimeTypeDto,
+  ): Promise<SheetsResult<AssetDto>>;
 }
 
 const REFUSAL_BY_CODE: Readonly<Record<string, SheetsFailure['kind']>> = {
@@ -90,6 +102,14 @@ const REFUSAL_BY_STATUS: Readonly<Record<number, SheetsFailure['kind']>> = {
   401: 'unauthenticated',
   403: 'forbidden',
   404: 'not_found',
+};
+// 415 is a type with no parser and 422 a file that does not decode: the same refusal to the user.
+const UPLOAD_REFUSAL_BY_STATUS: Readonly<Record<number, SheetsFailure['kind']>> = {
+  ...REFUSAL_BY_STATUS,
+  413: 'too_large',
+  415: 'unsupported_image',
+  422: 'unsupported_image',
+  429: 'rate_limited',
 };
 
 /** `AssetBytesReader` over `fetch`. Example: `new HttpSheetsApi(transport, fetchAssetBytes())` */
@@ -174,6 +194,16 @@ export class HttpSheetsApi implements SheetsApi {
     return imageOf(answer);
   }
 
+  async uploadImage(
+    campaignId: string,
+    sheetId: string,
+    bytes: ArrayBuffer,
+    type: AssetMimeTypeDto,
+  ): Promise<SheetsResult<AssetDto>> {
+    const path = `${sheetPathOf(campaignId, sheetId)}/images`;
+    return uploadedOf(await callUpload(this.transport, path, new Blob([bytes], { type })));
+  }
+
   private async answer<S extends z.ZodType>(
     method: HttpMethod,
     path: string,
@@ -185,6 +215,13 @@ export class HttpSheetsApi implements SheetsApi {
     if (call.kind === 'refused') return refused(call.response);
     return parseOk(dto, call.body, (parsed) => parsed);
   }
+}
+
+function uploadedOf(call: ApiCall): SheetsResult<AssetDto> {
+  if (call.kind === 'offline') return failed('offline');
+  if (call.kind === 'refused')
+    return failed(UPLOAD_REFUSAL_BY_STATUS[call.response.status] ?? 'unexpected');
+  return parseOk(assetResponseDto, call.body, (parsed) => parsed.asset);
 }
 
 async function imageOf(answer: AssetBytesAnswer): Promise<SheetsResult<SheetImage>> {

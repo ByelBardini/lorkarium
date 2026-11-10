@@ -1,13 +1,10 @@
-import type { SheetSource } from '@/sheet-sandbox/sheet-srcdoc';
+import { filesOfLegacySource, type TemplateFile } from '@/lib/sheet-template-files';
 
-/** The code a new template is born with: a small working sheet whose comments walk through
- *  `ready`, `onState`, `values.get`/`set`, `bars.get`/`adjust` (the bar named "PV") and
- *  `dice.roll`. The e2e of the sheets types into it: keep `#pv`, "Força", "−5 PV", "Rolar
- *  ataque", `1d20+5` and the save on `change`.
- *
- *  Example: `api.create(campaignId, { folderId, ...STARTER_SHEET_SOURCE })` */
-export const STARTER_SHEET_SOURCE: SheetSource = {
-  html: `<!-- O HTML da ficha. Nada aqui acessa a rede: imagens e fontes só por data: -->
+// The code a new template is born with: a small working sheet whose comments walk through
+// `ready`, `onState`, `values.get`/`set`, `bars.get`/`adjust` (the bar named "PV") and
+// `dice.roll`. The e2e of the sheets types into it: keep `#pv`, "Força", "−5 PV", "Rolar
+// ataque", `1d20+5` and the save on `change`.
+const STARTER_PAGE = `<!-- O HTML da ficha. Nada aqui acessa a rede: imagens e fontes só por data: -->
 <main class="ficha">
   <h1 id="nome">Ficha</h1>
   <p>PV: <strong id="pv">–</strong></p>
@@ -17,13 +14,15 @@ export const STARTER_SHEET_SOURCE: SheetSource = {
     <button id="ataque" type="button">Rolar ataque</button>
   </div>
 </main>
-`,
-  css: `/* O CSS da ficha: só vale dentro dela. */
+`;
+
+const STARTER_STYLE = `/* O CSS da ficha: só vale dentro dela. */
 .ficha { font-family: system-ui, sans-serif; color: #eae5da; padding: 12px; }
 .ficha h1 { font-size: 20px; margin: 0 0 8px; }
 .acoes { display: flex; gap: 8px; margin-top: 12px; }
-`,
-  js: `// window.lorkarium é a única porta da ficha para a mesa. A aba "API" do editor explica tudo.
+`;
+
+const STARTER_SCRIPT = `// window.lorkarium é a única porta da ficha para a mesa. A aba "API" do editor explica tudo.
 // Os pedidos (ready, values.set, bars.adjust, dice.roll) devolvem uma promessa.
 
 // onState: roda com o estado atual e de novo a cada mudança do token, das barras ou dos valores.
@@ -55,5 +54,16 @@ document.getElementById('ataque').addEventListener('click', () => {
 // ready: "estou pronta para receber dados". Sem ele, o estado nunca chega. Chame por último,
 // depois de registrar o onState.
 lorkarium.ready();
-`,
-};
+`;
+
+/** The files a new template is born with: `index.html`, `style.css` and `script.js`. */
+export const STARTER_SHEET_FILES: readonly TemplateFile[] = filesOfLegacySource({
+  html: STARTER_PAGE,
+  css: STARTER_STYLE,
+  js: STARTER_SCRIPT,
+});
+
+/** The code of a new template, as `api.create` takes it.
+ *
+ *  Example: `api.create(campaignId, { folderId, ...STARTER_SHEET_SOURCE })` */
+export const STARTER_SHEET_SOURCE = { files: STARTER_SHEET_FILES };

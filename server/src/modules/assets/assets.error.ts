@@ -1,6 +1,7 @@
 export type AssetErrorCode =
   | 'ASSET_NOT_FOUND'
   | 'UNSUPPORTED_IMAGE'
+  | 'UNSUPPORTED_FONT'
   | 'ASSET_TOO_LARGE'
   | 'LINK_BLOCKED'
   | 'LINK_UNREACHABLE'
@@ -23,6 +24,14 @@ export class AssetError extends Error {
 export class UnsupportedImageError extends AssetError {
   constructor(detail: string) {
     super('UNSUPPORTED_IMAGE', detail);
+  }
+}
+
+/** Bytes sent as a sheet template font that are not a WOFF2 file; `detail` says what they start
+ *  with. */
+export class UnsupportedFontError extends AssetError {
+  constructor(detail: string) {
+    super('UNSUPPORTED_FONT', detail);
   }
 }
 

@@ -129,7 +129,10 @@ export type CharacterBarInputPo = Omit<
 
 /** The card fields one update writes: an absent key stays, `null` clears. */
 export type CharacterChangesPo = Partial<
-  Pick<CharacterPo, 'name' | 'armorClass' | 'difficultyClass' | 'noteOne' | 'noteTwo'>
+  Pick<
+    CharacterPo,
+    'name' | 'armorClass' | 'difficultyClass' | 'noteOne' | 'noteTwo' | 'imageAssetId'
+  >
 >;
 
 /** What a token linked to the character writes on it: its identity, look, defeat mark and aura

@@ -8,7 +8,9 @@ import {
 import { characterSource } from '@/sheet-sandbox/sheet-token-source';
 import { createCharactersStore, type CharactersStore } from '@/stores/characters-store';
 import { createSheetStore, type SheetStoreState } from '@/stores/sheet-store';
+import { AssetsApiFake } from '../support/assets-api-fake';
 import { VHARN } from '../support/campaigns-api-fake';
+import { CharacterCommandsFake } from '../support/character-commands-fake';
 import { charactersSynced, lyraCharacter } from '../support/character-fixtures';
 import { DiceCommandsFake } from '../support/dice-commands-fake';
 import { InteractionClockFake } from '../support/interaction-clock-fake';
@@ -58,6 +60,7 @@ describe('sheet bridge host', () => {
         token: characterSource(characters, BIA_AT_TABLE.userId),
       },
       ...{ images: api, commands, dice, clock, diceAspect: () => 1.5 },
+      ...{ characters: new CharacterCommandsFake(), assets: new AssetsApiFake() },
     });
   });
 
@@ -95,6 +98,7 @@ describe('sheet bridge host', () => {
         bars: lyraCharacter().bars,
         values: { forca: 14 },
         canEdit: true,
+        character: { name: 'Lyra', armorClass: 15, difficultyClass: null },
       },
     ]);
   });
@@ -355,6 +359,7 @@ describe('sheet bridge host for a sheet with no token', () => {
     createSheetBridgeHost({
       ...{ port, campaignId: VHARN.id, sheet, token: null, images: api, commands },
       ...{ dice: new DiceCommandsFake(), clock, diceAspect: () => 1 },
+      ...{ characters: new CharacterCommandsFake(), assets: new AssetsApiFake() },
     });
     port.fromFrame({ type: 'ready', requestId: '1' });
     port.fromFrame({ type: 'bars.adjust', requestId: '2', bar: 'PV', change: ADD_ONE });
@@ -384,7 +389,8 @@ describe('sheet bridge host: the console', () => {
     createSheetBridgeHost({
       ...{ port, campaignId: VHARN.id, sheet, token: null, images: api, onConsole },
       ...{ commands: new SheetCommandsFake(), dice: new DiceCommandsFake(), clock },
-      diceAspect: () => 1,
+      ...{ diceAspect: () => 1, characters: new CharacterCommandsFake() },
+      assets: new AssetsApiFake(),
     });
     return port;
   }

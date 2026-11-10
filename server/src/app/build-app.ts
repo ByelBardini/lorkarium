@@ -45,6 +45,14 @@ import { SocketIoBoardPublisher } from '../infrastructure/board-publisher/socket
 import { SocketIoLibraryPublisher } from '../infrastructure/library-publisher/socket-io-library-publisher';
 import { SocketIoSheetPublisher } from '../infrastructure/sheet-publisher/socket-io-sheet-publisher';
 import { createSheetBarsService, createSheetsModule } from '../modules/sheets/sheets.plugin';
+import {
+  createSheetAssetReadPolicy,
+  createSheetImagesModule,
+} from '../modules/sheets/sheet-images.plugin';
+import {
+  createSheetTemplateAssetReadPolicy,
+  createSheetTemplateAssetsModule,
+} from '../modules/sheets/sheet-template-assets.plugin';
 import { SocketIoSceneAudience } from '../infrastructure/scene-audience/socket-io-scene-audience';
 import { SocketIoGridAudience } from '../infrastructure/grid-audience/socket-io-grid-audience';
 import { SocketIoPingPublisher } from '../infrastructure/ping-publisher/socket-io-ping-publisher';
@@ -153,10 +161,16 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
       work({ members: new CampaignMembersDao(tx), maps: new LibraryMapsDao(tx) }),
     ),
   );
+  const sheetReadPolicy = createSheetAssetReadPolicy(deps.db);
+  const templateAssetReadPolicy = createSheetTemplateAssetReadPolicy(deps.db);
   const readPolicy = {
     canRead: async (userId: string, campaignId: string, assetId: string): Promise<boolean> => {
       const row = await new AssetsDao(deps.db).findInCampaign(campaignId, assetId);
       if (row?.purpose === 'library_map') return mapReadPolicy.canRead(userId, campaignId, assetId);
+      if (row?.purpose === 'sheet_image')
+        return sheetReadPolicy.canRead(userId, campaignId, assetId);
+      if (row?.purpose === 'sheet_template_asset')
+        return templateAssetReadPolicy.canRead(userId, campaignId, assetId);
       if (row?.purpose === 'document_image')
         return documentReadPolicy.canRead(userId, campaignId, assetId);
       return (
@@ -201,8 +215,13 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
     libraryPublisher: publisher,
     sheetPublisher,
     characterPublisher,
+    boardPublisher: grids,
   });
   await app.register(sheets.plugin, { prefix: API_PREFIX });
+  const sheetImages = createSheetImagesModule({ db: deps.db, assets: assets.service });
+  await app.register(sheetImages.plugin, { prefix: API_PREFIX });
+  const templateAssets = createSheetTemplateAssetsModule({ db: deps.db, assets: assets.service });
+  await app.register(templateAssets.plugin, { prefix: API_PREFIX });
   await app.register(createSavedRollsModule({ db: deps.db }).plugin, { prefix: API_PREFIX });
   await app.register(createSavedColorsModule({ db: deps.db }).plugin, { prefix: API_PREFIX });
   const { profileChanged } = outlets;

@@ -16,7 +16,7 @@ import { characterOfUser, giveBars, LYRA_BARS } from '../support/table-character
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
-const CODE = { html: '<p></p>', css: '', js: '' };
+const CODE = { files: [{ path: 'index.html', content: '<p></p>' }] };
 
 async function templateOf(table: Table = live.vharn): Promise<string> {
   const master = table.id === live.vharn.id ? live.ana : live.caio;

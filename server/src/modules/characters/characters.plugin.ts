@@ -1,6 +1,7 @@
 import { BAR_VALUE_LIMIT } from '@lorkarium/contracts';
 import type { Database } from '../../database/database';
 import { runInSnapshot, runInTransaction, type Transaction } from '../../database/transaction';
+import { AssetsDao } from '../assets/assets.dao';
 import type { ClockPort } from '../auth/clock.port';
 import { UsersDao } from '../auth/users.dao';
 import type { MembershipReader } from '../campaigns/cached-memberships';
@@ -43,7 +44,11 @@ export function createCharactersModule(options: CharactersModuleOptions): Charac
     members,
     transaction: (work) =>
       runInTransaction(db, (tx) =>
-        work({ characters: new CharactersDao(tx), sheets: new SheetsDao(tx) }),
+        work({
+          characters: new CharactersDao(tx),
+          sheets: new SheetsDao(tx),
+          assets: new AssetsDao(tx),
+        }),
       ),
     snapshot: (work) =>
       runInSnapshot(db, (tx) =>

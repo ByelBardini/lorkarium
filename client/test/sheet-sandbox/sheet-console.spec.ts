@@ -9,9 +9,14 @@ import {
   SHEET_CONSOLE_HOST_RATE,
   SHEET_CONSOLE_MAX_ENTRIES,
 } from '@/sheet-sandbox/sheet-console';
-import { authorScriptStartOf, type SheetSource } from '@/sheet-sandbox/sheet-srcdoc';
+import { sheetScriptLayoutOf, type SheetSource } from '@/sheet-sandbox/sheet-srcdoc';
 
-const SOURCE: SheetSource = { html: '<p>x</p>', css: '', js: 'const a = 1;\nfalhou();' };
+const SOURCE: SheetSource = {
+  files: [
+    { path: 'index.html', content: '<p>x</p>' },
+    { path: 'a.js', content: 'const a = 1;\nfalhou();' },
+  ],
+};
 const AT = new Date('2026-10-31T14:05:09.000Z');
 
 function line(text: string, level: 'log' | 'error' = 'log'): SheetConsoleMessageDto {
@@ -28,10 +33,14 @@ describe('consoleEntryOf', () => {
     });
   });
 
-  it('an error inside the author js gets the line of the JS file', () => {
-    const start = authorScriptStartOf(SOURCE);
-    const error = { ...line('ReferenceError', 'error'), at: [{ line: start.line + 1, column: 1 }] };
-    expect(consoleEntryOf(error, SOURCE, AT).position).toEqual({ line: 2, column: 1 });
+  it('an error inside the author js gets the JS file and its line', () => {
+    const start = sheetScriptLayoutOf(SOURCE)[0]?.line ?? 0;
+    const error = { ...line('ReferenceError', 'error'), at: [{ line: start + 1, column: 1 }] };
+    expect(consoleEntryOf(error, SOURCE, AT).position).toEqual({
+      path: 'a.js',
+      line: 2,
+      column: 1,
+    });
   });
 
   it('an error outside the author js has no position', () => {

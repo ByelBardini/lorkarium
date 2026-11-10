@@ -76,6 +76,46 @@ describe('importing a sheet template file into the library', () => {
     expect(treeItem('Ficha Tormenta')).toHaveAttribute('aria-selected', 'true');
   });
 
+  it('the confirmation lists the permissions and bars of the manifest in words and sends it', async () => {
+    const deps = testDependencies();
+    await openLibrary(deps);
+    const manifest = {
+      permissions: [
+        'character:stats' as const,
+        'character:portrait' as const,
+        'sheet:images' as const,
+      ],
+      bars: [{ label: 'HP', color: 'ember' as const, max: 12 }],
+      assets: [],
+    };
+    await importFromCreateMenu(
+      lksheetFile(sheetTemplateFileText(tormentaFileContent({ manifest }))),
+    );
+    const permissions = within(importDialog()).getByRole('list', { name: 'Permissões pedidas' });
+    expect(
+      within(permissions)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Gravar CA e CD do personagem', 'Trocar o retrato', 'Enviar imagens']);
+    expect(within(importDialog()).getByText('Barras esperadas: HP (até 12)')).toBeInTheDocument();
+    listsTheImport(deps);
+    await confirmImport();
+    await waitFor(() => expect(deps.sheetTemplatesApi.creates).toHaveLength(1));
+    expect(deps.sheetTemplatesApi.creates[0]?.input.manifest).toEqual(manifest);
+  });
+
+  it('a file that declares nothing says it asks for no permission and lists no bars', async () => {
+    const deps = testDependencies();
+    await openLibrary(deps);
+    await importFromCreateMenu();
+    const dialog = importDialog();
+    expect(within(dialog).queryByRole('list', { name: 'Permissões pedidas' })).toBeNull();
+    expect(
+      within(dialog).getByText('Nenhuma permissão além de valores, barras e dados.'),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByText(/Barras esperadas/u)).toBeNull();
+  });
+
   it('"Importar modelo…" on a folder creates the template in that folder', async () => {
     const deps = testDependencies();
     await openLibrary(deps);
@@ -150,7 +190,7 @@ describe('importing a sheet template file into the library', () => {
 
   it('a file of a newer format version says it was made by a newer Lorkarium', async () => {
     await openLibrary(testDependencies());
-    const newer = { ...JSON.parse(sheetTemplateFileText(tormentaFileContent())), formatVersion: 2 };
+    const newer = { ...JSON.parse(sheetTemplateFileText(tormentaFileContent())), formatVersion: 3 };
     await importFromCreateMenu(lksheetFile(JSON.stringify(newer)));
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Este arquivo foi feito numa versão mais nova do Lorkarium.',
@@ -160,15 +200,15 @@ describe('importing a sheet template file into the library', () => {
 
   it('a file whose code passes 512 KiB is refused by the budget', async () => {
     await openLibrary(testDependencies());
-    const html = 'a'.repeat(512 * 1024 + 1);
+    const files = [{ path: 'index.html', content: 'a'.repeat(512 * 1024 + 1) }];
     await importFromCreateMenu(
-      lksheetFile(sheetTemplateFileText({ ...tormentaFileContent(), html })),
+      lksheetFile(sheetTemplateFileText({ ...tormentaFileContent(), files })),
     );
     expect(await screen.findByRole('alert')).toHaveTextContent(/passa de 512 KiB/u);
     expect(screen.queryByRole('dialog', { name: 'Importar modelo de ficha' })).toBeNull();
   });
 
-  it('a file over 2 MiB is refused without its text being read', async () => {
+  it('a file over 12 MiB is refused without its text being read', async () => {
     await openLibrary(testDependencies());
     const file = new ClaimedSizeFileFake(SHEET_TEMPLATE_FILE_MAX_BYTES + 1);
     await importFromCreateMenu(file);
@@ -177,7 +217,7 @@ describe('importing a sheet template file into the library', () => {
     expect(screen.queryByRole('dialog', { name: 'Importar modelo de ficha' })).toBeNull();
   });
 
-  it('a file of exactly 2 MiB is still read', async () => {
+  it('a file of exactly 12 MiB is still read', async () => {
     await openLibrary(testDependencies());
     const file = new ClaimedSizeFileFake(SHEET_TEMPLATE_FILE_MAX_BYTES);
     await importFromCreateMenu(file);

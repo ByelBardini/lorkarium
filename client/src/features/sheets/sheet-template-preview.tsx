@@ -1,12 +1,14 @@
-import type { SheetConsoleMessageDto } from '@lorkarium/contracts';
+import type { SheetConsoleMessageDto, SheetManifestPermissionDto } from '@lorkarium/contracts';
 import { RotateCwIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import type { SheetPreviewData } from '@/lib/sheet-preview-data';
 import { consoleEntryOf, type SheetConsoleEntry } from '@/sheet-sandbox/sheet-console';
 import type { SheetChannel } from '@/sheet-sandbox/sheet-frame';
-import { SheetFrame } from '@/sheet-sandbox/sheet-frame';
+import { SheetSourceFrame } from '@/sheet-sandbox/sheet-frame';
 import { createSheetPreviewHost, type SheetPreviewHost } from '@/sheet-sandbox/sheet-preview-host';
-import { buildSheetSrcdoc, type SheetSource } from '@/sheet-sandbox/sheet-srcdoc';
+import { sameSheetSource, type SheetSource } from '@/sheet-sandbox/sheet-srcdoc';
+import { SheetPreviewTestData } from './sheet-preview-test-data';
 
 /** How long the preview waits after the last keystroke before running the new code. */
 export const SHEET_PREVIEW_DELAY_MS = 800;
@@ -21,12 +23,20 @@ export type SheetTemplatePreviewProps = Readonly<{
   now?: () => Date;
   /** More buttons beside "Rodar de novo" (full screen, own window). */
   actions?: ReactNode;
+  /** What the draft's manifest declares: the preview refuses the rest, as the room does. */
+  permissions?: readonly SheetManifestPermissionDto[];
+  /** The character, bars and values the frame runs with, kept above the preview so they outlive
+   *  each frame (and the trip to its own window). */
+  testData: SheetPreviewData;
+  /** The test data after the master edited it or a request of the frame changed it. */
+  onTestData: (data: SheetPreviewData) => void;
 }>;
 
-/** The live preview of a template: the real sandbox with a sample token ("Exemplo", PV 20/20)
- *  and no real command; it runs the code again a moment after the typing stops.
+/** The live preview of a template: the real sandbox with the test data (the sample "Exemplo",
+ *  PV 20/20, until the master edits it under the frame) and no real command; it runs the code
+ *  again a moment after the typing stops.
  *
- *  Example: `<SheetTemplatePreview source={{ html, css, js }} onConsole={console.append} />` */
+ *  Example: `<SheetTemplatePreview source={{ files }} onConsole={console.append} />` */
 export function SheetTemplatePreview(props: SheetTemplatePreviewProps): React.JSX.Element {
   const [shown, setShown] = useState<ShownCode>({ source: props.source, run: 0 });
   const [reloaded, setReloaded] = useState(false);
@@ -39,9 +49,9 @@ export function SheetTemplatePreview(props: SheetTemplatePreviewProps): React.JS
     return () => clearTimeout(timer);
   }, [props.source]);
   useEffect(() => () => host.current?.dispose(), [shown]);
+  useEffect(() => host.current?.setData(props.testData), [props.testData]);
   const { onRun } = props;
   useEffect(() => onRun?.(), [shown.run, onRun]);
-  const srcdoc = useMemo(() => buildSheetSrcdoc(shown.source), [shown.source]);
   const rerun = (): void => {
     setReloaded(false);
     setShown((current) => next(current, props.source, true));
@@ -67,9 +77,9 @@ export function SheetTemplatePreview(props: SheetTemplatePreviewProps): React.JS
             Ficha recarregada: o código navegou para fora. Rode de novo.
           </p>
         ) : (
-          <SheetFrame
+          <SheetSourceFrame
             key={shown.run}
-            srcdoc={srcdoc}
+            source={shown.source}
             title="Prévia da ficha"
             createChannel={props.createChannel}
             onConnect={connect}
@@ -77,6 +87,7 @@ export function SheetTemplatePreview(props: SheetTemplatePreviewProps): React.JS
           />
         )}
       </div>
+      <SheetPreviewTestData data={props.testData} onChange={props.onTestData} />
     </div>
   );
 }
@@ -84,22 +95,21 @@ export function SheetTemplatePreview(props: SheetTemplatePreviewProps): React.JS
 // The lines are placed against the code this frame runs, not the draft typed since.
 function previewHostOf(
   port: MessagePort,
-  { onConsole, now = () => new Date() }: SheetTemplatePreviewProps,
+  props: SheetTemplatePreviewProps,
   source: SheetSource,
 ): SheetPreviewHost {
-  if (!onConsole) return createSheetPreviewHost(port);
+  const { onConsole, now = () => new Date(), permissions } = props;
+  const data = { data: props.testData, onDataChange: props.onTestData };
+  if (!onConsole) return createSheetPreviewHost(port, { permissions, ...data });
   const sink = (message: SheetConsoleMessageDto): void =>
     onConsole(consoleEntryOf(message, source, now()));
-  return createSheetPreviewHost(port, { onConsole: sink });
+  return createSheetPreviewHost(port, { onConsole: sink, permissions, ...data });
 }
 
 type ShownCode = Readonly<{ source: SheetSource; run: number }>;
 
 // A new run mounts a new frame; the same code is not run again unless asked.
 function next(current: ShownCode, source: SheetSource, force: boolean): ShownCode {
-  const same =
-    current.source.html === source.html &&
-    current.source.css === source.css &&
-    current.source.js === source.js;
+  const same = sameSheetSource(current.source, source);
   return same && !force ? current : { source, run: current.run + 1 };
 }

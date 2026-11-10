@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SheetTemplatesService } from '../../../src/modules/sheets/sheet-templates.service';
-import { BIA_ID, DUDA_ID } from '../../support/campaigns-factories';
+import { lyraPortraitPo } from '../../support/assets-factories';
+import { BIA_ID, DUDA_ID, QUELM_ID } from '../../support/campaigns-factories';
 import { ATO_1_ID, QUELM_FOLDER_ID } from '../../support/library-factories';
 import {
   QUELM_TEMPLATE_ID,
@@ -28,7 +29,7 @@ describe('SheetTemplatesService', () => {
     });
 
     expect(template).toMatchObject({ name: 'Ficha Tormenta', folderId: ATO_1_ID, version: 0 });
-    expect(template.html).toBe('<p id="pv"></p>');
+    expect(template.files).toEqual(SHEET_TEMPLATE_CODE.files);
     expect(harness.journal).toEqual(['lock', 'insert', 'commit', 'publish']);
   });
 
@@ -43,17 +44,55 @@ describe('SheetTemplatesService', () => {
     expect(template).toMatchObject({ name: 'Modelo sem nome', folderId: null });
   });
 
-  it('editing the JS at the version read saves the code and bumps the version to 3', async () => {
+  it('a declared manifest is stored as it came; none stores one that declares nothing', async () => {
+    const harness = new SheetTemplatesHarness();
+    const service = new SheetTemplatesService(harness.deps);
+    const manifest = {
+      permissions: ['character:stats' as const],
+      bars: [{ label: 'HP', color: 'ember' as const, max: 12 }],
+      assets: [],
+    };
+
+    const declared = await service.create(harness.requester, { ...SHEET_TEMPLATE_CODE, manifest });
+    const stored = harness.templates.rows.at(-1)?.manifest;
+    const bare = await service.create(harness.requester, SHEET_TEMPLATE_CODE);
+
+    expect(declared.manifest).toEqual(manifest);
+    expect(stored).toEqual(manifest);
+    expect(bare.manifest).toEqual({ permissions: [], bars: [], assets: [] });
+  });
+
+  it('saving only the manifest keeps the code and bumps the version to 3', async () => {
     const harness = withTormenta();
-    const js = 'lorkarium.ready();';
+    const manifest = { permissions: ['sheet:images' as const], bars: [], assets: [] };
 
     const saved = await new SheetTemplatesService(harness.deps).update(
       harness.requester,
       TORMENTA_ID,
-      { expectedVersion: 2, html: '<p></p>', css: '', js },
+      { expectedVersion: 2, manifest },
     );
 
-    expect(saved).toMatchObject({ version: 3, js, html: '<p></p>', name: 'Ficha Tormenta' });
+    expect(saved).toMatchObject({ version: 3, manifest, files: SHEET_TEMPLATE_CODE.files });
+    expect(harness.journal).toEqual(['lock', 'update', 'commit', 'publish']);
+  });
+
+  it('saving five files at the version read keeps their order and bumps the version to 3', async () => {
+    const harness = withTormenta();
+    const files = [
+      { path: 'index.html', content: '<p></p>' },
+      { path: 'paginas/perfil.html', content: '<h2>Perfil</h2>' },
+      { path: 'estilo.css', content: '' },
+      { path: 'b.js', content: 'lorkarium.ready();' },
+      { path: 'a.js', content: '' },
+    ];
+
+    const saved = await new SheetTemplatesService(harness.deps).update(
+      harness.requester,
+      TORMENTA_ID,
+      { expectedVersion: 2, files },
+    );
+
+    expect(saved).toMatchObject({ version: 3, files, name: 'Ficha Tormenta' });
     expect(saved.updatedAt).toBe('2026-10-31T15:00:00.000Z');
     expect(harness.journal).toEqual(['lock', 'update', 'commit', 'publish']);
   });
@@ -178,5 +217,77 @@ describe('SheetTemplatesService', () => {
     await expect(creation).rejects.toThrow('commit failed');
     expect(harness.templates.rows.map(({ id }) => id)).toEqual([QUELM_TEMPLATE_ID]);
     expect(harness.journal).not.toContain('publish');
+  });
+
+  describe('the assets the manifest declares', () => {
+    const FONT_ID = '00000000-0000-4000-8000-0000000000f1';
+    const font = (overrides = {}) =>
+      lyraPortraitPo({
+        id: FONT_ID,
+        purpose: 'sheet_template_asset',
+        mimeType: 'font/woff2',
+        sizeBytes: 40_000,
+        width: 0,
+        height: 0,
+        ...overrides,
+      });
+    const declaring = (path = 'fontes/cormorant.woff2') => ({
+      permissions: [],
+      bars: [],
+      assets: [{ path, assetId: FONT_ID }],
+    });
+
+    it('a template asset of the table is saved in the manifest', async () => {
+      const harness = withTormenta();
+      harness.assets.rows.push(font());
+
+      const saved = await new SheetTemplatesService(harness.deps).update(
+        harness.requester,
+        TORMENTA_ID,
+        {
+          expectedVersion: 2,
+          manifest: declaring(),
+        },
+      );
+
+      expect(saved.manifest.assets).toEqual(declaring().assets);
+    });
+
+    it.each([
+      ['missing', null],
+      ['of Quelm', { campaignId: QUELM_ID }],
+      ['a token portrait', { purpose: 'token' as const }],
+    ])(
+      'an asset %s is SHEET_TEMPLATE_ASSET_NOT_FOUND and nothing is saved nor published',
+      async (_what, change) => {
+        const harness = withTormenta();
+        if (change) harness.assets.rows.push(font(change));
+
+        const save = new SheetTemplatesService(harness.deps).update(
+          harness.requester,
+          TORMENTA_ID,
+          {
+            expectedVersion: 2,
+            manifest: declaring(),
+          },
+        );
+
+        await expect(save).rejects.toMatchObject({ code: 'SHEET_TEMPLATE_ASSET_NOT_FOUND' });
+        expect(harness.templates.rows.find(({ id }) => id === TORMENTA_ID)?.version).toBe(2);
+        expect(harness.journal).not.toContain('publish');
+      },
+    );
+
+    it('assets past 8 MiB on create are SHEET_TEMPLATE_ASSETS_TOO_LARGE', async () => {
+      const harness = new SheetTemplatesHarness();
+      harness.assets.rows.push(font({ sizeBytes: 8 * 1024 * 1024 + 1 }));
+
+      const create = new SheetTemplatesService(harness.deps).create(harness.requester, {
+        ...SHEET_TEMPLATE_CODE,
+        manifest: declaring(),
+      });
+
+      await expect(create).rejects.toMatchObject({ code: 'SHEET_TEMPLATE_ASSETS_TOO_LARGE' });
+    });
   });
 });

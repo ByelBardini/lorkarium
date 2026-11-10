@@ -123,6 +123,71 @@ describe('writes on a token linked to a character', () => {
     });
   });
 
+  describe('rewriteBars', () => {
+    const pvTo = (barId: string, current: number, max: number) => () => [
+      { barId, values: { current, max, temp: 0 } },
+    ];
+
+    it('Bia rewriting the PV of the linked Lyra writes the character and bumps the characters alone', async () => {
+      const version = await tokens.rewriteBars(
+        BIA_ID,
+        VHARN_ID,
+        { ...TORRE, tokenId: ESTRADA_LYRA_ID },
+        pvTo(PV, 20, 45),
+      );
+
+      expect(version).toBe(6);
+      expect(lyra()?.bars[0]?.current).toBe(20);
+      expect(torreVersion()).toBe(7);
+      expect(table.publisher.tokenChanges).toEqual([]);
+      expect(table.characterPublisher.changes).toHaveLength(1);
+    });
+
+    it('the rule sees the bars of the token it rewrites', async () => {
+      const seen: string[] = [];
+      const rule = (bars: readonly { label: string; current: number }[]) => {
+        seen.push(...bars.map(({ label, current }) => `${label} ${current}`));
+        return [];
+      };
+
+      await tokens.rewriteBars(CAIO_ID, VHARN_ID, { ...TORRE, tokenId: KAEL_ID }, rule);
+
+      expect(seen).toEqual(['PV 10']);
+    });
+
+    it('a bar of the unlinked Kael is rewritten on the grid', async () => {
+      const kaelPv = `${KAEL_ID}-pv`;
+
+      await tokens.rewriteBars(
+        CAIO_ID,
+        VHARN_ID,
+        { ...TORRE, tokenId: KAEL_ID },
+        pvTo(kaelPv, 4, 10),
+      );
+
+      expect(table.journal).toEqual([LOCK_TORRE, 'save', 'bump', 'commit', 'publish']);
+      expect(table.tokens.rowOf(KAEL_ID).bars[0]?.current).toBe(4);
+      expect(table.characterPublisher.changes).toEqual([]);
+    });
+
+    it('Caio on the linked Lyra is FORBIDDEN before the rule runs', async () => {
+      let ran = false;
+      const rewriting = tokens.rewriteBars(
+        CAIO_ID,
+        VHARN_ID,
+        { ...TORRE, tokenId: ESTRADA_LYRA_ID },
+        () => {
+          ran = true;
+          return [];
+        },
+      );
+
+      await expect(rewriting).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(ran).toBe(false);
+      expect(lyra()?.bars[0]?.current).toBe(32);
+    });
+  });
+
   describe('token:update', () => {
     it('name, initials, side, bars and controllers go to the character; sight and size stay on the token', async () => {
       await tokens.update(ANA_ID, VHARN_ID, {

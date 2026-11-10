@@ -1,6 +1,10 @@
 import type { LucideIcon } from 'lucide-react';
-import { AppWindowIcon, PanelTopIcon, XIcon } from 'lucide-react';
+import { AppWindowIcon, PanelTopIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
+import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
+import { findInlineHandlers } from '@/lib/sheet-inline-handlers';
+import type { TemplateFile } from '@/lib/sheet-template-files';
+import { inlineHandlerNotice, type FileInlineHandlers } from './sheet-template-messages';
 
 /** Where else the editor can go; each button shows only when its move is offered here. */
 export type TemplateEditorMoves = Readonly<{
@@ -36,4 +40,33 @@ function MoveButton({ label, icon: Icon, onClick }: MoveButtonProps): React.JSX.
       <Icon aria-hidden="true" />
     </Button>
   );
+}
+
+/** The warning of saved HTML files with attributes the frame refuses (`onclick`,
+ *  `javascript:`): how many, in which files and on which lines. It never blocks saving; `null`
+ *  files (nothing saved here yet) or HTML with none draws nothing.
+ *
+ *  Example: `<InlineHandlerNotice savedFiles={model.phase === 'saved' ? model.base.files : null} />` */
+export function InlineHandlerNotice({
+  savedFiles,
+}: Readonly<{ savedFiles: readonly TemplateFile[] | null }>): React.JSX.Element | null {
+  const text = useMemo(() => inlineHandlerNotice(handlersOfFiles(savedFiles ?? [])), [savedFiles]);
+  if (text === '') return null;
+  return (
+    <p
+      role="note"
+      aria-label="Atributos que não vão rodar"
+      className="flex flex-wrap items-center gap-x-2 border-b border-border px-4 py-2 text-sm text-primary"
+    >
+      <TriangleAlertIcon aria-hidden="true" className="size-4 shrink-0" />
+      <span>{text}</span>
+      <span className="text-muted-foreground">Ligue o evento por addEventListener no JS.</span>
+    </p>
+  );
+}
+
+function handlersOfFiles(files: readonly TemplateFile[]): FileInlineHandlers[] {
+  return files
+    .filter(({ path }) => path.endsWith('.html'))
+    .map(({ path, content }) => ({ path, handlers: findInlineHandlers(content) }));
 }

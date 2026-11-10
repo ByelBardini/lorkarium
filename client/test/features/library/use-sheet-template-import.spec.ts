@@ -1,4 +1,7 @@
-import type { CreateSheetTemplateRequestDto } from '@lorkarium/contracts';
+import type {
+  CreateSheetTemplateRequestDto,
+  SheetTemplateAssetMimeTypeDto,
+} from '@lorkarium/contracts';
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import {
@@ -10,6 +13,8 @@ import {
   lksheetFile,
   tormentaFileContent,
 } from '../../support/sheet-template-file-fakes';
+import { SheetTemplatesApiFake } from '../../support/sheet-templates-api-fake';
+import { sheetTemplateFileText } from '@/lib/sheet-template-file';
 
 const FOLDER_ID = '0b9c1f4e-8a7d-4c3b-9e2f-1a2b3c4d5e6f';
 const REFUSAL = 'A pasta não existe mais. Recarregue a biblioteca.';
@@ -26,11 +31,16 @@ class LibraryImportRecorder {
   };
 }
 
-function renderImporter(recorder: LibraryImportRecorder) {
+function renderImporter(recorder: LibraryImportRecorder, api?: SheetTemplatesApiFake) {
+  const uploadAsset = api
+    ? (bytes: ArrayBuffer, type: SheetTemplateAssetMimeTypeDto) =>
+        api.uploadAsset('vharn', bytes, type)
+    : undefined;
   const hook = renderHook(() =>
     useSheetTemplateImport({
       importTemplate: recorder.importTemplate,
       refusal: recorder.refusal,
+      uploadAsset,
     }),
   );
   const current = (): SheetTemplateImporter => hook.result.current;
@@ -69,9 +79,9 @@ describe('useSheetTemplateImport', () => {
     expect(current().problem).toBeNull();
   });
 
-  it('a file over 2 MiB is refused by size without reading it', async () => {
+  it('a file over 12 MiB is refused by size without reading it', async () => {
     const { current } = renderImporter(new LibraryImportRecorder());
-    const file = new ClaimedSizeFileFake(2 * 1024 * 1024 + 1);
+    const file = new ClaimedSizeFileFake(12 * 1024 * 1024 + 1);
     await act(() => current().readFile(file));
     expect(file.textReads).toBe(0);
     expect(current().problem).toMatch(/passa de 512 KiB/u);
@@ -138,5 +148,43 @@ describe('useSheetTemplateImport', () => {
     act(() => current().cancel());
     expect(current().pending).toBeNull();
     expect(recorder.created).toEqual([]);
+  });
+
+  describe('a file that carries assets', () => {
+    const font = { path: 'fontes/x.woff2', type: 'font/woff2' as const, data: 'd09GMg==' };
+    const withFont = () =>
+      lksheetFile(sheetTemplateFileText({ ...tormentaFileContent(), assets: [font] }));
+
+    it('sends each asset to this table first, then creates the template naming the new ids', async () => {
+      const recorder = new LibraryImportRecorder();
+      const api = new SheetTemplatesApiFake();
+      const { current } = renderImporter(recorder, api);
+      await act(() => current().readFile(withFont()));
+      await act(() => current().confirm('Ficha de Lork'));
+
+      expect(api.uploads.map(({ type, bytes }) => [type, [...new Uint8Array(bytes)]])).toEqual([
+        ['font/woff2', [0x77, 0x4f, 0x46, 0x32]],
+      ]);
+      const [created] = recorder.created;
+      expect(created?.manifest?.assets).toEqual([
+        { path: 'fontes/x.woff2', assetId: expect.any(String) },
+      ]);
+      expect(created).not.toHaveProperty('assets');
+    });
+
+    it('an asset the table refuses creates nothing and says why, the dialog still open', async () => {
+      const recorder = new LibraryImportRecorder();
+      const api = new SheetTemplatesApiFake();
+      api.assetAnswer = { ok: false, failure: { kind: 'unsupported_asset' } };
+      const { current } = renderImporter(recorder, api);
+      await act(() => current().readFile(withFont()));
+      await act(() => current().confirm('Ficha de Lork'));
+
+      expect(recorder.created).toEqual([]);
+      expect(current().sendError).toBe(
+        'O arquivo não é uma imagem PNG, JPEG ou WebP nem uma fonte WOFF2.',
+      );
+      expect(current().pending).not.toBeNull();
+    });
   });
 });

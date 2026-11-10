@@ -50,7 +50,11 @@ describe('useSheetTemplateCreate', () => {
 
   it('importSheetTemplate sends the template given untouched and hands back the submit promise', async () => {
     const recorder = new RecordingLibrarySubmit();
-    const template = { folderId: null, name: 'Ficha Tormenta', html: '<p>x</p>', css: '', js: '' };
+    const template = {
+      folderId: null,
+      name: 'Ficha Tormenta',
+      files: [{ path: 'index.html', content: '<p>x</p>' }],
+    };
     const sent = renderCreate(recorder).importSheetTemplate(template);
     await expect(sent).resolves.toBeUndefined();
     expect(recorder.order).toEqual(['beforeCreate', 'submit']);

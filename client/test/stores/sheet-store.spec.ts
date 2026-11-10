@@ -201,4 +201,122 @@ describe('sheet store', () => {
       expect(api.saves.map((save) => save.changes)).toEqual([{ forca: 16 }]);
     });
   });
+  describe('patching values by path', () => {
+    beforeEach(loaded);
+
+    const efeito = (value: string | null) => ({ path: ['hab', 'k3f9', 'efeito'], value });
+
+    it('a set and a patch within 500 ms go in one request, the path shown before it is sent', async () => {
+      void store.getState().setValues({ forca: 16 });
+      void store.getState().patchValues([efeito('Cura')]);
+      expect(store.getState().values).toEqual({ forca: 16, hab: { k3f9: { efeito: 'Cura' } } });
+      clock.advance(500);
+      await settled();
+      expect(api.saves).toEqual([
+        {
+          actionId: '00000000-0000-4000-8000-000000000001',
+          changes: { forca: 16 },
+          patches: [efeito('Cura')],
+        },
+      ]);
+    });
+
+    it('a confirmed patch settles and the shown values are the server ones', async () => {
+      const outcome = store.getState().patchValues([efeito('Cura')]);
+      clock.advance(500);
+      await expect(outcome).resolves.toEqual({ ok: true });
+      expect(store.getState()).toMatchObject({
+        saveStatus: 'saved',
+        sheet: { version: 2, values: { forca: 14, hab: { k3f9: { efeito: 'Cura' } } } },
+      });
+    });
+
+    it('only patches go without changes', async () => {
+      void store.getState().patchValues([efeito('Cura')]);
+      clock.advance(500);
+      await settled();
+      expect(api.saves).toEqual([
+        { actionId: '00000000-0000-4000-8000-000000000001', patches: [efeito('Cura')] },
+      ]);
+    });
+
+    it('a patch under a key set in the same batch folds into that key', async () => {
+      void store.getState().setValues({ hab: { p2a1: { efeito: 'Raio' } } });
+      void store.getState().patchValues([efeito('Cura')]);
+      clock.advance(500);
+      await settled();
+      expect(api.saves.map(({ changes, patches }) => ({ changes, patches }))).toEqual([
+        {
+          changes: { hab: { p2a1: { efeito: 'Raio' }, k3f9: { efeito: 'Cura' } } },
+          patches: undefined,
+        },
+      ]);
+    });
+
+    it('a key set after a patch under it drops the patch: the set wins', async () => {
+      void store.getState().patchValues([efeito('Cura')]);
+      void store.getState().setValues({ hab: { novo: 1 } });
+      expect(store.getState().values).toEqual({ forca: 14, hab: { novo: 1 } });
+      clock.advance(500);
+      await settled();
+      expect(api.saves.map(({ changes, patches }) => ({ changes, patches }))).toEqual([
+        { changes: { hab: { novo: 1 } }, patches: undefined },
+      ]);
+    });
+
+    it('the same path twice in a batch sends only the last value', async () => {
+      void store.getState().patchValues([efeito('Cura')]);
+      void store.getState().patchValues([efeito('Luz')]);
+      clock.advance(500);
+      await settled();
+      expect(api.saves.map(({ patches }) => patches)).toEqual([[efeito('Luz')]]);
+    });
+
+    it('an offline patch goes again with the same action id and the same paths', async () => {
+      api.saveResult = { ok: false, failure: { kind: 'offline' } };
+      void store.getState().patchValues([efeito('Cura')]);
+      clock.advance(500);
+      await settled();
+      api.saveResult = null;
+      await store.getState().flush();
+      expect(api.saves).toEqual([
+        { actionId: '00000000-0000-4000-8000-000000000001', patches: [efeito('Cura')] },
+        { actionId: '00000000-0000-4000-8000-000000000001', patches: [efeito('Cura')] },
+      ]);
+      expect(store.getState().values).toEqual({ forca: 14, hab: { k3f9: { efeito: 'Cura' } } });
+    });
+
+    it('a viewer who may not edit is refused with forbidden, and nothing is sent', async () => {
+      api.response = sheetResponse(lyraSheet({ version: 2, canEdit: false }));
+      store.getState().changed(changedAt(2));
+      await settled();
+      const outcome = await store.getState().patchValues([efeito('Cura')]);
+      clock.advance(500);
+      await settled();
+      expect({ outcome, saves: api.saves.length }).toEqual({
+        outcome: { ok: false, failure: { kind: 'forbidden' } },
+        saves: 0,
+      });
+    });
+
+    it('more than 100 paths in a batch fold into whole keys, as shown', async () => {
+      const many = Array.from({ length: 101 }, (_, index) => ({
+        path: ['lista', `i${index}`],
+        value: index,
+      }));
+      void store.getState().patchValues(many);
+      clock.advance(500);
+      await settled();
+      const [save] = api.saves;
+      expect(save?.patches).toBeUndefined();
+      expect(Object.keys((save?.changes?.lista ?? {}) as object)).toHaveLength(101);
+      expect(store.getState().sheet?.values).toEqual(store.getState().values);
+    });
+
+    it('dispose sends the paths still waiting for their 500 ms', () => {
+      void store.getState().patchValues([efeito(null)]);
+      store.getState().dispose();
+      expect(api.saves.map(({ patches }) => patches)).toEqual([[efeito(null)]]);
+    });
+  });
 });

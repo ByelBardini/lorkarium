@@ -8,14 +8,63 @@ import {
   type Response,
 } from '@playwright/test';
 import { cellCenterOf } from './board-cells';
+import { BIA, CAIO } from './dev-players';
 import { chooseNewItemKind, gridItemOf, gridTabsOf, openLibrary } from './library';
-import { boardOf } from './tables';
+import { adminCredentials, signIn } from './sign-in';
+import { boardOf, createTableAndReadCode, enterFromTheList, joinByCodeAndEnter } from './tables';
+import { createCharacterTokenWithPv } from './token-cards';
 
 /** What the e2e needs of a new sheet, from the answer of `POST /api/campaigns/:c/sheets`: its id
  *  and confirmed name (the title of its tab, region and frame). */
 export type LibrarySheet = Readonly<{ sheetId: string; name: string }>;
 
-export type SheetSourceCode = Readonly<{ name: string; html: string; css: string; js: string }>;
+/** One file of a template, as the routes carry it. */
+export type SheetSourceFile = Readonly<{ path: string; content: string }>;
+export type SheetSourceCode = Readonly<{ name: string; files: readonly SheetSourceFile[] }>;
+
+/** The three files of a single-page template, the names a migrated template has.
+ *
+ *  Example: `createTemplateByApi(admin, id, { name: 'Ficha', files: sheetFilesOf(html, css, js) })` */
+export function sheetFilesOf(html: string, css: string, js: string): SheetSourceFile[] {
+  return [
+    { path: 'index.html', content: html },
+    { path: 'style.css', content: css },
+    { path: 'script.js', content: js },
+  ];
+}
+
+export type SheetTable = Readonly<{
+  admin: Page;
+  bia: Page;
+  caio: Page | null;
+  campaignId: string;
+}>;
+
+/** Ana's table with Bia (and Caio, when asked) as players, and Bia's character Lyra (PV 10 / 10)
+ *  on a token at the center cell: a sheet made on the linked token is the character's, so the
+ *  card lists it (a sheet on an unlinked token never shows there). Everyone in the room.
+ *
+ *  Example: `const { admin, bia, campaignId } = await openSheetTable(newPlayerPage, false)` */
+export async function openSheetTable(
+  newPlayerPage: () => Promise<Page>,
+  withCaio: boolean,
+): Promise<SheetTable> {
+  const name = `Mesa fichas ${Date.now()}`;
+  const admin = await newPlayerPage();
+  const bia = await newPlayerPage();
+  await signIn(admin, adminCredentials());
+  const code = await createTableAndReadCode(admin, name);
+  await signIn(bia, BIA);
+  await joinByCodeAndEnter(bia, code, admin);
+  const caio = withCaio ? await newPlayerPage() : null;
+  if (caio !== null) {
+    await signIn(caio, CAIO);
+    await joinByCodeAndEnter(caio, code, admin);
+  }
+  await enterFromTheList(admin, name);
+  await createCharacterTokenWithPv(admin, 'Lyra', 'Bia');
+  return { admin, bia, caio, campaignId: campaignIdOf(admin) };
+}
 
 /** The id of the table whose room or detail is on screen, from the URL.
  *

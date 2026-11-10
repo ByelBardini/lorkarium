@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { STARTER_SHEET_SOURCE } from '@/features/sheets/sheet-template-starter';
+import { STARTER_SHEET_FILES } from '@/features/sheets/sheet-template-starter';
+import { contentOf } from '../../support/sheet-template-fixtures';
 import { SHEET_BRIDGE_BOOTSTRAP } from '@/sheet-sandbox/sheet-bridge-bootstrap';
 import { SheetFrameWindowFake, SheetPortFake } from '../../support/sheet-frame-fakes';
 
@@ -19,12 +20,12 @@ let port: SheetPortFake;
 // Runs the starter as the frame would: its HTML in the document, the bootstrap's SDK as
 // `lorkarium`, then the author's JS.
 beforeEach(() => {
-  document.body.innerHTML = STARTER_SHEET_SOURCE.html;
+  document.body.innerHTML = contentOf(STARTER_SHEET_FILES, 'index.html') ?? '';
   const frame = new SheetFrameWindowFake();
   new Function('window', SHEET_BRIDGE_BOOTSTRAP)(frame);
   port = new SheetPortFake();
   frame.handOff(port);
-  new Function('lorkarium', STARTER_SHEET_SOURCE.js)(frame.sdk);
+  new Function('lorkarium', contentOf(STARTER_SHEET_FILES, 'script.js') ?? '')(frame.sdk);
 });
 
 afterEach(() => {
@@ -41,7 +42,7 @@ function element(id: string): HTMLInputElement {
   return found as HTMLInputElement;
 }
 
-describe('STARTER_SHEET_SOURCE', () => {
+describe('STARTER_SHEET_FILES', () => {
   it('says ready and draws the token, the bar "PV" and the stored Força', () => {
     deliverState({ name: 'Lyra', image: null }, { forca: 14 });
     expect({

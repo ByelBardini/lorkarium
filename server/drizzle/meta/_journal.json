@@ -680,6 +680,34 @@
       "when": 1794266598498,
       "tag": "0096_token_patrol_gait",
       "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1794281016897,
+      "tag": "0097_sheet_images",
+      "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1794281049060,
+      "tag": "0098_sheet_template_manifest",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1794282774512,
+      "tag": "0099_sheet_template_files",
+      "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1794284498488,
+      "tag": "0100_sheet_template_assets",
+      "breakpoints": true
     }
   ]
 }

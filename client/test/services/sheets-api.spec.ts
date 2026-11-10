@@ -183,3 +183,73 @@ describe('sheets HTTP API: the token image as bytes', () => {
     });
   });
 });
+
+describe('sheets HTTP API: an image sent to the sheet', () => {
+  const IMAGES_PATH = `${SHEET_PATH}/images`;
+  const BYTES = Uint8Array.from([0x89, 0x50, 0x4e, 0x47]).buffer;
+  const ASSET = { id: ASSET_ID, mimeType: 'image/png', width: 640, height: 480 } as const;
+
+  it('posts the raw bytes with their type to the sheet route and answers the asset', async () => {
+    const transport = new HttpTransportFake().respondWith(201, { asset: ASSET });
+
+    const result = await apiOver(transport).uploadImage(
+      VHARN.id,
+      LYRA_SHEET_ID,
+      BYTES,
+      'image/png',
+    );
+
+    expect(result).toEqual({ ok: true, value: ASSET });
+    const sent = transport.requests[0];
+    expect(sent).toMatchObject({ method: 'POST', path: IMAGES_PATH });
+    const body = sent?.body as Blob;
+    expect(body.type).toBe('image/png');
+    expect([...new Uint8Array(await body.arrayBuffer())]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+  });
+
+  it.each([
+    [403, 'FORBIDDEN', 'forbidden'],
+    [404, 'SHEET_NOT_FOUND', 'not_found'],
+    [413, 'ASSET_TOO_LARGE', 'too_large'],
+    [415, 'UNSUPPORTED_IMAGE', 'unsupported_image'],
+    [422, 'UNSUPPORTED_IMAGE', 'unsupported_image'],
+    [429, 'RATE_LIMITED', 'rate_limited'],
+  ] as const)('a %i %s is %s', async (status, code, kind) => {
+    const transport = new HttpTransportFake().respondWith(status, { code, message: 'x' });
+
+    const result = await apiOver(transport).uploadImage(
+      VHARN.id,
+      LYRA_SHEET_ID,
+      BYTES,
+      'image/png',
+    );
+
+    expect(result).toEqual({ ok: false, failure: { kind } });
+  });
+
+  it('an answer outside the asset DTO is unexpected', async () => {
+    const transport = new HttpTransportFake().respondWith(201, { asset: { id: 'x' } });
+
+    const result = await apiOver(transport).uploadImage(
+      VHARN.id,
+      LYRA_SHEET_ID,
+      BYTES,
+      'image/png',
+    );
+
+    expect(result).toEqual({ ok: false, failure: { kind: 'unexpected' } });
+  });
+
+  it('a network outage is offline', async () => {
+    const transport = new HttpTransportFake().failWithNetworkDown();
+
+    const result = await apiOver(transport).uploadImage(
+      VHARN.id,
+      LYRA_SHEET_ID,
+      BYTES,
+      'image/webp',
+    );
+
+    expect(result).toEqual({ ok: false, failure: { kind: 'offline' } });
+  });
+});

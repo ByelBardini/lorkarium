@@ -31,7 +31,7 @@ async function openTormenta({ live = true } = {}) {
       <button type="button">Fora do editor</button>
     </div>,
   );
-  await screen.findByRole('textbox', { name: 'HTML do modelo' });
+  await screen.findByRole('textbox', { name: 'Arquivo index.html' });
 }
 
 // The press as the browser sends it: `false` when something kept the "save page" from opening.
@@ -40,16 +40,20 @@ function pressSave(target: Element, keys: Partial<KeyboardEventInit> = { ctrlKey
 }
 
 function codeField(): HTMLElement {
-  return screen.getByRole('textbox', { name: 'HTML do modelo' });
+  return screen.getByRole('textbox', { name: 'Arquivo index.html' });
 }
 
 describe('Ctrl+S in the template editor', () => {
   it('inside the code field saves, and the browser does not save the page', async () => {
     await openTormenta();
-    replaceCode('HTML do modelo', '<p>Força</p>');
+    replaceCode('Arquivo index.html', '<p>Força</p>');
     expect(pressSave(codeField())).toBe(false);
     await waitFor(() => expect(api.updates).toHaveLength(1));
-    expect(api.updates[0]?.input).toMatchObject({ html: '<p>Força</p>', expectedVersion: 3 });
+    expect(api.updates[0]?.input.files?.[0]).toEqual({
+      path: 'index.html',
+      content: '<p>Força</p>',
+    });
+    expect(api.updates[0]?.input.expectedVersion).toBe(3);
     expect(await screen.findByText('Salvo.')).toBeInTheDocument();
   });
 
@@ -63,7 +67,7 @@ describe('Ctrl+S in the template editor', () => {
 
   it('with nothing focused and the editor shown, it saves', async () => {
     await openTormenta();
-    replaceCode('HTML do modelo', '<p>Força</p>');
+    replaceCode('Arquivo index.html', '<p>Força</p>');
     expect(pressSave(document.body)).toBe(false);
     await waitFor(() => expect(api.updates).toHaveLength(1));
   });
@@ -77,7 +81,7 @@ describe('Ctrl+S in the template editor', () => {
 
   it('reconnecting: no save', async () => {
     await openTormenta({ live: false });
-    replaceCode('HTML do modelo', '<p>Força</p>');
+    replaceCode('Arquivo index.html', '<p>Força</p>');
     pressSave(codeField());
     await Promise.resolve();
     expect(api.updates).toEqual([]);
@@ -85,7 +89,7 @@ describe('Ctrl+S in the template editor', () => {
 
   it('past the budget: no save', async () => {
     await openTormenta();
-    replaceCode('HTML do modelo', 'x'.repeat(SHEET_TEMPLATE_SOURCE_MAX_BYTES));
+    replaceCode('Arquivo index.html', 'x'.repeat(SHEET_TEMPLATE_SOURCE_MAX_BYTES));
     pressSave(codeField());
     await Promise.resolve();
     expect(api.updates).toEqual([]);
@@ -93,7 +97,7 @@ describe('Ctrl+S in the template editor', () => {
 
   it('pressed again while saving, it saves once', async () => {
     await openTormenta();
-    replaceCode('HTML do modelo', '<p>Força</p>');
+    replaceCode('Arquivo index.html', '<p>Força</p>');
     pressSave(codeField());
     pressSave(codeField());
     expect(await screen.findByText('Salvo.')).toBeInTheDocument();
@@ -102,7 +106,7 @@ describe('Ctrl+S in the template editor', () => {
 
   it('focus outside the editor: the key is left to the page', async () => {
     await openTormenta();
-    replaceCode('HTML do modelo', '<p>Força</p>');
+    replaceCode('Arquivo index.html', '<p>Força</p>');
     expect(pressSave(screen.getByRole('button', { name: 'Fora do editor' }))).toBe(true);
     await Promise.resolve();
     expect(api.updates).toEqual([]);
@@ -110,7 +114,7 @@ describe('Ctrl+S in the template editor', () => {
 
   it('a hidden editor does not take the key from the page', async () => {
     await openTormenta();
-    replaceCode('HTML do modelo', '<p>Força</p>');
+    replaceCode('Arquivo index.html', '<p>Força</p>');
     const editor = screen.getByRole('region', { name: 'Editor do modelo' });
     (editor.parentElement as HTMLElement).hidden = true;
     expect(pressSave(document.body)).toBe(true);
@@ -120,7 +124,7 @@ describe('Ctrl+S in the template editor', () => {
 
   it('Ctrl+Shift+S is not the shortcut', async () => {
     await openTormenta();
-    replaceCode('HTML do modelo', '<p>Força</p>');
+    replaceCode('Arquivo index.html', '<p>Força</p>');
     expect(pressSave(codeField(), { ctrlKey: true, shiftKey: true })).toBe(true);
     await Promise.resolve();
     expect(api.updates).toEqual([]);

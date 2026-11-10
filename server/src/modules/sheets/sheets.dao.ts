@@ -130,6 +130,20 @@ export class SheetsDao {
     });
   }
 
+  /** The whole values, merged by the caller under the table's lock (the path patches), and the
+   *  version up by one. */
+  async replaceValues(
+    campaignId: string,
+    sheetId: string,
+    change: Readonly<{ values: SheetValuesPo; updatedAt: Date }>,
+  ): Promise<SheetRow> {
+    return this.updateOne(campaignId, sheetId, {
+      values: change.values,
+      version: sql`${tokenSheets.version} + 1`,
+      updatedAt: change.updatedAt,
+    });
+  }
+
   async update(campaignId: string, sheetId: string, changes: SheetChangesPo): Promise<SheetRow> {
     return this.updateOne(campaignId, sheetId, changes);
   }

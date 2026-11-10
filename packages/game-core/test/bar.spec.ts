@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adjustBarValues, applyBarChange } from '../src/bar';
+import { adjustBarValues, applyBarChange, spendBars } from '../src/bar';
 
 const LIMIT = 99_999;
 
@@ -106,4 +106,119 @@ describe('adjustBarValues', () => {
       expect(() => adjustBarValues(PV, change, LIMIT)).toThrow(/-2\.5.*inteiro/);
     });
   });
+});
+
+describe('spendBars', () => {
+  const MP = { id: 'mp', label: 'MP', current: 10, max: 10, temp: 0 };
+  const EF = { id: 'ef', label: 'EF', current: 8, max: 8, temp: 0 };
+
+  it('MP 10 and EF 8 paying MP 6 + EF 6 leave MP 4 and EF 2', () =>
+    expect(
+      spendBars(
+        [MP, EF],
+        [
+          { barId: 'mp', amount: 6 },
+          { barId: 'ef', amount: 6 },
+        ],
+      ),
+    ).toEqual({
+      ok: true,
+      spent: [
+        { ...MP, current: 4 },
+        { ...EF, current: 2 },
+      ],
+    }));
+
+  it('a cost equal to the balance leaves the bar at zero', () =>
+    expect(spendBars([MP], [{ barId: 'mp', amount: 10 }])).toEqual({
+      ok: true,
+      spent: [{ ...MP, current: 0 }],
+    }));
+
+  it('the same bar twice pays the sum (MP 3 + MP 3)', () =>
+    expect(
+      spendBars(
+        [MP, EF],
+        [
+          { barId: 'mp', amount: 3 },
+          { barId: 'mp', amount: 3 },
+        ],
+      ),
+    ).toEqual({
+      ok: true,
+      spent: [{ ...MP, current: 4 }],
+    }));
+
+  it('the same bar twice fails when only the sum passes the balance', () =>
+    expect(
+      spendBars(
+        [MP],
+        [
+          { barId: 'mp', amount: 6 },
+          { barId: 'mp', amount: 6 },
+        ],
+      ),
+    ).toEqual({
+      ok: false,
+      bar: 'MP',
+      has: 10,
+      needs: 12,
+    }));
+
+  it('the temporary value does not pay: HP 2 + temp 5 cannot pay 3', () => {
+    const hp = { id: 'hp', label: 'HP', current: 2, max: 20, temp: 5 };
+    expect(spendBars([hp], [{ barId: 'hp', amount: 3 }])).toEqual({
+      ok: false,
+      bar: 'HP',
+      has: 2,
+      needs: 3,
+    });
+  });
+
+  it('the temporary value is kept on a bar that pays', () => {
+    const hp = { id: 'hp', label: 'HP', current: 9, max: 20, temp: 5 };
+    expect(spendBars([hp], [{ barId: 'hp', amount: 3 }])).toEqual({
+      ok: true,
+      spent: [{ ...hp, current: 6 }],
+    });
+  });
+
+  it('one bar short fails naming it, its balance and the cost, and nothing is spent', () => {
+    const ef = { ...EF, current: 5 };
+    expect(
+      spendBars(
+        [MP, ef],
+        [
+          { barId: 'mp', amount: 6 },
+          { barId: 'ef', amount: 6 },
+        ],
+      ),
+    ).toEqual({
+      ok: false,
+      bar: 'EF',
+      has: 5,
+      needs: 6,
+    });
+  });
+
+  it('a bar already negative cannot pay', () =>
+    expect(spendBars([{ ...MP, current: -1 }], [{ barId: 'mp', amount: 1 }])).toEqual({
+      ok: false,
+      bar: 'MP',
+      has: -1,
+      needs: 1,
+    }));
+
+  it.each([0, -3, 1.5])('cost %s is a RangeError citing the value', (amount) =>
+    expect(() => spendBars([MP], [{ barId: 'mp', amount }])).toThrow(
+      new RangeError(
+        `Bar cost ${String(amount)} is invalid: expected a whole number of at least 1.`,
+      ),
+    ),
+  );
+
+  it('a cost on a bar that is not there is a RangeError citing the id', () =>
+    expect(() => spendBars([MP], [{ barId: 'hp', amount: 1 }])).toThrow(
+      new RangeError('Bar cost on "hp" is invalid: expected the id of one of: "mp".'),
+    ));
 });

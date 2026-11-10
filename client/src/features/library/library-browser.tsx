@@ -1,5 +1,6 @@
 import { SquarePlusIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
   documentIdOf,
   documentKey,
@@ -71,13 +72,14 @@ type BrowserModel = LibraryPanelModel &
     filter: LibraryFilter;
     tree: LibraryTree;
     refusal: string | null;
+    notice: string | null;
     editDocument: (documentId: string) => void;
     newItem: NewItem;
   }>;
 
 /** The loaded library: header with search, filter and "Novo grid", the tree of folders and
  *  grids (filtered by the search), the panel of the grid picked and the status line with the
- *  server's refusals.
+ *  server's refusals and notes.
  *
  *  Example: `<LibraryBrowser campaign={campaign} library={library} tableView={tableView} now={now} onClose={close} />` */
 export function LibraryBrowser(props: LibraryBrowserProps): React.JSX.Element {
@@ -142,12 +144,10 @@ export function LibraryBrowser(props: LibraryBrowserProps): React.JSX.Element {
         />
       )}
       {isMaster && <SheetTemplateImport importer={model.templateFiles.importer} live={live} />}
-      <p
-        role="status"
-        className="min-h-9 shrink-0 border-t border-border px-6 py-2 text-sm text-destructive-text"
-      >
-        {model.refusal ?? model.templateFiles.exportProblem}
-      </p>
+      <LibraryStatusLine
+        problem={model.refusal ?? model.templateFiles.exportProblem}
+        notice={model.notice}
+      />
     </>
   );
 }
@@ -159,7 +159,7 @@ function useBrowserModel(props: LibraryBrowserProps): BrowserModel {
   const submit = useLibrarySubmit();
   const holders = useSheetHolderNames(props.campaign.members, tableView.table);
   const opener = useLibraryOpener(props);
-  const { pending, refusal } = useLibraryOutcome((intent, createdId) => {
+  const { pending, refusal, notice } = useLibraryOutcome((intent, createdId) => {
     if (intent === 'createFolder') return view.pick(createdId);
     if (intent === 'createSheet') return view.pick(sheetKey(createdId));
     if (intent === 'createSheetTemplate') return view.pick(sheetTemplateKey(createdId));
@@ -232,6 +232,7 @@ function useBrowserModel(props: LibraryBrowserProps): BrowserModel {
     submit,
     pending,
     refusal,
+    notice,
     focusNameId,
     openTab,
     editDocument,
@@ -328,5 +329,23 @@ function nothingOpenYet(library: MixedLibrary): boolean {
     (library.documents?.length ?? 0) === 0 &&
     (library.sheets?.length ?? 0) === 0 &&
     library.scenes.every(({ id }) => id === library.activeSceneId)
+  );
+}
+
+// A refusal (red) wins over a note about a change that went through.
+function LibraryStatusLine({
+  problem,
+  notice,
+}: Readonly<{ problem: string | null; notice: string | null }>): React.JSX.Element {
+  return (
+    <p
+      role="status"
+      className={cn(
+        'min-h-9 shrink-0 border-t border-border px-6 py-2 text-sm',
+        problem ? 'text-destructive-text' : 'text-foreground',
+      )}
+    >
+      {problem ?? notice}
+    </p>
   );
 }

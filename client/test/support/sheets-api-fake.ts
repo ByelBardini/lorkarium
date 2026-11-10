@@ -1,20 +1,22 @@
-import type {
-  CreateSheetRequestDto,
-  DeleteSheetRequestDto,
-  SheetResponseDto,
-  SheetSummaryDto,
-  SheetValueDto,
-  SheetWriteResponseDto,
-  UpdateSheetRequestDto,
-  UpdateSheetValuesRequestDto,
+import {
+  applySheetValueEdits,
+  type AssetDto,
+  type AssetMimeTypeDto,
+  type CreateSheetRequestDto,
+  type DeleteSheetRequestDto,
+  type SheetResponseDto,
+  type SheetSummaryDto,
+  type SheetWriteResponseDto,
+  type UpdateSheetRequestDto,
+  type UpdateSheetValuesRequestDto,
 } from '@lorkarium/contracts';
 import type { SheetImage, SheetsApi, SheetsResult } from '@/services/sheets-api';
 import { sheetResponse, sheetValuesWrite } from './sheet-fixtures';
 
 type Held<T> = Readonly<{ release: (answer?: SheetsResult<T>) => void }>;
 
-/** One sheet on an in-memory server: `saveValues` merges into `response.sheet.values` and bumps
- *  the version; `detailResult` / `saveResult` override the answer; `holdDetails` / `holdSaves`
+/** One sheet on an in-memory server: `saveValues` merges (root changes, then path patches) into
+ *  `response.sheet.values` and bumps the version; `detailResult` / `saveResult` override the answer; `holdDetails` / `holdSaves`
  *  keep answers until the test releases them. `images` answers `image(assetId)`.
  *
  *  Example: `api.holdSaves = true; …; api.heldSaves[0]?.release()` */
@@ -29,6 +31,11 @@ export class SheetsApiFake implements SheetsApi {
   readonly saves: UpdateSheetValuesRequestDto[] = [];
   readonly imageReads: string[] = [];
   images: Record<string, SheetImage> = {};
+  /** `uploadImage` answers this (refused by default) and keeps each send in `uploads`. */
+  uploadResult: SheetsResult<AssetDto> = { ok: false, failure: { kind: 'forbidden' } };
+  readonly uploads: Array<
+    Readonly<{ campaignId: string; sheetId: string; bytes: ArrayBuffer; type: AssetMimeTypeDto }>
+  > = [];
   detailCalls = 0;
   /** `ofToken` answers the sheets of this token id, else none (`ofTokenResult` overrides). */
   sheetsOfToken: Record<string, readonly SheetSummaryDto[]> = {};
@@ -105,14 +112,19 @@ export class SheetsApiFake implements SheetsApi {
     const image = this.images[assetId];
     return image ? { ok: true, value: image } : { ok: false, failure: { kind: 'not_found' } };
   }
+  async uploadImage(
+    campaignId: string,
+    sheetId: string,
+    bytes: ArrayBuffer,
+    type: AssetMimeTypeDto,
+  ): Promise<SheetsResult<AssetDto>> {
+    this.uploads.push({ campaignId, sheetId, bytes, type });
+    return this.uploadResult;
+  }
 
   private apply(input: UpdateSheetValuesRequestDto): SheetsResult<SheetWriteResponseDto> {
     const { sheet } = this.response;
-    const values: Record<string, SheetValueDto> = { ...sheet.values };
-    for (const [key, value] of Object.entries(input.changes)) {
-      if (value === null) delete values[key];
-      else values[key] = value;
-    }
+    const values = applySheetValueEdits(sheet.values, input);
     const next = { ...sheet, values, version: sheet.version + 1 };
     this.response = { ...this.response, sheet: next };
     return { ok: true, value: sheetValuesWrite(next, input.actionId) };

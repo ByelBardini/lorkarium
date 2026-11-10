@@ -7,6 +7,7 @@ import { LYRA_PV_ID, VHARN_GRID } from '../support/table-session-fixtures';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
 const SHEET_ID = '7a6b5c4d-3e2f-4a1b-9c8d-7e6f5a4b3c2d';
+const PORTRAIT_ID = '8b7c6d5e-4f3a-4b2c-9d1e-8f7a6b5c4d3e';
 const TABLE = { actionId: ACTION_ID, campaignId: VHARN_GRID.campaignId };
 
 describe('RealtimeCharacterCommands', () => {
@@ -28,6 +29,23 @@ describe('RealtimeCharacterCommands', () => {
     ]);
     await transport.answerAck({ ok: true, version: 4 }, 'character:update');
     expect(await result).toEqual({ ok: true, version: 4 });
+  });
+
+  it('updateCharacter carries the portrait id, and a refused image is asset_not_found', async () => {
+    const result = commands.updateCharacter(VHARN_GRID, LYRA_CHARACTER_ID, {
+      imageAssetId: PORTRAIT_ID,
+    });
+    expect(transport.sent.at(-1)?.payload).toMatchObject({
+      changes: { imageAssetId: PORTRAIT_ID },
+    });
+    const refusal = { ok: false, error: { code: 'ASSET_NOT_FOUND', message: 'Image not found' } };
+    await transport.answerAck(refusal, 'character:update');
+    expect(await result).toEqual({ ok: false, failure: 'asset_not_found' });
+  });
+
+  it('updateCharacter with a null portrait sends the null that takes it off', () => {
+    void commands.updateCharacter(VHARN_GRID, LYRA_CHARACTER_ID, { imageAssetId: null });
+    expect(transport.sent.at(-1)?.payload).toMatchObject({ changes: { imageAssetId: null } });
   });
 
   it('adjustCharacterBar sends character:adjustBar with the bar and the change', () => {

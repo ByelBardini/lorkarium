@@ -49,8 +49,12 @@ const STATUS_BY_CODE: Readonly<Record<SheetErrorCode, number>> = {
   SHEET_NOT_FOUND: 404,
   SHEET_ACTION_REUSED: 409,
   SHEET_HAS_NO_TOKEN: 409,
+  INSUFFICIENT_BAR: 409,
+  SHEET_TEMPLATE_ASSET_NOT_FOUND: 404,
+  SHEET_TEMPLATE_ASSETS_TOO_LARGE: 413,
 };
-// Public text only, except the count of sheets, which the master who asked may know.
+// Public text only, except the count of sheets, which the master who asked may know, and the
+// bar short, which the one who pays sees on the sheet.
 const PUBLIC_MESSAGE: Readonly<Record<SheetErrorCode, string | null>> = {
   SHEET_TEMPLATE_NOT_FOUND: 'Sheet template not found',
   SHEET_TEMPLATE_VERSION_CONFLICT: 'Another master saved this template first',
@@ -58,6 +62,9 @@ const PUBLIC_MESSAGE: Readonly<Record<SheetErrorCode, string | null>> = {
   SHEET_NOT_FOUND: 'Sheet not found',
   SHEET_ACTION_REUSED: 'This action was already used for another command',
   SHEET_HAS_NO_TOKEN: 'This sheet is not held by a token',
+  INSUFFICIENT_BAR: null,
+  SHEET_TEMPLATE_ASSET_NOT_FOUND: 'Template asset not found',
+  SHEET_TEMPLATE_ASSETS_TOO_LARGE: 'The template assets are larger than 8 MB',
 };
 
 export type SheetServices = Readonly<{ templates: SheetTemplatesService; sheets: SheetsService }>;

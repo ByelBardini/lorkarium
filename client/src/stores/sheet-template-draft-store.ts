@@ -1,17 +1,28 @@
 import {
   SHEET_TEMPLATE_SOURCE_MAX_BYTES,
   type SheetTemplateDto,
+  type SheetTemplateManifestDto,
   type UpdateSheetTemplateRequestDto,
 } from '@lorkarium/contracts';
 import { createStore, type StoreApi } from 'zustand/vanilla';
+import {
+  sameTemplateFiles,
+  templateFilesBytes,
+  type TemplateFile,
+} from '@/lib/sheet-template-files';
+import { readSheetManifestText, sheetManifestText } from '@/lib/sheet-template-manifest';
 import type {
   SheetTemplatesApi,
   SheetTemplatesFailure,
   SheetTemplatesResult,
 } from '@/services/sheet-templates-api';
 
-/** What the master is typing: the name and the three sources. */
-export type TemplateDraft = Readonly<{ name: string; html: string; css: string; js: string }>;
+/** What the master is typing: the name, the files in order and the manifest as JSON text. */
+export type TemplateDraft = Readonly<{
+  name: string;
+  files: readonly TemplateFile[];
+  manifest: string;
+}>;
 
 /** `conflict`: another master saved; `stashed`: the current version is loaded and the master's
  *  own text waits in `stash`. */
@@ -55,7 +66,7 @@ type Set = StoreApi<SheetTemplateDraftState>['setState'];
 type Get = () => SheetTemplateDraftState;
 type Draft = Readonly<{ scope: SheetTemplateDraftScope; set: Set; get: Get }>;
 
-const EMPTY: TemplateDraft = { name: '', html: '', css: '', js: '' };
+const EMPTY: TemplateDraft = { name: '', files: [], manifest: '' };
 const LOADING = {
   load: 'loading',
   base: null,
@@ -64,16 +75,11 @@ const LOADING = {
   failure: null,
   stash: null,
 } as const;
-const encoder = new TextEncoder();
-
-/** The UTF-8 bytes of html + css + js, the measure of `SHEET_TEMPLATE_SOURCE_MAX_BYTES`.
+/** The UTF-8 bytes of every file, the measure of `SHEET_TEMPLATE_SOURCE_MAX_BYTES`.
  *
- *  Example: `sourceBytes({ name: '', html: 'é', css: '', js: '' }) // 2` */
-export function sourceBytes(draft: TemplateDraft): number {
-  return [draft.html, draft.css, draft.js].reduce(
-    (sum, text) => sum + encoder.encode(text).byteLength,
-    0,
-  );
+ *  Example: `sourceBytes({ files: [{ path: 'index.html', content: 'é' }] }) // 2` */
+export function sourceBytes(draft: Pick<TemplateDraft, 'files'>): number {
+  return templateFilesBytes(draft.files);
 }
 
 /** Whether the draft differs from the version read (a blank name is never sent: no change).
@@ -138,28 +144,37 @@ async function refresh(draft: Draft): Promise<void> {
   draft.set({ base: result.value, draft: draftOf(result.value) });
 }
 
+// Nothing is sent while saving, past the budget or with a manifest the contract refuses.
+function savableManifest(state: SheetTemplateDraftState): SheetTemplateManifestDto | null {
+  if (state.phase === 'saving' || sourceBytes(state.draft) > SHEET_TEMPLATE_SOURCE_MAX_BYTES)
+    return null;
+  const reading = readSheetManifestText(state.draft.manifest);
+  return reading.ok ? reading.manifest : null;
+}
+
 async function saveDraft(draft: Draft): Promise<void> {
   const state = draft.get();
   const { base } = state;
-  if (
-    !base ||
-    state.phase === 'saving' ||
-    sourceBytes(state.draft) > SHEET_TEMPLATE_SOURCE_MAX_BYTES
-  )
-    return;
+  const manifest = savableManifest(state);
+  if (!base || !manifest) return;
   draft.set({ phase: 'saving', failure: null });
   const { api, campaignId } = draft.scope;
-  const result = await api.update(campaignId, base.id, changesOf(base, state.draft));
+  const changes = changesOf(base, state.draft, manifest);
+  const result = await api.update(campaignId, base.id, changes);
   if (result.ok) return draft.set({ base: result.value, phase: 'saved', stash: null });
   const phase: DraftPhase = result.failure.kind === 'conflict' ? 'conflict' : 'failed';
   draft.set({ phase, failure: result.failure.kind });
 }
 
-function changesOf(base: SheetTemplateDto, draft: TemplateDraft): UpdateSheetTemplateRequestDto {
+function changesOf(
+  base: SheetTemplateDto,
+  draft: TemplateDraft,
+  manifest: SheetTemplateManifestDto,
+): UpdateSheetTemplateRequestDto {
   const name = draft.name.trim();
   const renamed = name !== '' && name !== base.name;
-  const { html, css, js } = draft;
-  return { expectedVersion: base.version, ...(renamed ? { name } : {}), html, css, js };
+  const files = draft.files.map(({ path, content }) => ({ path, content }));
+  return { expectedVersion: base.version, ...(renamed ? { name } : {}), files, manifest };
 }
 
 // The current version takes the editor; the master's own text waits to be put back.
@@ -186,17 +201,16 @@ function discarded(current: SheetTemplateDraftState): Partial<SheetTemplateDraft
 }
 
 function draftOf(template: SheetTemplateDto): TemplateDraft {
-  const { name, html, css, js } = template;
-  return { name, html, css, js };
+  const { name, files } = template;
+  return { name, files, manifest: sheetManifestText(template.manifest) };
 }
 
 function sameDraft(left: TemplateDraft, right: TemplateDraft): boolean {
   return (
     // A blank name is never sent, so it changes nothing.
     left.name === (right.name.trim() || left.name) &&
-    left.html === right.html &&
-    left.css === right.css &&
-    left.js === right.js
+    sameTemplateFiles(left.files, right.files) &&
+    left.manifest === right.manifest
   );
 }
 

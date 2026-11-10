@@ -24,7 +24,11 @@ const MIXED = logOf(
   { level: 'debug', text: 'detalhe', position: null },
   { level: 'info', text: 'pronta', position: null },
   { level: 'warn', text: 'sem PV', position: null },
-  { level: 'error', text: 'ReferenceError: pv is not defined', position: { line: 2, column: 3 } },
+  {
+    level: 'error',
+    text: 'ReferenceError: pv is not defined',
+    position: { path: 'script.js', line: 2, column: 3 },
+  },
 );
 
 function Harness({ initial }: Readonly<{ initial: SheetConsoleLog }>) {
@@ -47,7 +51,7 @@ describe('SheetConsolePanel', () => {
       'Debug14:05:09detalhe',
       'Info14:05:09pronta',
       'Aviso14:05:09sem PV',
-      'Erro14:05:09ReferenceError: pv is not defined(linha 2, coluna 3 do JS)',
+      'Erro14:05:09ReferenceError: pv is not defined(script.js, linha 2, coluna 3)',
     ]);
   });
 

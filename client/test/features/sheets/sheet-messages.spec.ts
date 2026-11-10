@@ -4,6 +4,7 @@ import {
   defaultSheetName,
   sheetCommandFailureMessage,
   sheetHolderLabel,
+  skippedBarsNotice,
   type SheetHolderNames,
 } from '@/features/sheets/sheet-messages';
 
@@ -47,5 +48,23 @@ describe('sheet messages', () => {
     expect(sheetCommandFailureMessage('Dar', { kind: 'unexpected' })).toBe(
       'Dar a ficha não deu certo. Tente de novo.',
     );
+  });
+});
+
+describe('the bars a given sheet could not add', () => {
+  it('says the sheet was given and which bars did not fit, with the cap', () => {
+    expect(skippedBarsNotice(['ES'])).toBe(
+      'A ficha foi dada. Não couberam: ES (limite de 8 barras).',
+    );
+  });
+
+  it('lists several in the order of the template', () => {
+    expect(skippedBarsNotice(['MP', 'EF', 'ES'])).toBe(
+      'A ficha foi dada. Não couberam: MP, EF, ES (limite de 8 barras).',
+    );
+  });
+
+  it('says nothing when every bar fit', () => {
+    expect(skippedBarsNotice([])).toBeNull();
   });
 });

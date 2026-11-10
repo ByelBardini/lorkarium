@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { contentOf, tormentaFiles, withContent } from '../support/sheet-template-fixtures';
 import { describe, expect, it, vi } from 'vitest';
 import {
   createDocumentWorkspaceStore,
@@ -463,10 +464,10 @@ describe('document workspace with sheet templates', () => {
       templateId: TORMENTA_TEMPLATE_ID,
     });
     await draft.getState().start();
-    draft.getState().edit({ html: '<p>meu</p>' });
+    draft.getState().edit({ files: withContent(tormentaFiles(), 'index.html', '<p>meu</p>') });
     workspace.getState().openSheetTemplate({ campaign, ...TORMENTA, draft });
     expect(workspace.getState().templates[0]?.draft).toBe(draft);
-    expect(draft.getState().draft.html).toBe('<p>meu</p>');
+    expect(contentOf(draft.getState().draft.files, 'index.html')).toBe('<p>meu</p>');
     workspace.getState().clear();
   });
   it('the tab follows the saved name', async () => {
@@ -488,21 +489,21 @@ describe('document workspace with sheet templates', () => {
       asked.push(key);
       return false;
     });
-    draft.getState().edit({ html: '<p>meu</p>' });
+    draft.getState().edit({ files: withContent(tormentaFiles(), 'index.html', '<p>meu</p>') });
     expect(await workspace.getState().close(key)).toBe(false);
     expect(asked).toEqual([key]);
     expect(workspace.getState().templates).toHaveLength(1);
-    expect(draft.getState().draft.html).toBe('<p>meu</p>');
+    expect(contentOf(draft.getState().draft.files, 'index.html')).toBe('<p>meu</p>');
     workspace.getState().clear();
   });
   it('"Descartar" closes it and throws the text away in the shared draft too', async () => {
     const context = setup();
     const { key, draft } = await openTormenta(context);
     context.workspace.getState().setLeaveGuard(key, async () => true);
-    draft.getState().edit({ html: '<p>meu</p>' });
+    draft.getState().edit({ files: withContent(tormentaFiles(), 'index.html', '<p>meu</p>') });
     expect(await context.workspace.getState().close(key)).toBe(true);
     expect(context.workspace.getState().templates).toEqual([]);
-    expect(draft.getState().draft.html).toBe('<p id="pv">PV</p>');
+    expect(contentOf(draft.getState().draft.files, 'index.html')).toBe('<p id="pv">PV</p>');
   });
   it('closing a saved template asks nothing', async () => {
     const context = setup();

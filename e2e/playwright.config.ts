@@ -79,6 +79,8 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
   // The sandbox proof of the sheets (B1), the sheets in the room (B9), in the library (S5) and
   // the template's `.lksheet` file between two tables.
   sheets: ['sheet-sandbox', 'sheets', 'sheets-library', 'sheet-template-file'],
+  // The Lork sheet as a real template, end to end: three tables of ~1 min each, its own group.
+  'sheets-lork': ['sheets-lork'],
   'player-tokens': ['player-tokens'],
   // Borrows Bia and Caio for password and 2FA (undone at the end): kept away from the others.
   account: ['account'],

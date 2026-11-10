@@ -8,8 +8,10 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   // As fixtures dos drivers de .claude/skills violam regras de propósito; docs/pages é mockup exportado (com runtime vendorizado), não código.
+  // O modelo de ficha do e2e são scripts clássicos de navegador que dividem um escopo só (um arquivo usa o que o outro declara).
   {
     ignores: [
+      'e2e/test/fixtures/ficha-lork/modelo',
       '**/dist',
       '**/coverage',
       '**/node_modules',

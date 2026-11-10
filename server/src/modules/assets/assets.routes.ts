@@ -38,6 +38,7 @@ const FORBIDDEN_MESSAGE = 'Your role at this table does not allow it';
 const STATUS_BY_CODE: Readonly<Record<AssetErrorCode, number>> = {
   ASSET_NOT_FOUND: 404,
   UNSUPPORTED_IMAGE: 422,
+  UNSUPPORTED_FONT: 422,
   ASSET_TOO_LARGE: 413,
   LINK_BLOCKED: 422,
   LINK_UNREACHABLE: 422,
@@ -49,6 +50,7 @@ const STATUS_BY_CODE: Readonly<Record<AssetErrorCode, number>> = {
 const PUBLIC_MESSAGE: Readonly<Record<AssetErrorCode, string>> = {
   ASSET_NOT_FOUND: 'Image not found',
   UNSUPPORTED_IMAGE: 'The file is not a PNG, JPEG or WebP image (GIF only for an aura)',
+  UNSUPPORTED_FONT: 'The file is not a WOFF2 font',
   ASSET_TOO_LARGE: 'The image is larger than 20 MB',
   LINK_BLOCKED: 'This link cannot be used',
   LINK_UNREACHABLE: 'The link could not be downloaded',

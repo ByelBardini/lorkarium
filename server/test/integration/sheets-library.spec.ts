@@ -16,7 +16,7 @@ import type { Table } from '../support/tables';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
-const CODE = { html: '<p></p>', css: '', js: '' };
+const CODE = { files: [{ path: 'index.html', content: '<p></p>' }] };
 
 function sheetsUrl(table: Table = live.vharn): string {
   return `/api/campaigns/${table.id}/sheets`;

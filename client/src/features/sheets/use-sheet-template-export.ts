@@ -1,4 +1,6 @@
+import type { SheetManifestAssetDto, SheetTemplateFileAssetDto } from '@lorkarium/contracts';
 import { useState } from 'react';
+import { bytesToBase64 } from '@/lib/base64';
 import { sheetTemplateFileName, sheetTemplateFileText } from '@/lib/sheet-template-file';
 import type { FileDownload } from '@/services/file-download';
 import type { SheetTemplatesApi, SheetTemplatesFailure } from '@/services/sheet-templates-api';
@@ -29,9 +31,29 @@ export async function exportSheetTemplate(
 ): Promise<SheetTemplatesFailure['kind'] | null> {
   const saved = await ports.api.detail(ports.campaignId, templateId);
   if (!saved.ok) return saved.failure.kind;
-  const fileName = sheetTemplateFileName(saved.value.name);
-  ports.fileDownload.save(sheetTemplateFileText(saved.value), fileName, SHEET_TEMPLATE_FILE_MIME);
+  const assets = await fileAssetsOf(ports.api, saved.value.manifest.assets);
+  if (!Array.isArray(assets)) return assets;
+  const text = sheetTemplateFileText({ ...saved.value, assets });
+  ports.fileDownload.save(text, sheetTemplateFileName(saved.value.name), SHEET_TEMPLATE_FILE_MIME);
   return null;
+}
+
+// Every declared asset goes in the file as base64; one that cannot be read stops the export.
+async function fileAssetsOf(
+  api: Pick<SheetTemplatesApi, 'asset'>,
+  declared: readonly SheetManifestAssetDto[],
+): Promise<SheetTemplateFileAssetDto[] | SheetTemplatesFailure['kind']> {
+  const assets: SheetTemplateFileAssetDto[] = [];
+  for (const { path, assetId } of declared) {
+    const read = await api.asset(assetId);
+    if (!read.ok) return read.failure.kind;
+    assets.push({
+      path,
+      type: read.value.type,
+      data: bytesToBase64(new Uint8Array(read.value.bytes)),
+    });
+  }
+  return assets;
 }
 
 /** The export action of the template menu and the editor, with its busy flag and failure;

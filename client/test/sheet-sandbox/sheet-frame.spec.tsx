@@ -1,7 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SHEET_PORT_HANDOFF } from '@/sheet-sandbox/sheet-bridge-bootstrap';
-import { SheetFrame } from '@/sheet-sandbox/sheet-frame';
+import { SheetFrame, SheetSourceFrame } from '@/sheet-sandbox/sheet-frame';
+import { buildSheetSrcdoc, type SheetSource } from '@/sheet-sandbox/sheet-srcdoc';
 import { SheetChannelsFake } from '../support/sheet-frame-fakes';
 
 const LYRA_SRCDOC = '<!doctype html><p>Lyra</p>';
@@ -102,5 +103,68 @@ describe('SheetFrame', () => {
     fireEvent.load(sheetFrame());
     view.unmount();
     expect(channels.created[0]?.port1.closed).toBe(true);
+  });
+});
+
+describe('SheetSourceFrame', () => {
+  const LYRA: SheetSource = {
+    files: [
+      { path: 'index.html', content: '<p id="lyra">Lyra</p>' },
+      { path: 'script.js', content: 'lorkarium.ready();' },
+    ],
+  };
+
+  function renderSource(key: number, source: SheetSource = LYRA) {
+    return (
+      <SheetSourceFrame
+        key={key}
+        source={source}
+        title="Ficha · Lyra"
+        onConnect={(port) => connected.push(port)}
+        onReloaded={() => (reloads += 1)}
+        createChannel={channels.create}
+      />
+    );
+  }
+
+  it('frames the srcdoc built from the author files, scripts listed by hash', () => {
+    render(renderSource(1));
+    const srcdoc = sheetFrame().getAttribute('srcdoc') ?? '';
+    expect(srcdoc).toBe(buildSheetSrcdoc(LYRA));
+    expect(srcdoc).toContain("script-src 'sha256-");
+    expect(srcdoc).toContain('<body><p id="lyra">Lyra</p><script>\nlorkarium.ready();</script>');
+    expect(sheetFrame()).toHaveAttribute('sandbox', 'allow-scripts');
+  });
+
+  it('a re-render with other files keeps the frame it built on mount', () => {
+    const other = { files: [{ path: 'index.html', content: '<p>Outra</p>' }] };
+    const view = render(renderSource(1));
+    view.rerender(renderSource(1, other));
+    expect(sheetFrame().getAttribute('srcdoc')).toBe(buildSheetSrcdoc(LYRA));
+  });
+
+  it('a new frame (a new key) is built from the files it gets', () => {
+    const other = { files: [{ path: 'index.html', content: '<p>Outra</p>' }] };
+    const view = render(renderSource(1));
+    view.rerender(renderSource(2, other));
+    expect(sheetFrame().getAttribute('srcdoc')).toBe(buildSheetSrcdoc(other));
+  });
+
+  it('files that do not make a page show why, with no frame and no port', () => {
+    const broken = { files: [{ path: 'index.html', content: '<lk-include src="sumiu.html">' }] };
+    render(
+      <SheetSourceFrame
+        source={broken}
+        title="Ficha · Lyra"
+        onConnect={(port) => connected.push(port)}
+        onReloaded={() => (reloads += 1)}
+        createChannel={channels.create}
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'A ficha não pôde ser montada: o arquivo "sumiu.html" incluído não existe (index.html, linha 1).',
+    );
+    expect(screen.queryByTitle('Ficha · Lyra')).toBeNull();
+    expect(channels.created).toHaveLength(0);
   });
 });

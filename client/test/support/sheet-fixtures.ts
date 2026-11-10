@@ -50,9 +50,16 @@ export function spareSummary(overrides: Partial<SheetSummaryDto> = {}): SheetSum
   });
 }
 
-/** The code of "Ficha Tormenta" at version 1. */
+/** The code of "Ficha Tormenta" at version 1, with a manifest that declares nothing. */
 export function tormentaCode(overrides: Partial<SheetTemplateCodeDto> = {}): SheetTemplateCodeDto {
-  return { name: 'Ficha Tormenta', version: 1, html: '<p>PV</p>', css: '', js: '', ...overrides };
+  const manifest = { permissions: [], bars: [], assets: [] };
+  return {
+    name: 'Ficha Tormenta',
+    version: 1,
+    files: [{ path: 'index.html', content: '<p>PV</p>' }],
+    manifest,
+    ...overrides,
+  };
 }
 
 /** What `GET …/sheets/:sheetId` answers for `sheet`. */
@@ -71,11 +78,14 @@ export function sheetValuesWrite(
   return sheetWrite(sheet, 'values', actionId);
 }
 
-/** What a sheet command answers: the sheet after it, with the receipt of `operation`. */
+/** What a sheet command answers: the sheet after it, with the receipt of `operation` (and the
+ *  template's bars that giving it could not add, none by default). */
 export function sheetWrite(
   sheet: SheetDto,
   operation: SheetReceiptDto['operation'],
   actionId = SHEET_ACTION_ID,
+  skippedBars: string[] = [],
 ): SheetWriteResponseDto {
-  return { sheet, receipt: { actionId, sheetId: sheet.id, version: sheet.version, operation } };
+  const { id: sheetId, version } = sheet;
+  return { sheet, receipt: { actionId, sheetId, version, operation, skippedBars } };
 }

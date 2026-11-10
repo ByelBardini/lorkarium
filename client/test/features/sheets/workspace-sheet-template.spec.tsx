@@ -8,7 +8,7 @@ import { openLibrary } from '../../support/library-harness';
 import { treeItem } from '../../support/library-tree';
 import { libraryChanged } from '../../support/scene-tab-fixtures';
 import { TORMENTA_TEMPLATE_ID } from '../../support/sheet-fixtures';
-import { tormentaSummary } from '../../support/sheet-template-fixtures';
+import { contentOf, tormentaSummary } from '../../support/sheet-template-fixtures';
 
 const TAB_TITLE = 'Modelo · Ficha Tormenta';
 let current: TestDependencies | null = null;
@@ -28,8 +28,8 @@ async function tormentaInTab(): Promise<TestDependencies> {
   });
   await openLibrary(deps);
   await userEvent.click(treeItem('Ficha Tormenta'));
-  await screen.findByRole('textbox', { name: 'HTML do modelo' });
-  replaceCode('HTML do modelo', '<p>meu</p>');
+  await screen.findByRole('textbox', { name: 'Arquivo index.html' });
+  replaceCode('Arquivo index.html', '<p>meu</p>');
   await userEvent.click(screen.getByRole('button', { name: 'Abrir modelo em aba' }));
   await waitFor(() => expect(screen.queryByRole('tree')).not.toBeInTheDocument());
   await screen.findByRole('region', { name: 'Editor do modelo' });
@@ -40,7 +40,7 @@ describe('a sheet template in a room tab', () => {
   it('"Abrir modelo em aba" takes the unsaved code to the room tab, "Modelo · <nome>"', async () => {
     await tormentaInTab();
     expect(screen.getByRole('tab', { name: TAB_TITLE })).toHaveAttribute('aria-selected', 'true');
-    await waitFor(() => expect(codeTextOf('HTML do modelo')).toBe('<p>meu</p>'));
+    await waitFor(() => expect(codeTextOf('Arquivo index.html')).toBe('<p>meu</p>'));
     expect(screen.getByRole('button', { name: 'Abrir modelo em janela' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Fechar modelo' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Abrir modelo em aba' })).toBeNull();
@@ -51,7 +51,7 @@ describe('a sheet template in a room tab', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Fechar modelo' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Continuar editando' }));
     expect(screen.getByRole('tab', { name: TAB_TITLE })).toBeInTheDocument();
-    expect(codeTextOf('HTML do modelo')).toBe('<p>meu</p>');
+    expect(codeTextOf('Arquivo index.html')).toBe('<p>meu</p>');
     await userEvent.click(screen.getByRole('button', { name: `Fechar ${TAB_TITLE}` }));
     expect(
       await screen.findByRole('alertdialog', { name: 'Descartar o código não salvo?' }),
@@ -79,9 +79,12 @@ describe('a sheet template in a room tab', () => {
     await body.findByRole('region', { name: 'Editor do modelo' });
     expect(screen.getByText('Modelo aberto em outra janela.')).toBeInTheDocument();
     expect(body.queryByRole('button', { name: 'Fechar modelo' })).toBeNull();
-    expect(deps.documentWorkspace.getState().templates[0]?.draft.getState().draft.html).toBe(
-      '<p>meu</p>',
-    );
+    expect(
+      contentOf(
+        deps.documentWorkspace.getState().templates[0]?.draft.getState().draft.files ?? [],
+        'index.html',
+      ),
+    ).toBe('<p>meu</p>');
   });
 
   it('a template deleted while open leaves its tab and says why', async () => {

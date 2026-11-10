@@ -7,6 +7,7 @@ import type {
   SheetFrameScope,
   SheetSdkPort,
 } from '@/sheet-sandbox/sheet-bridge-bootstrap';
+import type { SheetHtmlParserClass } from '@/sheet-sandbox/sheet-html-sanitizer';
 import type { SheetChannel } from '@/sheet-sandbox/sheet-frame';
 
 /** The frame's end of the `MessageChannel`: records what the SDK sends and lets the test play the
@@ -93,6 +94,9 @@ export class FrameWindowRefFake {
 export class SheetFrameWindowFake implements SheetFrameScope {
   readonly parent = new FrameWindowRefFake('host window');
   readonly console = new FrameConsoleFake();
+  // The bootstrap text reads `window.DOMParser`: jsdom's here, the browser's in the frame.
+  // Writable, as the author's `window` is.
+  DOMParser: SheetHtmlParserClass = DOMParser as unknown as SheetHtmlParserClass;
   private readonly listeners: FrameListeners = { message: [], error: [], unhandledrejection: [] };
 
   setTimeout(callback: () => void, delayMs: number): unknown {
@@ -160,4 +164,46 @@ export class SheetChannelsFake {
     this.created.push(channel);
     return channel as unknown as SheetChannel;
   };
+}
+
+/** The frame's `crypto.getRandomValues`: each call fills every byte with the next queued value,
+ *  then with the last one, so a spec can force the ids the lists draw.
+ *
+ *  Example: `random.queue(0, 1) // first id '00000000', then '11111111'` */
+export class SequenceRandomFake {
+  private readonly bytes: number[] = [7];
+
+  queue(...bytes: number[]): void {
+    this.bytes.splice(0, this.bytes.length, ...bytes);
+  }
+
+  getRandomValues(target: Uint8Array): Uint8Array {
+    const byte = this.bytes.length > 1 ? this.bytes.shift()! : this.bytes[0]!;
+    target.fill(byte);
+    return target;
+  }
+}
+
+/** A frame with a page: the bootstrap's `window` plus the `document` and `MutationObserver` of a
+ *  real jsdom iframe (one per spec, so the page listeners of one test never reach the next) and
+ *  the random source the lists draw ids from.
+ *
+ *  Example: `frame.document.body.innerHTML = '<input data-lk="nome">'` */
+export class BoundSheetFrameFake extends SheetFrameWindowFake {
+  private readonly host = document.createElement('iframe');
+  readonly document: Document;
+  readonly view: Window & typeof globalThis;
+  readonly MutationObserver: typeof globalThis.MutationObserver;
+
+  constructor(readonly crypto: SequenceRandomFake) {
+    super();
+    document.body.append(this.host);
+    this.document = this.host.contentDocument!;
+    this.view = this.host.contentWindow as Window & typeof globalThis;
+    this.MutationObserver = this.view.MutationObserver;
+  }
+
+  detach(): void {
+    this.host.remove();
+  }
 }

@@ -25,7 +25,7 @@ describe('campaign library aggregate', () => {
     expect(campaignLibraryDto.safeParse({ ...library, sheetTemplates: [template] }).success).toBe(
       true,
     );
-    const withCode = { ...template, html: '<p></p>', css: '', js: '' };
+    const withCode = { ...template, files: [{ path: 'index.html', content: '<p></p>' }] };
     expect(campaignLibraryDto.safeParse({ ...library, sheetTemplates: [withCode] }).success).toBe(
       false,
     );

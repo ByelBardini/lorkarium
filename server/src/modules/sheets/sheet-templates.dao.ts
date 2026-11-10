@@ -1,5 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
+import { tokenSheets } from './sheets.po';
 import {
   sheetTemplates,
   type NewSheetTemplatePo,
@@ -62,6 +63,32 @@ export class SheetTemplatesDao {
 
   async delete(campaignId: string, templateId: string): Promise<void> {
     await this.db.delete(sheetTemplates).where(this.oneOf(campaignId, templateId));
+  }
+
+  /** The sheets of the table whose template's manifest declares `assetId` (the JSONB `@>` of
+   *  `manifest -> 'assets'`), in creation order: who reads one of them reads the asset.
+   *
+   *  Example: `await templates.sheetIdsUsingAsset(vharnId, fontId) // ['<lyra sheet>']` */
+  async sheetIdsUsingAsset(campaignId: string, assetId: string): Promise<string[]> {
+    const declared = JSON.stringify([{ assetId }]);
+    const rows = await this.db
+      .select({ id: tokenSheets.id })
+      .from(tokenSheets)
+      .innerJoin(
+        sheetTemplates,
+        and(
+          eq(sheetTemplates.campaignId, tokenSheets.campaignId),
+          eq(sheetTemplates.id, tokenSheets.templateId),
+        ),
+      )
+      .where(
+        and(
+          eq(tokenSheets.campaignId, campaignId),
+          sql`${sheetTemplates.manifest} -> 'assets' @> ${declared}::jsonb`,
+        ),
+      )
+      .orderBy(tokenSheets.createdAt, tokenSheets.id);
+    return rows.map(({ id }) => id);
   }
 
   /** The templates of a deleted folder go to its parent; the code did not change, so neither

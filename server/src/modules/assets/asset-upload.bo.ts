@@ -1,4 +1,4 @@
-import { AssetTooLargeError } from './assets.error';
+import { AssetTooLargeError, UnsupportedFontError } from './assets.error';
 import type { AssetPo } from './assets.po';
 
 export type AssetPurpose = AssetPo['purpose'];
@@ -60,6 +60,8 @@ export function outlineFor(purpose: AssetPurpose): boolean {
 const PROTECTED_PURPOSES: ReadonlySet<AssetPurpose> = new Set([
   'library_image',
   'document_image',
+  'sheet_image',
+  'sheet_template_asset',
   'library_map',
 ]);
 
@@ -70,11 +72,46 @@ export function isProtectedAssetPurpose(purpose: AssetPurpose): boolean {
   return PROTECTED_PURPOSES.has(purpose);
 }
 
-const MASTER_ONLY_PURPOSES: ReadonlySet<AssetPurpose> = new Set(['library_image', 'library_map']);
+// Sent only by the route of what they belong to, which authorizes and associates them.
+const DEDICATED_ENDPOINTS: Readonly<Partial<Record<AssetPurpose, string>>> = {
+  document_image: 'the document image endpoint',
+  sheet_image: 'the sheet image endpoint',
+  sheet_template_asset: 'the sheet template asset endpoint',
+};
+
+/** The only endpoint that may send an image of `purpose`; `null` = the generic asset routes.
+ *
+ *  Example: `dedicatedEndpointOf('sheet_image') // 'the sheet image endpoint'` */
+export function dedicatedEndpointOf(purpose: AssetPurpose): string | null {
+  return DEDICATED_ENDPOINTS[purpose] ?? null;
+}
+
+const MASTER_ONLY_PURPOSES: ReadonlySet<AssetPurpose> = new Set([
+  'library_image',
+  'library_map',
+  'sheet_template_asset',
+]);
 
 /** Whether only the master may send an image of `purpose`.
  *
  *  Example: `isMasterOnlyAssetPurpose('document_image') // false` */
 export function isMasterOnlyAssetPurpose(purpose: AssetPurpose): boolean {
   return MASTER_ONLY_PURPOSES.has(purpose);
+}
+
+// Every WOFF2 file starts with these four bytes ("wOF2"); a TTF, an OTF or a WOFF 1 does not.
+const WOFF2_SIGNATURE = [0x77, 0x4f, 0x46, 0x32] as const;
+
+/** Refuses bytes that are not a WOFF2 font, by their signature (never the name nor the type
+ *  the sender claimed).
+ *
+ *  Example: `requireWoff2(bytes) // throws UNSUPPORTED_FONT for a TTF renamed .woff2` */
+export function requireWoff2(bytes: Uint8Array): void {
+  if (WOFF2_SIGNATURE.every((byte, at) => bytes[at] === byte)) return;
+  const head = Array.from(bytes.slice(0, 4), (byte) => byte.toString(16).padStart(2, '0')).join(
+    ' ',
+  );
+  throw new UnsupportedFontError(
+    `the ${bytes.byteLength} bytes start with ${head || 'nothing'}; expected a WOFF2 font (77 4f 46 32)`,
+  );
 }

@@ -4,6 +4,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -14,6 +15,17 @@ import { users } from '../auth/users.po';
 import { campaigns } from '../campaigns/campaigns.po';
 import { sceneFolders } from '../library/scene-folders.po';
 
+/** The manifest as stored: the JSON the `sheetTemplateManifestDto` let in (the PO imports no DTO). */
+export type SheetTemplateManifestPo = Readonly<{
+  permissions: readonly string[];
+  bars: readonly Readonly<{ label: string; color: string; max: number }>[];
+  // Absent in a manifest stored before templates had assets.
+  assets?: readonly Readonly<{ path: string; assetId: string }>[];
+}>;
+
+/** The files as stored: the ordered list the `sheetTemplateFilesDto` let in. */
+export type SheetTemplateFilesPo = readonly Readonly<{ path: string; content: string }>[];
+
 export const sheetTemplates = pgTable(
   'sheet_templates',
   {
@@ -23,9 +35,11 @@ export const sheetTemplates = pgTable(
       .references(() => campaigns.id, { onDelete: 'cascade' }),
     folderId: uuid('folder_id'),
     name: text('name').notNull(),
-    html: text('html').notNull(),
-    css: text('css').notNull(),
-    js: text('js').notNull(),
+    files: jsonb('files').$type<SheetTemplateFilesPo>().notNull(),
+    manifest: jsonb('manifest')
+      .$type<SheetTemplateManifestPo>()
+      .notNull()
+      .default({ permissions: [], bars: [] }),
     version: integer('version').notNull().default(0),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -49,8 +63,8 @@ export type SheetTemplatePo = typeof sheetTemplates.$inferSelect;
 export type NewSheetTemplatePo = typeof sheetTemplates.$inferInsert;
 export type SheetTemplateSummaryPo = Omit<
   SheetTemplatePo,
-  'html' | 'css' | 'js' | 'createdBy' | 'createdAt'
+  'files' | 'manifest' | 'createdBy' | 'createdAt'
 >;
 export type SheetTemplateChangesPo = Partial<
-  Pick<SheetTemplatePo, 'name' | 'folderId' | 'html' | 'css' | 'js' | 'version' | 'updatedAt'>
+  Pick<SheetTemplatePo, 'name' | 'folderId' | 'files' | 'manifest' | 'version' | 'updatedAt'>
 >;

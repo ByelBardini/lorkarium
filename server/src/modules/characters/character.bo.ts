@@ -1,7 +1,11 @@
 import { adjustBarValues, type BarAdjustment, type BarValues } from '@lorkarium/game-core';
 import type { CampaignAccessBo, CampaignRole } from '../campaigns/campaign-access.bo';
 import { SheetNotFoundError } from '../sheets/sheets.error';
-import { CharacterBarNotFoundError, CharacterNotFoundError } from './characters.error';
+import {
+  CharacterBarNotFoundError,
+  CharacterNotFoundError,
+  CharacterPortraitNotFoundError,
+} from './characters.error';
 
 /** Whose a character is: its player, the role they have at the table now (`null` = nobody's, or
  *  they left) and who controls it. */
@@ -79,6 +83,16 @@ export class CharacterBo {
       this.access.campaignIdOf(),
       `sheet ${sheetId} held by character ${this.seat.characterId}`,
     );
+  }
+
+  /** The portrait must be a `token` image of this table (`purpose` = what the table's asset with
+   *  that id was sent as, `null` = the table has none): what its linked tokens wear.
+   *
+   *  Example: `bo.requirePortrait(assetId, asset?.purpose ?? null)` */
+  requirePortrait(assetId: string, purpose: string | null): void {
+    if (purpose === 'token') return;
+    const campaignId = this.access.campaignIdOf();
+    throw new CharacterPortraitNotFoundError(campaignId, this.seat.characterId, assetId, purpose);
   }
 
   /** Throws FORBIDDEN for a spectator, CHARACTER_NOT_FOUND for a character this member does not

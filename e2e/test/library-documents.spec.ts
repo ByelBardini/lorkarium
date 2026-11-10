@@ -67,6 +67,9 @@ test('rich document formats a selection, expands a table, and survives reload', 
   await master.getByRole('menuitem', { name: 'Adicionar linha', exact: true }).click();
   await expect(editor.locator('tr')).toHaveCount(3);
   await editor.locator('p').first().click();
+  // Same race as above: until ProseMirror reads the click its selection is still in the table
+  // (where "Inserir tabela" is off), and End + Enter would drop the image into a cell.
+  await expect(panel.getByRole('button', { name: 'Inserir tabela', exact: true })).toBeEnabled();
   await editor.press('End');
   await editor.press('Enter');
   await pastePortraitIntoDocument(master);

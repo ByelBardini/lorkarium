@@ -16,13 +16,14 @@ export function useLibrarySubmit(): LibrarySubmit {
   return (intent) => fetcher.submit(intent, { method: 'post', encType: 'application/json' });
 }
 
-/** The pending intent (`null` when idle) and the last answer's refusal, for the status line;
+/** The pending intent (`null` when idle), the last answer's refusal and its notice, for the
+ *  status line;
  *  `onCreated` runs once per answer that created something (a grid, a copy, a folder).
  *
  *  Example: `const { pending, refusal } = useLibraryOutcome((outcome) => view.select(outcome.createdId))` */
 export function useLibraryOutcome(
   onCreated: (intent: LibraryOutcome['intent'], createdId: string) => void,
-): Readonly<{ pending: LibraryIntent | null; refusal: string | null }> {
+): Readonly<{ pending: LibraryIntent | null; refusal: string | null; notice: string | null }> {
   const fetcher = useFetcher<LibraryOutcome>({ key: LIBRARY_FETCHER_KEY });
   const [seen, setSeen] = useState(fetcher.data);
   if (fetcher.data !== seen) {
@@ -34,5 +35,6 @@ export function useLibraryOutcome(
   const pending =
     fetcher.state === 'idle' ? null : ((fetcher.json as LibraryIntent | undefined) ?? null);
   const refusal = fetcher.data && !fetcher.data.ok ? fetcher.data.message : null;
-  return { pending, refusal };
+  const notice = fetcher.data?.ok ? fetcher.data.notice : null;
+  return { pending, refusal, notice };
 }

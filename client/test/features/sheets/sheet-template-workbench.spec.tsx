@@ -9,7 +9,7 @@ import {
   type SheetEditorLayoutMemory,
 } from '@/lib/sheet-editor-layout';
 import { SHEET_PREVIEW_WINDOW_URL } from '@/services/chat-window-host';
-import { authorScriptStartOf } from '@/sheet-sandbox/sheet-srcdoc';
+import { sheetScriptLayoutOf } from '@/sheet-sandbox/sheet-srcdoc';
 import { createSheetTemplateDraftStore } from '@/stores/sheet-template-draft-store';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { ChatWindowHostFake } from '../../support/chat-window-host-fake';
@@ -20,6 +20,7 @@ import { SheetChannelsFake } from '../../support/sheet-frame-fakes';
 import { tormentaTemplate } from '../../support/sheet-template-fixtures';
 import { SheetTemplatesApiFake } from '../../support/sheet-templates-api-fake';
 import { StorageFake } from '../../support/storage-fake';
+import { expectedScriptSrcOf, scriptSrcOf, sheetPolicyOf } from '../../support/sheet-srcdoc-policy';
 
 const AT = new Date(2026, 9, 31, 14, 5, 9);
 
@@ -58,7 +59,7 @@ async function openEditor(memory: SheetEditorLayoutMemory = memoryOf('ana')) {
       now={() => AT}
     />,
   );
-  await screen.findByRole('textbox', { name: 'HTML do modelo' });
+  await screen.findByRole('textbox', { name: 'Arquivo index.html' });
   return { user: userEvent.setup(), view };
 }
 
@@ -121,7 +122,7 @@ describe('the divider between the code and the preview', () => {
 describe('the preview in full screen', () => {
   it('takes the whole editor, and the code stays as it was when it comes back', async () => {
     const { user } = await openEditor();
-    replaceCode('HTML do modelo', '<p>Força</p>');
+    replaceCode('Arquivo index.html', '<p>Força</p>');
     await user.click(screen.getByRole('button', { name: 'Prévia em tela cheia' }));
     expect(
       screen.getByRole('tablist', { name: 'Código do modelo', hidden: true }),
@@ -130,7 +131,7 @@ describe('the preview in full screen', () => {
     expect(screen.getByTitle('Prévia da ficha')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Sair da tela cheia' }));
     expect(screen.getByRole('tablist', { name: 'Código do modelo' })).toBeVisible();
-    expect(codeTextOf('HTML do modelo')).toBe('<p>Força</p>');
+    expect(codeTextOf('Arquivo index.html')).toBe('<p>Força</p>');
   });
 
   it('Esc goes back to the code', async () => {
@@ -174,7 +175,7 @@ describe('the preview in its own window', () => {
     const { user } = await openEditor();
     await user.click(screen.getByRole('button', { name: 'Abrir prévia em janela' }));
     const page = await windowLoaded();
-    replaceCode('HTML do modelo', '<p id="nova">Nova ficha</p>');
+    replaceCode('Arquivo index.html', '<p id="nova">Nova ficha</p>');
     await waitFor(
       () =>
         expect(within(page.body).getByTitle('Prévia da ficha')).toHaveAttribute(
@@ -201,7 +202,7 @@ describe('the preview in its own window', () => {
       templateId: TORMENTA_TEMPLATE_ID,
     });
     render(<SheetTemplateEditor draft={draft} live createChannel={channels.create} />);
-    await screen.findByRole('textbox', { name: 'HTML do modelo' });
+    await screen.findByRole('textbox', { name: 'Arquivo index.html' });
     expect(screen.queryByRole('button', { name: 'Abrir prévia em janela' })).toBeNull();
   });
 });
@@ -224,21 +225,20 @@ function consoleRegion(): HTMLElement {
 describe('the console under the preview', () => {
   it('shows what the frame logged and counts the errors, with the line of the JS file', async () => {
     await openEditor();
-    const { html, css, js } = tormentaTemplate();
-    const start = authorScriptStartOf({ html, css, js });
+    const start = sheetScriptLayoutOf({ files: tormentaTemplate().files })[0] ?? { line: 0 };
     framePosts(
       { type: 'console', level: 'log', message: 'Força 14', at: [] },
       {
         type: 'console',
         level: 'error',
         message: 'Uncaught ReferenceError: pv is not defined',
-        at: [{ line: start.line, column: start.column + 3 }],
+        at: [{ line: start.line, column: 3 }],
       },
     );
     const lines = within(consoleRegion()).getAllByRole('listitem');
     expect(lines.map((line) => line.textContent)).toEqual([
       'Log14:05:09Força 14',
-      'Erro14:05:09Uncaught ReferenceError: pv is not defined(linha 1, coluna 3 do JS)',
+      'Erro14:05:09Uncaught ReferenceError: pv is not defined(script.js, linha 1, coluna 3)',
     ]);
     expect(within(consoleRegion()).getByLabelText('Erros no console')).toHaveTextContent('1 erro');
   });
@@ -302,6 +302,21 @@ describe('the console under the preview', () => {
     expect(within(consoleRegion()).getByLabelText('Erros no console')).toHaveTextContent(
       'Sem erros',
     );
+  });
+});
+
+describe('the script hashes of the preview frame', () => {
+  function previewSrcdoc(): string {
+    return screen.getByTitle('Prévia da ficha').getAttribute('srcdoc') ?? '';
+  }
+
+  it('the preview lists the hash of each of its scripts, again after "Rodar de novo"', async () => {
+    const { user } = await openEditor();
+    const first = screen.getByTitle('Prévia da ficha');
+    expect(scriptSrcOf(sheetPolicyOf(previewSrcdoc()))).toBe(expectedScriptSrcOf(previewSrcdoc()));
+    await user.click(screen.getByRole('button', { name: 'Rodar de novo' }));
+    expect(screen.getByTitle('Prévia da ficha')).not.toBe(first);
+    expect(scriptSrcOf(sheetPolicyOf(previewSrcdoc()))).toBe(expectedScriptSrcOf(previewSrcdoc()));
   });
 });
 

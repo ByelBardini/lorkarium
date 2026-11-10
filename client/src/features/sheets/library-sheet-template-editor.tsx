@@ -68,6 +68,7 @@ export function LibrarySheetTemplateEditor(
       windows={props.chatWindowHost}
       clipboard={props.clipboard}
       exportPorts={props.exportPorts}
+      assetPorts={{ api: props.api, campaignId: props.campaign.id }}
     />
   );
 }

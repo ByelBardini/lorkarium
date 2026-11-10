@@ -35,11 +35,23 @@ export function WorkspaceSheet({
     () => ({
       sheetsApi: deps.sheetsApi,
       sheetCommands: deps.sheetCommands,
+      boardCommands: deps.boardCommands,
+      assets: deps.assets,
       dice: deps.dice,
       clock: deps.interactionClock,
       now: deps.now,
+      templateAssets: deps.sheetTemplatesApi,
     }),
-    [deps.sheetsApi, deps.sheetCommands, deps.dice, deps.interactionClock, deps.now],
+    [
+      deps.sheetsApi,
+      deps.sheetCommands,
+      deps.boardCommands,
+      deps.assets,
+      deps.dice,
+      deps.interactionClock,
+      deps.now,
+      deps.sheetTemplatesApi,
+    ],
   );
   return (
     <WorkspaceItemSurface deps={deps} item={entry} detachedLabel="Ficha aberta em outra janela.">

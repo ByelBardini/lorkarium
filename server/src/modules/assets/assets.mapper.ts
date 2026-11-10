@@ -1,4 +1,10 @@
-import type { AssetDto, AssetOutlineResponseDto, AssetPurposeDto } from '@lorkarium/contracts';
+import {
+  assetMimeTypeDto,
+  type AssetDto,
+  type AssetOutlineResponseDto,
+  type AssetPurposeDto,
+  type SheetTemplateAssetDto,
+} from '@lorkarium/contracts';
 import type { AssetPo, NewAssetPo } from './assets.po';
 import type { NormalizedImage } from './image-processor.port';
 
@@ -36,11 +42,37 @@ export function toNewAssetPo(stored: StoredImage): NewAssetPo {
   };
 }
 
-/** Asset row → what the client sees (no key, no owner).
+/** A WOFF2 font already put in the storage → its row: a font has no pixels (0 × 0).
+ *
+ *  Example: `await assets.insert(toNewFontAssetPo({ assetId, campaignId, ownerId, bytes }))` */
+export function toNewFontAssetPo(
+  stored: Readonly<{ assetId: string; campaignId: string; ownerId: string; bytes: Uint8Array }>,
+): NewAssetPo {
+  const { assetId, campaignId, ownerId, bytes } = stored;
+  return {
+    ...{ id: assetId, campaignId, ownerId, purpose: 'sheet_template_asset' },
+    ...{ mimeType: 'font/woff2', sizeBytes: bytes.byteLength, width: 0, height: 0 },
+    storageKey: storageKeyOf(assetId),
+    sightOutline: null,
+  };
+}
+
+/** Image row → what the client sees (no key, no owner). Only images get here: a font row (the
+ *  one type outside `assetMimeTypeDto`) throws, citing its type.
  *
  *  Example: `toAssetDto(row).width // 1400` */
 export function toAssetDto(row: AssetPo): AssetDto {
-  return { id: row.id, mimeType: row.mimeType, width: row.width, height: row.height };
+  const mimeType = assetMimeTypeDto.parse(row.mimeType);
+  return { id: row.id, mimeType, width: row.width, height: row.height };
+}
+
+/** Template asset row → the upload answer: its type and stored size.
+ *
+ *  Example: `toSheetTemplateAssetDto(row).sizeBytes // 41_220` */
+export function toSheetTemplateAssetDto(row: AssetPo): SheetTemplateAssetDto {
+  if (row.mimeType === 'image/gif')
+    throw new RangeError(`template asset ${row.id} is a GIF; expected PNG, JPEG, WebP or WOFF2`);
+  return { id: row.id, mimeType: row.mimeType, sizeBytes: row.sizeBytes };
 }
 
 /** Asset row → its silhouette as the client sees it; `null` = none was traced.

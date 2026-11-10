@@ -1,16 +1,16 @@
 import type { SheetConsoleLevelDto, SheetConsoleMessageDto } from '@lorkarium/contracts';
 import { admitInWindow } from '@/lib/rate-window';
 import { SHEET_CONSOLE_FRAME_LIMITS } from './sheet-bridge-bootstrap';
-import { authorScriptPositionOf, type SheetCodePosition, type SheetSource } from './sheet-srcdoc';
+import { authorScriptPositionOf, type SheetScriptPosition, type SheetSource } from './sheet-srcdoc';
 
-/** One line of a sheet's console as the host shows it. `position` is the line and column of the
- *  editor's JS file, only when the error came from the author's JS. */
+/** One line of a sheet's console as the host shows it. `position` is the JS file of the template
+ *  and the line and column in it, only when the error came from the author's JS. */
 export type SheetConsoleEntry = Readonly<{
   id: number;
   level: SheetConsoleLevelDto;
   text: string;
   at: Date;
-  position: SheetCodePosition | null;
+  position: SheetScriptPosition | null;
 }>;
 
 /** The lines kept (the newest last) and how many of them are errors. */
