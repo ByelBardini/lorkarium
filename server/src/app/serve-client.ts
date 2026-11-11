@@ -21,6 +21,8 @@ export async function serveClient(app: FastifyInstance, dir: string): Promise<vo
     root: dir,
     // One route per file found at boot: the build never changes while the container runs.
     wildcard: false,
+    // The build ships each text file with its .br and .gz: no CPU spent compressing per request.
+    preCompressed: true,
     cacheControl: false,
     setHeaders: (reply, file) => reply.header('cache-control', cacheControlOf(dir, file)),
   });
