@@ -160,7 +160,7 @@ describe('library image HTTP and access isolation', () => {
     );
     expect(mixed.images.find((x) => x.id === image.id)?.folderId).toBe(parent.id);
   });
-  it('normalizes to 4096 preserving aspect ratio and keeps a GIF as its first frame', async () => {
+  it('normalizes to 4096 preserving aspect ratio and keeps an opaque GIF as its first frame in WebP', async () => {
     const response = await live.http(live.ana, {
       method: 'POST',
       url: `/api/campaigns/${live.vharn.id}/assets?purpose=library_image`,
@@ -179,7 +179,7 @@ describe('library image HTTP and access isolation', () => {
     });
     expect(gif.statusCode, gif.body).toBe(201);
     expect(assetResponseDto.parse(gif.json()).asset).toMatchObject({
-      mimeType: 'image/png',
+      mimeType: 'image/webp',
       width: 20,
       height: 20,
     });
