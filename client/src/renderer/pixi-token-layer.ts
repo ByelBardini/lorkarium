@@ -44,6 +44,8 @@ const DEFEATED_OUTLINE = 3;
 
 type TokenSprite = Readonly<{
   root: Container;
+  /** The disc, the art and the initials: what a look fades and greys, as one. */
+  face: Container;
   disc: Graphics;
   art: PixiTokenArt;
   shape: Graphics;
@@ -296,7 +298,9 @@ export class PixiTokenLayer {
     const nameTag = new PixiNameTag();
     const cross = new Graphics();
     const look = new PixiTokenLook();
-    root.addChild(disc, art.container, shape, label, look.container, cross);
+    const face = new Container();
+    face.addChild(disc, art.container, label);
+    root.addChild(face, shape, look.container, cross);
     const overlay = new Container();
     overlay.addChild(marks.container, nameTag.container);
     root.position.set(at.x, at.y);
@@ -305,6 +309,7 @@ export class PixiTokenLayer {
     this.strips[view.layer].addChild(overlay);
     const sprite: TokenSprite = {
       root,
+      face,
       disc,
       art,
       shape,
@@ -379,8 +384,8 @@ function drawToken(sprite: TokenSprite, texture: Texture | null): void {
 // face fades (and greys) by the defeat, the looks and being hidden together, so the cross still
 // reads first.
 function drawDefeated(sprite: TokenSprite, box: TokenShape, square = false): void {
-  const { disc, art, label, cross, view } = sprite;
-  sprite.look.draw([disc, art.container, label], tokenLookStyle(view), { ...box, square });
+  const { face, cross, view } = sprite;
+  sprite.look.draw(face, tokenLookStyle(view), { ...box, square });
   cross.clear();
   if (!view.defeated) return;
   const { strokes, width } = defeatedCross(box);
