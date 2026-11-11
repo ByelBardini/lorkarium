@@ -130,13 +130,17 @@ describe('POST /campaigns/:c/sheets/:s/images', () => {
     });
   });
 
-  it('a GIF is decoded and refused: 422 UNSUPPORTED_IMAGE', async () => {
+  it('an animated GIF is 201 and stays an animated GIF', async () => {
     const response = await sendTo(live.bia, await lyraSheet(), await animatedGifOf(3, 40), {
       type: 'image/gif',
     });
 
-    expect(response.statusCode).toBe(422);
-    expect(response.json()).toMatchObject({ code: 'UNSUPPORTED_IMAGE' });
+    expect(response.statusCode, response.body).toBe(201);
+    expect(assetResponseDto.parse(response.json()).asset).toMatchObject({
+      mimeType: 'image/gif',
+      width: 40,
+      height: 40,
+    });
   });
 
   it('an SVG has no parser: 415 UNSUPPORTED_IMAGE', async () => {

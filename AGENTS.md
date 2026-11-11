@@ -36,7 +36,7 @@ desktop/                 # @lorkarium/desktop: casca Tauri 2 (Windows); splash e
 Dockerfile, .dockerignore # Imagem de produção (multi-estágio, node:26.13.0-bookworm-slim): migra e sobe o server, que serve o client (ver docs/context/deploy.md)
 e2e/                     # @lorkarium/e2e: Playwright (playwright.config.ts sobe server + client), specs em e2e/test/
 .github/                 # CI: workflows/ci.yml, actions/setup (composite), dependabot.yml
-infra/docker/smoke.sh    # Smoke da imagem (healthy, /api/health, SPA, ordem do log), usado pelo job docker-image do CI
+infra/docker/smoke.sh    # Smoke da imagem (healthy, /api/health, SPA, pasta do cache gravável, ordem do log), usado pelo job docker-image do CI
 infra/compose/compose.yaml # Postgres 17 (5432, usuário/senha/db lorkarium), SeaweedFS/S3 (8333, identidade em seaweedfs/s3.json) e Mailpit (SMTP 1025, caixa 8025) de desenvolvimento (pnpm db:up)
 docs/spec.md             # Planejamento e arquitetura do produto (escopo, modelo, API, eventos, segurança, fases)
 docs/context/            # Memória do projeto para agentes de IA: <area>.md é o índice, <area>/ o detalhe
@@ -110,7 +110,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | chat             | Chat da mesa (efêmero): Mesa, sussurro, privado, grupo, falar como token, salas      | [`docs/context/chat.md`](docs/context/chat.md)                         |
 | sessions         | Sessão ao vivo da mesa (Socket.IO): presença, ausência, snapshot, versão             | [`docs/context/sessions.md`](docs/context/sessions.md)                 |
 | account-security | Conta: senha, sessões ativas, troca de e-mail, 2FA da conta, avisos por e-mail       | [`docs/context/account-security.md`](docs/context/account-security.md) |
-| assets           | Imagens da mesa: S3, envio, link seguro, leitura pela origem                         | [`docs/context/assets.md`](docs/context/assets.md)                     |
+| assets           | Imagens da mesa: S3, cache em disco, envio, link seguro, leitura pela origem         | [`docs/context/assets.md`](docs/context/assets.md)                     |
 | mail             | E-mails do sistema: molde HTML/texto, catálogo de templates, PNGs, prévia            | [`docs/context/mail.md`](docs/context/mail.md)                         |
 | user-admin       | Backoffice das contas: lista, papel, suspensão, exclusão, teste de e-mail            | [`docs/context/user-admin.md`](docs/context/user-admin.md)             |
 | account-links    | Links de uso único: convite (escolhe @ e senha) e nova senha pelo admin              | [`docs/context/account-links.md`](docs/context/account-links.md)       |

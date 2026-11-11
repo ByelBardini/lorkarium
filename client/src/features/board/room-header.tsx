@@ -113,7 +113,7 @@ export function RoomHeader({
       )}
       <div data-app-region="no-drag" className="ml-auto flex shrink-0 items-center gap-3">
         {campaign.joinCode && (
-          <TableCode code={campaign.joinCode} clipboard={clipboard} centered={slot !== null} />
+          <TableCode code={campaign.joinCode} clipboard={clipboard} iconOnly={slot !== null} />
         )}
         <MasterPageLink
           to={`/campaigns/${encodeURIComponent(campaign.id)}/table/library`}
@@ -212,23 +212,18 @@ function OnlineCount({ presence, onShow }: OnlineCountProps): React.JSX.Element 
 type TableCodeProps = Readonly<{
   code: string;
   clipboard: Clipboard;
-  /** In the window title bar: in the middle of the bar, apart from the actions on the right. */
-  centered: boolean;
+  /** In the window title bar: the copy button without its text. */
+  iconOnly: boolean;
 }>;
 
-function TableCode({ code, clipboard, centered }: TableCodeProps) {
+// In the flow beside the actions, never centered over the bar: the tabs filled the middle and
+// drew under it.
+function TableCode({ code, clipboard, iconOnly }: TableCodeProps) {
   const formatted = formatCampaignCode(code);
   return (
-    <div
-      className={cn(
-        'hidden shrink-0 items-center gap-2 xl:flex',
-        // Centered only where the tabs and the turn line can't reach the middle of the bar.
-        centered &&
-          '2xl:absolute 2xl:top-1/2 2xl:left-1/2 2xl:-translate-x-1/2 2xl:-translate-y-1/2',
-      )}
-    >
+    <div className="hidden shrink-0 items-center gap-2 xl:flex">
       <span className="font-brand text-sm tracking-[0.2em] text-label">{formatted}</span>
-      <CopyCodeButton code={formatted} clipboard={clipboard} iconOnly={centered} />
+      <CopyCodeButton code={formatted} clipboard={clipboard} iconOnly={iconOnly} />
     </div>
   );
 }

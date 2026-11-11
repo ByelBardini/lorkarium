@@ -15,7 +15,6 @@ import { AVATAR_MAX_BYTES, type AssetPurposeDto } from '@lorkarium/contracts';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import type { Env } from '../config/env';
 import type { Database } from '../database/database';
-import { S3AssetStorage } from '../infrastructure/asset-storage/s3-asset-storage';
 import { GuardedImageFetcher } from '../infrastructure/image-fetcher/guarded-image-fetcher';
 import { SharpImageProcessor } from '../infrastructure/image-processor/sharp-image-processor';
 import { createAssetsModule } from '../modules/assets/assets.plugin';
@@ -86,6 +85,7 @@ import { attachRealtime } from '../realtime/realtime-server';
 import type { AccessLogArchivePort } from '../modules/access-log/access-log-archive.port';
 import type { AccessLogModule } from '../modules/access-log/access-log.plugin';
 import { wireAccessLog } from './wire-access-log';
+import { wireAssetStorage } from './wire-asset-storage';
 import { mailerOf, wireAccountSecurity } from './wire-account-security';
 import { serveClient } from './serve-client';
 import { trustProxyOf } from './trust-proxy';
@@ -145,7 +145,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const campaigns = createCampaignsModule({ db: deps.db, hasher, codes, clock, presence });
   await app.register(healthPlugin, { prefix: API_PREFIX, db: deps.db });
   await app.register(legalPlugin, { prefix: API_PREFIX, sitePublicUrl: env.sitePublicUrl });
-  const storage = wireAssetStorage(app, new S3AssetStorage(deps.env.storage));
+  const storage = wireAssetStorage(app, deps.env, clock);
   // After the asset bucket is ensured: dev and CI keep the access log in that same bucket.
   const accessLog = wireAccessLog(app, { env, clock, archive: deps.accessLogArchive });
   wireHousekeeping(app, { db: deps.db, clock, scheduler: new TimerScheduler() });
@@ -384,13 +384,6 @@ function wireRealtime(
   const memberRemoved = removedInOrder(sessions.service, characters.seats);
   const { seatIn } = characters;
   return { ...outlets, profileChanged, campaignChanged, memberRoleChanged, memberRemoved, seatIn };
-}
-
-// The bucket is ensured once per boot (dev, CI and integration alike), before the first request.
-function wireAssetStorage(app: FastifyInstance, storage: S3AssetStorage): S3AssetStorage {
-  app.addHook('onReady', async () => storage.ensureBucket());
-  app.addHook('onClose', async () => storage.destroy());
-  return storage;
 }
 
 function loggerOptions(env: Env): FastifyServerOptions['logger'] {

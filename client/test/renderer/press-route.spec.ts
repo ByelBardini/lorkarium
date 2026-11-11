@@ -90,6 +90,26 @@ describe('pressRouteOf with the select tool', () => {
   it('with no selection, the spot of the facing handle goes to the board beneath it', () => {
     expect(pressRouteOf(boardView(), LYRA_FACING_HANDLE, 1).kind).toBe('marquee');
   });
+
+  it('a token the player controls under someone else’s token takes the press', () => {
+    const npcOnTop = lyra({ id: 'npc', name: 'Goblin', canControl: false, controllerIds: [] });
+    const view = boardView({ tokens: [lyra(), npcOnTop] });
+
+    expect(pressRouteOf(view, at(3.5, 4.5), 1)).toMatchObject({
+      kind: 'token',
+      token: { id: LYRA_ID },
+    });
+  });
+
+  it('with no token of theirs under the press, the player takes the one on top', () => {
+    const npc = (id: string) => lyra({ id, canControl: false, controllerIds: [] });
+    const view = boardView({ tokens: [npc('below'), npc('above')] });
+
+    expect(pressRouteOf(view, at(3.5, 4.5), 1)).toMatchObject({
+      kind: 'token',
+      token: { id: 'above' },
+    });
+  });
 });
 
 describe('pressRouteOf with the draw tool', () => {
@@ -304,6 +324,13 @@ describe('menuRouteOf, the short right click', () => {
 
   it('the empty board opens nothing', () => {
     expect(menuRouteOf(boardView(), at(15, 10), 1)).toBeNull();
+  });
+
+  it('for a player the token they control under someone else’s gets the menu', () => {
+    const npcOnTop = lyra({ id: 'npc', name: 'Goblin', canControl: false, controllerIds: [] });
+    const view = boardView({ tokens: [lyra(), npcOnTop] });
+
+    expect(menuRouteOf(view, at(3.5, 4.5), 1)).toEqual({ kind: 'token', tokenId: LYRA_ID });
   });
 });
 

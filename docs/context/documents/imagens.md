@@ -4,7 +4,7 @@ Hub: [../documents.md](../documents.md). Abas: [abas.md](abas.md).
 
 `DocumentImagesService` recebe o alvo `{ documentId, tabId }`, autoriza o editor **da aba** (visível e editável) antes de enviar/importar e revalida na transação de associação. Reutiliza `AssetsService.uploadDocumentImage`/`importDocumentImage`, o processador Sharp, fetcher com guardas de rede e S3 existentes. Sem fetch/S3 sob trava. Revogação durante I/O impede associação; eventual órfão fica inacessível. Dono pedindo upload numa aba `masters` recebe `DOCUMENT_TAB_NOT_FOUND` antes de qualquer I/O.
 
-Propósito `document_image`: PNG/JPEG/WebP estáticos, 20 MiB e maior lado 4096. Rotas genéricas de Assets recusam esse propósito antes de I/O; as rotas da aba (`…/tabs/:tabId/images[/import|/from-library]`) são a entrada autorizada. Guardas de fundo/token/forma/aura/condição/capa também o recusam. GIF/SVG e hotlink não entram.
+Propósito `document_image`: PNG/JPEG/WebP estáticos (GIF entra como PNG do 1º quadro), 20 MiB e maior lado 4096. Rotas genéricas de Assets recusam esse propósito antes de I/O; as rotas da aba (`…/tabs/:tabId/images[/import|/from-library]`) são a entrada autorizada. Guardas de fundo/token/forma/aura/condição/capa também o recusam. GIF/SVG e hotlink não entram.
 
 ## Referência por aba (`0071_document_tab_assets`)
 
