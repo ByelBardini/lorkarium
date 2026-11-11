@@ -715,6 +715,13 @@
       "when": 1794361791912,
       "tag": "0101_missing_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1794361875068,
+      "tag": "0102_saved_roll_folder_index",
+      "breakpoints": true
     }
   ]
 }
