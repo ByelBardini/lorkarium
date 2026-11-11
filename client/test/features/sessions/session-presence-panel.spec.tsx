@@ -1,5 +1,6 @@
 import type { SessionMemberDto } from '@lorkarium/contracts';
 import { act, render, screen, within } from '@testing-library/react';
+import { Profiler } from 'react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
@@ -22,6 +23,7 @@ import {
 } from '../../support/character-fixtures';
 import { InteractionClockFake } from '../../support/interaction-clock-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
+import { RenderCounter } from '../../support/render-counter';
 import {
   ANA_AT_TABLE,
   BIA_AT_TABLE,
@@ -29,6 +31,8 @@ import {
   biaLeft,
   biaUpdated,
   duda,
+  eventAt,
+  LYRA_ID,
   vharnBoard,
   vharnState,
   VHARN_GRID,
@@ -42,8 +46,10 @@ describe('SessionPresencePanel', () => {
   let board: StoreApi<BoardStore>;
   let characters: StoreApi<CharactersStore>;
   let interaction: StoreApi<BoardInteractionStore>;
+  let renders: RenderCounter;
 
   beforeEach(() => {
+    renders = new RenderCounter();
     presence = createTablePresenceStore(VHARN.id);
     board = createBoardStore(VHARN.id, () => undefined);
     characters = createCharactersStore(VHARN.id, () => undefined);
@@ -64,17 +70,41 @@ describe('SessionPresencePanel', () => {
       characters.getState().apply(charactersSynced(3, lyraCharacter(), kaelCharacter()));
     });
     render(
-      <SessionPresencePanel
-        store={presence}
-        board={board}
-        characters={characters}
-        interaction={interaction}
-        isMaster={true}
-        ownerId={VHARN.ownerId}
-        clock={new InteractionClockFake()}
-      />,
+      <Profiler id="na-mesa" onRender={renders.onRender}>
+        <SessionPresencePanel
+          store={presence}
+          board={board}
+          characters={characters}
+          interaction={interaction}
+          isMaster={true}
+          ownerId={VHARN.ownerId}
+          clock={new InteractionClockFake()}
+        />
+      </Profiler>,
     );
   }
+
+  describe('renders', () => {
+    beforeEach(() => {
+      renderPanel();
+      renders.count = 0;
+    });
+
+    it('Lyra moved on the board does not render the panel', () => {
+      const moves = [{ tokenId: LYRA_ID, col: 9, row: 6 }];
+      const event = eventAt(5, { type: 'tokensMoved', payload: { moves } });
+
+      act(() => board.getState().apply({ kind: 'boardEvent', event }));
+
+      expect(renders.count).toBe(0);
+    });
+
+    it('Bia leaving renders the panel once', () => {
+      act(() => presence.getState().apply({ kind: 'memberLeft', event: biaLeft({ version: 99 }) }));
+
+      expect(renders.count).toBe(1);
+    });
+  });
 
   const section = (name: string | RegExp) => screen.getByRole('region', { name });
   const cardTitles = () =>

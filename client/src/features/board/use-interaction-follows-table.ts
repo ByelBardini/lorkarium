@@ -42,6 +42,8 @@ export function useInteractionFollowsTable(
     const stopSnapshots = board.subscribe((next, previous) => {
       interaction.getState().followVision(next.board?.scene.vision);
       if (next.snapshots !== previous.snapshots) return interaction.getState().dropPreview();
+      // Only a turn that moves is said: any other event works no filter out.
+      if (turnOf(next.board) === turnOf(previous.board)) return;
       const players = playerIdsOf(presence.getState().members);
       const { outlines } = sightOutlines.getState();
       const sight = sightNowOf(next, interaction.getState(), players, outlines);
@@ -55,6 +57,10 @@ export function useInteractionFollowsTable(
       stopSnapshots();
     };
   }, [presence, board, interaction, role, sightOutlines]);
+}
+
+function turnOf(board: BoardStateDto | null): string | null {
+  return board?.combat?.currentCombatantId ?? null;
 }
 
 // Never while something is dragged: the selection would jump under the pointer.
