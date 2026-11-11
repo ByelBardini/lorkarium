@@ -1,7 +1,5 @@
 import type { ChatSentDto } from '@lorkarium/contracts';
 import { LockIcon } from 'lucide-react';
-import type { StoreApi } from 'zustand/vanilla';
-import type { SceneTabsStore } from '@/stores/scene-tabs-store';
 import { TokenFace } from '@/features/tokens/token-face';
 import { UserAvatar } from '@/components/user-avatar';
 import { mentionsAny, type ChatMessage } from '@/lib/chat-conversations';
@@ -9,7 +7,7 @@ import { initialsOf } from '@lorkarium/game-core';
 import { cn } from '@/lib/utils';
 import { MENTION_MARK, whisperMark } from './chat-messages';
 import type { ChatPeople } from './use-chat-people';
-import { useChatToken } from './use-chat-token';
+import type { ChatTokenFace } from './use-chat-token';
 
 export type ChatMessageRowProps = Readonly<{
   message: ChatMessage;
@@ -18,7 +16,9 @@ export type ChatMessageRowProps = Readonly<{
   people: ChatPeople;
   /** The names an `@` calls the viewer by. */
   viewerNames: readonly string[];
-  tabs: StoreApi<SceneTabsStore>;
+  /** The face of the token spoken as, from the grids open here (`null`: none open, or spoken as
+   *  oneself). */
+  face: ChatTokenFace | null;
 }>;
 
 const TIME_FORMAT = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -44,7 +44,7 @@ export function ChatMessageRow(props: ChatMessageRowProps): React.JSX.Element {
       )}
     >
       <span className="flex w-7 shrink-0 justify-center">
-        {!props.continued && <RowAvatar event={event} people={props.people} tabs={props.tabs} />}
+        {!props.continued && <RowAvatar event={event} people={props.people} face={props.face} />}
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         {!props.continued && <RowHeader event={event} people={props.people} mine={mine} />}
@@ -67,10 +67,10 @@ type RowPartProps = Readonly<{ event: ChatSentDto; people: ChatPeople }>;
 function RowAvatar({
   event,
   people,
-  tabs,
-}: RowPartProps & Pick<ChatMessageRowProps, 'tabs'>): React.JSX.Element {
+  face,
+}: RowPartProps & Pick<ChatMessageRowProps, 'face'>): React.JSX.Element {
   if (event.speaker.kind === 'token') {
-    return <TokenMessageAvatar speaker={event.speaker} tabs={tabs} />;
+    return <TokenMessageAvatar speaker={event.speaker} face={face} />;
   }
   const author = people.identityOf(event.fromUserId);
   return (
@@ -80,17 +80,16 @@ function RowAvatar({
 
 function TokenMessageAvatar({
   speaker,
-  tabs,
+  face,
 }: Readonly<{
   speaker: Extract<ChatSentDto['speaker'], { kind: 'token' }>;
-  tabs: StoreApi<SceneTabsStore>;
+  face: ChatTokenFace | null;
 }>): React.JSX.Element {
-  const token = useChatToken(tabs, speaker.sceneId, speaker.tokenId);
   return (
     <TokenFace
-      initials={token?.initials ?? initialsOf(speaker.name)}
-      imageAssetId={token?.imageAssetId ?? null}
-      round={token?.frame === 'round'}
+      initials={face?.initials ?? initialsOf(speaker.name)}
+      imageAssetId={face?.imageAssetId ?? null}
+      round={face?.frame === 'round'}
       className="size-7 bg-muted font-display text-[11px] text-foreground"
     />
   );
