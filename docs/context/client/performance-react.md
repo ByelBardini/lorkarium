@@ -20,6 +20,8 @@ O lado React das regras de desempenho: o que impede painel, lista e sala de re-r
 
 5. **Quem assina a store fora do React volta cedo** (`use-interaction-follows-table.ts`, `use-combat-recap.ts`): o `board.subscribe` dispara a cada arraste e evento; compare o que importa (a vez, o `combat`) antes de chamar o `sightNowOf`.
 
+6. **Linha de lista longa é `memo` e recebe só o que mostra** (`SceneTokenRow` em `scene-token-list.tsx`): `selected` e `alone` em booleanos (`rowPropsOf`), nunca o array `selectedIds`, que muda a cada clique e re-renderizaria as 300 linhas; o `onSelect` nasce dentro da linha a partir do id. A linha fora da tela não é diagramada nem pintada (`content-visibility: auto`, com `contain-intrinsic-size` para a rolagem não pular). Provado em `scene-token-list-rows.spec.tsx` (o `TokenLine` contado por `vi.mock`: renomear 1 de 300 → 1 linha; selecionar 1 → 1 linha).
+
 ## Armadilhas
 
 - **Teste de notificação conta assinante, não estado**: `NotificationCounter` (`client/test/support/notification-counter.ts`) assina a store e conta; `toEqual` no estado passa mesmo com notificação à toa.
