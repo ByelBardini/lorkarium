@@ -1,17 +1,12 @@
 import { and, eq, getTableColumns, inArray } from 'drizzle-orm';
+import { columnsWithout } from '../../database/columns-without';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { assets, type AssetPo, type NewAssetPo } from './assets.po';
 
 /** An asset row without its silhouette, which can be large. */
 export type AssetHeaderPo = Omit<AssetPo, 'sightOutline'>;
 
-const ASSET_HEADER = headerColumnsOf(getTableColumns(assets));
-
-function headerColumnsOf<C extends { sightOutline: unknown }>(columns: C): Omit<C, 'sightOutline'> {
-  const { sightOutline, ...header } = columns;
-  void sightOutline;
-  return header;
-}
+const ASSET_HEADER = columnsWithout(getTableColumns(assets), 'sightOutline');
 
 /** The asset rows. Every read a command or a viewer makes goes through the campaign, so an id
  *  of another table finds nothing (§2.6, criterion 14). */
