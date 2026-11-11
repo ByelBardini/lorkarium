@@ -270,6 +270,7 @@ describe('the queries each hot board command costs', () => {
       moveInTie: 12,
       setKindMany: 6,
       reshapeMany: 6,
+      addPlayers: 18,
     } as const;
 
     function createdIdsOf(ack: Awaited<ReturnType<typeof send>>): string[] {
@@ -592,6 +593,27 @@ describe('the queries each hot board command costs', () => {
           areas.map((area) => JSON.stringify([area.color, 'reach' in area ? area.reach : null])),
         ),
       ).toEqual(new Set([JSON.stringify(['moss', 2])]));
+    });
+
+    it(`token:addPlayers costs at most ${GROUP_BUDGET.addPlayers} and counts nothing (the grid is read whole)`, async () => {
+      const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+      const scene = await new ScenesDao(live.connection.db).findActiveOf(live.vharn.id);
+      const command = {
+        ...envelope(live.vharn.id),
+        sceneId: scene?.id,
+        center: { col: 5, row: 5 },
+      };
+
+      const queries = await counted(() =>
+        ana.client.timeout(2000).emitWithAck('token:addPlayers', command),
+      );
+
+      const placed = (await synced(ana.client, live.vharn)).tokens.filter(
+        ({ characterId }) => characterId !== null,
+      );
+      expect(placed).toHaveLength(2);
+      expect(live.queries.matching(/count\(/i)).toBe(0);
+      expect(queries).toBeLessThanOrEqual(GROUP_BUDGET.addPlayers);
     });
   });
 });
