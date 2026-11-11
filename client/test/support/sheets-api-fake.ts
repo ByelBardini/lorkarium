@@ -2,6 +2,7 @@ import {
   applySheetValueEdits,
   type AssetDto,
   type AssetMimeTypeDto,
+  type CreateSheetBarRequestInput,
   type CreateSheetRequestDto,
   type DeleteSheetRequestDto,
   type SheetResponseDto,
@@ -10,7 +11,12 @@ import {
   type UpdateSheetRequestDto,
   type UpdateSheetValuesRequestDto,
 } from '@lorkarium/contracts';
-import type { SheetImage, SheetsApi, SheetsResult } from '@/services/sheets-api';
+import type {
+  SheetBarCreationResult,
+  SheetImage,
+  SheetsApi,
+  SheetsResult,
+} from '@/services/sheets-api';
 import { sheetResponse, sheetValuesWrite } from './sheet-fixtures';
 
 type Held<T> = Readonly<{ release: (answer?: SheetsResult<T>) => void }>;
@@ -35,6 +41,14 @@ export class SheetsApiFake implements SheetsApi {
   uploadResult: SheetsResult<AssetDto> = { ok: false, failure: { kind: 'forbidden' } };
   readonly uploads: Array<
     Readonly<{ campaignId: string; sheetId: string; bytes: ArrayBuffer; type: AssetMimeTypeDto }>
+  > = [];
+  /** `createBar` answers this (a new bar by default) and keeps each request in `barCreations`. */
+  createBarResult: SheetBarCreationResult = {
+    ok: true,
+    value: { barId: '00000000-0000-4000-8000-0000000000b1', created: true },
+  };
+  readonly barCreations: Array<
+    Readonly<{ campaignId: string; sheetId: string; input: CreateSheetBarRequestInput }>
   > = [];
   detailCalls = 0;
   /** `ofToken` answers the sheets of this token id, else none (`ofTokenResult` overrides). */
@@ -120,6 +134,14 @@ export class SheetsApiFake implements SheetsApi {
   ): Promise<SheetsResult<AssetDto>> {
     this.uploads.push({ campaignId, sheetId, bytes, type });
     return this.uploadResult;
+  }
+  async createBar(
+    campaignId: string,
+    sheetId: string,
+    input: CreateSheetBarRequestInput,
+  ): Promise<SheetBarCreationResult> {
+    this.barCreations.push({ campaignId, sheetId, input });
+    return this.createBarResult;
   }
 
   private apply(input: UpdateSheetValuesRequestDto): SheetsResult<SheetWriteResponseDto> {

@@ -184,3 +184,28 @@ describe('values.patch', () => {
   it('refuses a forbidden key anywhere on the path', () =>
     expect(issuesOf(patch([{ path: ['hab', '__proto__'], value: 1 }]))).toContain('__proto__'));
 });
+
+describe('bars.create', () => {
+  const create = (bar: unknown) => ({ type: 'bars.create', requestId: '1', bar });
+
+  it('accepts a label and a max, gold by default', () =>
+    expect(sheetFrameMessageDto.parse(create({ label: 'Fôlego', max: 6 }))).toEqual(
+      create({ label: 'Fôlego', max: 6, color: 'gold' }),
+    ));
+  it('refuses a hex color citing the palette', () =>
+    expect(issuesOf(create({ label: 'Fôlego', max: 6, color: '#ff0000' }))).toContain(
+      'expected one of gold',
+    ));
+  it('refuses a current value: the bar starts full', () =>
+    expect(
+      sheetFrameMessageDto.safeParse(create({ label: 'MP', max: 6, current: 1 })).success,
+    ).toBe(false));
+  it('answers with the bar id and whether it was created', () =>
+    expect(
+      sheetHostMessageDto.safeParse({
+        type: 'result',
+        requestId: '1',
+        value: { barId: assetId, created: true },
+      }).success,
+    ).toBe(true));
+});

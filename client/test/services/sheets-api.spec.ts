@@ -253,3 +253,42 @@ describe('sheets HTTP API: an image sent to the sheet', () => {
     expect(result).toEqual({ ok: false, failure: { kind: 'offline' } });
   });
 });
+
+describe('sheets HTTP API: a bar created by the sheet', () => {
+  const BAR_ID = '3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f';
+  const bar = { label: 'Fôlego', max: 6 };
+
+  it('posts the bar to the sheet route and answers its id and whether it was created', async () => {
+    const transport = new HttpTransportFake().respondWith(201, { barId: BAR_ID, created: true });
+    const result = await apiOver(transport).createBar(VHARN.id, LYRA_SHEET_ID, { bar });
+    expect({ result, request: transport.requests[0] }).toMatchObject({
+      result: { ok: true, value: { barId: BAR_ID, created: true } },
+      request: { method: 'POST', path: `${SHEET_PATH}/bars`, body: { bar } },
+    });
+  });
+
+  it("a refusal keeps the server's code and message beside its kind", async () => {
+    const refusal = { code: 'BAR_LIMIT', message: 'Bar "Fôlego" does not fit' };
+    const transport = new HttpTransportFake().respondWith(409, refusal);
+    const result = await apiOver(transport).createBar(VHARN.id, LYRA_SHEET_ID, { bar });
+    expect(result).toEqual({ ok: false, failure: { kind: 'unexpected' }, refusal });
+  });
+
+  it('a 403 with no error body is forbidden with no refusal', async () => {
+    const transport = new HttpTransportFake().respondWith(403, 'no');
+    const result = await apiOver(transport).createBar(VHARN.id, LYRA_SHEET_ID, { bar });
+    expect(result).toEqual({ ok: false, failure: { kind: 'forbidden' }, refusal: null });
+  });
+
+  it('an answer outside the DTO is unexpected', async () => {
+    const transport = new HttpTransportFake().respondWith(200, { barId: 'PV', created: true });
+    const result = await apiOver(transport).createBar(VHARN.id, LYRA_SHEET_ID, { bar });
+    expect(result).toEqual({ ok: false, failure: { kind: 'unexpected' }, refusal: null });
+  });
+
+  it('a network outage is offline', async () => {
+    const transport = new HttpTransportFake().failWithNetworkDown();
+    const result = await apiOver(transport).createBar(VHARN.id, LYRA_SHEET_ID, { bar });
+    expect(result).toEqual({ ok: false, failure: { kind: 'offline' }, refusal: null });
+  });
+});

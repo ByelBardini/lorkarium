@@ -7,6 +7,7 @@ import type { SheetEditorLayoutMemory } from '@/lib/sheet-editor-layout';
 import type { ChatWindowHost } from '@/services/chat-window-host';
 import type { Clipboard } from '@/services/clipboard';
 import type { SheetChannel } from '@/sheet-sandbox/sheet-frame';
+import type { SheetPreviewDocumentPorts } from '@/sheet-sandbox/sheet-preview-host';
 import { readSheetManifestText } from '@/lib/sheet-template-manifest';
 import { declaredAssetsOf } from '@/lib/sheet-manifest-assets';
 import { SAMPLE_SHEET_PREVIEW_DATA, type SheetPreviewData } from '@/lib/sheet-preview-data';
@@ -39,6 +40,8 @@ export type SheetTemplateWorkbenchProps = Readonly<{
   clipboard?: Clipboard;
   /** Sends the fonts and images and reads them for the preview; without it, none is embedded. */
   assetPorts?: SheetTemplateAssetPorts;
+  /** Where the preview reads the table's public documents; without it they answer PREVIEW_ONLY. */
+  documentPorts?: SheetPreviewDocumentPorts;
 }>;
 
 /** The template editor's body: the code, the divider, and beside it the preview (docked, full
@@ -104,7 +107,7 @@ function WorkbenchSide(props: WorkbenchSideProps): React.JSX.Element {
   const preview = (actions: ReactNode) => (
     <SheetTemplatePreview
       {...{ source, actions, permissions, now: props.now, createChannel: props.createChannel }}
-      {...{ testData, onTestData: setTestData }}
+      {...{ testData, onTestData: setTestData, documents: props.documentPorts }}
       onConsole={sheetConsole.append}
       onRun={sheetConsole.clear}
     />

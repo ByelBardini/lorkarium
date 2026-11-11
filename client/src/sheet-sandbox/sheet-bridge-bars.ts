@@ -1,6 +1,12 @@
 import type { SheetBarCostDto, SheetFrameRequestDto, TokenBarDto } from '@lorkarium/contracts';
 import type { SheetCommandResult, SheetCommands } from '@/services/sheet-commands';
-import { refusedWith, SHEET_BRIDGE_DONE, type SheetBridgeAnswer } from './sheet-bridge-answer';
+import type { SheetsApi } from '@/services/sheets-api';
+import {
+  refusedByKind,
+  refusedWith,
+  SHEET_BRIDGE_DONE,
+  type SheetBridgeAnswer,
+} from './sheet-bridge-answer';
 import { resolveSheetBar } from './resolve-sheet-bar';
 
 /** The sheet's bars as the host sees them: the holder's (`null` = no holder, `'waiting'` = its
@@ -58,4 +64,29 @@ export async function spendSheetBars(
   }
   const { campaignId, sheetId, commands } = target;
   return answerOf('bars.spend', await commands.spendBars(campaignId, sheetId, costs));
+}
+
+type CreateRequest = Extract<SheetFrameRequestDto, { type: 'bars.create' }>;
+
+/** Where `bars.create` goes: the sheet's route, on the holder the server finds. */
+export type SheetBarCreationTarget = Readonly<{
+  campaignId: string;
+  sheetId: string;
+  api: Pick<SheetsApi, 'createBar'>;
+}>;
+
+/** `bars.create`: the server creates the bar on the holder (or finds it by label) and answers
+ *  its id; a refusal keeps the server's code and text (`BAR_LIMIT`, `PERMISSION_NOT_DECLARED`).
+ *
+ *  Example: `await createSheetBar(target, { type: 'bars.create', requestId: '5', bar: { label: 'Fôlego', max: 6, color: 'gold' } })` */
+export async function createSheetBar(
+  target: SheetBarCreationTarget,
+  request: CreateRequest,
+): Promise<SheetBridgeAnswer> {
+  const result = await target.api.createBar(target.campaignId, target.sheetId, {
+    bar: request.bar,
+  });
+  if (result.ok) return { ok: true, value: result.value };
+  if (result.refusal) return refusedWith(result.refusal.code, result.refusal.message);
+  return refusedByKind('bars.create', result.failure.kind);
 }

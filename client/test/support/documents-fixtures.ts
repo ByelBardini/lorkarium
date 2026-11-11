@@ -1,10 +1,12 @@
-import type {
-  DocumentContentDto,
-  DocumentDto,
-  DocumentTabDto,
-  DocumentTabSummaryDto,
-  DocumentTabWriteResponseDto,
-  DocumentWriteResponseDto,
+import {
+  documentSummaryDto,
+  type DocumentContentDto,
+  type DocumentDto,
+  type DocumentSummaryDto,
+  type DocumentTabDto,
+  type DocumentTabSummaryDto,
+  type DocumentTabWriteResponseDto,
+  type DocumentWriteResponseDto,
 } from '@lorkarium/contracts';
 
 export const DOCUMENT_ID = '10000000-0000-4000-8000-000000000001';
@@ -58,6 +60,14 @@ export function documentFixture(changes: Partial<DocumentDto> = {}): DocumentDto
     tabs: [tabSummaryFixture()],
     ...changes,
   };
+}
+/** The library's line of a document: its detail without the tabs.
+ *
+ *  Example: `summaryOfDocument(documentFixture({ visibility: 'public' }))` */
+export function summaryOfDocument(document: DocumentDto): DocumentSummaryDto {
+  return documentSummaryDto.parse(
+    Object.fromEntries(Object.entries(document).filter(([key]) => key in documentSummaryDto.shape)),
+  );
 }
 export function documentWrite(
   document: DocumentDto,

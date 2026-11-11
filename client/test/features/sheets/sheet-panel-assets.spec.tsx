@@ -9,6 +9,7 @@ import { lyraCharacter, syncedCharacters } from '../../support/character-fixture
 import { CharacterCommandsFake } from '../../support/character-commands-fake';
 import { DiceCommandsFake } from '../../support/dice-commands-fake';
 import { InteractionClockFake } from '../../support/interaction-clock-fake';
+import { noDocuments } from '../../support/sheet-bridge-harness';
 import { SheetCommandsFake } from '../../support/sheet-commands-fake';
 import {
   LYRA_SHEET_ID,
@@ -47,6 +48,7 @@ async function renderWithFont(templateAssets: SheetTemplatesApiFake, assetId: st
     sheetCommands: new SheetCommandsFake(),
     boardCommands: new CharacterCommandsFake(),
     assets: new AssetsApiFake(),
+    documents: noDocuments(),
     dice: new DiceCommandsFake(),
     clock,
     templateAssets,

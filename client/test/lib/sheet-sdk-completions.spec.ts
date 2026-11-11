@@ -49,12 +49,16 @@ describe('sheetSdkCompletionSource', () => {
       'html',
       'character',
       'assets',
+      'documents',
     ]);
   });
 
+  it('"lorkarium.documents." offers the three document reads', () =>
+    expect(labelsAt('lorkarium.documents.')).toEqual(['list', 'tabs', 'readTab']));
+
   it('"lorkarium.bars." offers the bar calls, replacing from the end of the text', () => {
     const text = '  const pv = lorkarium.bars.';
-    expect(labelsAt(text)).toEqual(['list', 'get', 'adjust', 'spend']);
+    expect(labelsAt(text)).toEqual(['list', 'get', 'adjust', 'spend', 'create']);
     expect(complete(text)?.from).toBe(text.length);
   });
 

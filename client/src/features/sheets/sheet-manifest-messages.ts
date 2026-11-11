@@ -5,6 +5,8 @@ const PERMISSION_WORDS: Readonly<Record<SheetManifestPermissionDto, string>> = {
   'character:stats': 'Gravar CA e CD do personagem',
   'character:portrait': 'Trocar o retrato',
   'sheet:images': 'Enviar imagens',
+  'documents:read': 'Ler os documentos públicos da mesa',
+  'character:bars': 'Criar barras no personagem',
 };
 
 /** What a permission lets the sheet do, as the master reads it before importing.

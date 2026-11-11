@@ -25,7 +25,19 @@ import {
   type SheetRateStamps,
 } from './sheet-bridge-answer';
 import { readSheetAsset, uploadSheetImage } from './sheet-bridge-assets';
-import { adjustSheetBar, spendSheetBars, type SheetBarsTarget } from './sheet-bridge-bars';
+import { diceSettled, sheetRollOf } from './sheet-bridge-dice';
+import {
+  isSheetDocumentRead,
+  readSheetDocuments,
+  type SheetDocumentRead,
+  type SheetDocumentSources,
+} from './sheet-bridge-documents';
+import {
+  adjustSheetBar,
+  createSheetBar,
+  spendSheetBars,
+  type SheetBarsTarget,
+} from './sheet-bridge-bars';
 import {
   sameStats,
   setCharacterImage,
@@ -54,13 +66,16 @@ export type SheetBridgeHostOptions = Readonly<{
    *  then gets `token: null, bars: []` and `bars.adjust` is refused `NO_TOKEN`. A source whose
    *  `current()` is `null` is still loading, and no `state` goes until it has the token. */
   token: SheetTokenSource | null;
-  /** Reads the token's portrait and the sheet's images, and sends images to the sheet. */
-  images: Pick<SheetsApi, 'image' | 'uploadImage'>;
+  /** Reads the token's portrait and the sheet's images, sends images to the sheet and creates
+   *  bars on its holder (`bars.create`). */
+  images: Pick<SheetsApi, 'image' | 'uploadImage' | 'createBar'>;
   commands: SheetCommands;
   /** `character.set` and `character.setImage` go out as the character's `character:update`. */
   characters: SheetCharacterCommands;
   /** Where `character.setImage` sends the portrait (a `token` image of the table). */
   assets: Pick<AssetsApi, 'upload'>;
+  /** Where `documents.*` reads the table's public documents. */
+  documents: SheetDocumentSources;
   dice: DiceCommands;
   clock: InteractionClock;
   /** Width / height of the roller's window: the physics box of the roll. */
@@ -81,13 +96,21 @@ export const SHEET_CHARACTER_RATE = { limit: 10, windowMs: 10_000 } as const;
 export const SHEET_UPLOAD_RATE = { limit: 10, windowMs: 60_000 } as const;
 /** Images read by the sheet (`assets.read`): a long list may show many at once. */
 export const SHEET_ASSET_READ_RATE = { limit: 120, windowMs: 60_000 } as const;
+/** Document reads by the sheet (`documents.list`, `documents.tabs` and `documents.readTab`
+ *  together). */
+export const SHEET_DOCUMENT_READ_RATE = { limit: 60, windowMs: 60_000 } as const;
+/** Bars the sheet creates on its holder (`bars.create`): a sheet sets its bars up once. */
+export const SHEET_BAR_CREATION_RATE = { limit: 10, windowMs: 60_000 } as const;
 
-type RateName = 'rolls' | 'characterWrites' | 'uploads' | 'reads';
+type RateName =
+  'rolls' | 'characterWrites' | 'uploads' | 'reads' | 'documentReads' | 'barCreations';
 const RATES: Readonly<Record<RateName, RateWindowRule>> = {
   rolls: SHEET_DICE_RATE,
   characterWrites: SHEET_CHARACTER_RATE,
   uploads: SHEET_UPLOAD_RATE,
   reads: SHEET_ASSET_READ_RATE,
+  documentReads: SHEET_DOCUMENT_READ_RATE,
+  barCreations: SHEET_BAR_CREATION_RATE,
 };
 
 type ImageSlot = { assetId: string | null; image: SheetImage | null; loading: boolean };
@@ -135,7 +158,14 @@ function noop(): void {}
 
 function freshRates(): Record<RateName, SheetRateStamps> {
   const empty = (): SheetRateStamps => ({ stamps: [] });
-  return { rolls: empty(), characterWrites: empty(), uploads: empty(), reads: empty() };
+  return {
+    rolls: empty(),
+    characterWrites: empty(),
+    uploads: empty(),
+    reads: empty(),
+    documentReads: empty(),
+    barCreations: empty(),
+  };
 }
 
 function closeBridge(
@@ -179,7 +209,10 @@ async function receive(bridge: Bridge, data: unknown): Promise<void> {
   );
 }
 
-type EditRequest = Exclude<SheetFrameRequestDto, { type: 'ready' | 'dice.roll' | 'assets.read' }>;
+type EditRequest = Exclude<
+  SheetFrameRequestDto,
+  { type: 'ready' | 'dice.roll' | 'assets.read' } | SheetDocumentRead
+>;
 
 // The manifest first (what the template may ask at all), then the viewer's own right to edit.
 async function answerOf(bridge: Bridge, request: SheetFrameRequestDto): Promise<SheetBridgeAnswer> {
@@ -190,6 +223,11 @@ async function answerOf(bridge: Bridge, request: SheetFrameRequestDto): Promise<
   if (request.type === 'assets.read') {
     const read = () => readSheetAsset(bridge.options.images, request.assetId);
     return limited(bridge, 'reads', request.type, read);
+  }
+  if (isSheetDocumentRead(request)) {
+    const { documents, campaignId } = bridge.options;
+    const read = () => readSheetDocuments(documents, campaignId, request);
+    return limited(bridge, 'documentReads', request.type, read);
   }
   if (!bridge.options.sheet.getState().sheet?.canEdit) {
     return refusedWith('FORBIDDEN', `${request.type} refused: this sheet is read-only here`);
@@ -207,6 +245,8 @@ function edit(bridge: Bridge, request: EditRequest): Promise<SheetBridgeAnswer> 
       return adjustSheetBar(barsTargetOf(bridge), request);
     case 'bars.spend':
       return spendSheetBars(barsTargetOf(bridge), request);
+    case 'bars.create':
+      return createBar(bridge, request);
     case 'character.set':
       return setStats(bridge, request.changes);
     case 'character.setImage':
@@ -287,6 +327,16 @@ function uploadImage(bridge: Bridge, image: FrameImage): Promise<SheetBridgeAnsw
   return limited(bridge, 'uploads', 'assets.upload', send);
 }
 
+function createBar(
+  bridge: Bridge,
+  request: Extract<SheetFrameRequestDto, { type: 'bars.create' }>,
+): Promise<SheetBridgeAnswer> {
+  const { campaignId, sheet, images } = bridge.options;
+  const sheetId = sheet.getState().sheet?.id ?? '';
+  const send = () => createSheetBar({ campaignId, sheetId, api: images }, request);
+  return limited(bridge, 'barCreations', 'bars.create', send);
+}
+
 function barsTargetOf(bridge: Bridge): SheetBarsTarget {
   const { campaignId, sheet, commands } = bridge.options;
   const token = tokenOf(bridge);
@@ -312,7 +362,9 @@ async function roll(
   const parts = [{ label: null, expression: request.expression }];
   const visibility = request.visibility;
   const result = await dice.roll(campaignId, { label, parts, visibility, aspect: diceAspect() });
-  return result.ok ? SHEET_BRIDGE_DONE : rollRefusalOf(result.failure);
+  if (!result.ok) return rollRefusalOf(result.failure);
+  await diceSettled(clock, result.settlesInMs);
+  return { ok: true, value: sheetRollOf(result) };
 }
 
 function rollRefusalOf(failure: DiceRollFailure): SheetBridgeAnswer {

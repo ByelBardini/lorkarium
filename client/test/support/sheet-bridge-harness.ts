@@ -1,6 +1,7 @@
 import type { SheetManifestPermissionDto } from '@lorkarium/contracts';
 import type { StoreApi } from 'zustand/vanilla';
 import { createSheetBridgeHost, type SheetBridgeHost } from '@/sheet-sandbox/sheet-bridge-host';
+import type { SheetDocumentSources } from '@/sheet-sandbox/sheet-bridge-documents';
 import type { SheetTokenSource } from '@/sheet-sandbox/sheet-token-source';
 import { characterSource } from '@/sheet-sandbox/sheet-token-source';
 import { createCharactersStore, type CharactersStore } from '@/stores/characters-store';
@@ -10,7 +11,9 @@ import { VHARN } from './campaigns-api-fake';
 import { charactersSynced, lyraCharacter } from './character-fixtures';
 import { CharacterCommandsFake } from './character-commands-fake';
 import { DiceCommandsFake } from './dice-commands-fake';
+import { DocumentsApiFake } from './documents-api-fake';
 import { InteractionClockFake } from './interaction-clock-fake';
+import { LibraryApiFake } from './library-api-fake';
 import { SheetCommandsFake } from './sheet-commands-fake';
 import { LYRA_SHEET_ID, lyraSheet, sheetResponse, tormentaCode } from './sheet-fixtures';
 import { SheetHostPortFake } from './sheet-host-port-fake';
@@ -24,6 +27,8 @@ export type SheetBridgeHarness = Readonly<{
   commands: SheetCommandsFake;
   characterCommands: CharacterCommandsFake;
   assets: AssetsApiFake;
+  library: LibraryApiFake;
+  documents: DocumentsApiFake;
   characters: StoreApi<CharactersStore>;
   sheet: StoreApi<SheetStoreState>;
   host: SheetBridgeHost;
@@ -38,6 +43,13 @@ export type SheetBridgeSetup = Readonly<{
   /** The holder's source; Lyra's character (Bia's) by default. */
   tokenOf?: (characters: StoreApi<CharactersStore>) => SheetTokenSource | null;
 }>;
+
+/** Document sources that answer like an untouched library: for a host whose spec reads none.
+ *
+ *  Example: `createSheetBridgeHost({ ..., documents: noDocuments() })` */
+export function noDocuments(): SheetDocumentSources {
+  return { library: new LibraryApiFake(), documents: new DocumentsApiFake() };
+}
 
 export function settledHost(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
@@ -69,6 +81,8 @@ export async function sheetBridgeHarness(
     commands: new SheetCommandsFake(),
     characterCommands: new CharacterCommandsFake(),
     assets: new AssetsApiFake(),
+    library: new LibraryApiFake(),
+    documents: new DocumentsApiFake(),
   };
   const token = setup.tokenOf
     ? setup.tokenOf(characters)
@@ -77,6 +91,7 @@ export async function sheetBridgeHarness(
     ...{ port: fakes.port, campaignId: VHARN.id, sheet, token, images: api },
     ...{ commands: fakes.commands, characters: fakes.characterCommands, assets: fakes.assets },
     ...{ dice: new DiceCommandsFake(), clock, diceAspect: () => 1 },
+    documents: { library: fakes.library, documents: fakes.documents },
   });
   const frameSends = async (data: unknown): Promise<void> => {
     fakes.port.fromFrame(data);

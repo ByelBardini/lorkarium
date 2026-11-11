@@ -76,4 +76,5 @@ export * from './sheets/sheet-template-file.dto';
 export * from './sheets/sheet.dto';
 export * from './sheets/sheet-values.dto';
 export * from './sheets/sheet-bridge.dto';
+export * from './sheets/sheet-bridge-documents.dto';
 export * from './sheets/sheet-events';

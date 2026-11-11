@@ -6,8 +6,12 @@ type RequestType = SheetFrameRequestDto['type'];
 const PERMISSION_BY_REQUEST: Readonly<Partial<Record<RequestType, SheetManifestPermissionDto>>> = {
   'character.set': 'character:stats',
   'character.setImage': 'character:portrait',
+  'bars.create': 'character:bars',
   'assets.upload': 'sheet:images',
   'assets.read': 'sheet:images',
+  'documents.list': 'documents:read',
+  'documents.tabs': 'documents:read',
+  'documents.readTab': 'documents:read',
 };
 
 /** The manifest permission a request needs, or `null` for one every sheet has.

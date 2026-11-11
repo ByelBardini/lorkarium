@@ -1,6 +1,8 @@
 import {
+  createSheetBarRequestDto,
   createSheetRequestDto,
   deleteSheetRequestDto,
+  type CreateSheetBarResponseDto,
   setMainSheetCommandDto,
   sheetParamsDto,
   tokenSheetParamsDto,
@@ -23,6 +25,7 @@ import { CharacterError, CharacterNotFoundError } from '../characters/characters
 import { LibraryError } from '../library/library.error';
 import type { LibraryRequester } from '../library/library.service';
 import { TokenError, TokenNotFoundError } from '../tokens/tokens.error';
+import type { SheetBarCreationService } from './sheet-bar-creation.service';
 import type { SheetTemplatesService } from './sheet-templates.service';
 import type { SheetsService } from './sheets.service';
 import {
@@ -52,6 +55,8 @@ const STATUS_BY_CODE: Readonly<Record<SheetErrorCode, number>> = {
   INSUFFICIENT_BAR: 409,
   SHEET_TEMPLATE_ASSET_NOT_FOUND: 404,
   SHEET_TEMPLATE_ASSETS_TOO_LARGE: 413,
+  PERMISSION_NOT_DECLARED: 403,
+  BAR_LIMIT: 409,
 };
 // Public text only, except the count of sheets, which the master who asked may know, and the
 // bar short, which the one who pays sees on the sheet.
@@ -65,14 +70,20 @@ const PUBLIC_MESSAGE: Readonly<Record<SheetErrorCode, string | null>> = {
   INSUFFICIENT_BAR: null,
   SHEET_TEMPLATE_ASSET_NOT_FOUND: 'Template asset not found',
   SHEET_TEMPLATE_ASSETS_TOO_LARGE: 'The template assets are larger than 8 MB',
+  PERMISSION_NOT_DECLARED: null,
+  BAR_LIMIT: null,
 };
 
-export type SheetServices = Readonly<{ templates: SheetTemplatesService; sheets: SheetsService }>;
+export type SheetServices = Readonly<{
+  templates: SheetTemplatesService;
+  sheets: SheetsService;
+  barCreation: SheetBarCreationService;
+}>;
 
 /** The HTTP edge of the sheets, nested in the table (§2.6): the templates of the library and the
  *  sheets held by tokens and characters.
  *
- *  Example: `await app.register(sheetsRoutes({ templates, sheets }), { prefix: '/api' })` */
+ *  Example: `await app.register(sheetsRoutes({ templates, sheets, barCreation }), { prefix: '/api' })` */
 export function sheetsRoutes(services: SheetServices): (app: FastifyInstance) => Promise<void> {
   return async (app) => {
     app.setErrorHandler(sheetErrorReply);
@@ -83,7 +94,22 @@ export function sheetsRoutes(services: SheetServices): (app: FastifyInstance) =>
     registerTemplateRoutes(app, services.templates);
     registerSheetReads(app, services.sheets);
     registerSheetWrites(app, services.sheets);
+    registerSheetBarCreation(app, services.barCreation);
   };
+}
+
+// 201 only when the bar is new: one already there answers 200 with its id.
+function registerSheetBarCreation(
+  app: FastifyInstance,
+  barCreation: SheetBarCreationService,
+): void {
+  const options = { preHandler: app.authGuards.requireAuth };
+  app.post(`${SHEET}/bars`, options, async (request, reply) => {
+    const requester = requesterOf(app, request);
+    const input = createSheetBarRequestDto.parse(request.body);
+    const made = await barCreation.create(requester, sheetIdOf(request, requester), input);
+    return reply.code(made.created ? 201 : 200).send(made satisfies CreateSheetBarResponseDto);
+  });
 }
 
 function registerSheetReads(app: FastifyInstance, sheets: SheetsService): void {

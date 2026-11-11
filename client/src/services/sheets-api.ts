@@ -1,7 +1,12 @@
 import {
   ASSET_MAX_BYTES,
+  apiErrorDto,
   assetMimeTypeDto,
   assetResponseDto,
+  createSheetBarResponseDto,
+  type ApiErrorDto,
+  type CreateSheetBarRequestInput,
+  type CreateSheetBarResponseDto,
   sheetResponseDto,
   sheetWriteResponseDto,
   tokenSheetsResponseDto,
@@ -91,7 +96,20 @@ export interface SheetsApi {
     bytes: ArrayBuffer,
     type: AssetMimeTypeDto,
   ): Promise<SheetsResult<AssetDto>>;
+  /** Creates on the sheet's holder a bar it lacks (`POST …/sheets/:id/bars`); one already there
+   *  under that label answers its id with `created: false`. */
+  createBar(
+    campaignId: string,
+    sheetId: string,
+    input: CreateSheetBarRequestInput,
+  ): Promise<SheetBarCreationResult>;
 }
+
+/** `createBar`'s answer: a refusal keeps the server's code and text (`BAR_LIMIT` cites the bar
+ *  and the cap), for the sheet to show. */
+export type SheetBarCreationResult =
+  | Readonly<{ ok: true; value: CreateSheetBarResponseDto }>
+  | Readonly<{ ok: false; failure: SheetsFailure; refusal: ApiErrorDto | null }>;
 
 const REFUSAL_BY_CODE: Readonly<Record<string, SheetsFailure['kind']>> = {
   SHEET_ACTION_REUSED: 'action_reused',
@@ -204,6 +222,19 @@ export class HttpSheetsApi implements SheetsApi {
     return uploadedOf(await callUpload(this.transport, path, new Blob([bytes], { type })));
   }
 
+  async createBar(
+    campaignId: string,
+    sheetId: string,
+    input: CreateSheetBarRequestInput,
+  ): Promise<SheetBarCreationResult> {
+    const path = `${sheetPathOf(campaignId, sheetId)}/bars`;
+    const call = await callApi(this.transport, 'POST', path, input);
+    if (call.kind === 'offline') return { ok: false, failure: { kind: 'offline' }, refusal: null };
+    if (call.kind === 'refused') return barRefusalOf(call.response);
+    const parsed = parseOk(createSheetBarResponseDto, call.body, (body) => body);
+    return parsed.ok ? parsed : { ...parsed, refusal: null };
+  }
+
   private async answer<S extends z.ZodType>(
     method: HttpMethod,
     path: string,
@@ -215,6 +246,13 @@ export class HttpSheetsApi implements SheetsApi {
     if (call.kind === 'refused') return refused(call.response);
     return parseOk(dto, call.body, (parsed) => parsed);
   }
+}
+
+function barRefusalOf(response: HttpResponse): SheetBarCreationResult {
+  const body = apiErrorDto.safeParse(response.body);
+  const result = refused(response);
+  const failure: SheetsFailure = result.ok ? { kind: 'unexpected' } : result.failure;
+  return { ok: false, failure, refusal: body.success ? body.data : null };
 }
 
 function uploadedOf(call: ApiCall): SheetsResult<AssetDto> {

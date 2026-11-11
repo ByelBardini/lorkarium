@@ -32,13 +32,14 @@ function assetsOf(template: SheetTemplateFileContent): ReadonlyMap<string, Sheet
 }
 
 describe('the Lork sheet fixture as a .lksheet', () => {
-  it('reads as a template asking for the three permissions and the bars HP, MP, EN and ES', () => {
+  it('reads as a template asking for the four permissions and the bars HP, MP, EN and ES', () => {
     const template = lorkTemplate();
     expect(template.name).toBe('Ficha de Lork');
     expect(template.manifest.permissions).toEqual([
       'character:stats',
       'character:portrait',
       'sheet:images',
+      'character:bars',
     ]);
     expect(template.manifest.bars.map(({ label, max }) => [label, max])).toEqual([
       ['HP', 12],
@@ -364,16 +365,27 @@ describe('the bar formulas of the Lork sheet', () => {
     expect(sent('values.patch').at(-1)?.patches).toEqual([{ path: ['contas', 'c1'], value: null }]);
   });
 
-  it('"Adicionar conta" is always there, and a bar the table lacks or with a fixed formula is told', async () => {
-    deliverState({
-      contas: { c1: { ordem: 1, bar: 'Sorte', f: '10' }, c2: { ordem: 2, bar: 'hp', f: '10' } },
-    });
+  it('"Adicionar conta" is always there, and a bar with a fixed formula is told', async () => {
+    deliverState({ contas: { c1: { ordem: 1, bar: 'hp', f: '10' } } });
     await settled();
     expect(element<HTMLButtonElement>('[data-add="contas"]').hidden).toBe(false);
-    expect(element('#cb-c1').textContent).toBe('A mesa ainda não tem essa barra.');
-    expect(element('#cb-c2').textContent).toBe('HP já tem conta fixa.');
+    expect(element('#cb-c1').textContent).toBe('HP já tem conta fixa.');
+  });
+
+  it('a formula for a bar the table lacks creates it after an edit, once, with that maximum', async () => {
+    deliverState({
+      at: { des: { base: '2' } },
+      contas: { c1: { ordem: 1, bar: ' Sorte ', f: '5 + DES' } },
+    });
+    await settled();
+    expect(element('#cb-c1').textContent).toBe(
+      'A mesa ainda não tem essa barra: ela é criada com este máximo.',
+    );
+    expect(sent('bars.create')).toEqual([]);
     typeInto('[data-lk="contas.c1.f"]');
     await settled(700);
-    expect(sent('bars.adjust')).toEqual([]);
+    typeInto('[data-lk="contas.c1.f"]');
+    await settled(700);
+    expect(sent('bars.create').map(({ bar }) => bar)).toEqual([{ label: 'Sorte', max: 7 }]);
   });
 });

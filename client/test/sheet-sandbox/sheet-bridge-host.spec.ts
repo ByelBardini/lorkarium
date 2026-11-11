@@ -13,7 +13,9 @@ import { VHARN } from '../support/campaigns-api-fake';
 import { CharacterCommandsFake } from '../support/character-commands-fake';
 import { charactersSynced, lyraCharacter } from '../support/character-fixtures';
 import { DiceCommandsFake } from '../support/dice-commands-fake';
+import { biaRollAck } from '../support/dice-fixtures';
 import { InteractionClockFake } from '../support/interaction-clock-fake';
+import { noDocuments } from '../support/sheet-bridge-harness';
 import { SheetCommandsFake } from '../support/sheet-commands-fake';
 import { LYRA_SHEET_ID, lyraSheet, sheetResponse } from '../support/sheet-fixtures';
 import { SheetHostPortFake } from '../support/sheet-host-port-fake';
@@ -61,6 +63,7 @@ describe('sheet bridge host', () => {
       },
       ...{ images: api, commands, dice, clock, diceAspect: () => 1.5 },
       ...{ characters: new CharacterCommandsFake(), assets: new AssetsApiFake() },
+      documents: noDocuments(),
     });
   });
 
@@ -254,7 +257,51 @@ describe('sheet bridge host', () => {
         },
       },
     ]);
-    expect(port.ofType('result')).toEqual([{ type: 'result', requestId: '5' }]);
+    expect(port.ofType('result')).toEqual([]);
+  });
+
+  it('dice.roll answers with the expression, the total and the dice once they settle', async () => {
+    dice.answer = biaRollAck({
+      parts: [
+        {
+          label: null,
+          expression: '2d20kh1+5',
+          total: 22,
+          dice: [
+            { sides: 20, value: 17, status: 'kept', model: [0] },
+            { sides: 20, value: 3, status: 'dropped', model: [1] },
+          ],
+        },
+      ],
+      settlesInMs: 1800,
+    });
+    await frameSends({ type: 'dice.roll', requestId: '5', expression: '2d20kh1+5' });
+    clock.advance(1799);
+    expect(port.ofType('result')).toEqual([]);
+    clock.advance(1);
+    await settled();
+    expect(port.ofType('result')).toEqual([
+      {
+        type: 'result',
+        requestId: '5',
+        value: {
+          expression: '2d20kh1+5',
+          total: 22,
+          dice: [
+            { sides: 20, value: 17, status: 'kept' },
+            { sides: 20, value: 3, status: 'dropped' },
+          ],
+        },
+      },
+    ]);
+  });
+
+  it('a roll that settles after the sheet closed answers nothing', async () => {
+    await frameSends({ type: 'dice.roll', requestId: '5', expression: '1d20+5' });
+    host.dispose();
+    clock.advance(2400);
+    await settled();
+    expect(port.ofType('result')).toEqual([]);
   });
 
   it('a notation the server refuses comes back with its code and message', async () => {
@@ -360,6 +407,7 @@ describe('sheet bridge host for a sheet with no token', () => {
       ...{ port, campaignId: VHARN.id, sheet, token: null, images: api, commands },
       ...{ dice: new DiceCommandsFake(), clock, diceAspect: () => 1 },
       ...{ characters: new CharacterCommandsFake(), assets: new AssetsApiFake() },
+      documents: noDocuments(),
     });
     port.fromFrame({ type: 'ready', requestId: '1' });
     port.fromFrame({ type: 'bars.adjust', requestId: '2', bar: 'PV', change: ADD_ONE });
@@ -391,6 +439,7 @@ describe('sheet bridge host: the console', () => {
       ...{ commands: new SheetCommandsFake(), dice: new DiceCommandsFake(), clock },
       ...{ diceAspect: () => 1, characters: new CharacterCommandsFake() },
       assets: new AssetsApiFake(),
+      documents: noDocuments(),
     });
     return port;
   }

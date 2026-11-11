@@ -11,6 +11,7 @@ import type { SheetCommands } from '@/services/sheet-commands';
 import type { SheetTemplateAssetReader } from '@/services/sheet-templates-api';
 import type { SheetsApi } from '@/services/sheets-api';
 import type { SheetCharacterCommands } from '@/sheet-sandbox/sheet-bridge-character';
+import type { SheetDocumentSources } from '@/sheet-sandbox/sheet-bridge-documents';
 import { createSheetBridgeHost } from '@/sheet-sandbox/sheet-bridge-host';
 import { consoleEntryOf, type SheetConsoleSink } from '@/sheet-sandbox/sheet-console';
 import type { SheetChannel } from '@/sheet-sandbox/sheet-frame';
@@ -25,12 +26,14 @@ import { useSheetConsole, type SheetConsoleModel } from './use-sheet-console';
 
 /** What the panel's bridge turns the frame's requests into. */
 export type SheetPanelServices = Readonly<{
-  sheetsApi: Pick<SheetsApi, 'image' | 'uploadImage'>;
+  sheetsApi: Pick<SheetsApi, 'image' | 'uploadImage' | 'createBar'>;
   sheetCommands: SheetCommands;
   /** The character's `character:update` (the sheet's AC, DC and portrait). */
   boardCommands: SheetCharacterCommands;
   /** Where the sheet's new portrait goes up (a `token` image). */
   assets: Pick<AssetsApi, 'upload'>;
+  /** Where `documents.*` reads the table's public documents. */
+  documents: SheetDocumentSources;
   dice: DiceCommands;
   clock: InteractionClock;
   /** The clock of the console's lines (the master's mark). */
@@ -184,6 +187,7 @@ function useBridgeOf(
         commands: services.sheetCommands,
         characters: services.boardCommands,
         assets: services.assets,
+        documents: services.documents,
         dice: services.dice,
         clock: services.clock,
         diceAspect: () => rollAspectOf({ width: window.innerWidth, height: window.innerHeight }),

@@ -6,6 +6,7 @@ import {
   barChangeDto,
 } from '../board/token.dto';
 import { stateVersionDto } from '../http/realtime-ack.dto';
+import { sheetManifestBarDto } from './sheet-manifest.dto';
 import { sheetTemplateCodeDto } from './sheet-template.dto';
 import { sheetValuesDto } from './sheet-values.dto';
 
@@ -176,3 +177,22 @@ export const sheetSpendBarsCommandDto = z.strictObject({
   costs: z.array(sheetBarCostDto).min(1).max(MAX_BARS_PER_TOKEN),
 });
 export type SheetSpendBarsCommandDto = z.infer<typeof sheetSpendBarsCommandDto>;
+
+/** A bar a sheet asks its holder to have (`bars.create`): the manifest's bar with the color
+ *  optional, `gold` by default. */
+export const sheetBarCreationDto = sheetManifestBarDto.extend({
+  color: sheetManifestBarDto.shape.color.default('gold'),
+});
+export type SheetBarCreationDto = z.infer<typeof sheetBarCreationDto>;
+
+/** `POST …/sheets/:sheetId/bars`: creates the bar on the sheet's holder unless one with that
+ *  label (ignoring case and accents) is there already. Needs `character:bars` in the manifest.
+ *
+ *  Example: `createSheetBarRequestDto.parse({ bar: { label: 'Fôlego', max: 6 } })` */
+export const createSheetBarRequestDto = z.strictObject({ bar: sheetBarCreationDto });
+export type CreateSheetBarRequestDto = z.infer<typeof createSheetBarRequestDto>;
+export type CreateSheetBarRequestInput = z.input<typeof createSheetBarRequestDto>;
+
+/** The bar the holder has under that label, and whether this request created it. */
+export const createSheetBarResponseDto = z.strictObject({ barId: z.uuid(), created: z.boolean() });
+export type CreateSheetBarResponseDto = z.infer<typeof createSheetBarResponseDto>;

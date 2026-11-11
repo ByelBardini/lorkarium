@@ -126,6 +126,7 @@ export function LibraryBrowser(props: LibraryBrowserProps): React.JSX.Element {
           {...props}
           model={model}
           templateId={editingTemplate ? templateId : null}
+          libraryApi={props.api}
         />
       </div>
       {newItem.folderId !== undefined && (
