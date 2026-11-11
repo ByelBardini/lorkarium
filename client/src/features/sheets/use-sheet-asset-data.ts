@@ -14,6 +14,9 @@ export type SheetAssetLoad =
 const NO_ASSETS: SheetAssetLoad = { status: 'ready', assets: new Map() };
 const LOADING: SheetAssetLoad = { status: 'loading' };
 
+/** The ids whose data stays in memory per reader; past it the least recently used leaves. */
+export const SHEET_ASSET_READS_LIMIT = 32;
+
 // The bytes of an id never change: one read per reader and id, shared by the room and the preview.
 const reads = new WeakMap<SheetTemplateAssetReader, Map<string, Promise<SheetAssetData | null>>>();
 
@@ -24,14 +27,23 @@ function readOnce(
   const known = reads.get(reader) ?? new Map<string, Promise<SheetAssetData | null>>();
   reads.set(reader, known);
   const cached = known.get(assetId);
-  if (cached) return cached;
+  // A Map iterates in insertion order: put back at the end, the id is the newest again.
+  if (cached) return keptNewest(known, assetId, cached);
   const read = reader.asset(assetId).then((result) => {
     if (result.ok)
       return { type: result.value.type, base64: bytesToBase64(new Uint8Array(result.value.bytes)) };
     known.delete(assetId);
     return null;
   });
+  keptNewest(known, assetId, read);
+  return read;
+}
+
+function keptNewest<T>(known: Map<string, T>, assetId: string, read: T): T {
+  known.delete(assetId);
   known.set(assetId, read);
+  const oldest = known.keys().next();
+  if (known.size > SHEET_ASSET_READS_LIMIT && !oldest.done) known.delete(oldest.value);
   return read;
 }
 

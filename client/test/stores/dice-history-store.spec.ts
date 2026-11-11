@@ -13,6 +13,16 @@ import { StorageFake } from '../support/storage-fake';
 import { biaJoined } from '../support/table-session-fixtures';
 
 const KEY = `lorkarium.dice.${VHARN.id}`;
+// The parts of `biaRolled()` as the history keeps them: no 3D model on the dice.
+const WITHOUT_MODELS = [
+  {
+    label: 'Acerto',
+    expression: '1d20+5',
+    total: 22,
+    dice: [{ sides: 20, value: 17, status: 'kept' as const }],
+  },
+];
+const BIA_KEPT = biaRolled({ throw: null, parts: WITHOUT_MODELS });
 
 describe('dice history store', () => {
   let storage: StorageFake;
@@ -31,8 +41,18 @@ describe('dice history store', () => {
     store.getState().apply({ kind: 'diceRolled', event: biaRolled() }, 1000);
 
     expect(store.getState().entries).toEqual([
-      { kind: 'rolled', event: biaRolled(), receivedAtMs: 1000, revealAtMs: 3400 },
+      { kind: 'rolled', event: BIA_KEPT, receivedAtMs: 1000, revealAtMs: 3400 },
     ]);
+  });
+
+  it('the listeners hear the roll with its throw, and the history keeps it without the frames', () => {
+    const heard: DiceHistoryEntry[] = [];
+    store.getState().onNewEntry((entry) => heard.push(entry));
+
+    store.getState().apply({ kind: 'diceRolled', event: biaRolled() }, 1000);
+
+    expect(heard.map(({ event }) => event)).toEqual([biaRolled()]);
+    expect(store.getState().entries.map(({ event }) => event)).toEqual([BIA_KEPT]);
   });
 
   it('a secret notice enters as secret, revealing after its own settlesInMs', () => {
@@ -78,18 +98,10 @@ describe('dice history store', () => {
 
     expect(diceHistoryStorageKey(VHARN.id)).toBe(KEY);
     const reread = createDiceHistoryStore({ campaignId: VHARN.id, storage }).getState().entries;
-    const withoutModels = [
-      {
-        label: 'Acerto',
-        expression: '1d20+5',
-        total: 22,
-        dice: [{ sides: 20, value: 17, status: 'kept' as const }],
-      },
-    ];
     expect(reread).toEqual([
       {
         kind: 'rolled',
-        event: biaRolled({ throw: null, parts: withoutModels }),
+        event: BIA_KEPT,
         receivedAtMs: 1000,
         revealAtMs: 3400,
       },
