@@ -103,7 +103,7 @@ export class ImageFetcherFake implements ImageFetcherPort {
 /** Asset rows in memory; writes 'insert' to the shared journal and records each lookup by id. */
 export class AssetsDaoFake implements Pick<
   AssetsDao,
-  'insert' | 'findById' | 'findInCampaign' | 'findManyInCampaign' | 'outlinesOf'
+  'insert' | 'findById' | 'findHeaderById' | 'findInCampaign' | 'findManyInCampaign' | 'outlinesOf'
 > {
   constructor(
     private readonly journal: string[] = [],
@@ -128,6 +128,11 @@ export class AssetsDaoFake implements Pick<
 
   async findById(assetId: string): Promise<AssetPo | undefined> {
     return this.rows.find((row) => row.id === assetId);
+  }
+
+  /** The same row: a header that keeps its outline still serves the bytes. */
+  async findHeaderById(assetId: string): Promise<AssetPo | undefined> {
+    return this.findById(assetId);
   }
 
   async findInCampaign(campaignId: string, assetId: string): Promise<AssetPo | undefined> {

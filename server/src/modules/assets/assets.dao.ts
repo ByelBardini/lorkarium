@@ -1,6 +1,17 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, getTableColumns, inArray } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { assets, type AssetPo, type NewAssetPo } from './assets.po';
+
+/** An asset row without its silhouette, which can be large. */
+export type AssetHeaderPo = Omit<AssetPo, 'sightOutline'>;
+
+const ASSET_HEADER = headerColumnsOf(getTableColumns(assets));
+
+function headerColumnsOf<C extends { sightOutline: unknown }>(columns: C): Omit<C, 'sightOutline'> {
+  const { sightOutline, ...header } = columns;
+  void sightOutline;
+  return header;
+}
 
 /** The asset rows. Every read a command or a viewer makes goes through the campaign, so an id
  *  of another table finds nothing (§2.6, criterion 14). */
@@ -16,6 +27,12 @@ export class AssetsDao {
   /** By id alone: only for whoever then checks the membership of `campaignId` itself. */
   async findById(assetId: string): Promise<AssetPo | undefined> {
     const [row] = await this.db.select().from(assets).where(eq(assets.id, assetId));
+    return row;
+  }
+
+  /** `findById` without the silhouette, which can be large: what serving the bytes reads. */
+  async findHeaderById(assetId: string): Promise<AssetHeaderPo | undefined> {
+    const [row] = await this.db.select(ASSET_HEADER).from(assets).where(eq(assets.id, assetId));
     return row;
   }
 

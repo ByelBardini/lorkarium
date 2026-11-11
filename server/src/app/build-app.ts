@@ -5,13 +5,12 @@ import type { MemberSeatPort } from '../modules/campaigns/member-seat.port';
 import { removedInOrder } from './member-outlets';
 import { createDocumentsModule, documentDaos } from '../modules/documents/documents.plugin';
 import { DocumentAssetReadPolicy } from '../modules/documents/document-asset-read-policy.service';
-import { AssetsDao } from '../modules/assets/assets.dao';
 import { CampaignMembersDao } from '../modules/campaigns/campaign-members.dao';
 import { LibraryMapReadPolicy } from '../modules/library-maps/library-map-read-policy.service';
 import { LibraryMapsDao } from '../modules/library-maps/library-maps.dao';
 import { createLibraryMapsModule } from '../modules/library-maps/library-maps.plugin';
 import cookie from '@fastify/cookie';
-import { AVATAR_MAX_BYTES } from '@lorkarium/contracts';
+import { AVATAR_MAX_BYTES, type AssetPurposeDto } from '@lorkarium/contracts';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import type { Env } from '../config/env';
 import type { Database } from '../database/database';
@@ -150,11 +149,13 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const accessLog = wireAccessLog(app, { env, clock, archive: deps.accessLogArchive });
   const processor = new SharpImageProcessor();
   const fetcher = new GuardedImageFetcher();
+  // The membership the asset read already warmed: a policy does not read it again.
+  const { memberships } = campaigns;
   const libraryReadPolicy = new LibraryImageReadPolicy((work) =>
-    runInSnapshot(deps.db, (tx) => work(libraryImageDaos(tx))),
+    runInSnapshot(deps.db, (tx) => work({ ...libraryImageDaos(tx), members: memberships })),
   );
   const documentReadPolicy = new DocumentAssetReadPolicy((work) =>
-    runInSnapshot(deps.db, (tx) => work(documentDaos(tx))),
+    runInSnapshot(deps.db, (tx) => work({ ...documentDaos(tx), members: memberships })),
   );
   const mapReadPolicy = new LibraryMapReadPolicy((work) =>
     runInSnapshot(deps.db, (tx) =>
@@ -164,14 +165,18 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const sheetReadPolicy = createSheetAssetReadPolicy(deps.db);
   const templateAssetReadPolicy = createSheetTemplateAssetReadPolicy(deps.db);
   const readPolicy = {
-    canRead: async (userId: string, campaignId: string, assetId: string): Promise<boolean> => {
-      const row = await new AssetsDao(deps.db).findInCampaign(campaignId, assetId);
-      if (row?.purpose === 'library_map') return mapReadPolicy.canRead(userId, campaignId, assetId);
-      if (row?.purpose === 'sheet_image')
-        return sheetReadPolicy.canRead(userId, campaignId, assetId);
-      if (row?.purpose === 'sheet_template_asset')
-        return templateAssetReadPolicy.canRead(userId, campaignId, assetId);
-      if (row?.purpose === 'document_image')
+    canRead: async (
+      userId: string,
+      campaignId: string,
+      assetId: string,
+      purpose: AssetPurposeDto,
+    ): Promise<boolean> => {
+      if (purpose === 'library_map') return mapReadPolicy.canRead(userId, campaignId, assetId);
+      if (purpose === 'sheet_image')
+        return sheetReadPolicy.canRead(userId, campaignId, assetId, purpose);
+      if (purpose === 'sheet_template_asset')
+        return templateAssetReadPolicy.canRead(userId, campaignId, assetId, purpose);
+      if (purpose === 'document_image')
         return documentReadPolicy.canRead(userId, campaignId, assetId);
       return (
         (await libraryReadPolicy.canRead(userId, campaignId, assetId)) ||
@@ -179,9 +184,9 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
       );
     },
   };
-  const assets = createAssetsModule({ db: deps.db, storage, processor, fetcher, readPolicy });
+  const assetsOptions = { db: deps.db, members: memberships, storage, processor, fetcher };
+  const assets = createAssetsModule({ ...assetsOptions, readPolicy });
   await app.register(assets.plugin, { prefix: API_PREFIX });
-  const { memberships } = campaigns;
   const realtimeModules = {
     campaigns: campaigns.service,
     clock,
