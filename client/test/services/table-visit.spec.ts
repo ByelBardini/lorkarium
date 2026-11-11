@@ -213,3 +213,42 @@ describe('document:tabChanged of a table visit', () => {
     expect(tableUpdates.at(-1)).toEqual({ kind: 'pinged', event: boardPinged() });
   });
 });
+
+/** A payload of another table that writes down every field read from it: a parse reads them all,
+ *  the campaign check only `campaignId`. */
+function foreignPayload(reads: Set<string>): object {
+  const fields = { ...boardPinged({ campaignId: QUELM.id }), version: 9, sceneId: TORRE_SCENE.id };
+  return new Proxy(fields, {
+    get: (target, key, receiver) => {
+      reads.add(String(key));
+      return Reflect.get(target, key, receiver);
+    },
+    ownKeys: (target) => {
+      reads.add('<keys>');
+      return Reflect.ownKeys(target);
+    },
+  });
+}
+
+describe('order and filter of the events of a table visit', () => {
+  let transport: RealtimeTransportFake;
+
+  beforeEach(async () => {
+    transport = new RealtimeTransportFake();
+    const handle = new RealtimeTableSessionApi(transport, () => ACTION_ID).open(VHARN.id, () => {});
+    handle.followCharacters(() => {});
+    transport.lifecycle({ kind: 'connected' });
+    await transport.answerAck({ ok: true, state: vharnState() });
+  });
+
+  it('an event of another table reads only its campaignId, never its DTO, on every event the visit hears', () => {
+    const events = transport.listenedEvents();
+    expect(events.length).toBeGreaterThan(30);
+    for (const event of events) {
+      const reads = new Set<string>();
+      transport.serverEmits(event, foreignPayload(reads));
+      expect({ event, reads: [...reads] }).toEqual({ event, reads: ['campaignId'] });
+    }
+    expect(transport.pendingAcksOf('board:sync')).toBe(1);
+  });
+});

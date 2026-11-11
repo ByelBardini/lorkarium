@@ -38,6 +38,7 @@ import { BOARD_EVENT_SPECS, parseBoardEvent, parseVeiledLights } from './board-e
 import type { RealtimeLifecycle, RealtimeTransport, Unsubscribe } from './realtime-transport';
 import { CharacterFollow } from './character-follow';
 import { syncFailureOf, type AckOutcome } from './sync-failure';
+import { namesTable } from './table-event-scope';
 import type {
   CharacterListener,
   CharactersHandle,
@@ -290,8 +291,9 @@ export class TableVisit {
     deliver: (event: E) => void,
   ): Unsubscribe {
     return this.transport.on(name, (payload) => {
+      if (!namesTable(payload, this.campaignId)) return;
       const parsed = dto.safeParse(payload);
-      if (parsed.success && parsed.data.campaignId === this.campaignId) deliver(parsed.data);
+      if (parsed.success) deliver(parsed.data);
     });
   }
 
@@ -302,8 +304,9 @@ export class TableVisit {
   // A malformed preview is dropped: it changed nothing confirmed, so there is nothing to resync.
   // A preview naming no grid is the group grid's.
   private onTokensDragged(payload: unknown): void {
+    if (!namesTable(payload, this.campaignId)) return;
     const parsed = tokensDraggedDto.safeParse(payload);
-    if (!parsed.success || parsed.data.campaignId !== this.campaignId) return;
+    if (!parsed.success) return;
     const drag: TokensDraggedDto = parsed.data;
     if (drag.sceneId === undefined) return this.notify({ kind: 'tokensDragged', drag });
     this.route(drag.sceneId, { kind: 'tokensDragged', drag });
@@ -311,8 +314,9 @@ export class TableVisit {
 
   // Like the preview: a malformed ping changed nothing, so it is dropped with no resync.
   private onPinged(payload: unknown): void {
+    if (!namesTable(payload, this.campaignId)) return;
     const parsed = boardPingedDto.safeParse(payload);
-    if (!parsed.success || parsed.data.campaignId !== this.campaignId) return;
+    if (!parsed.success) return;
     this.route(parsed.data.sceneId, { kind: 'pinged', event: parsed.data });
   }
 

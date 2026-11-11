@@ -21,3 +21,7 @@ A apresentação automática exige presença na sala visível. `RoomImagePresent
 ## Corpo de aba salvo (`document:tabChanged`)
 
 `TableVisit` assina `document:tabChanged` (`documentTabChangedDto`) e entrega `documentTabChanged` só da mesa aberta; payload inválido cai sem resync nem queda da visita. A `scene-tabs-store` guarda o último em `documentTabChange` (um objeto novo por evento) e **não** mexe em `libraryRevision` nem `mapRevision`: a biblioteca, o "Aparece em" e o mapa não releem por edição de aba. O `WorkspaceDocument` (`useRereadSavedTabs`) passa o evento do seu documento ao `DocumentEditorState.rereadTab(tabId, version)`, que relê pela rota só a aba aberta ali com versão confirmada menor. Specs: `table-visit` (evento, outra mesa, payload sem versão), `scene-tabs-store`, `document-editor-store` (`rereadTab`) e `features/documents/document-workspace-host` (1 leitura da aba aberta; outra aba, outro documento e versão igual: 0; nenhum `detail` nem `list`).
+
+## Filtro por mesa antes do parse
+
+Cada evento assinado pela visita passa por `namesTable(payload, campaignId)` (`services/table-event-scope.ts`) antes do DTO: evento de outra mesa aberta no mesmo socket é descartado lendo só o `campaignId`; da mesma mesa e inválido segue o tratamento de cada tipo (evento versionado do tabuleiro ou do fluxo dos personagens pede snapshot; prévia, ping, dado, chat e os da biblioteca caem calados). Regra 21 de [`performance.md`](performance.md).
