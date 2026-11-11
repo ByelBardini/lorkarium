@@ -1,5 +1,6 @@
 import type { ChatSentDto } from '@lorkarium/contracts';
 import { LockIcon } from 'lucide-react';
+import { memo } from 'react';
 import { TokenFace } from '@/features/tokens/token-face';
 import { UserAvatar } from '@/components/user-avatar';
 import { mentionsAny, type ChatMessage } from '@/lib/chat-conversations';
@@ -27,8 +28,13 @@ const TIME_FORMAT = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: 
  *  italic, with who played it below), the whisper mark in text, the time and the text. A mention
  *  of the viewer gets the gold rule and says so to the screen reader; a whisper the steel one.
  *
- *  Example: `<ChatMessageRow message={message} continued={false} people={people} viewerNames={['Ana', 'ana']} />` */
-export function ChatMessageRow(props: ChatMessageRowProps): React.JSX.Element {
+ *  A `memo`: a new message renders only its own line, so every prop must keep its identity.
+ *  Off screen, the line is neither laid out nor painted (`content-visibility`).
+ *
+ *  Example: `<ChatMessageRow message={message} continued={false} people={people} viewerNames={['Ana', 'ana']} face={null} />` */
+export const ChatMessageRow = memo(function ChatMessageRow(
+  props: ChatMessageRowProps,
+): React.JSX.Element {
   const { event } = props.message;
   const mine = event.fromUserId === props.people.viewerId;
   const mentioned = !mine && mentionsAny(event.text, props.viewerNames);
@@ -37,7 +43,7 @@ export function ChatMessageRow(props: ChatMessageRowProps): React.JSX.Element {
   return (
     <li
       className={cn(
-        'flex gap-2.5 border-l-2 border-transparent px-2',
+        'flex gap-2.5 border-l-2 border-transparent px-2 [contain-intrinsic-size:auto_2.5rem] [content-visibility:auto]',
         props.continued ? 'pt-0.5' : 'pt-3',
         whispered && 'border-chart-2 bg-chart-2/5',
         mentioned && 'border-primary bg-primary/5',
@@ -60,7 +66,7 @@ export function ChatMessageRow(props: ChatMessageRowProps): React.JSX.Element {
       </div>
     </li>
   );
-}
+});
 
 type RowPartProps = Readonly<{ event: ChatSentDto; people: ChatPeople }>;
 

@@ -1,5 +1,5 @@
 import type { CampaignRoleDto } from '@lorkarium/contracts';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { SegmentField } from '@/components/segment-field';
 import {
@@ -168,6 +168,11 @@ function ConversationFeed(props: ConversationFeedProps): React.JSX.Element {
   const { conversation, firstUnreadId } = props.shown;
   const rolls = useDiceHistory(props.table.dice, (state) => state.entries);
   const me = props.people.viewerId === null ? null : props.people.memberOf(props.people.viewerId);
+  const [myName, myUsername] = [me?.name, me?.username];
+  const viewerNames = useMemo(
+    () => (myName === undefined || myUsername === undefined ? NO_NAMES : [myName, myUsername]),
+    [myName, myUsername],
+  );
   return (
     <ChatFeed
       name={props.name}
@@ -176,7 +181,7 @@ function ConversationFeed(props: ConversationFeedProps): React.JSX.Element {
       filter={props.filter}
       firstUnreadId={firstUnreadId}
       people={props.people}
-      viewerNames={me ? [me.name, me.username] : NO_NAMES}
+      viewerNames={viewerNames}
       diceClock={props.services.diceClock}
       tabs={props.table.tabs}
     />
