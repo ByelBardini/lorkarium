@@ -8,12 +8,15 @@ import {
   type TableSessionUpdate,
 } from '@/services/table-session-api';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
+import { PixiTextureCache } from '@/renderer/pixi-texture-cache';
 import { RealtimeTransportFake } from '../support/realtime-transport-fake';
+import { TextureAssetsFake } from '../support/texture-assets-fake';
 import { TORRE_SCENE, torreBoard } from '../support/scene-tab-fixtures';
 import { veiledTorch } from '../support/light-fixtures';
 import { documentTabChanged } from '../support/documents-fixtures';
 import {
   boardPinged,
+  VHARN_SCENE,
   vharnBoard,
   vharnState,
   veiledLightsChanged,
@@ -250,5 +253,66 @@ describe('order and filter of the events of a table visit', () => {
       expect({ event, reads: [...reads] }).toEqual({ event, reads: ['campaignId'] });
     }
     expect(transport.pendingAcksOf('board:sync')).toBe(1);
+  });
+});
+
+const MAP_ASSET_ID = '5a4b3c2d-1e0f-4a9b-8c7d-6e5f4a3b2c1d';
+const MAP_URL = `/api/assets/${MAP_ASSET_ID}`;
+
+describe('entering a table: both syncs at once and the background fetched with the snapshot', () => {
+  let transport: RealtimeTransportFake;
+  let assets: TextureAssetsFake;
+  let handle: TableSessionHandle;
+  let requestsAtFirstBoard: number | null;
+
+  beforeEach(async () => {
+    transport = new RealtimeTransportFake();
+    assets = new TextureAssetsFake();
+    requestsAtFirstBoard = null;
+    const prefetch = (url: string): void => PixiTextureCache.prefetch(url, assets);
+    handle = new RealtimeTableSessionApi(transport, () => ACTION_ID, prefetch).open(
+      VHARN.id,
+      (update) => {
+        if (update.kind === 'board') requestsAtFirstBoard ??= assets.requests.length;
+      },
+    );
+    handle.followCharacters(() => {});
+    transport.lifecycle({ kind: 'connected' });
+    await transport.answerAck({ ok: true, state: vharnState() });
+  });
+
+  function mapBoard(): ReturnType<typeof vharnBoard> {
+    const background = { assetId: MAP_ASSET_ID, width: 2048, height: 1024 };
+    return vharnBoard({ scene: { ...VHARN_SCENE, background } });
+  }
+
+  it('the join sends board:sync and character:sync before any of them answers', () => {
+    expect(transport.pendingAcksOf('board:sync')).toBe(1);
+    expect(transport.pendingAcksOf('character:sync')).toBe(1);
+  });
+
+  it('the snapshot with a background asks the texture loader for it before the board hears of it', async () => {
+    await transport.answerAck({ ok: true, state: mapBoard() }, 'board:sync');
+
+    expect(assets.requests.map(({ src }) => src)).toEqual([MAP_URL]);
+    expect(requestsAtFirstBoard).toBe(1);
+  });
+
+  it('a snapshot without a background asks the loader for nothing', async () => {
+    await transport.answerAck({ ok: true, state: vharnBoard() }, 'board:sync');
+
+    expect(requestsAtFirstBoard).toBe(0);
+    expect(assets.requests).toEqual([]);
+  });
+
+  it('the snapshot of an extra tab fetches its background too', async () => {
+    await transport.answerAck({ ok: true, state: vharnBoard() }, 'board:sync');
+    handle.watch(TORRE_SCENE.id, () => {});
+    const background = { assetId: MAP_ASSET_ID, width: 512, height: 512 };
+    const state = torreBoard({ scene: { ...TORRE_SCENE, background } });
+
+    await transport.answerAck({ ok: true, state }, 'scene:watch');
+
+    expect(assets.requests.map(({ src }) => src)).toEqual([MAP_URL]);
   });
 });

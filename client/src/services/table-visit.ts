@@ -39,7 +39,9 @@ import type { RealtimeLifecycle, RealtimeTransport, Unsubscribe } from './realti
 import { CharacterFollow } from './character-follow';
 import { syncFailureOf, type AckOutcome } from './sync-failure';
 import { namesTable } from './table-event-scope';
+import { assetUrlOf } from './assets-api';
 import type {
+  BoardImagePrefetch,
   CharacterListener,
   CharactersHandle,
   GridListener,
@@ -81,6 +83,7 @@ export class TableVisit {
     private readonly newActionId: () => string,
     private readonly campaignId: string,
     private readonly listener: TableSessionListener,
+    private readonly prefetch: BoardImagePrefetch,
   ) {
     this.characters = new CharacterFollow(transport, campaignId, ACK_TIMEOUT_MS);
   }
@@ -124,6 +127,7 @@ export class TableVisit {
   async syncBoard(): Promise<void> {
     const update = snapshotUpdateOf(await this.ackOf(BOARD_EVENTS.sync, boardSyncAckDto));
     if (update.kind === 'board') this.groupSceneId = update.state.scene.id;
+    this.prefetchBackgroundOf(update);
     this.notify(update);
   }
 
@@ -143,8 +147,17 @@ export class TableVisit {
 
   private async syncWatch(watch: GridWatch): Promise<void> {
     const fields = { sceneId: watch.sceneId };
-    const ack = await this.ackOf(BOARD_EVENTS.watchScene, boardSyncAckDto, fields);
-    this.toWatch(watch, snapshotUpdateOf(ack));
+    const update = snapshotUpdateOf(
+      await this.ackOf(BOARD_EVENTS.watchScene, boardSyncAckDto, fields),
+    );
+    this.prefetchBackgroundOf(update);
+    this.toWatch(watch, update);
+  }
+
+  // Before the board hears of it: the image downloads while the renderer still mounts.
+  private prefetchBackgroundOf(update: GridUpdate): void {
+    const background = update.kind === 'board' ? update.state.scene.background : null;
+    if (background && !this.closed) this.prefetch(assetUrlOf(background.assetId));
   }
 
   private unwatch(watch: GridWatch): void {
@@ -179,7 +192,8 @@ export class TableVisit {
     this.notify({ kind: 'status', status: 'live' });
     if (this.away && !this.closed) this.sendActivity();
     if (this.closed) return;
-    await this.syncBoard();
+    // All at once: each snapshot is its own ack, none waits for another to answer.
+    void this.syncBoard();
     void this.characters.sync();
     for (const watch of this.watches.values()) void this.syncWatch(watch);
   }

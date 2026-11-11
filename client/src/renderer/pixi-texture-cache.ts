@@ -48,6 +48,15 @@ export class PixiTextureCache {
     this.idle = new IdleShelf(idleLimit, (url) => this.unload(url));
   }
 
+  /** Starts loading `url` before any board draws it (the snapshot arrived while the renderer still
+   *  mounts): `Assets` shares a load by url, so the cache's first `textureOf` takes the same one.
+   *  A failure is left to that `textureOf`, which meets it on its own.
+   *
+   *  Example: `PixiTextureCache.prefetch(assetUrlOf(scene.background.assetId))` */
+  static prefetch(url: string, assets: TextureAssets = PIXI_ASSETS): void {
+    assets.load(textureAssetOf(url)).catch(() => undefined);
+  }
+
   /** The texture when it is ready (or back from the slack); otherwise starts loading it (once)
    *  and answers `null`. */
   textureOf(url: string): Texture | null {
@@ -76,8 +85,7 @@ export class PixiTextureCache {
   private load(url: string): void {
     const ticket: Entry = { state: 'loading' };
     this.entries.set(url, ticket);
-    const asset = { src: url, parser: 'texture', data: { autoGenerateMipmaps: true } } as const;
-    this.assets.load(asset).then(
+    this.assets.load(textureAssetOf(url)).then(
       (texture) => this.arrived(url, ticket, texture),
       () => {
         if (this.entries.get(url) === ticket) this.entries.set(url, { state: 'failed' });
@@ -98,4 +106,8 @@ export class PixiTextureCache {
   private unload(url: string): void {
     void this.assets.unload(url).catch(() => undefined);
   }
+}
+
+function textureAssetOf(url: string): TextureAsset {
+  return { src: url, parser: 'texture', data: { autoGenerateMipmaps: true } };
 }

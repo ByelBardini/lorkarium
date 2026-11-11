@@ -80,6 +80,13 @@ const perfProbe =
 const auraMotion = createAuraMotionStore(browserStorage);
 // Its own chunk: login and home never download PixiJS; the first board fetches it once.
 const loadPixiBoard = chunkLoaderOf(() => import('@/renderer/pixi-board-renderer'));
+const loadTextureCache = chunkLoaderOf(() => import('@/renderer/pixi-texture-cache'));
+// The snapshot names the background before the renderer mounts: its download starts right away.
+const prefetchBoardImage = (url: string): void =>
+  void loadTextureCache().then(
+    ({ PixiTextureCache }) => PixiTextureCache.prefetch(url),
+    () => undefined,
+  );
 const transport = new FetchHttpTransport();
 const imagePresentationApi = new HttpImagePresentationApi(transport);
 const documentsApi = new HttpDocumentsApi(transport);
@@ -100,7 +107,7 @@ const signedInUserId = (): string | null => {
 };
 // One socket for every open table: the session, the board sync and the board commands.
 const realtime = new SocketIoRealtimeTransport();
-const tableSessionApi = new RealtimeTableSessionApi(realtime, newActionId);
+const tableSessionApi = new RealtimeTableSessionApi(realtime, newActionId, prefetchBoardImage);
 const boardCommands = new RealtimeTableBoardCommands(realtime, newActionId);
 // Read before any lazy route adds its own `/assets/` links to the document.
 const appUpdate = createAppUpdateStore({

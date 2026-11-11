@@ -24,4 +24,8 @@ A apresentação automática exige presença na sala visível. `RoomImagePresent
 
 ## Filtro por mesa antes do parse
 
-Cada evento assinado pela visita passa por `namesTable(payload, campaignId)` (`services/table-event-scope.ts`) antes do DTO: evento de outra mesa aberta no mesmo socket é descartado lendo só o `campaignId`; da mesma mesa e inválido segue o tratamento de cada tipo (evento versionado do tabuleiro ou do fluxo dos personagens pede snapshot; prévia, ping, dado, chat e os da biblioteca caem calados). Regra 21 de [`performance.md`](performance.md).
+Cada evento assinado pela visita passa por `namesTable(payload, campaignId)` (`services/table-event-scope.ts`) antes do DTO: evento de outra mesa aberta no mesmo socket é descartado lendo só o `campaignId`; da mesma mesa e inválido segue o tratamento de cada tipo (evento versionado do tabuleiro ou do fluxo dos personagens pede snapshot; prévia, ping, dado, chat e os da biblioteca caem calados). Ver "Evento do socket compara a mesa antes do DTO" em [`performance.md`](performance.md).
+
+## Entrada na mesa
+
+Depois do ack do `session:join`, a visita pede `board:sync`, `character:sync` (se alguém segue o fluxo) e o `scene:watch` de cada aba extra **de uma vez**, sem esperar o tabuleiro responder. Snapshot (do grupo ou de aba extra) com fundo chama o `prefetchImage` da `RealtimeTableSessionApi` antes de entregar o `board` à store ("Entrar na mesa" em [`performance.md`](performance.md)). Spec: `table-visit` ("entering a table").
