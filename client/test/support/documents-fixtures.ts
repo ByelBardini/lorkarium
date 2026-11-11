@@ -3,6 +3,7 @@ import {
   type DocumentContentDto,
   type DocumentDto,
   type DocumentSummaryDto,
+  type DocumentTabChangedDto,
   type DocumentTabDto,
   type DocumentTabSummaryDto,
   type DocumentTabWriteResponseDto,
@@ -83,6 +84,21 @@ export function documentWrite(
       version: document.version,
       operation,
     },
+  };
+}
+/** A `document:tabChanged` of "Geral" in the fixture document, at version 1.
+ *
+ *  Example: `documentTabChanged({ campaignId: VHARN.id, version: 2 })` */
+export function documentTabChanged(
+  changes: Partial<DocumentTabChangedDto> = {},
+): DocumentTabChangedDto {
+  return {
+    campaignId: DOCUMENT_CAMPAIGN_ID,
+    documentId: DOCUMENT_ID,
+    tabId: GENERAL_TAB_ID,
+    version: 1,
+    at: '2026-10-29T12:05:00.000Z',
+    ...changes,
   };
 }
 export function tabWrite(tab: DocumentTabSummaryDto): DocumentTabWriteResponseDto {

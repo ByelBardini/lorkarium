@@ -1,4 +1,5 @@
 import type { SessionMemberDto } from '@lorkarium/contracts';
+import { useMemo } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { useOpenTables, type OpenTable, type OpenTablesStore } from '@/stores/open-tables-store';
 import { useSession, type SessionStore } from '@/stores/session-store';
@@ -35,9 +36,12 @@ export function useChatPeople(
   const identityOf = useRollerIdentity(presence);
   const session = useSession(sessionStore);
   const viewerId = session.status === 'authenticated' ? session.user.id : null;
-  const memberOf = (userId: string) => members.find((each) => each.userId === userId) ?? null;
-  const nameOf = (userId: string) => memberOf(userId)?.name ?? SOMEONE;
-  return { viewerId, members, identityOf, nameOf, memberOf };
+  // The same people while the roster and the reader stand: the lines of the chat are `memo`.
+  return useMemo(() => {
+    const memberOf = (userId: string) => members.find((each) => each.userId === userId) ?? null;
+    const nameOf = (userId: string) => memberOf(userId)?.name ?? SOMEONE;
+    return { viewerId, members, identityOf, nameOf, memberOf };
+  }, [viewerId, members, identityOf]);
 }
 
 /** One table open in the tab (its chat and its dice history); `null` while it is not open.

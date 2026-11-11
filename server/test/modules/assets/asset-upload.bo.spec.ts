@@ -4,6 +4,7 @@ import {
   dedicatedEndpointOf,
   isMasterOnlyAssetPurpose,
   isProtectedAssetPurpose,
+  opaqueAsWebpFor,
   outlineFor,
   resizeFor,
   requireSize,
@@ -82,6 +83,27 @@ describe('outlineFor', () => {
     'library_map',
   ] as const)('a %s image is not traced', (purpose) => {
     expect(outlineFor(purpose)).toBe(false);
+  });
+});
+
+describe('opaqueAsWebpFor', () => {
+  it.each(['background', 'library_image', 'library_map'] as const)(
+    'an opaque %s image is kept as WebP',
+    (purpose) => {
+      expect(opaqueAsWebpFor(purpose)).toBe(true);
+    },
+  );
+
+  it.each([
+    'token',
+    'cover',
+    'condition',
+    'aura',
+    'document_image',
+    'sheet_image',
+    'sheet_template_asset',
+  ] as const)('a %s image keeps its own format', (purpose) => {
+    expect(opaqueAsWebpFor(purpose)).toBe(false);
   });
 });
 

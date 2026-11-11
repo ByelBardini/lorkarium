@@ -151,7 +151,11 @@ describe('the home of the table', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sair da mesa' }));
     await waitFor(() => expect(deps.openTables.getState().tables).toEqual([]));
     expect(activeKey()).toBeNull();
+    const readsBefore = mainReads();
     await act(() => router.navigate(TABLE_PATH));
+    // The room mounts again before it reads the main map: wait for each step, not for both in 1 s.
+    await screen.findByRole('region', { name: 'Topo da sala' });
+    await waitFor(() => expect(mainReads()).toBeGreaterThan(readsBefore));
     await waitFor(() => expect(activeKey()).toBe(MAP_KEY));
   });
 

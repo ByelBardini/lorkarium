@@ -172,10 +172,22 @@ export interface BoardRenderer {
    *  grid `sceneId` and only over a token this viewer sees. Replaces the whole list on each call
    *  (old lines fall out alone); nothing is drawn until the next frame. */
   showSpeech(sceneId: string, balloons: readonly SpeechBalloon[]): void;
+  /** Another grid tab takes the canvas: drops the gesture under way (a token drag sends its
+   *  `tokenDragCancelled`), the hover and the pings, and shows nothing until the next `draw`,
+   *  which opens at `camera` (or fits the scene). The app, its context and its textures stay.
+   *
+   *  Example: `renderer.resetScene({ camera: cameras.get(tabKey) })` */
+  resetScene(options?: BoardMountOptions): void;
+  /** Something covers the whole board (a document): nothing is drawn, not even an animated
+   *  aura, until `resume`, which draws once what changed meanwhile. Safe before `mount`. */
+  pause(): void;
+  resume(): void;
   /** Safe at any time, even before `mount` resolves. */
   destroy(): void;
 }
 
 export type BoardMountOptions = Readonly<{ camera?: Camera }>;
 
-export type CreateBoardRenderer = (onIntent: BoardIntentListener) => BoardRenderer;
+/** Async: the PixiJS renderer is its own chunk, fetched on the first board (login and home never
+ *  download it). Rejects when the chunk fails to load. */
+export type CreateBoardRenderer = (onIntent: BoardIntentListener) => Promise<BoardRenderer>;

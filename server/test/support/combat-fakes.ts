@@ -1,6 +1,7 @@
 import { CharactersDaoFake } from './characters-fakes';
 import type {
   CombatDao,
+  CombatantLinks,
   CombatantRow,
   CombatRow,
   NewCombatant,
@@ -30,6 +31,7 @@ export class CombatDaoFake implements Pick<
   | 'findOfScene'
   | 'addCombatants'
   | 'linkTokens'
+  | 'linkMany'
   | 'unlinkTokens'
   | 'removeCombatants'
   | 'rename'
@@ -80,6 +82,10 @@ export class CombatDaoFake implements Pick<
     });
   }
 
+  async linkMany(links: readonly CombatantLinks[]): Promise<void> {
+    for (const { combatantId, tokenIds } of links) await this.linkTokens(combatantId, tokenIds);
+  }
+
   async unlinkTokens(tokenIds: readonly string[]): Promise<void> {
     this.changeEveryCombatant((c) => ({
       ...c,
@@ -102,11 +108,12 @@ export class CombatDaoFake implements Pick<
     this.changeEveryCombatant((c) => (c.id === combatantId ? { ...c, initiative } : c));
   }
 
-  async setTieOrders(changes: readonly TieOrderChange[]): Promise<void> {
-    this.changeEveryCombatant((c) => {
+  async setTieOrders(combatId: string, changes: readonly TieOrderChange[]): Promise<void> {
+    const tieOrderOf = (c: CombatantRow): CombatantRow => {
       const change = changes.find(({ combatantId }) => combatantId === c.id);
       return change ? { ...c, tieOrder: change.tieOrder } : c;
-    });
+    };
+    this.change(combatId, (row) => ({ ...row, combatants: row.combatants.map(tieOrderOf) }));
   }
 
   async setTurn(combatId: string, round: number, currentCombatantId: string | null): Promise<void> {

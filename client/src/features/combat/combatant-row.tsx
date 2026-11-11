@@ -1,6 +1,6 @@
 import type { SessionMemberDto, TokenDto } from '@lorkarium/contracts';
 import { ArrowDownIcon, ArrowUpIcon, SparklesIcon } from 'lucide-react';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import { TokenLine } from '@/features/tokens/token-line';
@@ -18,7 +18,9 @@ export type CombatantRowProps = TrackerRow &
     current: boolean;
     /** A group's members are shown (by default while it is on turn). */
     open: boolean;
-    onToggle: () => void;
+    /** Folds or opens the entry: its id and whether it was open (stable, for the `memo`). */
+    onToggle: (combatantId: string, open: boolean) => void;
+    /** The selected token when it is one of this entry's (`null` otherwise). */
     selectedTokenId: string | null;
     members: readonly SessionMemberDto[];
     interaction: StoreApi<BoardInteractionStore>;
@@ -29,8 +31,12 @@ export type CombatantRowProps = TrackerRow &
  *  (face, name, who plays it, first bar, conditions), a foldable group, or the label of an entry
  *  without token; ↑/↓ within a tie and the master's menu at the end.
  *
+ *  A `memo` over `sameRowProps`: a change of one entry, or of the selection, renders only its row.
+ *
  *  Example: `<CombatantRow {...row} current open={false} onToggle={flip} selectedTokenId={null} members={members} interaction={interaction} isMaster />` */
-export function CombatantRow(props: CombatantRowProps): React.JSX.Element {
+export const CombatantRow = memo(function CombatantRow(
+  props: CombatantRowProps,
+): React.JSX.Element {
   const { combatant, current, interaction, isMaster } = props;
   const readOnly = useBoardInteraction(interaction, (state) => state.readOnly);
   const [renaming, setRenaming] = useState(false);
@@ -62,6 +68,24 @@ export function CombatantRow(props: CombatantRowProps): React.JSX.Element {
       )}
     </li>
   );
+}, sameRowProps);
+
+// The tracker rebuilds every row's `tokens` and `others`: they count by what they hold.
+function sameRowProps(before: CombatantRowProps, after: CombatantRowProps): boolean {
+  const fields = Object.keys(after) as (keyof CombatantRowProps)[];
+  const sameRest = fields.every(
+    (field) => field === 'tokens' || field === 'others' || before[field] === after[field],
+  );
+  return sameRest && sameItems(before.tokens, after.tokens) && sameChoices(before, after);
+}
+
+function sameItems<T>(before: readonly T[], after: readonly T[]): boolean {
+  return before.length === after.length && before.every((item, index) => item === after[index]);
+}
+
+function sameChoices(before: CombatantRowProps, after: CombatantRowProps): boolean {
+  const labels = (row: CombatantRowProps) => row.others.map(({ id, label }) => `${id}:${label}`);
+  return sameItems(labels(before), labels(after));
 }
 
 function EntryBody(props: CombatantRowProps): React.JSX.Element {
@@ -78,7 +102,10 @@ function EntryBody(props: CombatantRowProps): React.JSX.Element {
       />
     );
   }
-  if (tokens.length > 0) return <CombatantGroupRow {...props} />;
+  if (tokens.length > 0) {
+    const onToggle = () => props.onToggle(combatant.id, props.open);
+    return <CombatantGroupRow {...props} onToggle={onToggle} />;
+  }
   return (
     <span className="flex min-h-8 items-center gap-2.5 text-sm font-semibold">
       {combatant.tokenIds.length === 0 && (

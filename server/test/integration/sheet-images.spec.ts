@@ -86,7 +86,7 @@ describe('POST /campaigns/:c/sheets/:s/images', () => {
       const response = await read(user, asset.id);
       expect(response.statusCode).toBe(200);
       expect(response.headers['content-type']).toBe('image/png');
-      expect(response.headers['cache-control']).toBe('private, no-store');
+      expect(response.headers['cache-control']).toBe('private, no-cache');
     }
   });
 

@@ -1,5 +1,6 @@
 import type { Texture } from 'pixi.js';
 import { isGifBytes } from './aura-image-kind';
+import { IdleShelf } from './idle-shelf';
 import type { TimedFrame } from './gif-frame';
 
 /** One frame of an aura image: its texture and when it shows (a still image has one, 0 to 0). */
@@ -41,7 +42,13 @@ type Entry =
   | Readonly<{ state: 'ready'; source: AuraImageSource }>
   | Readonly<{ state: 'failed' }>;
 
-/** The images of the auras, loaded once per url and released when no view uses them. Not the
+/** How many aura images the view stopped drawing stay decoded, waiting to come back (a GIF is
+ *  every frame decoded: fewer than the plain textures). */
+export const IDLE_AURA_LIMIT = 16;
+
+/** The images of the auras, loaded once per url; one the view stops drawing waits in a slack
+ *  (`IdleShelf`, the oldest released past `idleLimit`), so an aura that leaves the sight and comes
+ *  back decodes nothing again. Not the
  *  `PixiTextureCache`: the url `/api/assets/<id>` has no extension, and a GIF must be told by its
  *  bytes (`isGifBytes`) to keep its frames. A url that fails stays failed (the aura is not drawn,
  *  nothing retries in a loop); `onReady` runs when a source arrives, to draw it.
@@ -49,30 +56,39 @@ type Entry =
  *  Example: `const sources = new PixiAuraSources((url) => tokens.refreshAura(url), pixiAuraDecoding())` */
 export class PixiAuraSources {
   private readonly entries = new Map<string, Entry>();
+  private readonly idle: IdleShelf<AuraImageSource>;
 
   constructor(
     private readonly onReady: (url: string) => void,
     private readonly decoding: AuraImageDecoding,
-  ) {}
-
-  /** The source when it is ready; otherwise starts loading it (once) and answers `null`. */
-  sourceOf(url: string): AuraImageSource | null {
-    const entry = this.entries.get(url);
-    if (!entry) this.load(url);
-    return entry?.state === 'ready' ? entry.source : null;
+    idleLimit = IDLE_AURA_LIMIT,
+  ) {
+    this.idle = new IdleShelf(idleLimit, (_url, source) => source.release());
   }
 
-  /** Forgets (and releases) every url the view no longer draws. */
+  /** The source when it is ready (or back from the slack); otherwise starts loading it (once)
+   *  and answers `null`. */
+  sourceOf(url: string): AuraImageSource | null {
+    const entry = this.entries.get(url);
+    if (entry) return entry.state === 'ready' ? entry.source : null;
+    const shelved = this.idle.takeBack(url);
+    if (shelved) this.entries.set(url, { state: 'ready', source: shelved });
+    else this.load(url);
+    return shelved ?? null;
+  }
+
+  /** Moves every url the view no longer draws to the slack. */
   retain(urls: ReadonlySet<string>): void {
     for (const [url, entry] of this.entries) {
       if (urls.has(url)) continue;
       this.entries.delete(url);
-      if (entry.state === 'ready') entry.source.release();
+      if (entry.state === 'ready') this.idle.shelve(url, entry.source);
     }
   }
 
   destroy(): void {
     this.retain(new Set());
+    this.idle.clear();
   }
 
   private load(url: string): void {

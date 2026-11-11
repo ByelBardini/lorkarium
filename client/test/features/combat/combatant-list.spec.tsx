@@ -1,4 +1,5 @@
 import { act, render, screen, within } from '@testing-library/react';
+import { Profiler } from 'react';
 import userEvent from '@testing-library/user-event';
 import type { CombatDto, TokenDto } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -12,6 +13,7 @@ import { createBoardStore, type BoardStore } from '@/stores/board-store';
 import { createTablePresenceStore, type TablePresenceStore } from '@/stores/table-presence-store';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
+import { RenderCounter } from '../../support/render-counter';
 import {
   ANA_AT_TABLE,
   BIA_AT_TABLE,
@@ -19,6 +21,7 @@ import {
   LYRA_COMBATANT,
   LYRA_ID,
   activeCondition,
+  eventAt,
   lyra,
   soloCombatant,
   VHARN_SCENE,
@@ -555,5 +558,59 @@ describe('CombatantList', () => {
     expect(screen.getByRole('list', { name: 'Ordem de iniciativa' })).not.toHaveTextContent(
       'Goblin',
     );
+  });
+});
+
+describe('CombatantList renders', () => {
+  let board: StoreApi<BoardStore>;
+  let interaction: StoreApi<BoardInteractionStore>;
+  let renders: RenderCounter;
+
+  beforeEach(() => {
+    board = createBoardStore(VHARN.id, () => undefined);
+    const presence = createTablePresenceStore(VHARN.id);
+    presence.setState({ members: [ANA_AT_TABLE, BIA_AT_TABLE] });
+    interaction = createBoardInteractionStore({
+      scopeOf: () => VHARN_GRID,
+      commands: new TableBoardCommandsFake(),
+      describeRefusal: String,
+    });
+    // Two of them selected: the conditions for the selection show above the order too.
+    interaction.getState().selectMany([LYRA_ID, KAEL.id], { additive: false });
+    const tokens = [KAEL, lyra(), GOBLIN, OGRO];
+    board.getState().apply({ kind: 'board', state: vharnBoard({ tokens, combat: vharnCombat() }) });
+    renders = new RenderCounter();
+    render(
+      <Profiler id="ordem" onRender={renders.onRender}>
+        <CombatantList board={board} presence={presence} interaction={interaction} isMaster />
+      </Profiler>,
+    );
+    renders.count = 0;
+  });
+
+  it('a token moved on the board does not render the order', () => {
+    const moves = [{ tokenId: LYRA_ID, col: 9, row: 6 }];
+
+    act(() =>
+      board.getState().apply({
+        kind: 'boardEvent',
+        event: eventAt(5, { type: 'tokensMoved', payload: { moves } }),
+      }),
+    );
+
+    expect(renders.count).toBe(0);
+  });
+
+  it('the next round renders the order once', () => {
+    const combat = vharnCombat({ round: 2 });
+
+    act(() =>
+      board.getState().apply({
+        kind: 'boardEvent',
+        event: eventAt(5, { type: 'combatUpdated', payload: { combat } }),
+      }),
+    );
+
+    expect(renders.count).toBe(1);
   });
 });

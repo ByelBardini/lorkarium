@@ -252,6 +252,30 @@ describe('sightNowOf works the filter out again only when what it reads changes'
     expect(levelOf(after, OGRE_ID)).toBe(levelOf(before, OGRE_ID));
     expect(after.eyes).toBe(before.eyes);
   });
+
+  it('someone dragging the goblin to a cell where it stays seen gives back the very same sight', () => {
+    const before = sightNowOf({ board: WALLED, dragged: {} }, IDLE, NO_PLAYERS, NO_SIGHT_OUTLINES);
+    const after = sightNowOf(
+      { board: WALLED, dragged: { [GOBLIN_ID]: { col: 5, row: 4 } } },
+      IDLE,
+      NO_PLAYERS,
+      NO_SIGHT_OUTLINES,
+    );
+
+    expect(levelOf(after, GOBLIN_ID)).toBe('seen');
+    expect(after).toBe(before);
+  });
+
+  it('two grids asked in turn (the group and the tab shown) each keep their own sight', () => {
+    const otherScene = { ...VHARN_SCENE, id: 'cc33dd44-ee55-4f66-8a77-112233445566' };
+    const other = { ...WALLED, scene: { ...otherScene, vision: 'dark' as const } };
+    const group = sightNowOf({ board: BOARD, dragged: {} }, IDLE, NO_PLAYERS, NO_SIGHT_OUTLINES);
+    sightNowOf({ board: other, dragged: {} }, IDLE, NO_PLAYERS, NO_SIGHT_OUTLINES);
+
+    expect(sightNowOf({ board: BOARD, dragged: {} }, IDLE, NO_PLAYERS, NO_SIGHT_OUTLINES)).toBe(
+      group,
+    );
+  });
 });
 
 describe('sightNowOf for a spectator keys the players by their ids', () => {

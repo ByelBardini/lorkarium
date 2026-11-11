@@ -7,7 +7,7 @@ import {
 import { cn } from '@/lib/utils';
 import { isDesktopShell } from '@/lib/desktop-shell';
 import type { CampaignDetailDto } from '@lorkarium/contracts';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { useOpenTable, type OpenTableView } from '@/features/sessions/use-open-table';
 import { useOpenTableOf } from '@/features/chat/use-chat-people';
@@ -25,7 +25,7 @@ import {
 } from '@/features/tokens/room-token-dialog';
 import { CharacterLinkDialog, type CharacterLinkRequest } from '@/features/tokens/token-link-items';
 import type { BoardRenderer, CreateBoardRenderer } from '@/renderer/board-renderer';
-import type { AssetsApi, RoomAssetsApi } from '@/services/assets-api';
+import type { RoomAssetsApi } from '@/services/assets-api';
 import type { Clipboard } from '@/services/clipboard';
 import type { BoardScope, TableBoardCommands } from '@/services/table-board-commands';
 import type { PingCommands } from '@/services/table-pings';
@@ -60,7 +60,7 @@ import type { WallStyleStore } from '@/stores/wall-style-store';
 import type { LightColorStore } from '@/stores/light-color-store';
 import type { AuraMotionStore } from '@/stores/aura-motion-store';
 import type { LightReachStore } from '@/stores/light-reach-store';
-import { useBoard, type BoardStore } from '@/stores/board-store';
+import type { BoardStore } from '@/stores/board-store';
 import type { CharactersStore } from '@/stores/characters-store';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import type { SessionStore } from '@/stores/session-store';
@@ -73,17 +73,18 @@ import {
 } from '@/stores/scene-tabs-store';
 import type { TableEditStore } from '@/stores/table-edit-store';
 import { useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store';
-import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
+import type { TablePresenceStore } from '@/stores/table-presence-store';
 import { BoardArea } from './board-area';
 import { DeleteSelectionDialog, type SelectionToDelete } from './delete-selection-dialog';
 import { tokenCommandFailureMessage } from './board-messages';
 import { BoardStatusLine } from './board-status-line';
 import { RoomToolbar } from './room-toolbar';
-import { ConfigureSceneDialog } from './configure-scene-dialog';
+import { RoomSceneDialog } from './room-scene-dialog';
+import { useBoardPause } from './use-board-pause';
 import { FocusToggle } from './focus-toggle';
 import { TokenContextMenu, type TokenMenuRequest } from './token-context-menu';
-import { TokenHoverCard } from './token-hover-card';
-import { useTokenHover } from './use-token-hover';
+import { HoverCardLayer, type HoverCardLayerHandle } from './hover-card-layer';
+import type { TokenHoverRequest } from './use-token-hover';
 import { RoomHeader } from './room-header';
 import { RoomSidePanel } from './room-panel';
 import { useInteractionFollowsTable } from './use-interaction-follows-table';
@@ -168,9 +169,15 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const [conditionTool] = useState(createConditionToolStore);
   const role = campaign.myRole;
   const isMaster = role === 'master';
-  const hover = useTokenHover(props.interactionClock);
+  // The hover lives in its own layer: resting on a token never renders the room.
+  const hoverLayer = useRef<HoverCardLayerHandle>(null);
+  const onTokenHover = useCallback(
+    (request: TokenHoverRequest | null) => hoverLayer.current?.onTokenHover(request),
+    [],
+  );
   useEffect(() => interaction.getState().allowLayerChoice(isMaster), [interaction, isMaster]);
   const focus = useRoomLayout(roomLayout, (state) => state.focus);
+  useBoardPause(renderer, !!activeDocument);
   useRoomShortcuts({ roomLayout, interaction, role, enabled: !activeDocument });
   const { dicePreferences, createDiceRenderer, createDiceSound } = props;
   useDiceOverlay({ campaignId: campaign.id, openTables, dicePreferences, createDiceRenderer });
@@ -271,7 +278,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             aria-hidden={activeDocument ? true : undefined}
           >
             <BoardArea
-              key={shown.key}
+              tabKey={shown.key}
               view={view}
               interaction={interaction}
               createBoardRenderer={props.createBoardRenderer}
@@ -282,10 +289,10 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
               }}
               onDeleteSelection={setDeletion}
               onTokenMenu={(request) => {
-                hover.onTokenHover(null);
+                onTokenHover(null);
                 if (!watchesOnly(role)) setTokenMenu(request);
               }}
-              onTokenHover={hover.onTokenHover}
+              onTokenHover={onTokenHover}
               onDoorMenu={(request) => isMaster && setDoorMenu(request)}
               onLightMenu={(request) => isMaster && setLightMenu(request)}
               drawingStyle={props.drawingStyle}
@@ -332,13 +339,12 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
                 lightColor={props.lightColor}
               />
             )}
-            {hover.hovered && table && (
-              <TokenHoverCard
-                request={hover.hovered}
-                board={table.board}
-                interaction={interaction}
-              />
-            )}
+            <HoverCardLayer
+              ref={hoverLayer}
+              clock={props.interactionClock}
+              board={table?.board ?? null}
+              interaction={interaction}
+            />
             {tokenMenu && table && (
               <TokenContextMenu
                 request={tokenMenu}
@@ -508,7 +514,7 @@ type ShownTab = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
   scopeOf: () => BoardScope;
   tabs: StoreApi<SceneTabsStore> | null;
-  /** Changes with the tab shown: the canvas mounts again for another grid. */
+  /** Changes with the tab shown: the same canvas shows another grid, at that tab's camera. */
   key: string;
   /** The others' pings on the grid shown. */
   pings: PingFeed | null;
@@ -544,29 +550,4 @@ function useShownTab(
     const key = tab?.key ?? GROUP_TAB;
     return { view, table, interaction, scopeOf, tabs, key, group, pings: tab?.pings ?? null };
   }, [opened, tab, tabs, group, opening]);
-}
-
-type RoomSceneDialogProps = Readonly<{
-  campaignId: string;
-  table: Readonly<{ presence: StoreApi<TablePresenceStore>; board: StoreApi<BoardStore> }>;
-  commands: TableBoardCommands;
-  assets: AssetsApi;
-  onClose: () => void;
-}>;
-
-// "Configurar cena" over the confirmed scene; while reconnecting it opens but cannot send.
-function RoomSceneDialog({ campaignId, table, commands, assets, onClose }: RoomSceneDialogProps) {
-  const scene = useBoard(table.board, (state) => state.board?.scene ?? null);
-  const live = useTablePresence(table.presence, (state) => state.status === 'live');
-  if (!scene) return null;
-  return (
-    <ConfigureSceneDialog
-      scope={{ campaignId, sceneId: scene.id }}
-      scene={scene}
-      commands={commands}
-      assets={assets}
-      connected={live}
-      onClose={onClose}
-    />
-  );
 }

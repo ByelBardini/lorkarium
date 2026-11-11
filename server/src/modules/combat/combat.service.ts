@@ -67,7 +67,7 @@ export type CombatWriteDaos = Readonly<{
     | 'start'
     | 'findOfScene'
     | 'addCombatants'
-    | 'linkTokens'
+    | 'linkMany'
     | 'unlinkTokens'
     | 'removeCombatants'
     | 'rename'
@@ -195,8 +195,9 @@ export class CombatService {
   }
 
   moveInTie(userId: string, campaignId: string, command: MoveInTie): Promise<number> {
-    return this.updated(userId, campaignId, command.sceneId, async ({ daos, bo }) => {
-      await daos.combat.setTieOrders(bo.moveInTie(command.combatantId, command.direction));
+    return this.updated(userId, campaignId, command.sceneId, async ({ daos, bo, row }) => {
+      const changes = bo.moveInTie(command.combatantId, command.direction);
+      await daos.combat.setTieOrders(combatIdOf(row), changes);
     });
   }
 
@@ -379,8 +380,7 @@ async function applyRoster(
   await daos.combat.unlinkTokens(change.unlink);
   await daos.combat.removeCombatants(combatId, change.remove);
   await daos.combat.addCombatants(combatId, change.create);
-  for (const { combatantId, tokenIds } of change.link)
-    await daos.combat.linkTokens(combatantId, tokenIds);
+  await daos.combat.linkMany(change.link);
   if (change.turn) await daos.combat.setTurn(combatId, change.turn.round, change.turn.currentId);
 }
 

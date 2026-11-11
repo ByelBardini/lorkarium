@@ -111,6 +111,14 @@ export const tokens = pgTable(
     index('tokens_scene_id_idx').on(table.sceneId),
     // One token of each character per grid.
     unique('tokens_scene_id_character_id_unique').on(table.sceneId, table.characterId),
+    // Deleting a form or a character sets these to null: without an index the FK action scans the
+    // tokens of every campaign, under the scene lock.
+    index('tokens_active_form_idx')
+      .on(table.activeFormId)
+      .where(sql`${table.activeFormId} IS NOT NULL`),
+    index('tokens_character_idx')
+      .on(table.characterId)
+      .where(sql`${table.characterId} IS NOT NULL`),
     check('tokens_facing_range', sql`${table.facing} >= 0 AND ${table.facing} <= 359`),
     check('tokens_sight_angle', sql`${table.sightAngle} BETWEEN 1 AND 360`),
     check('tokens_light_angle', sql`${table.lightAngle} BETWEEN 1 AND 360`),
@@ -208,6 +216,8 @@ export type TokenFormInputPo = Pick<
   'id' | 'name' | 'imageAssetId' | 'width' | 'height' | 'frame'
 >;
 export type BarValuesPo = Pick<TokenBarPo, 'current' | 'max' | 'temp'>;
+/** The new values of one bar of a group write (a token's or a character's). */
+export type BarValuesWritePo = Readonly<{ barId: string; values: BarValuesPo }>;
 export type TokenLayerPo = TokenPo['layer'];
 export type TokenLookPo = Pick<TokenPo, 'imageAssetId' | 'frame' | 'flipX' | 'flipY'>;
 /** The seven aura columns, written always together (all null = no aura). */

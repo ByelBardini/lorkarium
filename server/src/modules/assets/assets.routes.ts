@@ -26,7 +26,7 @@ import {
   AssetRateLimitedError,
   type AssetErrorCode,
 } from './assets.error';
-import type { AssetsService } from './assets.service';
+import type { AssetsService, RevalidatedAsset } from './assets.service';
 
 // Spec §8.4: keyed by the signed-in user; each send decodes an image, so it is the costly route.
 const SENDS_PER_MINUTE = 20;
@@ -100,7 +100,10 @@ function registerSendRoutes(app: FastifyInstance, service: AssetsService): void 
 function registerReadRoute(app: FastifyInstance, service: AssetsService): void {
   const { requireAuth, userOf } = app.authGuards;
   app.get('/assets/:assetId', { preHandler: requireAuth }, async (request, reply) => {
-    const opened = await service.open(userOf(request).id, assetIdOf(request));
+    const ifNoneMatch = request.headers['if-none-match'];
+    const opened = await service.open(userOf(request).id, assetIdOf(request), ifNoneMatch);
+    if ('notModified' in opened) return revalidated(reply, opened);
+    if (opened.etag) reply.header('etag', opened.etag);
     return reply
       .header('content-type', opened.mimeType)
       .header('content-length', opened.size)
@@ -108,6 +111,14 @@ function registerReadRoute(app: FastifyInstance, service: AssetsService): void {
       .header('x-content-type-options', 'nosniff')
       .send(opened.body);
   });
+}
+
+function revalidated(reply: FastifyReply, asset: RevalidatedAsset): FastifyReply {
+  return reply
+    .code(304)
+    .header('etag', asset.etag)
+    .header('cache-control', asset.cacheControl)
+    .send();
 }
 
 function registerOutlineRoute(app: FastifyInstance, service: AssetsService): void {

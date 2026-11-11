@@ -10,7 +10,7 @@
 
 ## DAO (`effect-areas.dao.ts`)
 
-- `EffectAreasDao(db | tx)`: `insertMany(rows)` → as linhas gravadas na ordem enviada (um `INSERT`), `listOfScene(sceneId)` (pela `area_order`), `countOfScene(sceneId)`, `findManyInScene(sceneId, ids)` (id de outra cena fica de fora), `reshapeMany(sceneId, reshapes)` (um `UPDATE` por área: troca `kind`, geometria e cor, nunca o autor nem a cena), `deleteMany(sceneId, ids)`.
+- `EffectAreasDao(db | tx)`: `insertMany(rows)` → as linhas gravadas na ordem enviada (um `INSERT`), `listOfScene(sceneId)` (pela `area_order`), `countOfScene(sceneId)`, `findManyInScene(sceneId, ids)` (id de outra cena fica de fora), `reshapeMany(sceneId, reshapes)` (**um** `UPDATE` para o grupo, pelo `updateManySql`, com `scene_id` no `WHERE`: troca `kind`, geometria e cor, nunca o autor nem a cena), `deleteMany(sceneId, ids)`.
 - `copyScene(from, to)`: `INSERT … SELECT` de todas as áreas da cena, ids novos, na ordem da `area_order`, cada uma com o seu autor (Duplicar da biblioteca, ver [`library.md`](library.md)).
 - **Isolamento por cena (§2.6):** toda leitura **e toda escrita** filtram por `scene_id`; um id de outra mesa não é achado, reformado nem apagado.
 - `NewEffectAreaPo` (sem `id`, `area_order`, `created_at`) e `EffectAreaReshapePo` `{ effectAreaId, shape: { kind, x, y, width, height, reach, facing, color } }` (strings do numeric).

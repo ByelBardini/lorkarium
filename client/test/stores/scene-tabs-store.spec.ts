@@ -20,6 +20,7 @@ import {
   sceneActivated,
   sceneClosed,
 } from '../support/scene-tab-fixtures';
+import { documentTabChanged } from '../support/documents-fixtures';
 import { openTorreTab, openVharnTabs } from '../support/scene-tabs-harness';
 import { StorageFake } from '../support/storage-fake';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
@@ -187,6 +188,18 @@ describe('scene tabs store', () => {
     api.emitTo(VHARN.id, { kind: 'sheetChanged', event: { ...event } });
     expect(seen).toEqual([event, event]);
     expect(seen[0]).not.toBe(seen[1]);
+  });
+
+  it('document:tabChanged is kept as the last change and leaves the library and map revisions alone', () => {
+    const table = openVharn();
+    const seen: unknown[] = [];
+    tabsOf(table).subscribe((state) => seen.push(state.documentTabChange));
+    const event = documentTabChanged({ campaignId: VHARN.id });
+    api.emitTo(VHARN.id, { kind: 'documentTabChanged', event });
+    api.emitTo(VHARN.id, { kind: 'documentTabChanged', event: { ...event } });
+    expect(seen).toEqual([event, event]);
+    expect(seen[0]).not.toBe(seen[1]);
+    expect(tabsOf(table).getState()).toMatchObject({ libraryRevision: 0, mapRevision: 0 });
   });
 
   it('library:changed grows the library revision', () => {

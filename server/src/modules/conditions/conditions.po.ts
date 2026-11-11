@@ -6,6 +6,7 @@ import {
 import { sql } from 'drizzle-orm';
 import {
   check,
+  index,
   integer,
   pgEnum,
   pgTable,
@@ -79,6 +80,8 @@ export const activeConditions = pgTable(
   (table) => [
     unique('active_conditions_token_condition_unique').on(table.tokenId, table.conditionId),
     unique('active_conditions_character_condition_unique').on(table.characterId, table.conditionId),
+    // Deleting a condition of the list cascades here, and the pairs above cannot lead by it.
+    index('active_conditions_condition_idx').on(table.conditionId),
     check(
       'active_conditions_one_holder',
       sql`(${table.tokenId} IS NULL) <> (${table.characterId} IS NULL)`,
