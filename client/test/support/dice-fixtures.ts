@@ -38,6 +38,17 @@ export function biaRolled(overrides: Partial<DiceRolledDto> = {}): DiceRolledDto
   };
 }
 
+/** The ack of Bia's "Acerto" as the server answers her: the result of `biaRolled` without the
+ *  throw (17 + 5 = 22, settling in 2.4 s).
+ *
+ *  Example: `deps.dice.answer = biaRollAck({ total: 9 })` */
+export function biaRollAck(
+  overrides: Partial<DiceRolledDto> = {},
+): Readonly<{ ok: true } & Pick<DiceRolledDto, 'rollId' | 'parts' | 'total' | 'settlesInMs'>> {
+  const { rollId, parts, total, settlesInMs } = biaRolled(overrides);
+  return { ok: true, rollId, parts, total, settlesInMs };
+}
+
 /** The notice of a masters-only roll of Bia, as a player who may not see it receives it. */
 export function biaRolledSecretly(
   overrides: Partial<DiceRolledSecretlyDto> = {},

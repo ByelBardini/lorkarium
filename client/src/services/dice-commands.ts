@@ -3,6 +3,7 @@ import {
   diceRollAckDto,
   type ApiErrorDto,
   type DiceRollCommandInput,
+  type DiceRolledDto,
 } from '@lorkarium/contracts';
 import type { RealtimeTransport } from './realtime-transport';
 
@@ -18,11 +19,17 @@ export type DiceRollFailure =
       kind: 'forbidden' | 'not_found' | 'invalid' | 'unauthenticated' | 'offline' | 'unexpected';
     }>;
 
-export type DiceRollResult =
-  Readonly<{ ok: true; rollId: string }> | Readonly<{ ok: false; failure: DiceRollFailure }>;
+/** What the roller hears back: the roll as `dice:rolled` has it, without the throw. */
+export type DiceRollOutcome = Readonly<
+  Pick<DiceRolledDto, 'rollId' | 'parts' | 'total' | 'settlesInMs'>
+>;
 
-/** The dice of an open table; answers with its ack, never throws. The roll itself (the result,
- *  the throw) arrives to everyone, the roller included, as `dice:rolled`.
+export type DiceRollResult =
+  (Readonly<{ ok: true }> & DiceRollOutcome) | Readonly<{ ok: false; failure: DiceRollFailure }>;
+
+/** The dice of an open table; answers with its ack, never throws. The ack carries the result to
+ *  the roller; the roll itself (with the throw) arrives to everyone, the roller included, as
+ *  `dice:rolled`.
  *
  *  Example: `await dice.roll(campaignId, { label: null, parts, visibility: 'public', aspect: 1.78 })` */
 export interface DiceCommands {
@@ -70,7 +77,7 @@ export class RealtimeDiceCommands implements DiceCommands {
 function rollResultOf(answer: unknown): DiceRollResult {
   const parsed = diceRollAckDto.safeParse(answer);
   if (!parsed.success) return { ok: false, failure: { kind: 'unexpected' } };
-  if (parsed.data.ok) return { ok: true, rollId: parsed.data.rollId };
+  if (parsed.data.ok) return parsed.data;
   return { ok: false, failure: rollFailureOf(parsed.data.error) };
 }
 

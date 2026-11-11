@@ -57,8 +57,9 @@ describe('dice:roll', () => {
 
     const ack = await roll(clients[1]!, rollOf(live.vharn));
 
-    expect(ack).toEqual({ ok: true, rollId: expect.any(String) });
     const events = await Promise.all(recorders.map(fullRollOf));
+    const { rollId, parts, total, settlesInMs } = events[0]!;
+    expect(ack).toEqual({ ok: true, rollId, parts, total, settlesInMs });
     const sameRoll = events.map(({ rollId, total, throw: thrown }) => ({
       rollId,
       total,

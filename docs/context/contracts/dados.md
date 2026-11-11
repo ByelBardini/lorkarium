@@ -24,7 +24,7 @@
 - `diceRollLabelDto` — texto aparado até 40; vazio/só espaço → `null`; aceita `null`.
 - `diceRollPartDto` `{ label, expression }` — `expression` aparada, 1 a 200. A notação **não** é lida aqui: o server lê pelo game-core e recusa com `INVALID_DICE_EXPRESSION`.
 - `diceRollCommandDto` `{ actionId, campaignId, label, parts (1..10), visibility, aspect (0,5..3) }`, estrito (`userId` forjado é recusado: quem rola vem da conexão, §7.3). Sem `sceneId`: a rolagem é da mesa, não do grid. Tipos `DiceRollCommandDto` (saída) e `DiceRollCommandInput` (entrada).
-- `diceRollAckDto` — `{ ok: true, rollId }` | `realtimeAckFailureDto`, união por `ok`.
+- `diceRollAckDto` — `{ ok: true, rollId, parts (1..10, `rolledPartDto`), total, settlesInMs }` | `realtimeAckFailureDto`, união por `ok`. O resultado volta só a quem rolou (a secreta inclusa: ele a vê de todo jeito); é o que o `dice.roll` da ficha devolve.
 
 ## Eventos
 

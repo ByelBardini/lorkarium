@@ -76,7 +76,13 @@ describe('DiceService.roll', () => {
 
     const answer = await service.roll(BIA_ID, rollOf(['1d20+5'], { label: 'Acerto' }));
 
-    expect(answer).toEqual({ rollId: ROLL_ID });
+    expect(answer).toEqual({
+      rollId: ROLL_ID,
+      parts: publisher.full[0]?.parts,
+      total: 22,
+      settlesInMs: 1500,
+    });
+    expect(answer.parts[0]?.dice).toEqual([{ sides: 20, value: 17, status: 'kept', model: [0] }]);
     expect(physics.throws).toEqual([{ kinds: ['d20'], aspect: 16 / 9, startMs: 0 }]);
     expect(publisher.journal).toEqual(['publish:full:table']);
     expect(publisher.full[0]).toMatchObject({
@@ -89,6 +95,14 @@ describe('DiceService.roll', () => {
       settlesInMs: 1500,
       at: '2026-10-25T12:00:00.000Z',
     });
+  });
+
+  it('a masters-only roll still answers the roller with the result', async () => {
+    const { service } = harness([4]);
+
+    const answer = await service.roll(BIA_ID, rollOf(['1d20'], { visibility: 'masters' }));
+
+    expect(answer).toMatchObject({ rollId: ROLL_ID, total: 4 });
   });
 
   it('Ana without a chosen color rolls with her automatic one and no texture', async () => {

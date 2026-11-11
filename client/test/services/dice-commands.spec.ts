@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { RealtimeDiceCommands, type DiceRollRequest } from '@/services/dice-commands';
 import { VHARN } from '../support/campaigns-api-fake';
-import { BIA_ROLL_ID } from '../support/dice-fixtures';
+import { BIA_ROLL_ID, biaRollAck } from '../support/dice-fixtures';
 import { RealtimeTransportFake } from '../support/realtime-transport-fake';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
@@ -33,10 +33,16 @@ describe('RealtimeDiceCommands', () => {
     ]);
   });
 
-  it('an ok ack answers ok with the id of the roll', async () => {
+  it('an ok ack answers ok with the id of the roll and its result', async () => {
+    const result = dice.roll(VHARN.id, ACERTO);
+    await transport.answerAck(biaRollAck(), EVENT);
+    expect(await result).toEqual(biaRollAck());
+  });
+
+  it('an ok ack without the result is unexpected', async () => {
     const result = dice.roll(VHARN.id, ACERTO);
     await transport.answerAck({ ok: true, rollId: BIA_ROLL_ID }, EVENT);
-    expect(await result).toEqual({ ok: true, rollId: BIA_ROLL_ID });
+    expect(await result).toEqual({ ok: false, failure: { kind: 'unexpected' } });
   });
 
   it('INVALID_DICE_EXPRESSION answers invalid_expression with the server message', async () => {

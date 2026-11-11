@@ -37,6 +37,11 @@ export type DiceServiceDeps = Readonly<{
 
 type ThrownRoll = Readonly<{ result: DiceRollResult; waves: DiceWavesBo }>;
 
+/** What the roller hears back in the ack: the roll as `dice:rolled` has it, without the throw. */
+export type DiceRollOutcome = Readonly<
+  Pick<DiceRolledDto, 'rollId' | 'parts' | 'total' | 'settlesInMs'>
+>;
+
 /** The roll of the table: ephemeral, so it writes nothing and moves no version. */
 export class DiceService {
   constructor(private readonly deps: DiceServiceDeps) {}
@@ -44,10 +49,11 @@ export class DiceService {
   /** Rolls for a member (never a spectator): the physics throws up to 20 modeled dice per roll,
    *  crypto draws the rest, every explosion or reroll is a new wave 300 ms after the previous one
    *  settles, and the event goes to the table or, masters-only, to the masters and the roller
-   *  with a notice without the result to everyone else.
+   *  with a notice without the result to everyone else. The roller gets the result back too (a
+   *  masters-only roll included: they see it anyway).
    *
-   *  Example: `const { rollId } = await diceService.roll(user.id, command)` */
-  async roll(userId: string, command: DiceRollCommandDto): Promise<{ rollId: string }> {
+   *  Example: `const { rollId, total } = await diceService.roll(user.id, command)` */
+  async roll(userId: string, command: DiceRollCommandDto): Promise<DiceRollOutcome> {
     const access = await memberAccessOf(this.deps.members, command.campaignId, userId);
     const { result, waves } = this.throwAll(command);
     const profile = await this.deps.profiles.findById(userId);
@@ -63,7 +69,8 @@ export class DiceService {
       at: this.deps.clock.now().toISOString(),
     });
     this.publish(event, audienceOf(command.visibility, userId, access.isMaster()));
-    return { rollId: event.rollId };
+    const { rollId, parts, total, settlesInMs } = event;
+    return { rollId, parts, total, settlesInMs };
   }
 
   private throwAll(command: DiceRollCommandDto): ThrownRoll {
