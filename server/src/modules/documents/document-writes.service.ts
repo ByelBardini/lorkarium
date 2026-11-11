@@ -4,6 +4,7 @@ import {
   type DocumentContentDto,
   type DocumentDto,
   type DocumentReceiptDto,
+  type DocumentTabWriteResponseDto,
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
@@ -53,7 +54,7 @@ export type DocumentsServiceDeps = Readonly<{
   snapshot: DocumentTransaction;
   clock: ClockPort;
   newId: () => string;
-  publisher: Pick<LibraryPublisherPort, 'libraryChanged'>;
+  publisher: Pick<LibraryPublisherPort, 'libraryChanged' | 'documentTabChanged'>;
   /** At most this many tabs per document (`DOCUMENT_TABS_MAX`, given by the plugin). */
   tabLimit: number;
 }>;
@@ -151,6 +152,26 @@ export class DocumentWriteSteps {
   published<T>(campaignId: string, result: Applied<T>): T {
     if (result.changed)
       this.deps.publisher.libraryChanged({ campaignId, at: this.deps.clock.now().toISOString() });
+    return result.value;
+  }
+  /** Publishes `document:tabChanged` only for an applied body save, after its commit: the body
+   *  never goes through `library:changed`, so the library is not read again for an edit. */
+  tabChanged(
+    campaignId: string,
+    result: Applied<DocumentTabWriteResponseDto>,
+  ): DocumentTabWriteResponseDto {
+    if (!result.changed) return result.value;
+    const { tab, receipt } = result.value;
+    this.deps.publisher.documentTabChanged(
+      {
+        campaignId,
+        documentId: receipt.documentId,
+        tabId: tab.id,
+        version: tab.version,
+        at: this.deps.clock.now().toISOString(),
+      },
+      tab.visibility === 'masters',
+    );
     return result.value;
   }
 }

@@ -15,7 +15,7 @@ A FK composta da pasta usa `SET NULL (folder_id)`. O serviço de biblioteca move
 
 ## Serviços e transações
 
-`DocumentsServiceDeps` (em `document-writes.service.ts`) recebe DAOs de leitura e compositores `transaction`/`snapshot`, relógio, gerador de IDs, `LibraryPublisherPort` e `tabLimit` (o plugin passa `DOCUMENT_TABS_MAX`). `DocumentWriteSteps`, no mesmo arquivo, guarda os passos comuns: `lockedAccess` (trava a mesa e relê a participação), `scopeOf` (linha + donos + `DocumentAccessBo`, exige leitura), `view` (o `DocumentDto` com as abas visíveis), `previous`/`record` (recibo), `bumpDocument` e `published` (só publica comando aplicado, depois do commit); `commandFingerprint` e `documentAssetIds` também moram lá.
+`DocumentsServiceDeps` (em `document-writes.service.ts`) recebe DAOs de leitura e compositores `transaction`/`snapshot`, relógio, gerador de IDs, `LibraryPublisherPort` e `tabLimit` (o plugin passa `DOCUMENT_TABS_MAX`). `DocumentWriteSteps`, no mesmo arquivo, guarda os passos comuns: `lockedAccess` (trava a mesa e relê a participação), `scopeOf` (linha + donos + `DocumentAccessBo`, exige leitura), `view` (o `DocumentDto` com as abas visíveis), `previous`/`record` (recibo), `bumpDocument`, `published` (`library:changed`, só para comando aplicado, depois do commit) e `tabChanged` (`document:tabChanged` do corpo salvo, idem; aba `masters` só aos mestres — ver [Tempo real](../documents.md#tempo-real)); `commandFingerprint` e `documentAssetIds` também moram lá.
 
 - `DocumentsService`: criar (com a aba "Geral" vazia na mesma transação), ler, renomear (`PATCH …/content`, só `name`), administrar, excluir e as associações de imagem de uma aba (`authorizeEditor`, `associateAsset`, `associateLibraryAsset`, todas com `tabId`).
 - `DocumentTabsService` ([abas.md](abas.md)): ler aba, criar, renomear/ocultar, reordenar, excluir e salvar corpo.
@@ -42,6 +42,6 @@ Sob `/api/campaigns/:campaignId/documents`, autenticadas:
 | POST `/:documentId/tabs/:tabId/images/import`       | `{url}`; 201 `{asset}`                                         |
 | POST `/:documentId/tabs/:tabId/images/from-library` | `{imageId}`; 201 `{asset}`                                     |
 
-JSON limitado a 1 MiB; arquivos 20 MiB. Erros de contrato são 400, conflito/reutilização/última aba 409, teto de abas 422, permissão 403 e inexistente 404 (`DOCUMENT_NOT_FOUND`, `DOCUMENT_TAB_NOT_FOUND`, `DOCUMENT_ASSET_NOT_FOUND`). Params inválidos usam 404. Respostas de documento/aba/agregado usam `private, no-store`. `library:changed` leva só campanha e horário; não transmite título, posse ou corpo privado.
+JSON limitado a 1 MiB; arquivos 20 MiB. Erros de contrato são 400, conflito/reutilização/última aba 409, teto de abas 422, permissão 403 e inexistente 404 (`DOCUMENT_NOT_FOUND`, `DOCUMENT_TAB_NOT_FOUND`, `DOCUMENT_ASSET_NOT_FOUND`). Params inválidos usam 404. Respostas de documento/aba/agregado usam `private, no-store`. `library:changed` leva só campanha e horário; não transmite título, posse ou corpo privado. Salvar o corpo de uma aba publica `document:tabChanged` (ids e versão da aba), não `library:changed`.
 
 O agregado `LibraryImageService.list` consulta resumos sem corpo e donos em lote no snapshot, aplica `DocumentAccessBo` e une os ancestrais com grids e imagens (o resumo não leva abas). `GET /scenes` mantém o contrato anterior.

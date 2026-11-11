@@ -152,7 +152,7 @@ export class DocumentTabsService {
       await this.steps.record(daos, requester, value.receipt, fingerprint);
       return { value, changed: true };
     });
-    return this.steps.published(requester.campaignId, result);
+    return this.steps.tabChanged(requester.campaignId, result);
   }
   private async saveBody(
     scope: TabsScope,

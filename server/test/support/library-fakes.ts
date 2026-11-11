@@ -187,6 +187,7 @@ export class LibraryPublisherFake implements LibraryPublisherPort {
   imagePresentationChanged(): void {}
   libraryMapChanged(): void {}
   mapRegionShown(): void {}
+  documentTabChanged(): void {}
   readonly changes: LibraryChangedDto[] = [];
   readonly activations: SceneActivatedDto[] = [];
 

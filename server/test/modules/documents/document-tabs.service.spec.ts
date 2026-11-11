@@ -181,7 +181,7 @@ describe('DocumentTabsService tab content', () => {
       'save content',
       'receipt',
       'commit',
-      'publish',
+      `publish tab ${GERAL_TAB_ID}@1`,
     ]);
     expect(result).toEqual({
       tab: expect.objectContaining({ id: GERAL_TAB_ID, version: 1 }),
@@ -221,6 +221,18 @@ describe('DocumentTabsService tab content', () => {
     );
     expect(repeated.receipt).toEqual(first.receipt);
     expect(harness.tabs.rows[0]?.version).toBe(1);
+    expect(harness.journal.filter((entry) => entry.startsWith('publish'))).toEqual([
+      `publish tab ${GERAL_TAB_ID}@1`,
+    ]);
+  });
+  it('saving the masters-only "Segredos" publishes its change to the masters only', async () => {
+    const harness = diary();
+    await serviceWith(harness).updateContent(harness.requester, DOCUMENT_ID, SEGREDOS_TAB_ID, {
+      actionId: ACTION_ID,
+      expectedVersion: 0,
+      content: documentText('Traidor'),
+    });
+    expect(harness.journal).toContain(`publish tab ${SEGREDOS_TAB_ID}@1 masters`);
   });
   it('an image never associated with a visible tab refuses the body and keeps the references', async () => {
     const harness = diary();

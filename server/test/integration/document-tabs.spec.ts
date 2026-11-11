@@ -1,4 +1,9 @@
-import { DOCUMENT_TABS_MAX, type DocumentDto } from '@lorkarium/contracts';
+import {
+  DOCUMENT_EVENTS,
+  DOCUMENT_TABS_MAX,
+  documentTabChangedDto,
+  type DocumentDto,
+} from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import { DocumentTabsDao } from '../../src/modules/documents/document-tabs.dao';
 import { DocumentHttpHarness, documentText, firstTabOf } from '../support/document-http';
@@ -193,21 +198,76 @@ describe('document tabs over HTTP', () => {
     expect(removed.statusCode, removed.body).toBe(200);
     expect((await documents.read(document.id)).tabs).toHaveLength(1);
   });
-  it('library:changed goes out after each tab change and not after a refusal', async () => {
+  it('library:changed goes out after each structural tab change and not after a refusal', async () => {
     const document = await documents.administer(await documents.create(), { visibility: 'public' });
     const bia = recordEventsOf(await live.atTable(live.bia, live.vharn));
     const { document: withTab, receipt } = await documents.createTab(document);
-    await documents.saveTab(
-      document.id,
-      { id: receipt.tabId ?? '', version: 0 },
-      documentText('x'),
+    const renamed = await structural(
+      live.ana,
+      'PATCH',
+      documents.tabUrl(document.id, receipt.tabId),
+      {
+        expectedVersion: withTab.version,
+        name: 'Itens',
+      },
     );
+    expect(renamed.statusCode, renamed.body).toBe(200);
     await structural(live.bia, 'POST', documents.tabUrl(document.id), {
-      expectedVersion: withTab.version,
+      expectedVersion: withTab.version + 1,
     });
     await bia.until(2);
     await silence();
     expect(bia.events.filter(({ name }) => name === 'library:changed')).toHaveLength(2);
+  });
+});
+
+describe('saving a tab body publishes document:tabChanged', () => {
+  it('Bia hears the ids and the new version of "Itens", and no library:changed', async () => {
+    const { document, itens } = await diary();
+    const bia = recordEventsOf(await live.atTable(live.bia, live.vharn));
+    await documents.saveTab(document.id, { id: itens, version: 0 }, documentText('Corda'));
+    await bia.until(1);
+    await silence();
+    expect(bia.events.map(({ name }) => name)).toEqual(['document:tabChanged']);
+    expect(documentTabChangedDto.parse(bia.events[0]?.payload)).toMatchObject({
+      campaignId: live.vharn.id,
+      documentId: document.id,
+      tabId: itens,
+      version: 1,
+    });
+  });
+  it('a repeated actionId replays the receipt without a second event', async () => {
+    const { document, itens } = await diary();
+    const bia = recordEventsOf(await live.atTable(live.bia, live.vharn));
+    const save = {
+      method: 'PATCH' as const,
+      url: `${documents.tabUrl(document.id, itens)}/content`,
+      payload: { actionId: crypto.randomUUID(), expectedVersion: 0, content: documentText('x') },
+    };
+    expect((await live.http(live.ana, save)).statusCode).toBe(200);
+    expect((await live.http(live.ana, save)).statusCode).toBe(200);
+    await bia.until(1);
+    await silence();
+    expect(bia.events.filter(({ name }) => name === DOCUMENT_EVENTS.tabChanged)).toHaveLength(1);
+  });
+  it('the masters-only "Segredos" reaches Ana and not Bia', async () => {
+    const { document, segredos } = await diary();
+    const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+    const bia = recordEventsOf(await live.atTable(live.bia, live.vharn));
+    await documents.saveTab(document.id, { id: segredos, version: 0 }, documentText('Traidor'));
+    await ana.until(1);
+    await silence();
+    expect(ana.events.filter(({ name }) => name === DOCUMENT_EVENTS.tabChanged)).toHaveLength(1);
+    expect(bia.events.filter(({ name }) => name === DOCUMENT_EVENTS.tabChanged)).toEqual([]);
+  });
+  it('Caio at Quelm hears nothing of a Vharn tab', async () => {
+    const { document, itens } = await diary();
+    const bia = recordEventsOf(await live.atTable(live.bia, live.vharn));
+    const caio = recordEventsOf(await live.atTable(live.caio, live.quelm));
+    await documents.saveTab(document.id, { id: itens, version: 0 }, documentText('Corda'));
+    await bia.until(1);
+    await silence();
+    expect(caio.events).toEqual([]);
   });
 });
 async function spectator(): Promise<SignedInUser> {

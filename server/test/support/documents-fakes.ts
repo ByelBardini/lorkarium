@@ -267,6 +267,11 @@ export class DocumentsHarness {
       libraryChanged: () => {
         this.journal.push('publish');
       },
+      documentTabChanged: (event, mastersOnly) => {
+        this.journal.push(
+          `publish tab ${event.tabId}@${event.version}${mastersOnly ? ' masters' : ''}`,
+        );
+      },
     },
     tabLimit: 200,
   };
