@@ -250,4 +250,35 @@ describe('LightsDao on Postgres', () => {
 
     expect((await lights.listOfScene(otherSceneId))[0]).toMatchObject({ facing: 0, angle: 360 });
   });
+
+  it('countOfScene counts only the lights of that scene', async () => {
+    await lights.insertMany([wallTorch(), wallTorch({ x: '1.00' })]);
+    await savedOne(wallTorch({ sceneId: otherSceneId }));
+
+    expect([await lights.countOfScene(sceneId), await lights.countOfScene(otherSceneId)]).toEqual([
+      2, 1,
+    ]);
+  });
+
+  it('a group write gives each light its own value, a neutral color included, in one statement', async () => {
+    const [fire, moon] = await lights.insertMany([
+      wallTorch({ color: 'fire' }),
+      wallTorch({ color: 'moon' }),
+    ]);
+    if (!fire || !moon) throw new Error('insertMany returned fewer than 2 lights');
+
+    await lights.setColors(sceneId, [
+      { lightId: fire.id, color: null },
+      { lightId: moon.id, color: '#336699' },
+    ]);
+    await lights.moveMany(sceneId, [
+      { lightId: fire.id, x: '1.50', y: '2.50' },
+      { lightId: moon.id, x: '7.00', y: '8.00' },
+    ]);
+
+    expect((await lights.listOfScene(sceneId)).map(({ x, y, color }) => [x, y, color])).toEqual([
+      ['1.50', '2.50', null],
+      ['7.00', '8.00', '#336699'],
+    ]);
+  });
 });

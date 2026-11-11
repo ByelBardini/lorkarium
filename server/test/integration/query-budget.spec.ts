@@ -23,6 +23,7 @@ const BUDGET = {
 } as const;
 
 const BEGIN = /^begin/i;
+
 const READS_AN_ASSET = /from "assets"/;
 
 describe('the queries each hot board command costs', () => {
@@ -256,6 +257,138 @@ describe('the queries each hot board command costs', () => {
       expect(live.queries.matching(READS_AN_ASSET)).toBe(0);
       expect(live.queries.matching(/from "tokens"/)).toBe(0);
       expect(queries).toBeLessThanOrEqual(BUDGET.setDoorOff);
+    });
+  });
+
+  describe('group writes of conditions and lights cost the same for 2 and for 64', () => {
+    const GROUP_BUDGET = { applyMany: 12, lightGroup: 6, lightsCreateMany: 6 } as const;
+
+    function createdIdsOf(ack: Awaited<ReturnType<typeof send>>): string[] {
+      if (!ack.ok || !ack.createdIds)
+        throw new Error(`expected created ids, got ${JSON.stringify(ack)}`);
+      return ack.createdIds;
+    }
+
+    async function tokensOnVharn(ana: EventRecorder, count: number): Promise<string[]> {
+      const tokens = Array.from({ length: count }, (_, index) => {
+        const at = { col: index % 16, row: Math.floor(index / 16), bars: [] };
+        const item: Record<string, unknown> = { ...tokenCommandFor(live.vharn, live.bia.id, at) };
+        delete item.actionId;
+        delete item.campaignId;
+        return item;
+      });
+      const ack = await send(ana.client, 'token:createMany', {
+        ...envelope(live.vharn.id),
+        tokens,
+      });
+      return createdIdsOf(ack);
+    }
+
+    async function lightsOnVharn(ana: EventRecorder, count: number): Promise<string[]> {
+      const lights = Array.from({ length: count }, (_, index) => ({
+        ...{ x: (index % 8) + 0.5, y: Math.floor(index / 8) + 0.5, bright: 2, dim: 2 },
+      }));
+      const ack = await send(ana.client, 'light:createMany', {
+        ...envelope(live.vharn.id),
+        lights,
+      });
+      return createdIdsOf(ack);
+    }
+
+    async function stackingUpTo2(ana: EventRecorder): Promise<string> {
+      const define = { ...envelope(live.vharn.id), name: 'Sangrando', tone: 'harm' };
+      await send(ana.client, 'condition:define', { ...define, icon: 'droplet', maxStacks: 2 });
+      const definitions = (await synced(ana.client, live.vharn)).conditionDefinitions;
+      const sangrando = definitions.find(({ name }) => name === 'Sangrando');
+      if (!sangrando) throw new Error(`"Sangrando" is not among ${JSON.stringify(definitions)}`);
+      return sangrando.id;
+    }
+
+    async function appliedMany(ana: EventRecorder, count: number): Promise<number> {
+      const tokenIds = await tokensOnVharn(ana, count);
+      const conditionId = await stackingUpTo2(ana);
+      const command = { ...envelope(live.vharn.id), tokenIds, conditionId, rounds: 2 };
+      return counted(() => send(ana.client, 'condition:applyMany', command));
+    }
+
+    it(`condition:applyMany costs at most ${GROUP_BUDGET.applyMany}, for 2 tokens as for 64`, async () => {
+      const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+      const two = await appliedMany(ana, 2);
+      const sixtyFour = await appliedMany(ana, 64);
+
+      expect(sixtyFour).toBe(two);
+      expect(sixtyFour).toBeLessThanOrEqual(GROUP_BUDGET.applyMany);
+    });
+
+    it('condition:applyMany three times keeps every token at the 2 stacks of the cap', async () => {
+      const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+      const tokenIds = await tokensOnVharn(ana, 3);
+      const conditionId = await stackingUpTo2(ana);
+      for (let time = 0; time < 3; time += 1)
+        await send(ana.client, 'condition:applyMany', {
+          ...{ ...envelope(live.vharn.id), tokenIds, conditionId, rounds: 0 },
+        });
+
+      const board = await synced(ana.client, live.vharn);
+      const stacks = tokenIds.map(
+        (id) => board.tokens.find((token) => token.id === id)?.conditions[0]?.stacks,
+      );
+      expect(stacks).toEqual([2, 2, 2]);
+    });
+
+    type LightGroup = readonly [string, string, (lightId: string) => object];
+    const LIGHT_GROUPS: readonly LightGroup[] = [
+      ['light:moveMany', 'moves', (lightId: string) => ({ lightId, x: 9.5, y: 9.5 })],
+      ['light:setRangeMany', 'changes', (lightId: string) => ({ lightId, bright: 3, dim: 5 })],
+      ['light:setColorMany', 'changes', (lightId: string) => ({ lightId, color: 'fire' })],
+      ['light:setConeMany', 'changes', (lightId: string) => ({ lightId, facing: 90, angle: 60 })],
+    ];
+
+    it.each(LIGHT_GROUPS)(
+      `%s costs at most ${GROUP_BUDGET.lightGroup}, for 2 lights as for 64`,
+      async (event, key, changeOf) => {
+        const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+        const ids = await lightsOnVharn(ana, 64);
+        const sent = (group: readonly string[]) =>
+          counted(() =>
+            send(ana.client, event, { ...envelope(live.vharn.id), [key]: group.map(changeOf) }),
+          );
+
+        const two = await sent(ids.slice(0, 2));
+        const sixtyFour = await sent(ids);
+
+        expect(sixtyFour).toBe(two);
+        expect(sixtyFour).toBeLessThanOrEqual(GROUP_BUDGET.lightGroup);
+      },
+    );
+
+    it(`light:createMany of 64 costs at most ${GROUP_BUDGET.lightsCreateMany} and reads no light`, async () => {
+      const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+      await lightsOnVharn(ana, 2);
+
+      const queries = await counted(() => lightsOnVharn(ana, 64));
+
+      expect(queries).toBeLessThanOrEqual(GROUP_BUDGET.lightsCreateMany);
+      expect(live.queries.matching(/^select "id", "scene_id", "light_order"/i)).toBe(0);
+    });
+
+    it('a light of another grid in the group refuses it and moves none', async () => {
+      const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+      const [mine] = await lightsOnVharn(ana, 1);
+      const caio = recordEventsOf(await live.atTable(live.caio, live.quelm));
+      const foreign = createdIdsOf(
+        await send(caio.client, 'light:createMany', {
+          ...envelope(live.quelm.id),
+          lights: [{ x: 1.5, y: 1.5, bright: 2, dim: 2 }],
+        }),
+      );
+      const moves = [mine, ...foreign].map((lightId) => ({ lightId, x: 9.5, y: 9.5 }));
+
+      const ack = await send(ana.client, 'light:moveMany', { ...envelope(live.vharn.id), moves });
+
+      expect(ack.ok).toBe(false);
+      expect((await synced(ana.client, live.vharn)).lights.map(({ x }) => x)).toEqual([0.5]);
+      expect((await synced(caio.client, live.quelm)).lights.map(({ x }) => x)).toEqual([1.5]);
     });
   });
 });
