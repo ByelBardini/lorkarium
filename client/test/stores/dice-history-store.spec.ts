@@ -8,21 +8,12 @@ import {
   type DiceHistoryStore,
 } from '@/stores/dice-history-store';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
-import { biaRolled, biaRolledSecretly, rollIdOf } from '../support/dice-fixtures';
+import { biaRolled, biaRolledKept, biaRolledSecretly, rollIdOf } from '../support/dice-fixtures';
 import { StorageFake } from '../support/storage-fake';
 import { biaJoined } from '../support/table-session-fixtures';
 
 const KEY = `lorkarium.dice.${VHARN.id}`;
-// The parts of `biaRolled()` as the history keeps them: no 3D model on the dice.
-const WITHOUT_MODELS = [
-  {
-    label: 'Acerto',
-    expression: '1d20+5',
-    total: 22,
-    dice: [{ sides: 20, value: 17, status: 'kept' as const }],
-  },
-];
-const BIA_KEPT = biaRolled({ throw: null, parts: WITHOUT_MODELS });
+const BIA_KEPT = biaRolledKept();
 
 describe('dice history store', () => {
   let storage: StorageFake;
