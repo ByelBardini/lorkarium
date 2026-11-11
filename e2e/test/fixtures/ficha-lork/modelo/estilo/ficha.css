@@ -79,8 +79,8 @@ svg {
   position: sticky;
   top: 0;
   align-self: start;
-  height: 100vh;
-  height: 100dvh;
+  height: calc(100vh / var(--zoom, 1));
+  height: calc(100dvh / var(--zoom, 1));
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -513,7 +513,7 @@ select.in option {
 
 #rtbar {
   position: fixed;
-  left: calc(var(--rail) + (100vw - var(--rail)) / 2);
+  left: calc(var(--rail) + (100vw / var(--zoom, 1) - var(--rail)) / 2);
   bottom: 18px;
   z-index: 30;
   display: none;
@@ -2076,4 +2076,24 @@ table.res {
     max-width: calc(100vw - 24px);
     overflow-x: auto;
   }
+}
+
+/* ---------- zoom ---------- */
+#zoom-pill {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 60;
+  padding: 6px 12px;
+  background: var(--card);
+  border: 1px solid var(--input);
+  border-radius: 999px;
+  color: var(--gold-l);
+  font: 600 13px var(--sans);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+#zoom-pill.on {
+  opacity: 1;
 }
