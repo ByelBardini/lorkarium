@@ -23,6 +23,7 @@ import {
   requireWoff2,
   resizeFor,
 } from './asset-upload.bo';
+import { assetEtagOf, isRevalidated, PROTECTED_ASSET_CACHE_CONTROL } from './asset-revalidation.bo';
 import type { AssetStoragePort, StoredObject } from './asset-storage.port';
 import type { AssetHeaderPo, AssetsDao } from './assets.dao';
 import {
@@ -61,7 +62,11 @@ export type OpenedAsset = Readonly<{
   size: number;
   mimeType: AssetPo['mimeType'];
   cacheControl?: string;
+  etag?: string;
 }>;
+
+/** A protected asset the browser already holds, still readable: 304, no bytes and no S3. */
+export type RevalidatedAsset = Readonly<{ notModified: true; cacheControl: string; etag: string }>;
 
 type Incoming = Readonly<{ campaignId: string; userId: string; purpose: AssetPurposeDto }>;
 
@@ -187,21 +192,26 @@ export class AssetsService {
   }
 
   /** The bytes of an asset for a member of its campaign; anyone else, a missing row or a missing
-   *  object all get the same `ASSET_NOT_FOUND` (criterion 14). */
-  async open(userId: string, assetId: string): Promise<OpenedAsset> {
+   *  object all get the same `ASSET_NOT_FOUND` (criterion 14). A protected asset whose ETag
+   *  `ifNoneMatch` names comes back revalidated: after the policy, before the S3.
+   *
+   *  Example: `await assetsService.open(bia.id, mapId, request.headers['if-none-match'])` */
+  async open(
+    userId: string,
+    assetId: string,
+    ifNoneMatch?: string,
+  ): Promise<OpenedAsset | RevalidatedAsset> {
     const row = await this.readable(
       userId,
       assetId,
       await this.deps.assets.findHeaderById(assetId),
     );
+    const revalidation = revalidationOf(row);
+    if (revalidation && isRevalidated(ifNoneMatch, revalidation.etag))
+      return { notModified: true, ...revalidation };
     const object = await this.deps.storage.open(row.storageKey);
     if (object === null) throw new AssetNotFoundError(assetId);
-    return {
-      body: object.body,
-      size: object.size,
-      mimeType: row.mimeType,
-      ...(isProtectedAssetPurpose(row.purpose) ? { cacheControl: 'private, no-store' } : {}),
-    };
+    return { body: object.body, size: object.size, mimeType: row.mimeType, ...revalidation };
   }
 
   /** The silhouette of an asset, under the same guard as its bytes; it reads no object, so an old
@@ -269,4 +279,10 @@ function linkErrorOf(url: string, refusal: FetchRefusal): Error {
   if (refusal.kind === 'blocked') return new LinkBlockedError(refusal.host, refusal.address);
   if (refusal.kind === 'too-large') return new AssetTooLargeError(refusal.limit, refusal.received);
   return new LinkUnreachableError(url, refusal.reason);
+}
+
+// Only a protected purpose is revalidated: its permission can change, the others are immutable.
+function revalidationOf(row: AssetHeaderPo): { cacheControl: string; etag: string } | undefined {
+  if (!isProtectedAssetPurpose(row.purpose)) return undefined;
+  return { cacheControl: PROTECTED_ASSET_CACHE_CONTROL, etag: assetEtagOf(row.id) };
 }

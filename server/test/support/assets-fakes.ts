@@ -41,6 +41,8 @@ export class LoopbackOnlyPolicyFake implements AddressPolicy {
 /** An in-memory bucket; writes 'put' and 'remove:<key>' to the shared journal. */
 export class AssetStorageFake implements AssetStoragePort {
   readonly objects = new Map<string, { bytes: Uint8Array; contentType: string }>();
+  /** Every key `open` was asked for: a 304 opens none. */
+  readonly opened: string[] = [];
 
   constructor(private readonly journal: string[] = []) {}
 
@@ -52,6 +54,7 @@ export class AssetStorageFake implements AssetStoragePort {
   }
 
   async open(key: string): Promise<StoredObject | null> {
+    this.opened.push(key);
     const object = this.objects.get(key);
     if (object === undefined) return null;
     const body = Readable.from([Buffer.from(object.bytes)]);

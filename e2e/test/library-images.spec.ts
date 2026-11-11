@@ -222,7 +222,7 @@ test('public preview and mixed folders follow visibility; another campaign recei
   await expect(viewerOf(master, 'Vista do castelo')).toHaveCount(0);
   const bytes = await player.request.get(`/api/assets/${image.asset.id}`);
   expect(bytes.status()).toBe(200);
-  expect(bytes.headers()['cache-control']).toBe('private, no-store');
+  expect(bytes.headers()['cache-control']).toBe('private, no-cache');
   expect(await assetStatus(outsider, image)).toBe(404);
   expect(
     (await outsider.request.get(`/api/campaigns/${campaignId}/image-presentation`)).status(),
