@@ -6,6 +6,7 @@ Detalhe do hub [`server.md`](../server.md).
 
 - `test/support/query-count.ts` — `CountingQueryLog` (`queries`, `count`, `matching(/^begin/i)`, `reset()`); o `useTokenTable` o liga por `openTestDatabase({ queryLog })` e o expõe como `live.queries` (zerado a cada `seed`). Para contar um comando: `live.queries.reset()` logo antes de mandá-lo e ler `count` depois do ack. O Drizzle registra também `begin` e `commit`.
 - `test/integration/query-budget.spec.ts` — o teto de consultas de cada comando quente (`BUDGET`); uma consulta a mais num DAO deixa o `it` vermelho. Quando um número baixa, o teto desce junto.
+- `test/integration/foreign-key-indexes.spec.ts` — lê o catálogo (`pg_constraint` × `pg_index`) depois de todas as migrações e compara as FKs sem índice com a lista `ACCEPTED_WITHOUT_INDEX`, cada uma com o motivo (só dispara ao excluir conta; asset só sai com a mesa; um índice com `campaign_id` à frente já estreita a uma mesa).
 - `test/bench/dice-physics.bench.ts` (`pnpm bench`) — o custo de CPU de uma onda de dados na física; números em [`../dice/fisica.md`](../dice/fisica.md) (Custo). O projeto `@lorkarium/server-integration` tem `benchmark: { include: [] }`: sem isso o bench do server rodava duas vezes.
 
 | Comando (cenário do spec)                       | Sem memória | Atual | Regras que seguram |
@@ -30,6 +31,14 @@ Detalhe do hub [`server.md`](../server.md).
 | `effectArea:reshapeMany` de 2 / 64 áreas        | 7 / 69      | 6     | 7                  |
 | `token:addPlayers` com 2 jogadores              | 20          | 18    | 7, 9               |
 
+Leituras HTTP quentes (`test/integration/query-budget-http.spec.ts`, contadas depois do primeiro pedido de quem lê; as 2 da sessão e da conta entram):
+
+| Leitura (cenário do spec)                                | Antes | Atual | Regras que seguram |
+| -------------------------------------------------------- | ----- | ----- | ------------------ |
+| `GET /assets/:id` `library_image` pública, jogador       | 10    | 7     | 2, 14              |
+| `GET /assets/:id` `library_image`, mestre                | 8     | 5     | 2, 14              |
+| `GET /assets/:id` `library_image` em pasta privada (404) | 14    | 10    | 2, 14              |
+
 Os números contam `begin`/`commit`. "Sem memória" é o custo medido antes das regras abaixo.
 
 ### Regras de desempenho (não desfazer)
@@ -49,3 +58,7 @@ Cada regra diz onde mora e quantas consultas voltam se for quebrada. Mexeu num D
 10. **Snapshot numa transação `repeatable read` `read only`** (`runInSnapshot`, `BoardService.snapshotFor`): as ≈13 leituras do `board:sync` veem o mesmo instante (custa o `begin` e o `commit`: 13 → 15). Tirar a transação devolve 2 consultas, mas um comando que grava entre duas leituras volta a entregar um tabuleiro misturado (tokens novos com paredes velhas, versão que não bate).
 11. **Socket.IO pelos limites do contracts** (`realtimeServerOptions()`, `REALTIME_MESSAGE_MAX_BYTES`, `REALTIME_COMPRESSION_THRESHOLD_BYTES`; `realtimeClientOptions()` no client): buffer de 5 MiB, compressão a partir de 4 KB e websocket primeiro. Voltar ao buffer de 1 MB derruba a conexão de quem cola 64 desenhos grandes (o `drawings.spec.ts` prova); compressão sem limiar gasta CPU em cada prévia de arraste; polling primeiro custa uma volta HTTP a mais em cada conexão e reconexão. Não custa consulta.
 12. **Conteúdo trava a própria linha** (`DocumentTabsDao.lockById`, `SheetsDao.lockById`; `FOR NO KEY UPDATE`): salvar o corpo de uma aba ou os valores de uma ficha trava só aquela linha, não a da campanha. A linha da campanha é a trava dos personagens (`CharactersDao.lockVersion`): voltar ao `CampaignsDao.lockById` faz cada salvamento do editor esperar (e ser esperado por) todo HP e condição de personagem da mesa, e com o `lock_timeout` de 2 s o salvamento cai em 500 numa mesa movimentada (o `document-writes.spec.ts` e o `sheets.spec.ts` provam segurando a linha da campanha). A árvore da biblioteca (criar, mover, excluir, administrar) continua sob a trava da campanha. Não custa consulta.
+13. **Toda FK nova entra com índice ou na exceção do spec** (`foreign-key-indexes.spec.ts`): o Postgres não indexa o lado que referencia, então o `SET NULL`/`CASCADE` de apagar o pai varre a tabela filha de todas as mesas (apagar uma forma varria `tokens` inteira sob a trava da cena). Índice parcial (`WHERE col IS NOT NULL`) quando a coluna é quase sempre nula; a exceção só quando a FK não dispara em uso normal, com o motivo escrito. Não custa consulta: custa uma varredura sequencial por linha apagada.
+14. **Política de leitura recebe a linha lida; nunca lista para achar um** (`AssetReadPolicyPort.canRead(…, purpose)`, `AssetsDao.findHeaderById`, `LibraryImagesDao.findByAsset`): o `AssetsService` lê o asset uma vez, sem o `sight_outline`, e passa a finalidade; a composição do `buildApp` não relê; o asset, a política da biblioteca e a do documento leem a participação pela `CachedMemberships`. Voltar a reler o asset custa +1 por imagem servida, a participação própria +1 por política, e o `listOfCampaign` para achar uma imagem lê a biblioteca inteira (com o CTE de pasta por linha) a cada imagem aberta.
+15. **A biblioteca lista sem o pesado** (`LibraryImageService.list`, `FolderPrivacyBo`, `columnsWithout`): o agregado decide a pasta privada sobre as pastas já lidas, e as listas de imagens, documentos, mapas e fichas não levam o CTE recursivo por linha nem o `values` das fichas (o spec prova 0 `values` e uma só recursiva, a dos grids). Não muda a contagem: devolver a coluna SQL a uma lista roda uma recursiva por item a cada `GET …/library` (que todo cliente da mesa refaz a cada `library:changed`), e o `values` devolve até 256 KiB por ficha lida e descartada.
+16. **Políticas de ficha em lote** (`readsAnySheet`, `SheetsDao.findLines`, `holdersOf`): a imagem e o asset de modelo leem as fichas que os usam numa consulta, sem `values`, e os donos em lote. Voltar ao laço por ficha (`sheetRulesOf`) custa ~4 consultas por ficha (10 fichas: 11 → 47) a cada fonte ou imagem do modelo que a ficha aberta pede.

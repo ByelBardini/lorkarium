@@ -37,7 +37,7 @@ const read = (user: SignedInUser, id: string) =>
 describe('library image HTTP and access isolation', () => {
   it('creates private by default; dedicated orphan and private bytes are only readable by the master, without caching', async () => {
     const asset = await upload();
-    expect((await read(live.ana, asset.id)).headers['cache-control']).toBe('private, no-store');
+    expect((await read(live.ana, asset.id)).headers['cache-control']).toBe('private, no-cache');
     expect((await read(live.bia, asset.id)).statusCode).toBe(404);
     const image = await create();
     expect(image).toMatchObject({ name: 'Retrato', folderId: null, visibility: 'private' });
@@ -275,5 +275,44 @@ describe('library image HTTP and access isolation', () => {
     const image = await live.http(live.ana, { method: 'DELETE', url: `${url()}/not-a-uuid` });
     expect(image.statusCode).toBe(404);
     expect(image.json()).toMatchObject({ code: 'LIBRARY_IMAGE_NOT_FOUND' });
+  });
+});
+describe('revalidating a library image by its ETag', () => {
+  const readWith = (user: SignedInUser, id: string, etag: string) =>
+    live.http(user, {
+      method: 'GET',
+      url: `/api/assets/${id}`,
+      headers: { 'if-none-match': etag },
+    });
+  async function publicImage() {
+    return (await create({ visibility: 'public' })).asset.id;
+  }
+  it('answers 200 with the id as ETag, then 304 without a body to the same ETag', async () => {
+    const assetId = await publicImage();
+    const first = await read(live.bia, assetId);
+    expect(first.statusCode).toBe(200);
+    expect(first.headers.etag).toBe(`"${assetId}"`);
+    expect(first.headers['cache-control']).toBe('private, no-cache');
+    const again = await readWith(live.bia, assetId, `"${assetId}"`);
+    expect(again.statusCode).toBe(304);
+    expect(again.headers.etag).toBe(`"${assetId}"`);
+    expect(again.rawPayload.byteLength).toBe(0);
+  });
+  it('serves the bytes again to an ETag of another asset', async () => {
+    const assetId = await publicImage();
+    const response = await readWith(live.bia, assetId, '"0f4b2c1d-3e5f-4a6b-8c7d-9e0f1a2b3c4d"');
+    expect(response.statusCode).toBe(200);
+    expect(response.rawPayload.byteLength).toBeGreaterThan(0);
+  });
+  it('answers 404, never 304, to a player who lost the image, even with the right ETag', async () => {
+    const image = await create({ visibility: 'public' });
+    const patch = { method: 'PATCH' as const, url: `${url()}/${image.id}` };
+    await live.http(live.ana, { ...patch, payload: { visibility: 'private' } });
+    expect((await readWith(live.bia, image.asset.id, `"${image.asset.id}"`)).statusCode).toBe(404);
+  });
+  it('answers 404 to someone outside the table, even with the right ETag', async () => {
+    const assetId = await publicImage();
+    const outsider = await live.signUp('Duda');
+    expect((await readWith(outsider, assetId, `"${assetId}"`)).statusCode).toBe(404);
   });
 });

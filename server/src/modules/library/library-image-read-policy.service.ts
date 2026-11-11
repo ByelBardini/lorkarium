@@ -4,7 +4,7 @@ import { canReadLibraryImage } from './library-image.bo';
 import type { LibraryImageDaos } from './library-image.service';
 export type LibraryImageReadDaos = Readonly<{
   members: LibraryImageDaos['members'];
-  images: Pick<LibraryImageDaos['images'], 'listOfCampaign'>;
+  images: Pick<LibraryImageDaos['images'], 'findByAsset'>;
   presentations: Pick<LibraryImageDaos['presentations'], 'findOfCampaign'>;
 }>;
 export type LibraryImageReadTransaction = <T>(
@@ -16,8 +16,7 @@ export class LibraryImageReadPolicy implements AssetReadPolicyPort {
     return this.snapshot(async (daos) => {
       const access = await viewerAccessOf(daos.members, campaignId, userId);
       if (access.isMaster()) return true;
-      const images = await daos.images.listOfCampaign(campaignId);
-      const image = images.find((row) => row.asset.id === assetId);
+      const image = await daos.images.findByAsset(campaignId, assetId);
       const presentation = await daos.presentations.findOfCampaign(campaignId);
       return canReadLibraryImage(
         false,

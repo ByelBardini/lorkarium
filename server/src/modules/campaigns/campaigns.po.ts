@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
+  index,
   integer,
   pgEnum,
   pgTable,
@@ -65,6 +66,12 @@ export const campaigns = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    // The home lists the public tables newest first, up to a cap: an index walk, never a sort.
+    index('campaigns_visibility_created_idx').on(table.visibility, table.createdAt.desc()),
+    // Deleting a grid nulls this pointer: without it the FK action scans every campaign.
+    index('campaigns_active_scene_idx')
+      .on(table.activeSceneId)
+      .where(sql`${table.activeSceneId} IS NOT NULL`),
     check('campaigns_cover_tone_value', sql`${table.coverTone} ~ '^([1-4]|#[0-9a-f]{6})$'`),
   ],
 );

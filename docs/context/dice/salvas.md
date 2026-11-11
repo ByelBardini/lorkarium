@@ -6,7 +6,7 @@ Detalhe de [`../dice.md`](../dice.md). A combinação de peças da bandeja que a
 
 - `saved_rolls`: `id` (uuid, `gen_random_uuid()`), `campaign_id`, `user_id`, `name` (`text`, `CHECK saved_rolls_name_length` `char_length BETWEEN 1 AND 40`), `name_key` (`text`), `parts` (`jsonb`, `SavedRollPartPo[]` = `{ label: string | null, expression }`), `created_at`, `updated_at`.
 - **FK composta** `saved_rolls_member_fk` → `campaign_members(campaign_id, user_id)` `on delete cascade` (o molde de `member_cards`): só membro guarda, e sair da mesa (ou apagar a mesa) apaga as salvas dela ali — as de outra mesa ficam.
-- **Único** `saved_rolls_member_name_unique` em `(campaign_id, user_id, name_key)`. `name_key` é o nome sem caixa, sem acento e sem espaço nas pontas, calculado no app por `savedRollNameKey` (contracts), porque o `unaccent` do Postgres exige extensão. "Acerto" e " ACÉRTO" repetem para a Bia; o Caio pode usar o mesmo nome. O índice também serve à lista (prefixo `campaign_id, user_id`).
+- **Único** `saved_rolls_member_name_unique` em `(campaign_id, user_id, name_key)`. `name_key` é o nome sem caixa, sem acento e sem espaço nas pontas, calculado no app por `savedRollNameKey` (contracts), porque o `unaccent` do Postgres exige extensão. "Acerto" e " ACÉRTO" repetem para a Bia; o Caio pode usar o mesmo nome. O índice também serve à lista (prefixo `campaign_id, user_id`). `saved_rolls_folder_idx` (`folder_id` parcial, `0102_saved_roll_folder_index`): apagar uma pasta zera o `folder_id` sem varrer as salvas de todas as mesas.
 - `truncateAllTables` (`server/test/support/test-database.ts`) inclui `saved_rolls`.
 
 ## Pastas (`saved_roll_folders`, migração `0077_saved_roll_folders`)

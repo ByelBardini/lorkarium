@@ -83,7 +83,7 @@ describe('POST /campaigns/:c/sheet-template-assets', () => {
     const response = await read(live.ana, font.id);
     expect(response.statusCode).toBe(200);
     expect(response.headers['content-type']).toBe('font/woff2');
-    expect(response.headers['cache-control']).toBe('private, no-store');
+    expect(response.headers['cache-control']).toBe('private, no-cache');
     expect(response.rawPayload.equals(WOFF2)).toBe(true);
   });
 

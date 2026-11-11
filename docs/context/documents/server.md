@@ -9,7 +9,7 @@ Migrações: `0068_document_image_purpose` (propósito reservado), `0069_library
 - `library_documents`: campanha, pasta nullable, nome 1–60, visibilidade privada por padrão, versão não negativa, autor nullable e timestamps. Desde a `0070` **sem** `content`/`schema_version`: o corpo mora em `library_document_tabs` ([abas.md](abas.md)). Único `(campaign_id,id)` e índice campanha/pasta.
 - `library_document_owners`: PK campanha/documento/usuário, FKs compostas para documento e participação da mesma campanha; remoção de participação apaga posse.
 - `library_document_assets` (`document-assets.po.ts`): PK campanha/documento/asset/**aba**, FKs compostas para documento, aba (cascade) e asset; `in_content` distingue preparação e referência confirmada **daquela aba**. Índice campanha/asset.
-- `library_document_actions`: PK campanha/usuário/actionId; operação, SHA256 canônico do pedido e recibo sem conteúdo. Não aponta ao documento para reconhecer uma exclusão repetida. Cascata pela campanha.
+- `library_document_actions`: PK campanha/usuário/actionId; operação, SHA256 canônico do pedido e recibo sem conteúdo. Não aponta ao documento para reconhecer uma exclusão repetida. Cascata pela campanha. `created_at` (`0103_receipt_created_at`): o recibo vale 24 h, depois o housekeeping o apaga e o mesmo `actionId` é um comando novo (ver [`../housekeeping.md`](../housekeeping.md)).
 
 A FK composta da pasta usa `SET NULL (folder_id)`. O serviço de biblioteca move documentos ao pai na transação de exclusão de pasta, preservando conteúdo/donos e avançando versão. Exclusão da campanha remove tudo por cascata. Schema e `truncateAllTables` incluem as cinco tabelas.
 

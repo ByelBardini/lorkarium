@@ -1,9 +1,15 @@
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, getTableColumns, inArray } from 'drizzle-orm';
+import { columnsWithout } from '../../database/columns-without';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { assets, type AssetPo, type NewAssetPo } from './assets.po';
 
 /** What a re-encoding changes in a row: the type, the weight and the pixels of the new file. */
 export type KeptImageColumns = Pick<AssetPo, 'mimeType' | 'sizeBytes' | 'width' | 'height'>;
+
+/** An asset row without its silhouette, which can be large. */
+export type AssetHeaderPo = Omit<AssetPo, 'sightOutline'>;
+
+const ASSET_HEADER = columnsWithout(getTableColumns(assets), 'sightOutline');
 
 /** The asset rows. Every read a command or a viewer makes goes through the campaign, so an id
  *  of another table finds nothing (§2.6, criterion 14). */
@@ -19,6 +25,12 @@ export class AssetsDao {
   /** By id alone: only for whoever then checks the membership of `campaignId` itself. */
   async findById(assetId: string): Promise<AssetPo | undefined> {
     const [row] = await this.db.select().from(assets).where(eq(assets.id, assetId));
+    return row;
+  }
+
+  /** `findById` without the silhouette, which can be large: what serving the bytes reads. */
+  async findHeaderById(assetId: string): Promise<AssetHeaderPo | undefined> {
+    const [row] = await this.db.select(ASSET_HEADER).from(assets).where(eq(assets.id, assetId));
     return row;
   }
 

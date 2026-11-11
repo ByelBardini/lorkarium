@@ -1,6 +1,10 @@
 import type { Readable } from 'node:stream';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { AssetsService } from '../../../src/modules/assets/assets.service';
+import {
+  AssetsService,
+  type OpenedAsset,
+  type RevalidatedAsset,
+} from '../../../src/modules/assets/assets.service';
 import { ANA_ID } from '../../support/auth-factories';
 import {
   AssetsDaoFake,
@@ -34,6 +38,11 @@ async function bytesOf(stream: Readable): Promise<number[]> {
   const chunks: Buffer[] = [];
   for await (const chunk of stream) chunks.push(chunk as Buffer);
   return [...Buffer.concat(chunks)];
+}
+
+function served(opened: OpenedAsset | RevalidatedAsset): OpenedAsset {
+  if ('notModified' in opened) throw new Error('expected the bytes, got a 304');
+  return opened;
 }
 
 const WOFF2 = new Uint8Array([0x77, 0x4f, 0x46, 0x32, 0x00, 0x01, 0x00, 0x00]);
@@ -189,7 +198,7 @@ describe('AssetsService', () => {
     },
   );
 
-  it('a template font is read only through the policy, with private no-store caching', async () => {
+  it('a template font is read only through the policy, with private no-cache caching', async () => {
     await service.uploadSheetTemplateAsset(ANA_ID, VHARN_ID, {
       bytes: WOFF2,
       mimeType: 'font/woff2',
@@ -199,18 +208,18 @@ describe('AssetsService', () => {
     policy.allowed = true;
     expect(await service.open(BIA_ID, NEW_ID)).toMatchObject({
       mimeType: 'font/woff2',
-      cacheControl: 'private, no-store',
+      cacheControl: 'private, no-cache',
     });
   });
 
-  it('a sheet image is read only through the policy, with private no-store caching', async () => {
+  it('a sheet image is read only through the policy, with private no-cache caching', async () => {
     policy.allowed = true;
     assets.rows.push(lyraPortraitPo({ purpose: 'sheet_image' }));
     storage.objects.set(lyraPortraitPo().storageKey, { bytes: PNG, contentType: 'image/png' });
 
-    const opened = await service.open(BIA_ID, lyraPortraitPo().id);
+    const opened = served(await service.open(BIA_ID, lyraPortraitPo().id));
 
-    expect(opened.cacheControl).toBe('private, no-store');
+    expect(opened.cacheControl).toBe('private, no-cache');
     expect(policy.checks).toEqual([
       { userId: BIA_ID, campaignId: VHARN_ID, assetId: lyraPortraitPo().id },
     ]);
@@ -289,12 +298,12 @@ describe('AssetsService', () => {
     ]);
   });
 
-  it('a map image the policy allows returns its bytes with private no-store caching', async () => {
+  it('a map image the policy allows returns its bytes with private no-cache caching', async () => {
     policy.allowed = true;
     assets.rows.push(lyraPortraitPo({ purpose: 'library_map' }));
     storage.objects.set(lyraPortraitPo().storageKey, { bytes: PNG, contentType: 'image/png' });
-    const opened = await service.open(BIA_ID, lyraPortraitPo().id);
-    expect(opened.cacheControl).toBe('private, no-store');
+    const opened = served(await service.open(BIA_ID, lyraPortraitPo().id));
+    expect(opened.cacheControl).toBe('private, no-cache');
     expect(await bytesOf(opened.body)).toEqual([...PNG]);
   });
 
@@ -309,13 +318,63 @@ describe('AssetsService', () => {
     ]);
   });
 
-  it('an authorized dedicated asset returns its bytes with private no-store caching', async () => {
+  it('an authorized dedicated asset returns its bytes with private no-cache caching', async () => {
     policy.allowed = true;
     assets.rows.push(lyraPortraitPo({ purpose: 'library_image' }));
     storage.objects.set(lyraPortraitPo().storageKey, { bytes: PNG, contentType: 'image/png' });
-    const opened = await service.open(BIA_ID, lyraPortraitPo().id);
-    expect(opened.cacheControl).toBe('private, no-store');
+    const opened = served(await service.open(BIA_ID, lyraPortraitPo().id));
+    expect(opened.cacheControl).toBe('private, no-cache');
     expect(await bytesOf(opened.body)).toEqual([...PNG]);
+  });
+
+  describe('revalidating a protected asset by its ETag', () => {
+    const etag = `"${lyraPortraitPo().id}"`;
+
+    beforeEach(() => {
+      assets.rows.push(lyraPortraitPo({ purpose: 'library_image' }));
+      storage.objects.set(lyraPortraitPo().storageKey, { bytes: PNG, contentType: 'image/png' });
+    });
+
+    it('serves the bytes with the id as ETag', async () => {
+      policy.allowed = true;
+
+      const opened = served(await service.open(BIA_ID, lyraPortraitPo().id));
+
+      expect(opened.etag).toBe(etag);
+      expect(storage.opened).toEqual([lyraPortraitPo().storageKey]);
+    });
+
+    it('answers a matching If-None-Match as not modified without opening the bucket', async () => {
+      policy.allowed = true;
+
+      const opened = await service.open(BIA_ID, lyraPortraitPo().id, `W/"other", ${etag}`);
+
+      expect(opened).toEqual({ notModified: true, etag, cacheControl: 'private, no-cache' });
+      expect(storage.opened).toEqual([]);
+    });
+
+    it('serves the bytes again when the If-None-Match names another ETag', async () => {
+      policy.allowed = true;
+
+      expect(served(await service.open(BIA_ID, lyraPortraitPo().id, '"other"')).etag).toBe(etag);
+    });
+
+    it('refuses with ASSET_NOT_FOUND, never 304, whoever lost the right', async () => {
+      policy.allowed = false;
+
+      await expect(service.open(BIA_ID, lyraPortraitPo().id, etag)).rejects.toMatchObject({
+        code: 'ASSET_NOT_FOUND',
+      });
+    });
+  });
+
+  it('a token asset keeps its immutable answer, without ETag, even asked with one', async () => {
+    assets.rows.push(lyraPortraitPo());
+    storage.objects.set(lyraPortraitPo().storageKey, { bytes: PNG, contentType: 'image/png' });
+
+    const opened = await service.open(BIA_ID, lyraPortraitPo().id, `"${lyraPortraitPo().id}"`);
+
+    expect(served(opened).etag).toBeUndefined();
   });
 
   it('without an injected policy a dedicated asset is refused even to the master', async () => {
@@ -337,7 +396,7 @@ describe('AssetsService', () => {
   it('legacy token reads bypass the new policy and retain their existing cache behavior', async () => {
     assets.rows.push(lyraPortraitPo());
     storage.objects.set(lyraPortraitPo().storageKey, { bytes: PNG, contentType: 'image/png' });
-    const opened = await service.open(BIA_ID, lyraPortraitPo().id);
+    const opened = served(await service.open(BIA_ID, lyraPortraitPo().id));
     expect(opened.cacheControl).toBeUndefined();
     expect(policy.checks).toEqual([]);
     expect(await bytesOf(opened.body)).toEqual([...PNG]);
@@ -487,7 +546,7 @@ describe('AssetsService', () => {
     assets.rows.push(lyraPortraitPo({ mimeType: 'image/webp' }));
     storage.objects.set(lyraPortraitPo().storageKey, { bytes: PNG, contentType: 'image/png' });
 
-    const opened = await service.open(BIA_ID, lyraPortraitPo().id);
+    const opened = served(await service.open(BIA_ID, lyraPortraitPo().id));
 
     expect(opened.mimeType).toBe('image/webp');
     expect(opened.size).toBe(6);
