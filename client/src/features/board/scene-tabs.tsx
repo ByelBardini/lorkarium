@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { useBoard } from '@/stores/board-store';
 import {
   useDocumentWorkspaceSlice,
+  workspaceItemName,
   workspaceItemTitle,
   type DocumentWorkspaceStore,
   type WorkspaceItem,
@@ -170,7 +171,7 @@ function HiddenTabsMenu(props: HiddenTabsMenuProps): React.JSX.Element {
         {props.documents.map((entry) => (
           <DropdownMenuItem key={entry.key} onSelect={() => props.onShowDocument(entry)}>
             <WorkspaceItemIcon item={entry} />
-            <span className="truncate">{workspaceItemTitle(entry)}</span>
+            <span className="truncate">{workspaceItemName(entry)}</span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -208,8 +209,10 @@ function DocumentTabItem({
       <button
         type="button"
         role="tab"
+        aria-label={title}
         aria-selected={selected}
         aria-description={kindName}
+        title={title}
         tabIndex={selected ? 0 : -1}
         onClick={onShow}
         className={cn(
@@ -218,7 +221,7 @@ function DocumentTabItem({
         )}
       >
         <WorkspaceItemIcon item={entry} />
-        <span className="max-w-40 truncate">{title}</span>
+        <span className="max-w-40 truncate">{workspaceItemName(entry)}</span>
       </button>
       <button
         type="button"
@@ -238,7 +241,8 @@ const KIND_NAME: Readonly<Record<WorkspaceItem['kind'], string>> = {
   'sheet-template': 'Modelo de ficha',
   map: 'Mapa',
 };
-// A sheet's and a template's title already say what they are ("Ficha · Lyra").
+// The tab shows only the name beside the kind's icon; its accessible name keeps the kind
+// ("Ficha · Lyra"), so a sheet's and a template's close label needs no prefix.
 const CLOSE_PREFIX: Readonly<Record<WorkspaceItem['kind'], string>> = {
   document: 'documento ',
   sheet: '',

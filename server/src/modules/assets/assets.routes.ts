@@ -49,7 +49,7 @@ const STATUS_BY_CODE: Readonly<Record<AssetErrorCode, number>> = {
 // Public text only: the internal message cites links, addresses and ids and stays in the log.
 const PUBLIC_MESSAGE: Readonly<Record<AssetErrorCode, string>> = {
   ASSET_NOT_FOUND: 'Image not found',
-  UNSUPPORTED_IMAGE: 'The file is not a PNG, JPEG or WebP image (GIF only for an aura)',
+  UNSUPPORTED_IMAGE: 'The file is not a PNG, JPEG, WebP or GIF image',
   UNSUPPORTED_FONT: 'The file is not a WOFF2 font',
   ASSET_TOO_LARGE: 'The image is larger than 20 MB',
   LINK_BLOCKED: 'This link cannot be used',

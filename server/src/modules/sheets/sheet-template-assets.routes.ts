@@ -22,7 +22,7 @@ import type { SheetTemplateAssetsService } from './sheet-template-assets.service
 const ASSETS_URL = '/campaigns/:campaignId/sheet-template-assets';
 // Spec §8.4: each send may decode an image; the same budget as the other asset routes.
 const SENDS_PER_MINUTE = 20;
-const NOT_AN_ASSET = 'The file is not a PNG, JPEG or WebP image nor a WOFF2 font';
+const NOT_AN_ASSET = 'The file is not a PNG, JPEG, WebP or GIF image nor a WOFF2 font';
 const TOO_LARGE = 'The file is larger than a template allows (8 MB, a font 2 MB)';
 
 type KnownReply = Readonly<{ status: number; body: ApiErrorDto }>;

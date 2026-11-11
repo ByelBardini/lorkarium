@@ -3,6 +3,8 @@
 # container and checks the API, the SPA, its fallback and the boot order in the log.
 # Usage: infra/docker/smoke.sh <container> <base-url>   e.g. smoke.sh lorkarium-smoke http://localhost:3333
 set -euo pipefail
+# Git Bash would rewrite the container path given to docker exec into a Windows one; no effect on Linux.
+export MSYS_NO_PATHCONV=1
 
 container="$1"
 base="$2"
@@ -20,6 +22,10 @@ for _ in $(seq 1 60); do
   sleep 2
 done
 [ "$status" = healthy ] || fail "container never became healthy ($status)"
+
+# A folder the node user cannot write turns every asset read into an S3 download.
+docker exec "$container" test -w /var/cache/lorkarium/assets ||
+  fail "the asset cache folder /var/cache/lorkarium/assets is not writable by the image user"
 
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$base/api/health")" = 200 ] || fail "GET /api/health is not 200"
 curl -sf "$base/" | grep -q '<div id="root">' || fail "GET / does not answer the client index.html"

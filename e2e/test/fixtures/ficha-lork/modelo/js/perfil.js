@@ -78,7 +78,7 @@ function onRankKey(e) {
 
 /* o retrato é o do personagem na mesa: trocar aqui é character.setImage */
 const portraitSlot = () =>
-  `<div class="img-slot portrait" data-portrait data-label="Trocar o retrato"><button type="button" class="img-btn"></button><input type="file" accept="image/png,image/jpeg,image/webp" hidden aria-label="Arquivo: retrato"><p class="img-note" id="portrait-note" hidden></p></div>`;
+  `<div class="img-slot portrait" data-portrait data-label="Trocar o retrato"><button type="button" class="img-btn"></button><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden aria-label="Arquivo: retrato"><p class="img-note" id="portrait-note" hidden></p></div>`;
 const pgPerfil = () => `
   <section class="hero">
     ${portraitSlot()}
