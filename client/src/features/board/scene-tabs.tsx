@@ -37,6 +37,9 @@ export type SceneTabsProps = Readonly<{
   tabs: StoreApi<SceneTabsStore>;
   documents?: StoreApi<DocumentWorkspaceStore>;
   campaignId?: string;
+  /** The workspace key of the viewer's main sheet: like the main map, it gets no tab (its
+   *  button beside the table's name plays it). */
+  mainSheetKey?: string | null;
 }>;
 const NO_ITEMS: readonly WorkspaceItem[] = [];
 
@@ -48,7 +51,12 @@ const LOADING_NAME = 'Carregando…';
  *  server) is said in a `role="status"`.
  *
  *  Example: `<SceneTabs tabs={table.tabs} />` */
-export function SceneTabs({ tabs, documents, campaignId }: SceneTabsProps): React.JSX.Element {
+export function SceneTabs({
+  tabs,
+  documents,
+  campaignId,
+  mainSheetKey = null,
+}: SceneTabsProps): React.JSX.Element {
   const open = useSceneTabs(tabs, (state) => state.tabs);
   const visibleKey = useSceneTabs(tabs, (state) => state.visibleKey);
   const activeDocument = useDocumentWorkspaceSlice(
@@ -56,7 +64,7 @@ export function SceneTabs({ tabs, documents, campaignId }: SceneTabsProps): Reac
     (state) => state.activeByCampaign[campaignId ?? ''] ?? null,
     null,
   );
-  const documentEntries = useWorkspaceItemsOf(documents, campaignId);
+  const documentEntries = useWorkspaceItemsOf(documents, campaignId, mainSheetKey);
   const strip = useRef<HTMLDivElement>(null);
   const width = useElementWidth(strip);
   const keys = [...open.map((tab) => tab.key), ...documentEntries.map((entry) => entry.key)];
@@ -251,9 +259,11 @@ function WorkspaceItemIcon({ item }: Readonly<{ item: WorkspaceItem }>): React.J
 
 // The documents, the sheets, the templates, then the map of this table, each list in the order
 // opened. The main map is the home of the table, not something opened: the table's name is its tab.
+// The viewer's main sheet is their own home, with its button beside the name.
 function useWorkspaceItemsOf(
   workspace: StoreApi<DocumentWorkspaceStore> | undefined,
   campaignId: string | undefined,
+  mainSheetKey: string | null,
 ): readonly WorkspaceItem[] {
   const documents = useDocumentWorkspaceSlice(workspace, (state) => state.entries, NO_ITEMS);
   const sheets = useDocumentWorkspaceSlice(workspace, (state) => state.sheets, NO_ITEMS);
@@ -262,9 +272,12 @@ function useWorkspaceItemsOf(
   return useMemo(
     () =>
       [...documents, ...sheets, ...templates, ...maps].filter(
-        (item) => item.campaign.id === campaignId && !(item.kind === 'map' && item.showsMainMap),
+        (item) =>
+          item.campaign.id === campaignId &&
+          !(item.kind === 'map' && item.showsMainMap) &&
+          item.key !== mainSheetKey,
       ),
-    [documents, sheets, templates, maps, campaignId],
+    [documents, sheets, templates, maps, campaignId, mainSheetKey],
   );
 }
 

@@ -21,6 +21,7 @@ export type ShortcutKey = Readonly<{
   ctrlKey: boolean;
   metaKey: boolean;
   altKey: boolean;
+  shiftKey: boolean;
   target: EventTarget | null;
 }>;
 
@@ -41,11 +42,12 @@ const SHORTCUT_BY_KEY: Readonly<Record<string, BoardShortcut>> = {
 };
 
 /** The room shortcut of a key press, or `null`: keys typed in a field, inside a dialog or with
- *  Ctrl/⌘/Alt belong to someone else.
+ *  Ctrl/⌘/Alt belong to someone else, and Shift+M / Shift+F go home (`homeShortcutFor`).
  *
  *  Example: `shortcutFor(event) // 'toggle-focus' for an F pressed on the board` */
 export function shortcutFor(press: ShortcutKey): BoardShortcut | null {
   if (press.ctrlKey || press.metaKey || press.altKey) return null;
+  if (homeShortcutFor(press)) return null;
   if (belongsToAnotherControl(press.target)) return null;
   return SHORTCUT_BY_KEY[press.key.toLowerCase()] ?? null;
 }
@@ -53,7 +55,7 @@ export function shortcutFor(press: ShortcutKey): BoardShortcut | null {
 /** Editing the board: copy and paste the selection, undo and redo this user's own actions. */
 export type EditShortcut = 'copy' | 'paste' | 'undo' | 'redo';
 
-export type EditShortcutKey = ShortcutKey & Readonly<{ shiftKey: boolean }>;
+export type EditShortcutKey = ShortcutKey;
 
 const EDIT_BY_KEY: Readonly<Record<string, EditShortcut>> = {
   c: 'copy',
@@ -71,6 +73,21 @@ export function editShortcutFor(press: EditShortcutKey): EditShortcut | null {
   if (belongsToAnotherControl(press.target)) return null;
   const shortcut = EDIT_BY_KEY[press.key.toLowerCase()] ?? null;
   return shortcut === 'undo' && press.shiftKey ? 'redo' : shortcut;
+}
+
+/** The two homes of the table: its main map and the viewer's main sheet. */
+export type HomeShortcut = 'main-map' | 'main-sheet';
+
+const HOME_BY_KEY: Readonly<Record<string, HomeShortcut>> = { m: 'main-map', f: 'main-sheet' };
+
+/** Shift+M (the main map) or Shift+F (the viewer's main sheet), or `null`. They work with a
+ *  document on screen too, but not in a field, a dialog or a menu, nor with Ctrl/⌘/Alt.
+ *
+ *  Example: `homeShortcutFor(event) // 'main-sheet' for Shift+F on the map` */
+export function homeShortcutFor(press: ShortcutKey): HomeShortcut | null {
+  if (!press.shiftKey || press.ctrlKey || press.metaKey || press.altKey) return null;
+  if (belongsToAnotherControl(press.target)) return null;
+  return HOME_BY_KEY[press.key.toLowerCase()] ?? null;
 }
 
 function belongsToAnotherControl(target: EventTarget | null): boolean {

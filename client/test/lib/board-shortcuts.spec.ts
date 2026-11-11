@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { editShortcutFor, shortcutFor, type ShortcutKey } from '@/lib/board-shortcuts';
+import {
+  editShortcutFor,
+  homeShortcutFor,
+  shortcutFor,
+  type ShortcutKey,
+} from '@/lib/board-shortcuts';
 
 function press(key: string, overrides: Partial<ShortcutKey> = {}): ShortcutKey {
   return {
@@ -7,6 +12,7 @@ function press(key: string, overrides: Partial<ShortcutKey> = {}): ShortcutKey {
     ctrlKey: false,
     metaKey: false,
     altKey: false,
+    shiftKey: false,
     target: document.body,
     ...overrides,
   };
@@ -51,6 +57,10 @@ describe('shortcutFor', () => {
 
   it.each(['f', 'F'])('%s on the board toggles focus mode', (key) => {
     expect(shortcutFor(press(key))).toBe('toggle-focus');
+  });
+
+  it.each(['M', 'F'])('Shift+%s goes home, not to the tool or focus of the letter', (key) => {
+    expect(shortcutFor(press(key, { shiftKey: true }))).toBeNull();
   });
 
   it('Escape is the escape shortcut (leave focus mode, drop the ruler)', () => {
@@ -110,8 +120,8 @@ describe('editShortcutFor', () => {
     document.body.innerHTML = '';
   });
 
-  function edit(key: string, overrides: Partial<ShortcutKey> & { shiftKey?: boolean } = {}) {
-    return editShortcutFor({ ...press(key, { ctrlKey: true }), shiftKey: false, ...overrides });
+  function edit(key: string, overrides: Partial<ShortcutKey> = {}) {
+    return editShortcutFor({ ...press(key, { ctrlKey: true }), ...overrides });
   }
 
   it.each([
@@ -142,5 +152,40 @@ describe('editShortcutFor', () => {
     expect(
       edit('v', { target: mounted('<div role="dialog"><p data-target></p></div>') }),
     ).toBeNull();
+  });
+});
+
+describe('homeShortcutFor', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it.each([
+    ['M', 'main-map'],
+    ['m', 'main-map'],
+    ['F', 'main-sheet'],
+    ['f', 'main-sheet'],
+  ])('Shift+%s is %s', (key, shortcut) => {
+    expect(homeShortcutFor(press(key, { shiftKey: true }))).toBe(shortcut);
+  });
+
+  it('the letter without Shift is the room key, not a home', () => {
+    expect(homeShortcutFor(press('m'))).toBeNull();
+    expect(homeShortcutFor(press('f'))).toBeNull();
+  });
+
+  it.each(['ctrlKey', 'metaKey', 'altKey'] as const)('Shift+M with %s is not a home', (mod) => {
+    expect(homeShortcutFor(press('M', { shiftKey: true, [mod]: true }))).toBeNull();
+  });
+
+  it('Shift+F typed in a field or pressed in a menu belongs to them', () => {
+    const field = mounted('<input data-target />');
+    const menu = mounted('<div role="menu"><p data-target></p></div>');
+    expect(homeShortcutFor(press('F', { shiftKey: true, target: field }))).toBeNull();
+    expect(homeShortcutFor(press('M', { shiftKey: true, target: menu }))).toBeNull();
+  });
+
+  it('another letter with Shift is nothing', () => {
+    expect(homeShortcutFor(press('V', { shiftKey: true }))).toBeNull();
   });
 });

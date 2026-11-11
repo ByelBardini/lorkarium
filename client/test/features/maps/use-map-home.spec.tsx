@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -85,7 +85,8 @@ describe('the home of the table', () => {
   it('the way home is an icon button that says what it does, on its tooltip', async () => {
     await enterRoom();
     const button = homeButton();
-    expect(button).toHaveAttribute('title', HOME_TITLE);
+    expect(button).toHaveAttribute('title', `${HOME_TITLE} (Shift+M)`);
+    expect(button).toHaveAttribute('aria-keyshortcuts', 'Shift+M');
     expect(button.querySelector('svg.lucide-map')).toHaveAttribute('aria-hidden', 'true');
     expect(button).not.toHaveTextContent(VHARN.name);
   });
@@ -95,6 +96,14 @@ describe('the home of the table', () => {
     const heading = screen.getByRole('heading', { level: 1, name: VHARN.name });
     expect(heading).not.toContainElement(homeButton());
     expect(within(heading).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('Shift+M goes back to the main map, even from a document on screen', async () => {
+    await enterRoom();
+    openDocument();
+    fireEvent.keyDown(document.body, { key: 'M', shiftKey: true });
+    expect(activeKey()).toBe(MAP_KEY);
+    expect(openMaps()).toBe(1);
   });
 
   it('the button is the current place while the main map is on screen', async () => {

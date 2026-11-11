@@ -18,6 +18,11 @@ import {
   type CardEditing,
 } from './player-card-fields';
 import { CharacterSheetButton } from '@/features/sheets/character-sheet-button';
+import {
+  mainSheetOpener,
+  useCharacterSheets,
+  type CharacterSheets,
+} from '@/features/sheets/use-character-sheets';
 import { CardBars, CardPortrait, LocateButton, NickLine } from './player-card-parts';
 import { useAwayLabel } from './use-away-label';
 
@@ -33,7 +38,8 @@ export type PlayerCardProps = Readonly<{
 }>;
 
 /** A player on the "Na mesa" tab: their character's portrait and bars, its name, the nick with
- *  the presence symbol, CA, CD, two free lines and its sheets; who controls the character (its
+ *  the presence symbol, CA, CD, two free lines and its sheets (a double click on the portrait
+ *  opens the main one); who controls the character (its
  *  player and the masters, `canControl`) edits it, and the "⋯" moves the player to the roles the
  *  viewer may give (`player.assignable`). Before the characters arrive, only the nick line.
  *
@@ -83,6 +89,7 @@ function CardBody(props: CardBodyProps): React.JSX.Element {
   const { member, isViewer, token } = player;
   const editing = useCardEditing(props);
   const roleChange = useRoleChange(props);
+  const sheets = useCharacterSheets(character.id);
   const { name } = character;
   return (
     <>
@@ -90,7 +97,13 @@ function CardBody(props: CardBodyProps): React.JSX.Element {
         {SAVE_HINT}
       </span>
       <div className="flex gap-3">
-        <CardPortrait face={character} member={member} name={name} onGrid={token !== null} />
+        <CardPortrait
+          face={character}
+          member={member}
+          name={name}
+          onGrid={token !== null}
+          onOpenSheet={mainSheetOpener(sheets, character.mainSheetId)}
+        />
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <CharacterName titleId={titleId} shown={name} editing={editing} />
           <NickLine member={member} isViewer={isViewer} awayLabel={props.awayLabel} />
@@ -102,7 +115,7 @@ function CardBody(props: CardBodyProps): React.JSX.Element {
         editing={editing}
         actions={
           <>
-            <CardSheets {...props} />
+            {sheets && <CardSheets {...props} sheets={sheets} />}
             {roleMenuOf(roleChange, player.assignable, member.name)}
           </>
         }
@@ -113,7 +126,12 @@ function CardBody(props: CardBodyProps): React.JSX.Element {
   );
 }
 
-function CardSheets({ character, interaction, isMaster }: CardBodyProps): React.JSX.Element {
+function CardSheets({
+  character,
+  interaction,
+  isMaster,
+  sheets,
+}: CardBodyProps & Readonly<{ sheets: CharacterSheets }>): React.JSX.Element {
   const makeMain = (sheetId: string): void => {
     void interaction
       .getState()
@@ -121,7 +139,7 @@ function CardSheets({ character, interaction, isMaster }: CardBodyProps): React.
   };
   return (
     <CharacterSheetButton
-      characterId={character.id}
+      found={sheets}
       memberId={character.userId}
       mainSheetId={character.mainSheetId}
       name={character.name}

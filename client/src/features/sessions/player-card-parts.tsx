@@ -2,6 +2,7 @@ import type { CharacterDto, SessionMemberDto, TokenBarDto, TokenDto } from '@lor
 import { CrosshairIcon, LockIcon } from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { useBoardSight } from '@/features/board/use-board-sight';
 import { BarMeter } from '@/features/tokens/bar-meter';
 import { BarQuickEdit } from '@/features/tokens/bar-quick-edit';
@@ -19,7 +20,7 @@ export type PortraitFace = Pick<CharacterDto, 'side' | 'initials' | 'imageAssetI
 
 /** The portrait of a card: the character's image (or initials) with its side ring, and the
  *  "Token" tag while a token of it stands on the group grid. The member's presence rides on its
- *  corner.
+ *  corner. A double click opens the main sheet (`onOpenSheet`).
  *
  *  Example: `<CardPortrait face={lyraCharacter} member={bia} name="Lyra" onGrid />` */
 export function CardPortrait({
@@ -27,12 +28,25 @@ export function CardPortrait({
   member,
   name,
   onGrid,
-}: Readonly<{ face: PortraitFace; member: SessionMemberDto; name: string; onGrid: boolean }>) {
+  onOpenSheet = null,
+}: Readonly<{
+  face: PortraitFace;
+  member: SessionMemberDto;
+  name: string;
+  onGrid: boolean;
+  /** Opens the character's main sheet on a double click; `null` = no sheet to open. */
+  onOpenSheet?: (() => void) | null;
+}>) {
   return (
     <div
       data-testid="portrait"
       style={{ boxShadow: `inset 0 0 0 2px ${sideRingVar(face.side)}` }}
-      className="relative min-h-27 w-21 shrink-0 self-stretch overflow-hidden rounded-md bg-muted"
+      title={onOpenSheet ? `Duplo clique abre a ficha de ${name}` : undefined}
+      onDoubleClick={onOpenSheet ?? undefined}
+      className={cn(
+        'relative min-h-27 w-21 shrink-0 self-stretch overflow-hidden rounded-md bg-muted',
+        onOpenSheet && 'cursor-pointer select-none',
+      )}
     >
       <TokenFace
         initials={face.initials}

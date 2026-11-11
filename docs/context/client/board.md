@@ -54,6 +54,7 @@ Movimento livre (`grid.freeMovement`, soltura, régua): [`../tokens/arraste.md`]
 | V / R / B / M / G | sala                | Selecionar / Régua / Desenhar / Área de efeito / grid local                    |
 | 1 / 2 / 3         | sala (mestre)       | camada ativa: Tokens / Objetos / Fundo                                         |
 | P                 | sala (mestre)       | Paredes ([`walls.md`](walls.md))                                               |
+| ⇧M / ⇧F           | sala, até documento | mapa principal / sua ficha principal ([`library-maps.md`](library-maps.md))    |
 | + = / − / 0       | tabuleiro focado    | aproxima / afasta / enquadra                                                   |
 | W A S D           | tabuleiro focado    | move a câmera                                                                  |
 | Q / E             | tabuleiro focado    | gira a seleção −45° / +45°                                                     |
@@ -73,7 +74,7 @@ Movimento livre (`grid.freeMovement`, soltura, régua): [`../tokens/arraste.md`]
 | Ctrl/⌘ + Y, ⇧Z    | sala                | refaz                                                                          |
 | Enter / ⌫ / Esc   | editor da patrulha  | salva / tira o último ponto / cancela ([`token-patrols.md`](token-patrols.md)) |
 
-Ignorados em `input`, `textarea`, `select`, `contenteditable`, dentro de diálogo/menu e com Ctrl/⌘/Alt (`src/lib/board-shortcuts.ts`). Os de edição (`editShortcutFor`) exigem Ctrl/⌘, sem Alt, com as mesmas exceções de alvo.
+Ignorados em campo, `contenteditable`, diálogo/menu e com Ctrl/⌘/Alt (`src/lib/board-shortcuts.ts`); ⇧M/⇧F não viram M/F. Edição (`editShortcutFor`): Ctrl/⌘, sem Alt.
 
 ## Testes
 
