@@ -117,6 +117,21 @@ describe('play room: grid tabs', () => {
     act(() => deps.documentWorkspace.getState().clear());
   });
 
+  it('the board stops drawing while a document covers it, and starts again once a grid is back', async () => {
+    const renderer = deps.boardRenderers.latest();
+    await act(async () => {
+      deps.documentWorkspace
+        .getState()
+        .open({ campaign: detailOf(VHARN), document: documentFixture() });
+    });
+    const covered = [...renderer.pauses];
+    await userEvent.click(screen.getByRole('tab', { name: /Cena 1/ }));
+
+    expect(covered).toEqual(['pause']);
+    expect(renderer.pauses).toEqual(['pause', 'resume']);
+    act(() => deps.documentWorkspace.getState().clear());
+  });
+
   it('an active document keeps the tab strip accessible while the board is in focus mode', async () => {
     act(() => deps.roomLayout.getState().toggleFocus());
     expect(screen.queryByRole('region', { name: 'Topo da sala' })).not.toBeInTheDocument();

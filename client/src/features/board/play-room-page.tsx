@@ -25,7 +25,7 @@ import {
 } from '@/features/tokens/room-token-dialog';
 import { CharacterLinkDialog, type CharacterLinkRequest } from '@/features/tokens/token-link-items';
 import type { BoardRenderer, CreateBoardRenderer } from '@/renderer/board-renderer';
-import type { AssetsApi, RoomAssetsApi } from '@/services/assets-api';
+import type { RoomAssetsApi } from '@/services/assets-api';
 import type { Clipboard } from '@/services/clipboard';
 import type { BoardScope, TableBoardCommands } from '@/services/table-board-commands';
 import type { PingCommands } from '@/services/table-pings';
@@ -60,7 +60,7 @@ import type { WallStyleStore } from '@/stores/wall-style-store';
 import type { LightColorStore } from '@/stores/light-color-store';
 import type { AuraMotionStore } from '@/stores/aura-motion-store';
 import type { LightReachStore } from '@/stores/light-reach-store';
-import { useBoard, type BoardStore } from '@/stores/board-store';
+import type { BoardStore } from '@/stores/board-store';
 import type { CharactersStore } from '@/stores/characters-store';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import type { SessionStore } from '@/stores/session-store';
@@ -73,13 +73,14 @@ import {
 } from '@/stores/scene-tabs-store';
 import type { TableEditStore } from '@/stores/table-edit-store';
 import { useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store';
-import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
+import type { TablePresenceStore } from '@/stores/table-presence-store';
 import { BoardArea } from './board-area';
 import { DeleteSelectionDialog, type SelectionToDelete } from './delete-selection-dialog';
 import { tokenCommandFailureMessage } from './board-messages';
 import { BoardStatusLine } from './board-status-line';
 import { RoomToolbar } from './room-toolbar';
-import { ConfigureSceneDialog } from './configure-scene-dialog';
+import { RoomSceneDialog } from './room-scene-dialog';
+import { useBoardPause } from './use-board-pause';
 import { FocusToggle } from './focus-toggle';
 import { TokenContextMenu, type TokenMenuRequest } from './token-context-menu';
 import { HoverCardLayer, type HoverCardLayerHandle } from './hover-card-layer';
@@ -176,6 +177,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   );
   useEffect(() => interaction.getState().allowLayerChoice(isMaster), [interaction, isMaster]);
   const focus = useRoomLayout(roomLayout, (state) => state.focus);
+  useBoardPause(renderer, !!activeDocument);
   useRoomShortcuts({ roomLayout, interaction, role, enabled: !activeDocument });
   const { dicePreferences, createDiceRenderer, createDiceSound } = props;
   useDiceOverlay({ campaignId: campaign.id, openTables, dicePreferences, createDiceRenderer });
@@ -548,29 +550,4 @@ function useShownTab(
     const key = tab?.key ?? GROUP_TAB;
     return { view, table, interaction, scopeOf, tabs, key, group, pings: tab?.pings ?? null };
   }, [opened, tab, tabs, group, opening]);
-}
-
-type RoomSceneDialogProps = Readonly<{
-  campaignId: string;
-  table: Readonly<{ presence: StoreApi<TablePresenceStore>; board: StoreApi<BoardStore> }>;
-  commands: TableBoardCommands;
-  assets: AssetsApi;
-  onClose: () => void;
-}>;
-
-// "Configurar cena" over the confirmed scene; while reconnecting it opens but cannot send.
-function RoomSceneDialog({ campaignId, table, commands, assets, onClose }: RoomSceneDialogProps) {
-  const scene = useBoard(table.board, (state) => state.board?.scene ?? null);
-  const live = useTablePresence(table.presence, (state) => state.status === 'live');
-  if (!scene) return null;
-  return (
-    <ConfigureSceneDialog
-      scope={{ campaignId, sceneId: scene.id }}
-      scene={scene}
-      commands={commands}
-      assets={assets}
-      connected={live}
-      onClose={onClose}
-    />
-  );
 }
