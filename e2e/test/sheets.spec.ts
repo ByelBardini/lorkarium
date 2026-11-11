@@ -67,7 +67,10 @@ test('Ana makes a sheet on Lyra; Bia takes 5 PV, rolls the attack and keeps For√
   // An open sheet takes the board and the side panel: Bia goes back to the grid to see the tray.
   await bia.getByRole('tab', { name: /^Cena 1/ }).click();
   await expectSheetRollOn(bia);
-  await sheetTabOf(bia, sheetName).click();
+  // Lyra's only sheet is Bia's main one: no tab in the strip, its button beside the name opens it.
+  await expect(sheetTabOf(bia, sheetName)).toHaveCount(0);
+  await bia.getByRole('button', { name: 'Abrir a ficha de Lyra' }).click();
+  await expect(sheetRegionOf(bia, sheetName)).toBeVisible();
 
   await setStrength(sheet);
   await expect
