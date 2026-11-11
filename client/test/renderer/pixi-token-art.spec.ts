@@ -1,4 +1,15 @@
-import { Container, Graphics, Sprite, Texture, TextureSource } from 'pixi.js';
+import {
+  Container,
+  generateTextureMatrix,
+  Graphics,
+  Matrix,
+  Point,
+  Sprite,
+  Texture,
+  TextureSource,
+  type FillStyle,
+  type GraphicsPath,
+} from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { PixiTokenArt } from '@/renderer/pixi-token-art';
 
@@ -25,6 +36,31 @@ function textureFillsOf(node: Container): TextureFill[] {
           .map((instruction) => instruction.data as TextureFill)
       : [];
   return node.children.reduce((fills, child) => [...fills, ...textureFillsOf(child)], own);
+}
+
+type FillInstruction = { style: FillStyle; path: GraphicsPath };
+
+// The texture coordinates Pixi gives the corners and the center of the round frame's bounds,
+// through its own fill matrix: 0..1 is the image once; outside it the `repeat` tiles it (#83).
+function roundFillUvs(art: PixiTokenArt, texture: Texture): { center: Point; corners: Point[] } {
+  const round = art.container.children.find((child) => child instanceof Graphics);
+  const fill = round?.context.instructions.find((step) => step.action === 'fill');
+  const { style, path } = fill?.data as FillInstruction;
+  expect(style.texture).toBe(texture);
+  const shape = path.shapePath.shapePrimitives[0]?.shape;
+  if (!shape) throw new Error(`expected one shape in the round fill, got ${String(shape)}`);
+  const uv = generateTextureMatrix(new Matrix(), style, shape);
+  const box = shape.getBounds();
+  const at = (x: number, y: number): Point => uv.apply(new Point(x, y));
+  return {
+    center: at(box.x + box.width / 2, box.y + box.height / 2),
+    corners: [
+      at(box.left, box.top),
+      at(box.right, box.top),
+      at(box.left, box.bottom),
+      at(box.right, box.bottom),
+    ],
+  };
 }
 
 describe('PixiTokenArt crops the round frame without a mask', () => {
@@ -55,6 +91,26 @@ describe('PixiTokenArt crops the round frame without a mask', () => {
     const [fill] = textureFillsOf(art.container).filter((f) => f.style.texture === texture);
     expect(fill?.style.matrix?.a).toBeCloseTo(0.16, 5);
     expect(fill?.style.matrix?.d).toBeCloseTo(0.16, 5);
+  });
+
+  it.each([
+    ['upright', ROUND],
+    ['flipped on both axes', { ...ROUND, flipX: true, flipY: true }],
+  ])('the round fill (%s) samples the image once, its center at the ellipse center', (_, frame) => {
+    const art = new PixiTokenArt();
+    const texture = portrait();
+
+    art.draw(frame, texture, TOKEN_64, 0);
+
+    const uvs = roundFillUvs(art, texture);
+    expect(uvs.center.x).toBeCloseTo(0.5, 5);
+    expect(uvs.center.y).toBeCloseTo(0.5, 5);
+    for (const corner of uvs.corners) {
+      expect(corner.x).toBeGreaterThanOrEqual(-1e-9);
+      expect(corner.x).toBeLessThanOrEqual(1 + 1e-9);
+      expect(corner.y).toBeGreaterThanOrEqual(-1e-9);
+      expect(corner.y).toBeLessThanOrEqual(1 + 1e-9);
+    }
   });
 
   it('a round image flipped on x mirrors its fill', () => {
