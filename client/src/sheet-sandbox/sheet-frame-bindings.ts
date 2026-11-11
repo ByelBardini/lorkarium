@@ -1,4 +1,4 @@
-import type { SheetDiceRequest } from './sheet-bridge-bootstrap';
+import type { SheetDiceRequest } from './sheet-sdk-shapes';
 
 /** An element of the frame's page, reduced to what the declarative binding reads and writes. */
 export interface SheetBoundElement {
@@ -44,7 +44,7 @@ export interface SheetBindingScope {
 export interface SheetBindingParts {
   onState(listener: (state: unknown) => void): () => void;
   patch(patches: Array<{ path: string[]; value: unknown }>): Promise<undefined>;
-  roll(request: SheetDiceRequest): Promise<undefined>;
+  roll(request: SheetDiceRequest): Promise<unknown>;
   sanitize(html: unknown): string;
   report(...args: unknown[]): void;
 }

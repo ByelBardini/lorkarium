@@ -9,6 +9,7 @@ import { ConditionsDao } from '../conditions/conditions.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
 import { TokenHangingDao } from '../tokens/token-hanging.dao';
 import { TokensDao } from '../tokens/tokens.dao';
+import { SheetBarCreationService } from './sheet-bar-creation.service';
 import { SheetBarsService, type SheetBarsServiceDeps } from './sheet-bars.service';
 import { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { CampaignsDao } from '../campaigns/campaigns.dao';
@@ -62,7 +63,15 @@ export function createSheetsModule(options: SheetsModuleOptions): SheetsModule {
     board,
     holders: new SheetHolderService(),
   });
-  return { plugin: sheetsRoutes({ templates, sheets }) };
+  const barCreation = new SheetBarCreationService({
+    read: sheetDaos(db),
+    transaction: (work) => runInTransaction(db, (tx) => work(sheetDaos(tx))),
+    clock,
+    characterPublisher,
+    board,
+    holders: new SheetHolderService(),
+  });
+  return { plugin: sheetsRoutes({ templates, sheets, barCreation }) };
 }
 
 function templateDaos(executor: DatabaseExecutor): SheetTemplateDaos {

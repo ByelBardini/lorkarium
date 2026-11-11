@@ -1,5 +1,6 @@
 import type { SheetSummaryDto } from '@lorkarium/contracts';
 import { StarIcon } from 'lucide-react';
+import { useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,14 +12,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { MAKE_MAIN_SHEET, MAIN_SHEET_MARK, OPEN_SHEET } from './sheet-messages';
 import { GiveSpareSheetItems, NewSheetItems, SheetIconButton } from './sheet-menu-parts';
-import { useSheetRoom, type SheetRoom } from './sheet-room-context';
-import { useTokenSheets } from './use-token-sheets';
+import type { SheetRoom } from './sheet-room-context';
+import type { CharacterSheets } from './use-character-sheets';
 
 export type CharacterSheetButtonProps = Readonly<{
-  characterId: string;
+  /** The character's sheets, read once by the card (`useCharacterSheets`). */
+  found: CharacterSheets;
   /** Its player, who a sheet the master makes here is for; `null` = nobody plays it now. */
   memberId: string | null;
-  /** The sheet "Abrir ficha de Lyra" opens; `null` = none chosen yet. */
+  /** The sheet marked "principal" in the menu; `null` = none chosen yet. */
   mainSheetId: string | null;
   /** The character's name: "Abrir ficha de Lyra", "Fichas de Lyra". */
   name: string;
@@ -28,52 +30,39 @@ export type CharacterSheetButtonProps = Readonly<{
   onMakeMain: (sheetId: string) => void;
 }>;
 
-/** The sheets of a character on the "Na mesa" card: "Abrir ficha de Lyra" opens the main one (or
- *  the only one) in one click; with several, the menu "Fichas de Lyra" lists them, the main one
- *  marked, and "Tornar principal ▸" for its player and the masters. The master always gets the
- *  menu, with "Nova ficha ▸ <template>" and "Dar ficha existente ▸ <sheets nobody holds>".
+/** The one sheet icon of the "Na mesa" card: with one sheet, "Abrir ficha de Lyra" opens it in
+ *  one click; with several, "Fichas de Lyra" lists them to pick from, the main one marked, and
+ *  "Tornar principal ▸" for its player and the masters. The master's menu also has "Nova ficha ▸
+ *  <template>" and "Dar ficha existente ▸"; on a character with one sheet the click still opens
+ *  it, and the right click (or ↓) shows that menu.
  *
- *  Example: `<CharacterSheetButton characterId={lyra.id} memberId={bia.userId} mainSheetId={lyra.mainSheetId} name="Lyra" isMaster={false} canControl onMakeMain={make} />` */
+ *  Example: `<CharacterSheetButton found={found} memberId={bia.userId} mainSheetId={lyra.mainSheetId} name="Lyra" isMaster={false} canControl onMakeMain={make} />` */
 export function CharacterSheetButton(props: CharacterSheetButtonProps): React.JSX.Element | null {
-  const room = useSheetRoom();
-  const read = useTokenSheets(room, { characterId: props.characterId });
-  if (!room || read.status === 'loading') return null;
-  const { sheets } = read;
-  const main = mainSheetOf(sheets, props.mainSheetId);
-  const withMenu = props.isMaster || sheets.length > 1;
-  return (
-    <>
-      {main && (
-        <SheetIconButton
-          label={`${OPEN_SHEET} de ${props.name}`}
-          onClick={() => room.actions.open(main)}
-        />
-      )}
-      {withMenu && <CharacterSheetMenu {...props} room={room} sheets={sheets} />}
-    </>
-  );
-}
-
-// The main sheet when the reader may read it; with no main, the only sheet stands in.
-function mainSheetOf(
-  sheets: readonly SheetSummaryDto[],
-  mainSheetId: string | null,
-): SheetSummaryDto | undefined {
-  const main = sheets.find(({ id }) => id === mainSheetId);
-  if (main) return main;
-  return sheets.length === 1 ? sheets[0] : undefined;
+  const { room, sheets } = props.found;
+  const only = sheets.length === 1 ? sheets[0] : undefined;
+  const openOnly = only ? () => room.actions.open(only) : null;
+  if (props.isMaster)
+    return <CharacterSheetMenu {...props} room={room} sheets={sheets} openOnly={openOnly} />;
+  if (openOnly)
+    return <SheetIconButton label={`${OPEN_SHEET} de ${props.name}`} onClick={openOnly} />;
+  if (sheets.length === 0) return null;
+  return <CharacterSheetMenu {...props} room={room} sheets={sheets} openOnly={null} />;
 }
 
 type MenuProps = CharacterSheetButtonProps &
   Readonly<{ room: SheetRoom; sheets: readonly SheetSummaryDto[] }>;
 
-function CharacterSheetMenu(props: MenuProps): React.JSX.Element {
+function CharacterSheetMenu(
+  props: MenuProps & Readonly<{ openOnly: (() => void) | null }>,
+): React.JSX.Element {
+  const [open, setOpen] = useState(false);
   const others = props.sheets.filter(({ id }) => id !== props.mainSheetId);
   const canMakeMain = props.canControl && props.sheets.length > 1 && others.length > 0;
+  const label = props.openOnly ? `${OPEN_SHEET} de ${props.name}` : `Fichas de ${props.name}`;
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <SheetIconButton label={`Fichas de ${props.name}`} />
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild {...(props.openOnly && openFirst(props.openOnly, setOpen))}>
+        <SheetIconButton label={label} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-48">
         <SheetItems {...props} />
@@ -82,6 +71,33 @@ function CharacterSheetMenu(props: MenuProps): React.JSX.Element {
       </DropdownMenuContent>
     </DropdownMenu>
   );
+}
+
+type TriggerHandlers = Readonly<{
+  onPointerDown: (event: PointerEvent) => void;
+  onKeyDown: (event: KeyboardEvent) => void;
+  onContextMenu: (event: MouseEvent) => void;
+}>;
+
+// The menu's trigger skips its own handler once ours prevents the default: the left click, Enter
+// and Space open the only sheet; the right click opens the menu, and ↓ still does.
+function openFirst(openSheet: () => void, setOpen: (open: boolean) => void): TriggerHandlers {
+  return {
+    onPointerDown: (event) => {
+      if (event.button !== 0 || event.ctrlKey) return;
+      event.preventDefault();
+      openSheet();
+    },
+    onKeyDown: (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      openSheet();
+    },
+    onContextMenu: (event) => {
+      event.preventDefault();
+      setOpen(true);
+    },
+  };
 }
 
 function SheetItems({ room, sheets, mainSheetId }: MenuProps): React.JSX.Element {

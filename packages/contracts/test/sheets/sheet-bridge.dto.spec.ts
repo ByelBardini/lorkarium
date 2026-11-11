@@ -185,6 +185,22 @@ describe('host to frame messages', () => {
       sheetHostMessageDto.safeParse(stateWith({ type: 'image/svg+xml', bytes: new ArrayBuffer(4) }))
         .success,
     ).toBe(false));
+  const d20 = { sides: 20, value: 12, status: 'kept' };
+  const rolled = { expression: '1d20+5', total: 17, dice: [d20] };
+  it('accepts a result with the roll of dice.roll', () =>
+    expect(sheetHostMessageDto.parse({ type: 'result', requestId: '2', value: rolled })).toEqual({
+      type: 'result',
+      requestId: '2',
+      value: rolled,
+    }));
+  it('refuses a roll whose die carries the 3D model indices or a fractional total', () => {
+    const withModel = { ...rolled, dice: [{ ...d20, model: [0] }] };
+    const fractional = { ...rolled, total: 1.5 };
+    for (const value of [withModel, fractional])
+      expect(sheetHostMessageDto.safeParse({ type: 'result', requestId: '2', value }).success).toBe(
+        false,
+      );
+  });
   it('accepts an error without a requestId when the message could not be read', () =>
     expect(
       sheetHostMessageDto.parse({

@@ -2,6 +2,7 @@ import type { CampaignDetailDto } from '@lorkarium/contracts';
 import { useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { SheetTemplatesApi } from '@/services/sheet-templates-api';
+import type { SheetDocumentSources } from '@/sheet-sandbox/sheet-bridge-documents';
 import type { SheetEditorLayoutMemory } from '@/lib/sheet-editor-layout';
 import type { ChatWindowHost } from '@/services/chat-window-host';
 import type { Clipboard } from '@/services/clipboard';
@@ -34,6 +35,8 @@ export type LibrarySheetTemplateEditorProps = Readonly<{
   layoutMemory?: SheetEditorLayoutMemory;
   clipboard?: Clipboard;
   exportPorts?: SheetTemplateExportPorts;
+  /** Where the preview reads the table's public documents. */
+  documentSources?: SheetDocumentSources;
   onRegisterLeave?: RegisterLeave;
   /** After "Abrir modelo em aba": the library goes back to the room, where the tab is. */
   onOpenedTab: () => void;
@@ -69,6 +72,9 @@ export function LibrarySheetTemplateEditor(
       clipboard={props.clipboard}
       exportPorts={props.exportPorts}
       assetPorts={{ api: props.api, campaignId: props.campaign.id }}
+      documentPorts={
+        props.documentSources && { sources: props.documentSources, campaignId: props.campaign.id }
+      }
     />
   );
 }

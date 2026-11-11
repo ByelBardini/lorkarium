@@ -17,7 +17,7 @@ A rolagem de dados da sala. O server rola: para os dados com modelo (d4, d6, d8,
   - `dice-publisher.port.ts` — `DicePublisherPort.rolled(evento, público)` e `rolledSecretly(aviso, público)`
   - `dice-roll.bo.ts` — `requireReadableDice` (também usado pelas salvas), `modeledOf(pedidos, usados, máximo)`, `audienceOf`, `revealDelayOf`, `DiceWavesBo(máximo)`, `DICE_WAVE_GAP_MS` (300), `DICE_REVEAL_WITHOUT_MODEL_MS` (800). O BO não importa DTO: o service passa o `DICE_THROW_MODELS_MAX` do contracts.
   - `dice.mapper.ts` — `toDiceAppearanceDto`, `toDiceRolledDto`, `toDiceRolledSecretlyDto`
-  - `dice.service.ts` — `DiceService.roll(userId, command)` → `{ rollId }`
+  - `dice.service.ts` — `DiceService.roll(userId, command)` → `DiceRollOutcome` `{ rollId, parts, total, settlesInMs }`
   - `dice.gateway.ts` — `createDiceGateway` (`dice:roll`); `dice.plugin.ts` — `createDiceModule({ members, profiles, physics, random, publisher, clock, newId, realtime, rate, log })` → `{ gateway }`
   - `dice.error.ts` — `DiceError`, `InvalidDiceExpressionError(part, expression, reason)` (`INVALID_DICE_EXPRESSION`; `part` a partir de 1, `null` = a composição). É a **única** classe desse erro: as salvas importam daqui.
 - `server/src/app/wire-dice.ts` — `wireDice(realtime, { db, members, clock, log })`, chamado no `wireRealtime` do `build-app.ts` depois do board: um `CryptoDiceRandom` alimenta a `CannonDicePhysics` e sorteia os dados sem modelo; `ProfilesDao(db)`, `SocketIoDicePublisher`, `randomUUID` e um `CommandRateGuard` com `DICE_RATE`.
@@ -28,7 +28,7 @@ A rolagem de dados da sala. O server rola: para os dados com modelo (d4, d6, d8,
 
 ## Contrato
 
-DTOs em [`contracts/dados.md`](contracts/dados.md). `dice:roll` (`diceRollCommandDto`, estrito: `userId` forjado → `INVALID_BODY`) com ack `{ ok: true, rollId }`. O resultado não vem no ack: chega a todos (quem rolou incluso) por `dice:rolled` (`diceRolledDto`) ou, a quem não vê a secreta, por `dice:rolledSecretly` (`diceRolledSecretlyDto`). Erros no ack: `FORBIDDEN` (espectador), `CAMPAIGN_NOT_FOUND` (mesa fora da conexão ou da pessoa), `INVALID_DICE_EXPRESSION` com a **mensagem do domínio** (`part 1 ("2d") cannot be read: Expected the number of sides …`, como nas salvas: o texto é da própria pessoa), `RATE_LIMITED` com `retryAfterSeconds` e `INVALID_BODY`.
+DTOs em [`contracts/dados.md`](contracts/dados.md). `dice:roll` (`diceRollCommandDto`, estrito: `userId` forjado → `INVALID_BODY`) com ack `{ ok: true, rollId, parts, total, settlesInMs }` (o resultado, só para quem rolou; `DiceService.roll` devolve o `DiceRollOutcome`). O evento chega a todos (quem rolou incluso) por `dice:rolled` (`diceRolledDto`) ou, a quem não vê a secreta, por `dice:rolledSecretly` (`diceRolledSecretlyDto`). Erros no ack: `FORBIDDEN` (espectador), `CAMPAIGN_NOT_FOUND` (mesa fora da conexão ou da pessoa), `INVALID_DICE_EXPRESSION` com a **mensagem do domínio** (`part 1 ("2d") cannot be read: Expected the number of sides …`, como nas salvas: o texto é da própria pessoa), `RATE_LIMITED` com `retryAfterSeconds` e `INVALID_BODY`.
 
 ## Caminho do comando
 

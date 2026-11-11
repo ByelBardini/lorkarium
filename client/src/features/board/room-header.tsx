@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { TurnLine } from '@/features/combat/turn-line';
 import { RoomName } from '@/features/maps/room-name';
 import { useLeaveTable } from '@/features/sessions/use-leave-table';
+import { useViewerMainSheet } from '@/features/sheets/use-viewer-main-sheet';
 import { formatCampaignCode } from '@/lib/campaign-code';
 import { watchesOnly } from '@/lib/table-role';
 import { cn } from '@/lib/utils';
@@ -48,7 +49,7 @@ export type RoomHeaderProps = Readonly<{
   documentWorkspace?: StoreApi<DocumentWorkspaceStore>;
 }>;
 
-/** The 48px top bar of the room: name (and the "Espectador" badge of whoever only watches), who is online, the open grid tabs, the code (master
+/** The 48px top bar of the room: the main map and the viewer's main sheet, name (and the "Espectador" badge of whoever only watches), who is online, the open grid tabs, the code (master
  *  only), "Biblioteca", "Condições" and "Configurações da mesa" (master only), the panel toggle,
  *  the admin's "Mais ações da mesa" (juggernaut mode) and "Sair da mesa". In the desktop app it moves into the window title bar (a portal), which
  *  drags the window from its empty space.
@@ -70,6 +71,7 @@ export function RoomHeader({
   const leaveTable = useLeaveTable(openTables);
   const session = useSession(sessionStore);
   const reader = session.status === 'authenticated' ? session.user : null;
+  const mainSheet = useViewerMainSheet(reader?.id ?? null);
   const slot = useTitleBarSlot(inTitleBar);
   const top = (
     <section
@@ -79,7 +81,12 @@ export function RoomHeader({
         slot ? 'min-w-0 flex-1 pr-2' : 'h-12 border-b border-border bg-panel px-3',
       )}
     >
-      <RoomName campaign={campaign} tabs={tabs} workspace={documentWorkspace} />
+      <RoomName
+        campaign={campaign}
+        tabs={tabs}
+        workspace={documentWorkspace}
+        mainSheet={mainSheet}
+      />
       {watchesOnly(campaign.myRole) && <SpectatorBadge />}
       {presence && (
         <OnlineCount presence={presence} onShow={() => roomLayout.getState().showTab('people')} />
@@ -89,7 +96,12 @@ export function RoomHeader({
         // The floor (two tabs and the "+N") makes a long table name truncate before the tabs
         // shrink to nothing.
         <div className="flex min-w-[min(20rem,35%)] flex-1">
-          <SceneTabs tabs={tabs} documents={documentWorkspace} campaignId={campaign.id} />
+          <SceneTabs
+            tabs={tabs}
+            documents={documentWorkspace}
+            campaignId={campaign.id}
+            mainSheetKey={mainSheet?.key ?? null}
+          />
         </div>
       )}
       {board && (

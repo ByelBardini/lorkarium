@@ -147,15 +147,22 @@ describe('diceRollCommandDto', () => {
 });
 
 describe('diceRollAckDto', () => {
-  it('a success carries the roll id', () => {
-    expect(diceRollAckDto.parse({ ok: true, rollId: ROLL_ID })).toEqual({
-      ok: true,
-      rollId: ROLL_ID,
-    });
+  const { parts, total, settlesInMs } = rolledEvent();
+  const success = { ok: true, rollId: ROLL_ID, parts, total, settlesInMs };
+
+  it('a success carries the roll id and the result: parts, total and when the dice settle', () => {
+    expect(diceRollAckDto.parse(success)).toEqual(success);
   });
 
-  it('a success without the roll id is refused', () => {
-    expect(diceRollAckDto.safeParse({ ok: true }).success).toBe(false);
+  it.each(['rollId', 'parts', 'total', 'settlesInMs'])('a success without %s is refused', (key) => {
+    const rest: Record<string, unknown> = { ...success };
+    delete rest[key];
+    expect(diceRollAckDto.safeParse(rest).success).toBe(false);
+  });
+
+  it('a success with a fractional total or no part is refused', () => {
+    expect(diceRollAckDto.safeParse({ ...success, total: 2.5 }).success).toBe(false);
+    expect(diceRollAckDto.safeParse({ ...success, parts: [] }).success).toBe(false);
   });
 });
 

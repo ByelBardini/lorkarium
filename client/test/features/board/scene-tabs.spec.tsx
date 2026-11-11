@@ -18,6 +18,7 @@ import { SheetTemplatesApiFake } from '../../support/sheet-templates-api-fake';
 import { SheetsApiFake } from '../../support/sheets-api-fake';
 import { InteractionClockFake } from '../../support/interaction-clock-fake';
 import { documentFixture } from '../../support/documents-fixtures';
+import { GOBLIN_SHEET_ID, LYRA_SHEET_ID } from '../../support/sheet-fixtures';
 import { TORRE_SCENE, estradaBoard, sceneActivated } from '../../support/scene-tab-fixtures';
 import { openTorreTab, openVharnTabs } from '../../support/scene-tabs-harness';
 import { TableSessionApiFake } from '../../support/table-session-api-fake';
@@ -225,5 +226,31 @@ describe('SceneTabs with documents', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Fechar documento Carta' }));
     expect(screen.queryByRole('tab', { name: 'Carta' })).not.toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Cena 1/ })).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
+describe('SceneTabs with the viewer main sheet', () => {
+  it("draws no tab for the viewer's main sheet, but one for any other sheet", async () => {
+    // The fake answers every sheet as "Lyra de Vharn": the tabs are told apart by their key.
+    const table = openVharnTabs(new TableSessionApiFake());
+    const documents = workspaceOfFakes();
+    const campaign = detailOf(VHARN);
+    const main = documents
+      .getState()
+      .openSheet({ campaign, sheetId: LYRA_SHEET_ID, sheetName: 'Lyra' });
+    documents.getState().openSheet({ campaign, sheetId: GOBLIN_SHEET_ID, sheetName: 'Goblin' });
+    render(
+      <SceneTabs
+        tabs={table.tabs}
+        documents={documents}
+        campaignId={VHARN.id}
+        mainSheetKey={main}
+      />,
+    );
+    await act(() => Promise.resolve());
+    const sheetTabs = screen.getAllByRole('tab', { name: /^Ficha · / });
+    expect(sheetTabs).toHaveLength(1);
+    await userEvent.click(sheetTabs[0] as HTMLElement);
+    expect(documents.getState().activeByCampaign[VHARN.id]).not.toBe(main);
   });
 });

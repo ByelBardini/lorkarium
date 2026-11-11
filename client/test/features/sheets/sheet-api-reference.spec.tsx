@@ -30,6 +30,7 @@ const CALLS = [
   'bars.get',
   'bars.adjust',
   'bars.spend',
+  'bars.create',
   'dice.roll',
   'html.sanitize',
   'character.get',
@@ -37,6 +38,9 @@ const CALLS = [
   'character.setImage',
   'assets.upload',
   'assets.read',
+  'documents.list',
+  'documents.tabs',
+  'documents.readTab',
 ];
 
 // Every code the host, the preview or the frame's bars.get can produce.
@@ -54,7 +58,11 @@ const CODES = [
   'PERMISSION_NOT_DECLARED',
   'NO_CHARACTER',
   'INSUFFICIENT_BAR',
+  'BAR_LIMIT',
+  'SHEET_HAS_NO_TOKEN',
   'ASSET_NOT_FOUND',
+  'DOCUMENT_NOT_FOUND',
+  'DOCUMENT_TAB_NOT_FOUND',
   'TOO_LARGE',
   'UNSUPPORTED_IMAGE',
 ];

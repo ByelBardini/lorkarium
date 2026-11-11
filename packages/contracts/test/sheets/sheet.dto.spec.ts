@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createSheetBarRequestDto,
+  createSheetBarResponseDto,
   createSheetRequestDto,
   sheetAdjustBarCommandDto,
   sheetChangedEventDto,
@@ -168,4 +170,49 @@ describe('sheet receipt', () => {
   ])('refuses skippedBars with %s', (_case, skippedBars) =>
     expect(sheetReceiptDto.safeParse({ ...receipt, skippedBars }).success).toBe(false),
   );
+});
+
+describe('createSheetBarRequestDto', () => {
+  const request = (bar: unknown) => createSheetBarRequestDto.safeParse({ bar });
+  const issue = (bar: unknown) => {
+    const parsed = request(bar);
+    return parsed.success ? 'accepted' : parsed.error.issues.map(({ message }) => message).join();
+  };
+
+  it('fills a missing color with gold and trims the label', () =>
+    expect(createSheetBarRequestDto.parse({ bar: { label: ' Fôlego ', max: 6 } })).toEqual({
+      bar: { label: 'Fôlego', max: 6, color: 'gold' },
+    }));
+  it('keeps a palette color', () =>
+    expect(request({ label: 'MP', max: 3, color: 'moss' }).data?.bar.color).toBe('moss'));
+  it('refuses a hex color citing it and the palette', () =>
+    expect(issue({ label: 'MP', max: 3, color: '#ff0000' })).toBe(
+      'bar color "#ff0000"; expected one of gold, steel, ember, moss, ash',
+    ));
+  it.each([
+    ['a blank label', { label: '  ', max: 3 }],
+    ['a label of 25', { label: 'x'.repeat(25), max: 3 }],
+    ['a max of 0', { label: 'MP', max: 0 }],
+    ['a max past the bar limit', { label: 'MP', max: 100_000 }],
+    ['a fractional max', { label: 'MP', max: 2.5 }],
+    ['an extra field', { label: 'MP', max: 3, current: 1 }],
+  ])('refuses %s', (_case, bar) => expect(request(bar).success).toBe(false));
+  it('accepts a label of 24 and the bar limit', () =>
+    expect(issue({ label: 'x'.repeat(24), max: 99_999 })).toBe('accepted'));
+  it('refuses a tokenId beside the bar', () =>
+    expect(
+      createSheetBarRequestDto.safeParse({ bar: { label: 'MP', max: 3 }, tokenId }).success,
+    ).toBe(false));
+});
+
+describe('createSheetBarResponseDto', () => {
+  it('accepts the bar id and whether it was created', () =>
+    expect(createSheetBarResponseDto.parse({ barId, created: false })).toEqual({
+      barId,
+      created: false,
+    }));
+  it('refuses a bar id that is not a uuid', () =>
+    expect(createSheetBarResponseDto.safeParse({ barId: 'MP', created: true }).success).toBe(
+      false,
+    ));
 });

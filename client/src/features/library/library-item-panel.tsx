@@ -21,6 +21,7 @@ import type { SheetEditorLayoutMemory } from '@/lib/sheet-editor-layout';
 import type { ChatWindowHost } from '@/services/chat-window-host';
 import type { Clipboard } from '@/services/clipboard';
 import type { DocumentsApi } from '@/services/documents-api';
+import type { LibraryApi } from '@/services/library-api';
 import type { ImagePresentationApi } from '@/services/image-presentation-api';
 import type { SheetTemplatesApi } from '@/services/sheet-templates-api';
 import type { DocumentWorkspaceStore } from '@/stores/document-workspace-store';
@@ -73,7 +74,12 @@ export type LibraryPanelModel = Readonly<{
 }>;
 
 export type LibraryItemPanelProps = LibraryPanelPorts &
-  Readonly<{ model: LibraryPanelModel; templateId: string | null }>;
+  Readonly<{
+    model: LibraryPanelModel;
+    templateId: string | null;
+    /** The library the template preview reads the public documents from. */
+    libraryApi?: Pick<LibraryApi, 'list'>;
+  }>;
 
 /** The panel of the item picked in the tree, by its type: the template editor, a document's
  *  preview, an image, a map, a sheet or a grid (which also says that nothing is picked).
@@ -115,6 +121,9 @@ function PickedTemplate({ model, templateId, api, ...props }: PickedTemplateProp
       layoutMemory={props.sheetEditorLayout}
       clipboard={props.clipboard}
       exportPorts={model.templateFiles.exportPorts}
+      documentSources={
+        props.libraryApi && { library: props.libraryApi, documents: props.documentsApi }
+      }
       onRegisterLeave={model.guardedPick.registerLeave}
       onOpenedTab={() => void navigate(`/campaigns/${encodeURIComponent(props.campaign.id)}/table`)}
     />

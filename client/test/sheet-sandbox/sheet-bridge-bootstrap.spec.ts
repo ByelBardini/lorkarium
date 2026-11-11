@@ -25,9 +25,9 @@ function bootFrame(): SheetFrameWindowFake {
 
 // The author's JS has no types: these calls pass what TypeScript would refuse.
 function asAuthorCalls(
-  method: (input: never) => Promise<undefined>,
-): (input: unknown) => Promise<undefined> {
-  return method as (input: unknown) => Promise<undefined>;
+  method: (input: never) => Promise<unknown>,
+): (input: unknown) => Promise<unknown> {
+  return method as (input: unknown) => Promise<unknown>;
 }
 
 async function settled(promise: Promise<unknown>): Promise<string> {
@@ -152,6 +152,34 @@ describe('sheet bridge bootstrap: requests', () => {
       type: 'values.set',
     });
     expect(port.sent).toEqual([{ type: 'dice.roll', requestId: '1', expression: '2d6' }]);
+  });
+
+  it('dice.roll resolves with the roll the host answers, frozen', async () => {
+    const roll = frame.sdk.dice.roll({ expression: '1d20+5' });
+    const value = {
+      expression: '1d20+5',
+      total: 22,
+      dice: [{ sides: 20, value: 17, status: 'kept' }],
+    };
+    port.deliver({ type: 'result', requestId: '1', value });
+    const rolled = await roll;
+    expect(rolled).toEqual(value);
+    expect(Object.isFrozen(rolled) && Object.isFrozen(rolled.dice[0])).toBe(true);
+  });
+
+  it('dice.roll keeps only the fields of a die, and a die without a number drops the roll', async () => {
+    const roll = frame.sdk.dice.roll({ expression: '1d20' });
+    const die = { sides: 20, value: 4, status: 'kept', success: true, model: [0] };
+    port.deliver({
+      type: 'result',
+      requestId: '1',
+      value: { expression: '1d20', total: 4, dice: [die] },
+    });
+    expect((await roll).dice).toEqual([{ sides: 20, value: 4, status: 'kept', success: true }]);
+    const broken = frame.sdk.dice.roll({ expression: '1d20' });
+    const odd = { expression: '1d20', total: 4, dice: [{ sides: 20, value: 'x', status: 'kept' }] };
+    port.deliver({ type: 'result', requestId: '2', value: odd });
+    expect(await broken).toBeUndefined();
   });
 
   it('resolves each request by its own requestId, in any order', async () => {

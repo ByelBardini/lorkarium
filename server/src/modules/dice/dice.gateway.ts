@@ -13,7 +13,7 @@ export type DiceGatewayDeps = CommandEdgeDeps &
 
 /** Socket.IO edge of the dice: validates `dice:roll`, re-reads the session, requires the table
  *  open on this connection and rolls as the session's user, outside the table's queue (nothing is
- *  written); the ack carries the `rollId`, the events go out by the publisher.
+ *  written); the ack carries the `rollId` and the result, the events go out by the publisher.
  *
  *  Example: `realtime.onConnection(createDiceGateway({ dice, rate, realtime, log }))` */
 export function createDiceGateway(deps: DiceGatewayDeps): (socket: RealtimeSocket) => void {
@@ -22,8 +22,8 @@ export function createDiceGateway(deps: DiceGatewayDeps): (socket: RealtimeSocke
     socket.on(
       DICE_EVENTS.roll,
       onCommand({ deps, rate, socket }, diceRollCommandDto, async (userId, command) => {
-        const { rollId } = await deps.dice.roll(userId, command);
-        return { ok: true, rollId } as const;
+        const outcome = await deps.dice.roll(userId, command);
+        return { ok: true, ...outcome } as const;
       }),
     );
   };

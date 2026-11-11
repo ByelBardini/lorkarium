@@ -26,6 +26,7 @@ describe('permissionRefusalOf', () => {
     ['assets.upload', 'sheet:images'],
     ['assets.read', 'sheet:images'],
     ['character.setImage', 'character:portrait'],
+    ['bars.create', 'character:bars'],
   ] as const)('%s without %s is refused', (type, permission) =>
     expect(permissionRefusalOf(type, [])).toEqual({
       code: 'PERMISSION_NOT_DECLARED',

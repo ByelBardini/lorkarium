@@ -2,6 +2,7 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { CharacterSheetButton } from '@/features/sheets/character-sheet-button';
+import { useCharacterSheets } from '@/features/sheets/use-character-sheets';
 import { LYRA_CHARACTER_ID } from '../../support/character-fixtures';
 import {
   GOBLIN_SHEET_ID,
@@ -31,18 +32,24 @@ type ButtonOptions = Readonly<{
   madeMain?: string[];
 }>;
 
-function lyraButton(isMaster: boolean, options: ButtonOptions = {}) {
+function LyraButton(props: ButtonOptions & Readonly<{ isMaster: boolean }>) {
+  const found = useCharacterSheets(LYRA_CHARACTER_ID);
+  if (!found) return null;
   return (
     <CharacterSheetButton
-      characterId={LYRA_CHARACTER_ID}
-      memberId={options.memberId === undefined ? BIA : options.memberId}
-      mainSheetId={options.mainSheetId ?? null}
+      found={found}
+      memberId={props.memberId === undefined ? BIA : props.memberId}
+      mainSheetId={props.mainSheetId ?? null}
       name="Lyra"
-      isMaster={isMaster}
-      canControl={options.canControl ?? isMaster}
-      onMakeMain={(sheetId) => options.madeMain?.push(sheetId)}
+      isMaster={props.isMaster}
+      canControl={props.canControl ?? props.isMaster}
+      onMakeMain={(sheetId) => props.madeMain?.push(sheetId)}
     />
   );
+}
+
+function lyraButton(isMaster: boolean, options: ButtonOptions = {}) {
+  return <LyraButton isMaster={isMaster} {...options} />;
 }
 
 describe('sheets on the "Na mesa" card', () => {
@@ -79,13 +86,33 @@ describe('sheets on the "Na mesa" card', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('with several sheets, "Abrir ficha de Lyra" opens the main one in one click', async () => {
+  it('with several sheets the card has one icon, "Fichas de Lyra", even with a main one', async () => {
     const { deps, renderItems } = sheetRoom();
     deps.sheetsApi.sheetsOfCharacter[LYRA_CHARACTER_ID] = [lyraSummary(), SPELLS];
-    serverSheetIs(deps, SPELLS);
     renderItems(lyraButton(false, { mainSheetId: SPELLS.id }));
+    expect(await screen.findByRole('button', { name: 'Fichas de Lyra' })).toBeVisible();
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+  });
+
+  it('the master with one sheet opens it in one click, with no second icon', async () => {
+    const { deps, renderItems } = sheetRoom();
+    deps.sheetsApi.sheetsOfCharacter[LYRA_CHARACTER_ID] = [lyraSummary()];
+    renderItems(lyraButton(true));
     await userEvent.click(await screen.findByRole('button', { name: 'Abrir ficha de Lyra' }));
-    expect(await screen.findByRole('tab', { name: 'Ficha · Magias de Lyra' })).toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: 'Ficha · Lyra de Vharn' })).toBeInTheDocument();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Fichas de Lyra' })).not.toBeInTheDocument();
+    act(() => deps.documentWorkspace.getState().clear());
+  });
+
+  it('the master with one sheet opens it with Enter too', async () => {
+    const { deps, renderItems } = sheetRoom();
+    deps.sheetsApi.sheetsOfCharacter[LYRA_CHARACTER_ID] = [lyraSummary()];
+    renderItems(lyraButton(true));
+    (await screen.findByRole('button', { name: 'Abrir ficha de Lyra' })).focus();
+    await userEvent.keyboard('{Enter}');
+    expect(await screen.findByRole('tab', { name: 'Ficha · Lyra de Vharn' })).toBeInTheDocument();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     act(() => deps.documentWorkspace.getState().clear());
   });
 
@@ -152,7 +179,11 @@ describe('sheets on the "Na mesa" card', () => {
     deps.sheetsApi.sheetsOfCharacter[LYRA_CHARACTER_ID] = [lyraSummary()];
     libraryWithTormenta(deps, [lyraSummary(), spareSummary()]);
     renderItems(lyraButton(true));
-    await userEvent.click(await screen.findByRole('button', { name: 'Fichas de Lyra' }));
+    // One sheet: the click opens it, so the master's menu is on the right click.
+    await userEvent.pointer({
+      keys: '[MouseRight]',
+      target: await screen.findByRole('button', { name: 'Abrir ficha de Lyra' }),
+    });
     expect(screen.getByRole('menuitem', { name: 'Lyra de Vharn' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('menuitem', { name: 'Dar ficha existente' }));
     await screen.findByRole('menuitem', { name: 'Ficha reserva' });

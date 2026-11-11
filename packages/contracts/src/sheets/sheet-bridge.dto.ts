@@ -8,8 +8,14 @@ import {
 import { ASSET_MAX_BYTES, assetMimeTypeDto } from '../assets/asset.dto';
 import { CHARACTER_NAME_MAX } from '../board/character.dto';
 import { characterStatDto } from '../board/character-fields.dto';
-import { diceRollLabelDto, diceRollPartDto, diceVisibilityDto } from '../dice/dice.dto';
-import { sheetBarCostDto } from './sheet.dto';
+import {
+  diceRollLabelDto,
+  diceRollPartDto,
+  diceVisibilityDto,
+  dieStatusDto,
+} from '../dice/dice.dto';
+import { createSheetBarResponseDto, sheetBarCostDto, sheetBarCreationDto } from './sheet.dto';
+import { sheetFrameDocumentResultDtos } from './sheet-bridge-documents.dto';
 import { sheetValuePathPatchesDto, sheetValuesDto, sheetValuesPatchDto } from './sheet-values.dto';
 
 export const SHEET_BRIDGE_REQUEST_ID_MAX_LENGTH = 64;
@@ -113,6 +119,7 @@ export const sheetFrameMessageDto = z.discriminatedUnion('type', [
       .min(1)
       .max(MAX_BARS_PER_TOKEN),
   }),
+  z.strictObject({ type: z.literal('bars.create'), ...requestShape, bar: sheetBarCreationDto }),
   z.strictObject({
     type: z.literal('dice.roll'),
     ...requestShape,
@@ -134,6 +141,15 @@ export const sheetFrameMessageDto = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('character.setImage'), ...requestShape, image: uploadImageDto }),
   z.strictObject({ type: z.literal('assets.upload'), ...requestShape, image: uploadImageDto }),
   z.strictObject({ type: z.literal('assets.read'), ...requestShape, assetId: z.uuid() }),
+  // Document reads answer only public documents and `document` tabs, the same for every viewer.
+  z.strictObject({ type: z.literal('documents.list'), ...requestShape }),
+  z.strictObject({ type: z.literal('documents.tabs'), ...requestShape, documentId: z.uuid() }),
+  z.strictObject({
+    type: z.literal('documents.readTab'),
+    ...requestShape,
+    documentId: z.uuid(),
+    tabId: z.uuid(),
+  }),
   ...consoleShapes,
 ]);
 export type SheetFrameMessageDto = z.infer<typeof sheetFrameMessageDto>;
@@ -162,10 +178,34 @@ export const sheetFrameCharacterDto = z.strictObject({
 });
 export type SheetFrameCharacterDto = z.infer<typeof sheetFrameCharacterDto>;
 
-/** What a `result` carries back: the new asset (`assets.upload`) or the bytes (`assets.read`). */
+/** One die of a sheet's roll: what the author reads, without the 3D model indices. */
+export const sheetFrameRolledDieDto = z.strictObject({
+  sides: z.number().int().min(2).max(1000),
+  value: z.number().int().min(1),
+  status: dieStatusDto,
+  success: z.boolean().optional(),
+});
+export type SheetFrameRolledDieDto = z.infer<typeof sheetFrameRolledDieDto>;
+
+/** What `dice.roll` resolves with once the dice settle: the expression as rolled, its total and
+ *  its dice in throw order (a `rerolled` or `dropped` die does not count in the total).
+ *
+ *  Example: `sheetFrameRollDto.parse({ expression: '1d20+5', total: 17, dice: [{ sides: 20, value: 12, status: 'kept' }] })` */
+export const sheetFrameRollDto = z.strictObject({
+  expression: diceRollPartDto.shape.expression,
+  total: z.number().int(),
+  dice: z.array(sheetFrameRolledDieDto),
+});
+export type SheetFrameRollDto = z.infer<typeof sheetFrameRollDto>;
+
+/** What a `result` carries back: the new asset (`assets.upload`), the bar (`bars.create`), the
+ *  bytes (`assets.read`), the roll (`dice.roll`) or a document read (`documents.*`). */
 export const sheetBridgeResultValueDto = z.union([
   z.strictObject({ assetId: z.uuid() }),
+  createSheetBarResponseDto,
   sheetFrameImageDto,
+  sheetFrameRollDto,
+  ...sheetFrameDocumentResultDtos,
 ]);
 export type SheetBridgeResultValueDto = z.infer<typeof sheetBridgeResultValueDto>;
 

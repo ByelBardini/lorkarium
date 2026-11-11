@@ -2,6 +2,7 @@ import type { SheetSummaryDto, SheetTemplateSummaryDto, TokenDto } from '@lorkar
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import type { SheetRoom } from './sheet-room-context';
 import { isSpareSheet } from '@/lib/sheet-holder';
+import type { OpenTable } from '@/stores/open-tables-store';
 
 /** The sheets of one holder this reader may read, in order of creation (the server leaves out
  *  the ones they may not). */
@@ -56,18 +57,25 @@ function sheetsOf(room: SheetRoom, kind: 'token' | 'character', id: string): Pro
   return room.sheetsApi.ofCharacter(campaignId, id);
 }
 
-// The last `sheet:changed` of the room's table (a new object per event), or `null`.
-function useSheetChangesOf(room: SheetRoom | null): unknown {
+/** The open table of the room (followed as tables open and close); `undefined` outside a room
+ *  or before it opens.
+ *
+ *  Example: `const characters = useRoomTable(room)?.characters` */
+export function useRoomTable(room: SheetRoom | null): OpenTable | undefined {
   const openTables = room?.openTables ?? null;
   const campaignId = room?.campaign.id;
   const subscribeTables = useCallback(
     (onChange: () => void) => openTables?.subscribe(onChange) ?? (() => undefined),
     [openTables],
   );
-  const tabs = useSyncExternalStore(
-    subscribeTables,
-    () => openTables?.getState().tables.find((table) => table.campaignId === campaignId)?.tabs,
+  return useSyncExternalStore(subscribeTables, () =>
+    openTables?.getState().tables.find((table) => table.campaignId === campaignId),
   );
+}
+
+// The last `sheet:changed` of the room's table (a new object per event), or `null`.
+function useSheetChangesOf(room: SheetRoom | null): unknown {
+  const tabs = useRoomTable(room)?.tabs;
   const subscribe = useCallback(
     (onChange: () => void) => tabs?.subscribe(onChange) ?? (() => undefined),
     [tabs],

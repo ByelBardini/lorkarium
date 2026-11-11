@@ -119,7 +119,7 @@ O detalhe dos DTOs do tabuleiro (cena, token, direção e abertura do cone, apar
 
 ### Dados (`dice/`)
 
-`dice.dto.ts` — comando `dice:roll`, ack com `rollId`, eventos `dice:rolled` (resultado, aparência e trajeto 3D) e `dice:rolledSecretly` (aviso sem valor), `DiceClientEvents`/`DiceServerEvents` no `TableClientEvents`/`TableServerEvents`; `saved-roll.dto.ts` — corpos, params e respostas das rolagens salvas (REST): detalhe em [`contracts/dados.md`](contracts/dados.md).
+`dice.dto.ts` — comando `dice:roll`, ack com `rollId` e o resultado (só a quem rolou), eventos `dice:rolled` (resultado, aparência e trajeto 3D) e `dice:rolledSecretly` (aviso sem valor), `DiceClientEvents`/`DiceServerEvents` no `TableClientEvents`/`TableServerEvents`; `saved-roll.dto.ts` — corpos, params e respostas das rolagens salvas (REST): detalhe em [`contracts/dados.md`](contracts/dados.md).
 
 ### Chat (`chat/`)
 
@@ -127,7 +127,7 @@ O detalhe dos DTOs do tabuleiro (cena, token, direção e abertura do cone, apar
 
 ### Fichas (`sheets/`)
 
-`sheet-template.dto.ts` (modelo: resumo sem código, `files` e manifesto), `sheet-template-files.dto.ts` (lista de arquivos: caminhos, `index.html`, 512 KiB somados, 64 arquivos), `sheet-template-asset.dto.ts` (fontes e imagens do modelo, `assets` do manifesto e do `.lksheet`; ver [`sheets/arquivos.md`](sheets/arquivos.md)), `sheet.dto.ts` (ficha e resumo da biblioteca, dono `holder`, lista por token, visibilidade `controllers`/`table`, comandos com `actionId`, recibo, `sheet:changed` sem valores, `sheet:adjustBar` com o `barChangeDto`), `sheet-values.dto.ts` (valores JSON com travessia iterativa: 256 KiB, profundidade 8, 1000 chaves, chave de até 64) e `sheet-bridge.dto.ts` (mensagens do `MessagePort`): detalhe em [`sheets/contratos.md`](sheets/contratos.md).
+`sheet-template.dto.ts` (modelo: resumo sem código, `files` e manifesto), `sheet-template-files.dto.ts` (lista de arquivos: caminhos, `index.html`, 512 KiB somados, 64 arquivos), `sheet-template-asset.dto.ts` (fontes e imagens do modelo, `assets` do manifesto e do `.lksheet`; ver [`sheets/arquivos.md`](sheets/arquivos.md)), `sheet.dto.ts` (ficha e resumo da biblioteca, dono `holder`, lista por token, visibilidade `controllers`/`table`, comandos com `actionId`, recibo, `sheet:changed` sem valores, `sheet:adjustBar` com o `barChangeDto`, criar barra no dono pela `POST …/bars`), `sheet-values.dto.ts` (valores JSON com travessia iterativa: 256 KiB, profundidade 8, 1000 chaves, chave de até 64), `sheet-bridge.dto.ts` (mensagens do `MessagePort`) e `sheet-bridge-documents.dto.ts` (o que o host responde às leituras de documentos; ver [`sheets/documentos.md`](sheets/documentos.md)): detalhe em [`sheets/contratos.md`](sheets/contratos.md).
 
 ## Regras de arquitetura
 

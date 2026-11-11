@@ -24,6 +24,7 @@ import { AssetsApiFake } from '../../support/assets-api-fake';
 import { CharacterCommandsFake } from '../../support/character-commands-fake';
 import { DiceCommandsFake } from '../../support/dice-commands-fake';
 import { InteractionClockFake } from '../../support/interaction-clock-fake';
+import { noDocuments } from '../../support/sheet-bridge-harness';
 import { SheetCommandsFake } from '../../support/sheet-commands-fake';
 import { LYRA_SHEET_ID, lyraSheet, sheetResponse } from '../../support/sheet-fixtures';
 import { SheetChannelsFake } from '../../support/sheet-frame-fakes';
@@ -64,6 +65,7 @@ describe('SheetPanel', () => {
       sheetCommands: new SheetCommandsFake(),
       boardCommands: new CharacterCommandsFake(),
       assets: new AssetsApiFake(),
+      documents: noDocuments(),
       dice: new DiceCommandsFake(),
       clock,
     };

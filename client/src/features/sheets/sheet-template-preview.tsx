@@ -6,7 +6,11 @@ import type { SheetPreviewData } from '@/lib/sheet-preview-data';
 import { consoleEntryOf, type SheetConsoleEntry } from '@/sheet-sandbox/sheet-console';
 import type { SheetChannel } from '@/sheet-sandbox/sheet-frame';
 import { SheetSourceFrame } from '@/sheet-sandbox/sheet-frame';
-import { createSheetPreviewHost, type SheetPreviewHost } from '@/sheet-sandbox/sheet-preview-host';
+import {
+  createSheetPreviewHost,
+  type SheetPreviewDocumentPorts,
+  type SheetPreviewHost,
+} from '@/sheet-sandbox/sheet-preview-host';
 import { sameSheetSource, type SheetSource } from '@/sheet-sandbox/sheet-srcdoc';
 import { SheetPreviewTestData } from './sheet-preview-test-data';
 
@@ -30,6 +34,8 @@ export type SheetTemplatePreviewProps = Readonly<{
   testData: SheetPreviewData;
   /** The test data after the master edited it or a request of the frame changed it. */
   onTestData: (data: SheetPreviewData) => void;
+  /** The table's public documents for `documents.*` (reads only); without it, PREVIEW_ONLY. */
+  documents?: SheetPreviewDocumentPorts;
 }>;
 
 /** The live preview of a template: the real sandbox with the test data (the sample "Exemplo",
@@ -98,8 +104,8 @@ function previewHostOf(
   props: SheetTemplatePreviewProps,
   source: SheetSource,
 ): SheetPreviewHost {
-  const { onConsole, now = () => new Date(), permissions } = props;
-  const data = { data: props.testData, onDataChange: props.onTestData };
+  const { onConsole, now = () => new Date(), permissions, documents } = props;
+  const data = { data: props.testData, onDataChange: props.onTestData, documents };
   if (!onConsole) return createSheetPreviewHost(port, { permissions, ...data });
   const sink = (message: SheetConsoleMessageDto): void =>
     onConsole(consoleEntryOf(message, source, now()));

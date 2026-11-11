@@ -67,15 +67,6 @@ export const diceRollCommandDto = z.strictObject({
 export type DiceRollCommandDto = z.infer<typeof diceRollCommandDto>;
 export type DiceRollCommandInput = z.input<typeof diceRollCommandDto>;
 
-/** Answer to `dice:roll`: the id of the roll (its events carry the same) or the API error.
- *
- *  Example: `diceRollAckDto.parse(answer).ok` */
-export const diceRollAckDto = z.discriminatedUnion('ok', [
-  z.strictObject({ ok: z.literal(true), rollId: z.uuid() }),
-  realtimeAckFailureDto,
-]);
-export type DiceRollAckDto = z.infer<typeof diceRollAckDto>;
-
 /** The dice with a 3D shape; repeats `DIE_KINDS` of the game-core. A d100 is a `d100tens` + a `d10`. */
 export const dieKindDto = z.enum(['d4', 'd6', 'd8', 'd10', 'd100tens', 'd12', 'd20']);
 export type DieKindDto = z.infer<typeof dieKindDto>;
@@ -172,6 +163,23 @@ export const rolledPartDto = z.strictObject({
   dice: z.array(rolledDieDto),
 });
 export type RolledPartDto = z.infer<typeof rolledPartDto>;
+
+/** Answer to `dice:roll`: the id of the roll (its events carry the same) and, to the roller only,
+ *  the result as `dice:rolled` has it (a sheet's `dice.roll` answers with it once the dice settle,
+ *  `settlesInMs` after the ack); or the API error.
+ *
+ *  Example: `diceRollAckDto.parse(answer).ok` */
+export const diceRollAckDto = z.discriminatedUnion('ok', [
+  z.strictObject({
+    ok: z.literal(true),
+    rollId: z.uuid(),
+    parts: z.array(rolledPartDto).min(1).max(DICE_ROLL_PARTS_MAX),
+    total: z.number().int(),
+    settlesInMs: z.number().nonnegative(),
+  }),
+  realtimeAckFailureDto,
+]);
+export type DiceRollAckDto = z.infer<typeof diceRollAckDto>;
 
 /** `dice:rolled`: the full roll, to whoever may see it (the table, or the masters and the roller).
  *  No `version`: nothing is saved. `settlesInMs` is how long after receipt the result shows.

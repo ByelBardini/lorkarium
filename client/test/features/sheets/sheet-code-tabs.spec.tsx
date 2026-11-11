@@ -59,7 +59,7 @@ describe('SheetCodeTabs manifest tab', () => {
     await openManifest();
     replaceCode('Manifesto do modelo', '{"permissions":["network"]}');
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Manifesto inválido: permissions.0: permission "network"; expected one of character:stats, character:portrait, sheet:images',
+      'Manifesto inválido: permissions.0: permission "network"; expected one of character:stats, character:portrait, sheet:images, documents:read, character:bars',
     );
   });
 
@@ -105,6 +105,7 @@ describe('SheetCodeTabs suggestions of the SDK', () => {
         'get',
         'adjust',
         'spend',
+        'create',
       ]),
     );
   });

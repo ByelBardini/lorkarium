@@ -7,7 +7,9 @@ export type SheetErrorCode =
   | 'SHEET_HAS_NO_TOKEN'
   | 'INSUFFICIENT_BAR'
   | 'SHEET_TEMPLATE_ASSET_NOT_FOUND'
-  | 'SHEET_TEMPLATE_ASSETS_TOO_LARGE';
+  | 'SHEET_TEMPLATE_ASSETS_TOO_LARGE'
+  | 'PERMISSION_NOT_DECLARED'
+  | 'BAR_LIMIT';
 
 /** Every refusal of the sheets of its own; the edge turns `code` into the HTTP status. */
 export class SheetError extends Error {
@@ -90,6 +92,25 @@ export class SheetTemplateAssetsTooLargeError extends SheetError {
     super(
       'SHEET_TEMPLATE_ASSETS_TOO_LARGE',
       `The template assets have ${bytes} bytes; expected at most ${limit}`,
+    );
+  }
+}
+
+// The master approved the manifest on import: a permission it lacks is never granted by the host.
+export class SheetPermissionNotDeclaredError extends SheetError {
+  constructor(sheetId: string, permission: string) {
+    super(
+      'PERMISSION_NOT_DECLARED',
+      `Sheet ${sheetId} needs permission ${permission}; expected its template manifest to declare it`,
+    );
+  }
+}
+
+export class SheetBarLimitError extends SheetError {
+  constructor(label: string, limit: number) {
+    super(
+      'BAR_LIMIT',
+      `Bar "${label}" does not fit: the holder has ${limit} bars; expected fewer than ${limit}`,
     );
   }
 }

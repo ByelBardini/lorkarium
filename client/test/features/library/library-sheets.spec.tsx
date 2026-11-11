@@ -27,7 +27,15 @@ import {
   spareSummary,
 } from '../../support/sheet-fixtures';
 import { tormentaSummary } from '../../support/sheet-template-fixtures';
-import { CAIO_AT_TABLE, lyra, vharnBoard } from '../../support/table-session-fixtures';
+import {
+  ANA_AT_TABLE,
+  biaJoined,
+  CAIO_AT_TABLE,
+  duda,
+  lyra,
+  vharnBoard,
+  vharnState,
+} from '../../support/table-session-fixtures';
 
 const CAIO = CAIO_AT_TABLE.userId;
 const GOBLIN_TOKEN_ID = '0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e';
@@ -169,6 +177,22 @@ describe('sheets in the library', () => {
       sheetId: SPARE_SHEET_ID,
       input: { actionId: expect.any(String), holder: { memberId: CAIO } },
     });
+  });
+
+  it('"Dar a" offers a player who joined after the room opened, with or without a token', async () => {
+    const deps = withSheets();
+    const late = duda({ role: 'player', name: 'Ovelha' });
+    await openWithHolders(deps, { state: vharnState({ members: [ANA_AT_TABLE] }) });
+    act(() => {
+      const member = { ...late, online: true as const, awaySince: null };
+      deps.tableSessionApi.emit({ kind: 'memberJoined', event: biaJoined({ member }) });
+    });
+    const menu = await openTreeMenu(treeItem('Ficha reserva'));
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Dar a' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Ovelha' }));
+    await waitFor(() => expect(deps.sheetsApi.updates).toHaveLength(1));
+    expect(deps.sheetsApi.updates[0]?.input).toMatchObject({ holder: { memberId: late.userId } });
+    expect(screen.queryByRole('menuitem', { name: /^Caio/ })).toBeNull();
   });
 
   it('giving a sheet whose template bars did not all fit says which ones in the status line', async () => {

@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import type { ChatWindowHost } from '@/services/chat-window-host';
 import type { Clipboard } from '@/services/clipboard';
 import type { SheetChannel } from '@/sheet-sandbox/sheet-frame';
+import type { SheetPreviewDocumentPorts } from '@/sheet-sandbox/sheet-preview-host';
 import type { SheetTemplateDraftState } from '@/stores/sheet-template-draft-store';
 import type { StoreApi } from 'zustand/vanilla';
 import {
@@ -45,6 +46,8 @@ export type SheetTemplateEditorProps = Readonly<{
   exportPorts?: SheetTemplateExportPorts;
   /** Sends the template's fonts and images and reads them for the preview. */
   assetPorts?: SheetTemplateAssetPorts;
+  /** Where the preview reads the table's public documents. */
+  documentPorts?: SheetPreviewDocumentPorts;
 }>;
 
 /** The master's editor of one sheet template: name, its files (HTML, CSS, JS) with highlight, the size against
@@ -85,6 +88,7 @@ export function SheetTemplateEditor(props: SheetTemplateEditorProps): React.JSX.
         now={props.now}
         clipboard={props.clipboard}
         assetPorts={props.assetPorts}
+        documentPorts={props.documentPorts}
       />
       {leaveDialog}
     </section>

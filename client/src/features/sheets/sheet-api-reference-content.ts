@@ -14,10 +14,14 @@ import {
   SHEET_ASSET_READ_RATE,
   SHEET_CHARACTER_RATE,
   SHEET_DICE_RATE,
+  SHEET_DOCUMENT_READ_RATE,
   SHEET_UPLOAD_RATE,
 } from '@/sheet-sandbox/sheet-bridge-host';
 import { SHEET_VALUES_BATCH_MS } from '@/stores/sheet-store';
+import { DOCUMENT_SDK_CALLS } from './sheet-api-reference-documents';
 import { SHEET_READY_TIMEOUT_MS } from './sheet-sandbox-view';
+
+export { SHEET_ERROR_CODES } from './sheet-api-reference-errors';
 
 /** One call of `window.lorkarium`, as the reference tab shows it. */
 export type SdkCallDoc = Readonly<{
@@ -238,16 +242,41 @@ export const SDK_CALLS: readonly SdkCallDoc[] = [
 }`,
   },
   {
+    signature: 'lorkarium.bars.create({ label, max, color? })',
+    summary: `Cria no dono da ficha uma barra que ele ainda não tem, cheia (atual = máximo), depois das dele, até ${MAX_BARS_PER_TOKEN} barras. Se já existe uma com esse nome (sem diferença de maiúsculas e acentos), nada muda e volta o id dela. Exige a permissão character:bars no manifesto: o jogador não cria barra à mão, e o mestre aprova a permissão ao importar o modelo.`,
+    params: [
+      ['label', 'o nome da barra, como "Fôlego" (até 24 caracteres)'],
+      ['max', 'o máximo: inteiro maior que zero'],
+      ['color', "opcional: 'gold' (padrão), 'steel', 'ember', 'moss' ou 'ash'"],
+    ],
+    returns:
+      'Promessa que resolve com { barId, created }: o id da barra e se este pedido a criou (false = ela já existia). O estado novo chega em seguida.',
+    errors: [
+      'PERMISSION_NOT_DECLARED',
+      'BAR_LIMIT',
+      'FORBIDDEN',
+      'SHEET_HAS_NO_TOKEN',
+      'RATE_LIMITED',
+      'OFFLINE',
+    ],
+    example: `const { created } = await lorkarium.bars.create({ label: 'Fôlego', max: 6 });
+if (created) console.info('O personagem ganhou a barra Fôlego');`,
+  },
+  {
     signature: 'lorkarium.dice.roll({ expression, label?, visibility? })',
-    summary: `Rola os dados 3D para a mesa. O rótulo sai como "<nome do modelo> · <label>" (até ${DICE_ROLL_LABEL_MAX_LENGTH} caracteres). visibility: 'public' (padrão, todos veem) ou 'masters' (só os mestres). O resultado aparece no histórico de dados; a ficha não recebe o total.`,
+    summary: `Rola os dados 3D para a mesa. O rótulo sai como "<nome do modelo> · <label>" (até ${DICE_ROLL_LABEL_MAX_LENGTH} caracteres). visibility: 'public' (padrão, todos veem) ou 'masters' (só os mestres). O resultado aparece no histórico de dados e volta para a ficha quando os dados param na mesa.`,
     params: [
       ['expression', `a notação, como "1d20+5" (até ${DICE_EXPRESSION_MAX_LENGTH} caracteres)`],
       ['label', 'opcional: o nome da rolagem, como "Ataque"'],
       ['visibility', "opcional: 'public' ou 'masters'"],
     ],
-    returns: 'Promessa que resolve quando a mesa aceitou a rolagem.',
+    returns:
+      "Promessa que resolve, quando os dados param, com { expression, total, dice }: a notação rolada, o total e cada dado na ordem do lançamento como { sides, value, status } (status 'kept' ou 'exploded' contam no total; 'dropped' e 'rerolled' não), com success (true/false) só no dado contado contra um alvo (>=, <=).",
     errors: ['INVALID_DICE_EXPRESSION', 'RATE_LIMITED', 'PREVIEW_ONLY', 'OFFLINE'],
-    example: "await lorkarium.dice.roll({ expression: '1d20+5', label: 'Ataque' });",
+    example: `const rolagem = await lorkarium.dice.roll({ expression: '1d20+5', label: 'Ataque' });
+const d20 = rolagem.dice[0].value;
+const texto = d20 === 20 ? rolagem.total + ' (crítico!)' : String(rolagem.total);
+document.getElementById('ataque').textContent = texto;`,
   },
   {
     signature: 'lorkarium.html.sanitize(html)',
@@ -328,6 +357,7 @@ await lorkarium.values.patch([{ path: ['habilidades', 'k3f9', 'imagem'], value: 
     example: `const imagem = await lorkarium.assets.read(assetId);
 img.src = URL.createObjectURL(new Blob([imagem.bytes], { type: imagem.type }));`,
   },
+  ...DOCUMENT_SDK_CALLS,
 ];
 
 export const FIND_BAR_STEPS: readonly string[] = [
@@ -388,47 +418,6 @@ lorkarium.lists.add('habilidades', { nome: 'Golpe' }).then((id) => {
 });
 lorkarium.ready();`;
 
-export const SHEET_ERROR_CODES: readonly ReferenceRow[] = [
-  [
-    'FORBIDDEN',
-    'Quem olha não pode editar esta ficha (canEdit: false) ou a mesa recusou o pedido.',
-  ],
-  [
-    'OFFLINE',
-    'Sem conexão com o servidor. Um values.set recusado assim fica guardado e é reenviado sozinho quando a conexão volta.',
-  ],
-  ['NO_TOKEN', 'A ficha não está ligada a um token (token: null), então não há barra para mudar.'],
-  ['BAR_NOT_FOUND', 'Nenhuma barra do token tem esse nome ou id.'],
-  ['BAR_AMBIGUOUS', 'Duas ou mais barras têm esse nome: use o id (veja "Como achar a barra").'],
-  [
-    'RATE_LIMITED',
-    `Pedidos demais em pouco tempo (dados: mais de ${SHEET_DICE_RATE.limit} em ${SHEET_DICE_RATE.windowMs / 1000} s). Espere e tente de novo.`,
-  ],
-  ['INVALID_DICE_EXPRESSION', 'A notação do dado não foi entendida (a message diz o porquê).'],
-  ['PREVIEW_ONLY', 'Na prévia do editor os dados não rolam: abra a ficha de um token na sala.'],
-  [
-    'INVALID_MESSAGE',
-    'O pedido está fora do formato: chave de valor inválida, mudança de barra errada, expressão vazia… A message cita o problema.',
-  ],
-  ['NOT_FOUND', 'A ficha foi fechada ou desligada enquanto o pedido estava a caminho.'],
-  [
-    'PERMISSION_NOT_DECLARED',
-    'O modelo não declarou no manifesto a permissão que a função exige (a message diz qual). Valores, barras e dados não precisam.',
-  ],
-  [
-    'NO_CHARACTER',
-    'A ficha não é de um personagem (token solto ou sem dono): não há CA, CD nem retrato para gravar.',
-  ],
-  [
-    'INSUFFICIENT_BAR',
-    'Uma barra não tem saldo para o bars.spend; nenhuma mudou. A message cita a barra, o saldo e o custo.',
-  ],
-  ['ASSET_NOT_FOUND', 'A imagem não existe ou quem olha não pode lê-la.'],
-  ['TOO_LARGE', 'A imagem passa do limite de tamanho.'],
-  ['UNSUPPORTED_IMAGE', 'O arquivo não é uma imagem PNG, JPEG ou WebP que o servidor leia.'],
-  ['UNEXPECTED', 'Resposta inesperada do servidor. Outros códigos do servidor chegam como vieram.'],
-];
-
 export const ERROR_HANDLING_EXAMPLE = `try {
   await lorkarium.bars.adjust('PV', { op: 'add', amount: -5 });
 } catch (erro) {
@@ -460,6 +449,7 @@ export const SHEET_LIMITS: readonly string[] = [
   `Valores: até ${SHEET_VALUES_MAX_BYTES / 1024} KiB, ${SHEET_VALUES_MAX_KEYS} chaves (somando as aninhadas) e ${SHEET_VALUES_MAX_DEPTH} níveis.`,
   `Chave de valor: letras sem acento, dígitos, _ ou - (até ${SHEET_VALUE_KEY_MAX_LENGTH}); nunca __proto__, constructor nem prototype.`,
   `Dados: até ${SHEET_DICE_RATE.limit} rolagens a cada ${SHEET_DICE_RATE.windowMs / 1000} s.`,
+  `Documentos: só os públicos, fora de pastas ocultas, e as abas que não são só do mestre; até ${SHEET_DOCUMENT_READ_RATE.limit} leituras a cada ${SHEET_DOCUMENT_READ_RATE.windowMs / 1000} s.`,
   'Sem rede: fetch, imagens, fontes e scripts externos são bloqueados. Embuta o que usar (data:).',
   'A ficha roda isolada: não lê a página da mesa, cookies nem armazenamento, e não abre janelas.',
   'Script só nos arquivos .js: <script> escrito no HTML, atributos de evento (onclick, onerror…) e links javascript: não rodam, nem no HTML do modelo nem no que vier dos valores. Ligue eventos com addEventListener no JS; ao salvar, o editor avisa a linha de cada atributo que não vai rodar.',
