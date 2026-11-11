@@ -2,6 +2,7 @@ import {
   BOARD_EVENTS,
   CHAT_EVENTS,
   DICE_EVENTS,
+  DOCUMENT_EVENTS,
   LIBRARY_MAP_EVENTS,
   SESSION_EVENTS,
   SHEET_EVENTS,
@@ -10,6 +11,7 @@ import {
   chatSentDto,
   diceRolledDto,
   diceRolledSecretlyDto,
+  documentTabChangedDto,
   libraryChangedDto,
   libraryMapChangedDto,
   libraryMapRegionShownDto,
@@ -227,6 +229,12 @@ export class TableVisit {
         this.watches.delete(event.sceneId);
         this.notify({ kind: 'sceneClosed', event });
       }),
+      ...this.libraryEventSubscriptions(),
+    ];
+  }
+
+  private libraryEventSubscriptions(): Unsubscribe[] {
+    return [
       this.onTableEvent('library:imagePresentationChanged', imagePresentationChangedDto, (event) =>
         this.notify({ kind: 'imagePresentationChanged', event }),
       ),
@@ -241,6 +249,9 @@ export class TableVisit {
       ),
       this.onTableEvent(SHEET_EVENTS.changed, sheetChangedEventDto, (event) =>
         this.notify({ kind: 'sheetChanged', event }),
+      ),
+      this.onTableEvent(DOCUMENT_EVENTS.tabChanged, documentTabChangedDto, (event) =>
+        this.notify({ kind: 'documentTabChanged', event }),
       ),
     ];
   }

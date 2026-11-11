@@ -11,6 +11,7 @@ import type {
   ConditionDefinitionUpdatedDto,
   DiceRolledDto,
   DiceRolledSecretlyDto,
+  DocumentTabChangedDto,
   SessionCampaignDeletedDto,
   SessionRemovedFromTableDto,
   SessionCampaignUpdatedDto,
@@ -87,6 +88,9 @@ export type TableSessionUpdate =
   | Readonly<{ kind: 'mapRegionShown'; event: LibraryMapRegionShownDto }>
   /** A sheet of the table changed (no values): whoever shows it reads it again by its route. */
   | Readonly<{ kind: 'sheetChanged'; event: SheetChangedEventDto }>
+  /** The body of one document tab was saved (no content): whoever has that tab open at an older
+   *  version reads it again by its route. */
+  | Readonly<{ kind: 'documentTabChanged'; event: DocumentTabChangedDto }>
   | Readonly<{ kind: 'imagePresentationChanged'; event: ImagePresentationChangedDto }>;
 
 /** What reaches the store of one grid: its snapshot, its events and the drags over it. */

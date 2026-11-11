@@ -1,4 +1,5 @@
 import { imagePresentation } from '../support/image-presentation-fixtures';
+import type { DocumentTabChangedDto } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   RealtimeTableSessionApi,
@@ -10,6 +11,7 @@ import { QUELM, VHARN } from '../support/campaigns-api-fake';
 import { RealtimeTransportFake } from '../support/realtime-transport-fake';
 import { TORRE_SCENE, torreBoard } from '../support/scene-tab-fixtures';
 import { veiledTorch } from '../support/light-fixtures';
+import { documentTabChanged } from '../support/documents-fixtures';
 import {
   boardPinged,
   vharnBoard,
@@ -163,5 +165,51 @@ describe('veiled lights of a table visit', () => {
     transport.serverEmits('token:veiledLightsChanged', event);
 
     expect(veiledOf(tableUpdates)).toEqual([]);
+  });
+});
+
+describe('document:tabChanged of a table visit', () => {
+  let transport: RealtimeTransportFake;
+  let tableUpdates: TableSessionUpdate[];
+
+  beforeEach(async () => {
+    transport = new RealtimeTransportFake();
+    tableUpdates = [];
+    new RealtimeTableSessionApi(transport, () => ACTION_ID).open(VHARN.id, (update) =>
+      tableUpdates.push(update),
+    );
+    transport.lifecycle({ kind: 'connected' });
+    await transport.answerAck({ ok: true, state: vharnState() });
+    await transport.answerAck({ ok: true, state: vharnBoard() }, 'board:sync');
+  });
+
+  function tabChangesOf(updates: readonly TableSessionUpdate[]): TableSessionUpdate[] {
+    return updates.filter(({ kind }) => kind === 'documentTabChanged');
+  }
+
+  it('a valid document:tabChanged of this table becomes a documentTabChanged update', () => {
+    const event = documentTabChanged({ campaignId: VHARN.id, version: 4 });
+
+    transport.serverEmits('document:tabChanged', event);
+
+    expect(tabChangesOf(tableUpdates)).toEqual([{ kind: 'documentTabChanged', event }]);
+  });
+
+  it('a document:tabChanged of another table is not this one', () => {
+    transport.serverEmits('document:tabChanged', documentTabChanged({ campaignId: QUELM.id }));
+
+    expect(tabChangesOf(tableUpdates)).toEqual([]);
+  });
+
+  it('a document:tabChanged without a version is dropped, with no resync and the visit still live', () => {
+    const noVersion: Partial<DocumentTabChangedDto> = documentTabChanged({ campaignId: VHARN.id });
+    delete noVersion.version;
+
+    transport.serverEmits('document:tabChanged', noVersion);
+    transport.serverEmits('board:pinged', boardPinged());
+
+    expect(tabChangesOf(tableUpdates)).toEqual([]);
+    expect(transport.pendingAcksOf('board:sync')).toBe(0);
+    expect(tableUpdates.at(-1)).toEqual({ kind: 'pinged', event: boardPinged() });
   });
 });

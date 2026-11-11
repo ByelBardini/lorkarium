@@ -108,6 +108,7 @@ function WorkspaceDocument({
   useOpenTable(entry.campaign, deps.openTables);
   const { table, live } = useLibraryTable(deps.openTables, entry.campaign.id);
   const { revision, mapRevision, role } = useDocumentReader(deps, entry, table);
+  useRereadSavedTabs(entry, table);
   const fetcher = useFetcher<LibraryOutcome>({ key: `document-workspace-${entry.key}` });
   const [library, setLibrary] = useState(EMPTY_LIBRARY);
   const reloadLibrary = useCallback(() => {
@@ -189,6 +190,20 @@ function WorkspaceDocument({
 }
 
 type ReaderTable = ReturnType<typeof useLibraryTable>['table'];
+
+// A saved tab body moves only `documentTabChange`, never the library's revision: the open
+// document reads that one tab again and nothing else is read.
+function useRereadSavedTabs(entry: DocumentWorkspaceEntry, table: ReaderTable): void {
+  useEffect(
+    () =>
+      table?.tabs.subscribe(({ documentTabChange: change }, previous) => {
+        if (!change || change === previous.documentTabChange) return;
+        if (change.documentId !== entry.document.id) return;
+        entry.editor.getState().rereadTab(change.tabId, change.version);
+      }),
+    [table, entry.document.id, entry.editor],
+  );
+}
 
 // The revisions and the reader's live role: the panel checks access again with them.
 function useDocumentReader(
