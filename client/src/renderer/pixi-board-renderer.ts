@@ -24,16 +24,13 @@ import {
   type Size,
 } from './camera';
 import {
-  cameraKeyAction,
   endRightDrag,
-  keyboardPan,
   moveRightDrag,
-  panKeyOf,
   startRightDrag,
   wheelIntent,
-  type PanKey,
   type RightDrag,
 } from './camera-input';
+import { KeyboardCamera } from './keyboard-camera';
 import { FrameWork } from './frame-work';
 import { followContextLoss, followHostSize, holdBackBrowserMenu } from './host-listeners';
 import { PixiTextureGauge } from './pixi-texture-gauge';
@@ -66,7 +63,6 @@ import { PixiTokenLayer } from './pixi-token-layer';
 
 // Design system tokens (client/src/index.css): the canvas cannot read CSS variables.
 const PANEL_COLOR = 0x0c0e11;
-const BUTTON_ZOOM_STEP = 1.25;
 const SECONDARY_BUTTON = 2;
 const PRIMARY_BUTTON = 0;
 
@@ -125,7 +121,12 @@ class PixiBoardRenderer implements BoardRenderer {
   private readonly press: PrimaryPress;
   // Steps only the animated auras on screen, at most 30 times per second.
   private readonly auraAnimator = new PixiAuraAnimator(() => this.tokens.animatedAuras());
-  private readonly heldPanKeys = new Set<PanKey>();
+  private readonly keys = new KeyboardCamera({
+    cancel: () => this.press.cancel(),
+    zoomBy: (factor) => this.zoomBy(factor),
+    fitScene: () => this.fitScene(),
+    panBy: (dx, dy) => this.applyCamera(panBy(this.shown, dx, dy)),
+  });
   private readonly disposers: Array<() => void> = [];
   private readonly world = new Container();
   private readonly sceneGrid = new PixiSceneGrid();
@@ -199,7 +200,7 @@ class PixiBoardRenderer implements BoardRenderer {
     app.ticker.remove(app.render, app);
     app.ticker.add((ticker) => {
       this.probe.frame(ticker.deltaMS);
-      this.panWithKeys(ticker.deltaMS);
+      this.keys.tick(ticker.deltaMS);
       const now = performance.now();
       this.press.tick(this.pressContext(), now);
       this.flush();
@@ -254,6 +255,21 @@ class PixiBoardRenderer implements BoardRenderer {
   // Only kept, like the pings: the ticker builds and places the bubbles (`speech.animate`).
   showSpeech(sceneId: string, balloons: readonly SpeechBalloon[]): void {
     this.speech.showSpeech(sceneId, balloons);
+  }
+
+  // Another grid tab on the same canvas: the app, its WebGL context and the texture cache stay
+  // (the images of the grid left wait on the idle shelf), only what belonged to the scene goes.
+  resetScene(options?: BoardMountOptions): void {
+    this.press.cancel();
+    this.rightDrag = null;
+    this.tokens.hover(null);
+    this.hover.left();
+    this.pings.clear();
+    this.view = null;
+    this.framed = false;
+    this.openingCamera = options?.camera ?? null;
+    this.world.visible = false;
+    this.frame.sceneTouched();
   }
 
   destroy(): void {
@@ -314,6 +330,7 @@ class PixiBoardRenderer implements BoardRenderer {
 
   private drawView(view: BoardView, app: Application): void {
     this.probe.count('view.draw');
+    this.world.visible = true;
     this.sceneGrid.drawFloor(view);
     this.textures.retain(imageUrlsOf(view));
     this.auraSources.retain(auraImageUrlsOf(view.tokens));
@@ -338,9 +355,9 @@ class PixiBoardRenderer implements BoardRenderer {
       this.tokens.hover(null);
     });
     // Keys on the focusable host, not on the window: typing elsewhere never moves the board.
-    this.on(host, 'keydown', (event) => this.onKeyDown(event));
-    this.on(host, 'keyup', (event) => this.onKeyUp(event));
-    this.on(host, 'blur', () => this.heldPanKeys.clear());
+    this.on(host, 'keydown', (event) => this.keys.down(event));
+    this.on(host, 'keyup', (event) => this.keys.up(event));
+    this.on(host, 'blur', () => this.keys.release());
   }
 
   private showCursor(): void {
@@ -427,28 +444,6 @@ class PixiBoardRenderer implements BoardRenderer {
       this.onIntent({ kind: 'doorMenuRequested', wallId: menu.wallId, ...at });
     if (menu?.kind === 'token')
       this.onIntent({ kind: 'tokenMenuRequested', tokenId: menu.tokenId, ...at });
-  }
-
-  private onKeyDown(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && this.press.cancel()) return;
-    const modified = event.ctrlKey || event.metaKey || event.altKey;
-    const panKey = modified ? null : panKeyOf(event.key);
-    if (panKey) return void this.heldPanKeys.add(panKey);
-    const action = cameraKeyAction(event);
-    if (action === 'zoom-in') this.zoomBy(BUTTON_ZOOM_STEP);
-    if (action === 'zoom-out') this.zoomBy(1 / BUTTON_ZOOM_STEP);
-    if (action === 'fit') this.fitScene();
-  }
-
-  private onKeyUp(event: KeyboardEvent): void {
-    const panKey = panKeyOf(event.key);
-    if (panKey) this.heldPanKeys.delete(panKey);
-  }
-
-  private panWithKeys(elapsedMs: number): void {
-    if (this.heldPanKeys.size === 0) return;
-    const { dx, dy } = keyboardPan(this.heldPanKeys, elapsedMs);
-    this.applyCamera(panBy(this.shown, dx, dy));
   }
 
   private cellAt(event: PointerEvent): ReturnType<typeof cellAtWorld> {

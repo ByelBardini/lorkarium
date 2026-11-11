@@ -69,6 +69,18 @@ describe('PixiPingLayer', () => {
     expect(layer.world.children[0]?.position.x).toBe(1 * CELL_WORLD_SIZE);
   });
 
+  it('clear (another grid shown) takes every ping out at once, ring and arrow', () => {
+    const { layer } = layerWith();
+    layer.show(mark());
+    layer.show(mark({ x: 9 }));
+
+    layer.clear();
+
+    const sizes = [layer.aliveCount(), layer.world.children.length, layer.edges.children.length];
+    expect(sizes).toEqual([0, 0, 0]);
+    expect(layer.animate(16, FRAME)).toBe(false);
+  });
+
   it('with no ping alive, animate touches nothing and asks for no render', () => {
     const { layer } = layerWith();
 

@@ -172,6 +172,12 @@ export interface BoardRenderer {
    *  grid `sceneId` and only over a token this viewer sees. Replaces the whole list on each call
    *  (old lines fall out alone); nothing is drawn until the next frame. */
   showSpeech(sceneId: string, balloons: readonly SpeechBalloon[]): void;
+  /** Another grid tab takes the canvas: drops the gesture under way (a token drag sends its
+   *  `tokenDragCancelled`), the hover and the pings, and shows nothing until the next `draw`,
+   *  which opens at `camera` (or fits the scene). The app, its context and its textures stay.
+   *
+   *  Example: `renderer.resetScene({ camera: cameras.get(tabKey) })` */
+  resetScene(options?: BoardMountOptions): void;
   /** Safe at any time, even before `mount` resolves. */
   destroy(): void;
 }

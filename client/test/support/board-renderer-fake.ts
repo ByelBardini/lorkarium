@@ -15,7 +15,7 @@ import type {
 type MountMode = 'resolve' | 'hold' | 'reject';
 
 /** A renderer the test watches: `draws` keeps every view, `zooms` every zoomBy factor, `fits`
- *  counts fitScene; `emit(intent)` plays the canvas (inside `act`), `lose()` the GPU dropping it;
+ *  counts fitScene, `resets` keeps each resetScene; `emit(intent)` plays the canvas (inside `act`), `lose()` the GPU dropping it;
  *  `mountedCamera` is the camera `mount` got, `cameraNow` what `camera()` answers.
  *
  *  Example: `deps.boardRenderers.latest().emit({ kind: 'cameraChanged', zoom: 1.25 })` */
@@ -94,6 +94,13 @@ export class BoardRendererFake implements BoardRenderer {
 
   showSpeech(sceneId: string, balloons: readonly SpeechBalloon[]): void {
     this.speeches.push({ sceneId, balloons });
+  }
+
+  /** Each `resetScene` call, in order: the camera the next grid opens at (`undefined`: fit). */
+  readonly resets: Array<Camera | undefined> = [];
+
+  resetScene(options?: BoardMountOptions): void {
+    this.resets.push(options?.camera);
   }
 
   destroy(): void {
