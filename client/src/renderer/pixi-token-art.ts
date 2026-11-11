@@ -56,13 +56,19 @@ export class PixiTokenArt {
   }
 
   // The fill matrix takes the texture's px to the container's: centered, scaled and flipped as
-  // the sprite would be, so both frames place the image the same way.
+  // the sprite would be, so both frames place the image the same way. `global` is what reads the
+  // matrix in px; the default `local` reads it in units of the ellipse's bounds, and the image came
+  // out a few px wide, tiled over the token (#83).
   private fillRound(texture: Texture, placement: ArtPlacement, token: ArtImageSize): void {
     const matrix = new Matrix()
       .translate(-texture.width / 2, -texture.height / 2)
       .scale(placement.scaleX, placement.scaleY)
       .translate(placement.x, placement.y);
     const share = ROUND_RADIUS_SHARE;
-    this.round.ellipse(0, 0, token.width * share, token.height * share).fill({ texture, matrix });
+    this.round.ellipse(0, 0, token.width * share, token.height * share).fill({
+      texture,
+      matrix,
+      textureSpace: 'global',
+    });
   }
 }
