@@ -260,8 +260,15 @@ describe('the queries each hot board command costs', () => {
     });
   });
 
-  describe('group writes of conditions and lights cost the same for 2 and for 64', () => {
-    const GROUP_BUDGET = { applyMany: 12, lightGroup: 6, lightsCreateMany: 6 } as const;
+  describe('group writes cost the same for a small group as for a large one', () => {
+    const GROUP_BUDGET = {
+      applyMany: 12,
+      lightGroup: 6,
+      lightsCreateMany: 6,
+      combatStart: 17,
+      regroupOwn: 15,
+      moveInTie: 12,
+    } as const;
 
     function createdIdsOf(ack: Awaited<ReturnType<typeof send>>): string[] {
       if (!ack.ok || !ack.createdIds)
@@ -389,6 +396,89 @@ describe('the queries each hot board command costs', () => {
       expect(ack.ok).toBe(false);
       expect((await synced(ana.client, live.vharn)).lights.map(({ x }) => x)).toEqual([0.5]);
       expect((await synced(caio.client, live.quelm)).lights.map(({ x }) => x)).toEqual([1.5]);
+    });
+
+    function ownEntries(tokenIds: readonly string[]): object[] {
+      return tokenIds.map((tokenId) => ({ name: null, tokenIds: [tokenId] }));
+    }
+
+    async function startedWith(ana: EventRecorder, entries: readonly object[]): Promise<number> {
+      const queries = await counted(() =>
+        send(ana.client, 'combat:start', { ...envelope(live.vharn.id), entries }),
+      );
+      await send(ana.client, 'combat:end', envelope(live.vharn.id));
+      return queries;
+    }
+
+    it(`combat:start costs at most ${GROUP_BUDGET.combatStart}, with 2 entries as with 20`, async () => {
+      const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+      const tokenIds = await tokensOnVharn(ana, 20);
+
+      const two = await startedWith(ana, ownEntries(tokenIds.slice(0, 2)));
+      const twenty = await startedWith(ana, ownEntries(tokenIds));
+
+      expect(twenty).toBe(two);
+      expect(twenty).toBeLessThanOrEqual(GROUP_BUDGET.combatStart);
+    });
+
+    it(`combat:regroupTokens into their own entries costs at most ${GROUP_BUDGET.regroupOwn}, for 2 tokens as for 20`, async () => {
+      const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+      const tokenIds = await tokensOnVharn(ana, 22);
+      const [pair, band] = [tokenIds.slice(0, 2), tokenIds.slice(2)];
+      const entries = [pair, band].map((ids) => ({ name: 'Bando', tokenIds: ids }));
+      await send(ana.client, 'combat:start', { ...envelope(live.vharn.id), entries });
+      const regrouped = (ids: readonly string[]) =>
+        counted(() =>
+          send(ana.client, 'combat:regroupTokens', {
+            ...{ ...envelope(live.vharn.id), tokenIds: ids, target: { kind: 'own' } },
+          }),
+        );
+
+      const two = await regrouped(pair);
+      const twenty = await regrouped(band);
+
+      expect(twenty).toBe(two);
+      expect(twenty).toBeLessThanOrEqual(GROUP_BUDGET.regroupOwn);
+      const combat = (await synced(ana.client, live.vharn)).combat;
+      const joined = combat?.combatants.map((entry) => entry.tokenIds.join()) ?? [];
+      expect(joined.sort()).toEqual([...tokenIds].sort());
+    });
+
+    it(`combat:moveInTie costs at most ${GROUP_BUDGET.moveInTie} and the new tie order reads back`, async () => {
+      const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+      const tokenIds = await tokensOnVharn(ana, 3);
+      await send(ana.client, 'combat:start', {
+        ...{ ...envelope(live.vharn.id), entries: ownEntries(tokenIds) },
+      });
+      const started = (await synced(ana.client, live.vharn)).combat;
+      const second = started?.combatants[1]?.id ?? '';
+
+      const queries = await counted(() =>
+        send(ana.client, 'combat:moveInTie', {
+          ...{ ...envelope(live.vharn.id), combatantId: second, direction: 'up' },
+        }),
+      );
+
+      expect(queries).toBeLessThanOrEqual(GROUP_BUDGET.moveInTie);
+      const order = (await synced(ana.client, live.vharn)).combat?.combatants;
+      expect(order?.map((entry) => entry.tokenIds[0])).toEqual([
+        tokenIds[1],
+        tokenIds[0],
+        tokenIds[2],
+      ]);
+    });
+
+    it('combat:start with a token of another grid starts no combat', async () => {
+      const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+      const [mine] = await tokensOnVharn(ana, 1);
+      const caio = recordEventsOf(await live.atTable(live.caio, live.quelm));
+      const foreign = await createdBy(caio, tokenCommandFor(live.quelm, live.caio.id));
+      const entries = ownEntries([mine ?? '', foreign]);
+
+      const ack = await send(ana.client, 'combat:start', { ...envelope(live.vharn.id), entries });
+
+      expect(ack.ok).toBe(false);
+      expect((await synced(ana.client, live.vharn)).combat).toBeNull();
     });
   });
 });
