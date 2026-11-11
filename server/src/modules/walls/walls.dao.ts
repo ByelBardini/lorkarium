@@ -58,11 +58,17 @@ export class WallsDao {
     await this.db.execute(updateManySql({ table: walls, key: walls.id, columns, rows, where }));
   }
 
-  /** The kind and door state go together, so the door CHECK holds after each `UPDATE`. */
+  /** One `UPDATE` for the group; the kind and door state go together, so the door CHECK holds
+   *  on every row. A wall of another scene in it does not change. */
   async setKinds(sceneId: string, kinds: readonly WallKindPo[]): Promise<void> {
-    for (const { wallId, kind, doorState } of kinds) {
-      await this.db.update(walls).set({ kind, doorState }).where(this.inScene(sceneId, wallId));
-    }
+    if (kinds.length === 0) return;
+    const columns = [
+      { column: walls.kind, cast: 'wall_kind' },
+      { column: walls.doorState, cast: 'door_state' },
+    ];
+    const rows = kinds.map(({ wallId, kind, doorState }) => [wallId, kind, doorState]);
+    const where = eq(walls.sceneId, sceneId);
+    await this.db.execute(updateManySql({ table: walls, key: walls.id, columns, rows, where }));
   }
 
   async setDoor(sceneId: string, wallId: string, state: DoorStatePo): Promise<void> {

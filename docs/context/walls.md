@@ -10,7 +10,7 @@ Paredes e portas da cena (antecipa o §12: visão individual, fog of war): bloqu
 
 ## DAO (`walls.dao.ts`)
 
-- `WallsDao(db | tx)`: `insertMany(rows)` → as linhas gravadas na ordem enviada (um `INSERT`, ordenado pela `wall_order`), `listOfScene(sceneId)` (pela `wall_order`), `findManyInScene(sceneId, ids)` (id de outra cena fica de fora), `moveMany(sceneId, moves)` (**um** `UPDATE … FROM (VALUES …)` para o grupo, pelo `updateManySql`, só `x, y`), `setKinds(sceneId, tipos)` (`kind` e `door_state` juntos, para o `CHECK` valer depois de cada `UPDATE`), `setDoor(sceneId, wallId, estado)` (só `door_state`), `deleteMany(sceneId, ids)`.
+- `WallsDao(db | tx)`: `insertMany(rows)` → as linhas gravadas na ordem enviada (um `INSERT`, ordenado pela `wall_order`), `listOfScene(sceneId)` (pela `wall_order`), `findManyInScene(sceneId, ids)` (id de outra cena fica de fora), `moveMany(sceneId, moves)` (**um** `UPDATE … FROM (VALUES …)` para o grupo, pelo `updateManySql`, só `x, y`), `setKinds(sceneId, tipos)` (**um** `UPDATE` para o grupo, pelo `updateManySql`; `kind` e `door_state` juntos em cada linha, para o `CHECK` valer), `setDoor(sceneId, wallId, estado)` (só `door_state`), `deleteMany(sceneId, ids)`.
 - `copyScene(from, to)`: `INSERT … SELECT` de todas as paredes da cena, ids novos, na ordem da `wall_order` (a porta mantém o estado) (Duplicar da biblioteca, ver [`library.md`](library.md)).
 - **Isolamento por cena (§2.6):** toda leitura **e toda escrita** filtram por `scene_id`; um id de outra mesa não é achado, movido, trocado, aberto nem apagado.
 - `NewWallPo` (sem `id`, `wall_order`, `created_at`), `WallMovePo` `{ wallId, x, y }` (strings do numeric) e `WallKindPo` `{ wallId, kind, doorState }`.

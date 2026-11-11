@@ -1,12 +1,25 @@
 import { and, asc, count, eq, inArray } from 'drizzle-orm';
 import { sceneRowsCopySql } from '../../database/copy-rows';
 import type { DatabaseExecutor } from '../../database/transaction';
+import { updateManySql } from '../../database/update-many';
 import {
   effectAreas,
   type EffectAreaPo,
   type EffectAreaReshapePo,
   type NewEffectAreaPo,
 } from './effect-areas.po';
+
+// In the order `reshapeMany` lays each row out.
+const SHAPE_COLUMNS = [
+  { column: effectAreas.kind, cast: 'effect_area_kind' },
+  ...[effectAreas.x, effectAreas.y, effectAreas.width, effectAreas.height].map((column) => ({
+    column,
+    cast: 'numeric',
+  })),
+  { column: effectAreas.reach, cast: 'numeric' },
+  { column: effectAreas.facing, cast: 'smallint' },
+  { column: effectAreas.color, cast: 'text' },
+];
 
 /** Areas of effect of a scene. Every read and write filters by the scene, so an id from another
  *  table finds and touches nothing (§2.6). Group writes run on the DAO built with the `tx`. */
@@ -54,14 +67,17 @@ export class EffectAreasDao {
       .orderBy(asc(effectAreas.areaOrder));
   }
 
-  /** One `UPDATE` per area (a group is at most 64): run it on the DAO built with the `tx`. */
+  /** One `UPDATE` for the group; an area of another scene in it does not change. */
   async reshapeMany(sceneId: string, reshapes: readonly EffectAreaReshapePo[]): Promise<void> {
-    for (const { effectAreaId, shape } of reshapes) {
-      await this.db
-        .update(effectAreas)
-        .set(shape)
-        .where(and(eq(effectAreas.sceneId, sceneId), eq(effectAreas.id, effectAreaId)));
-    }
+    if (reshapes.length === 0) return;
+    const rows = reshapes.map(({ effectAreaId, shape }) => [
+      effectAreaId,
+      ...[shape.kind, shape.x, shape.y, shape.width, shape.height],
+      ...[shape.reach, shape.facing, shape.color],
+    ]);
+    const where = eq(effectAreas.sceneId, sceneId);
+    const update = { table: effectAreas, key: effectAreas.id, columns: SHAPE_COLUMNS, rows, where };
+    await this.db.execute(updateManySql(update));
   }
 
   async deleteMany(sceneId: string, ids: readonly string[]): Promise<void> {

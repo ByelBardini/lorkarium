@@ -268,6 +268,8 @@ describe('the queries each hot board command costs', () => {
       combatStart: 17,
       regroupOwn: 15,
       moveInTie: 12,
+      setKindMany: 6,
+      reshapeMany: 6,
     } as const;
 
     function createdIdsOf(ack: Awaited<ReturnType<typeof send>>): string[] {
@@ -479,6 +481,117 @@ describe('the queries each hot board command costs', () => {
 
       expect(ack.ok).toBe(false);
       expect((await synced(ana.client, live.vharn)).combat).toBeNull();
+    });
+
+    async function wallIdsOnVharn(ana: EventRecorder, count: number): Promise<string[]> {
+      const walls = Array.from({ length: count }, (_, index) => ({
+        ...{ kind: 'wall', shape: 'line', x: index % 16, y: Math.floor(index / 16) },
+        ...{
+          width: 0,
+          height: 1,
+          points: [
+            [0, 0],
+            [0, 1],
+          ],
+        },
+      }));
+      return createdIdsOf(
+        await send(ana.client, 'wall:createMany', { ...envelope(live.vharn.id), walls }),
+      );
+    }
+
+    it(`wall:setKindMany costs at most ${GROUP_BUDGET.setKindMany}, for 2 walls as for 64`, async () => {
+      const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+      const wallIds = await wallIdsOnVharn(ana, 64);
+      const kinded = (ids: readonly string[], kind: string) =>
+        counted(() =>
+          send(ana.client, 'wall:setKindMany', { ...envelope(live.vharn.id), wallIds: ids, kind }),
+        );
+
+      const two = await kinded(wallIds.slice(0, 2), 'door');
+      const sixtyFour = await kinded(wallIds, 'grate');
+
+      expect(sixtyFour).toBe(two);
+      expect(sixtyFour).toBeLessThanOrEqual(GROUP_BUDGET.setKindMany);
+      const walls = (await synced(ana.client, live.vharn)).walls;
+      expect(new Set(walls.map(({ kind, doorState }) => `${kind}:${doorState}`))).toEqual(
+        new Set(['grate:null']),
+      );
+    });
+
+    it('wall:setKindMany with a wall of another grid changes none', async () => {
+      const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+      const [mine] = await wallIdsOnVharn(ana, 1);
+      const caio = recordEventsOf(await live.atTable(live.caio, live.quelm));
+      const foreign = createdIdsOf(
+        await send(caio.client, 'wall:createMany', {
+          ...envelope(live.quelm.id),
+          walls: [
+            {
+              kind: 'wall',
+              shape: 'line',
+              x: 1,
+              y: 1,
+              width: 0,
+              height: 1,
+              points: [
+                [0, 0],
+                [0, 1],
+              ],
+            },
+          ],
+        }),
+      );
+      const wallIds = [mine ?? '', ...foreign];
+
+      const ack = await send(ana.client, 'wall:setKindMany', {
+        ...{ ...envelope(live.vharn.id), wallIds, kind: 'grate' },
+      });
+
+      expect(ack.ok).toBe(false);
+      expect((await synced(ana.client, live.vharn)).walls.map(({ kind }) => kind)).toEqual([
+        'wall',
+      ]);
+      expect((await synced(caio.client, live.quelm)).walls.map(({ kind }) => kind)).toEqual([
+        'wall',
+      ]);
+    });
+
+    it(`effectArea:reshapeMany costs at most ${GROUP_BUDGET.reshapeMany}, for 2 areas as for 64`, async () => {
+      const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
+      const circleAt = (index: number) => ({
+        ...{ kind: 'circle', x: (index % 16) + 1, y: Math.floor(index / 16) + 1 },
+        ...{ reach: 1, color: 'ember' },
+      });
+      const effectAreas = Array.from({ length: 64 }, (_, index) => circleAt(index));
+      const ids = createdIdsOf(
+        await send(ana.client, 'effectArea:createMany', {
+          ...envelope(live.vharn.id),
+          effectAreas,
+        }),
+      );
+      const reshaped = (group: readonly string[]) =>
+        counted(() =>
+          send(ana.client, 'effectArea:reshapeMany', {
+            ...envelope(live.vharn.id),
+            reshapes: group.map((effectAreaId, index) => ({
+              effectAreaId,
+              shape: { ...circleAt(index), reach: 2, color: 'moss' },
+            })),
+          }),
+        );
+
+      const two = await reshaped(ids.slice(0, 2));
+      const sixtyFour = await reshaped(ids);
+
+      expect(sixtyFour).toBe(two);
+      expect(sixtyFour).toBeLessThanOrEqual(GROUP_BUDGET.reshapeMany);
+      const areas = (await synced(ana.client, live.vharn)).effectAreas;
+      expect(
+        new Set(
+          areas.map((area) => JSON.stringify([area.color, 'reach' in area ? area.reach : null])),
+        ),
+      ).toEqual(new Set([JSON.stringify(['moss', 2])]));
     });
   });
 });
