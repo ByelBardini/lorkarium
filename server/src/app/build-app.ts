@@ -1,4 +1,5 @@
 import { LibraryImageReadPolicy } from '../modules/library/library-image-read-policy.service';
+import { wireHousekeeping } from '../modules/housekeeping/housekeeping.plugin';
 import { libraryImageDaos } from '../modules/library/library.plugin';
 import { runInSnapshot, type Transaction } from '../database/transaction';
 import type { MemberSeatPort } from '../modules/campaigns/member-seat.port';
@@ -147,6 +148,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const storage = wireAssetStorage(app, new S3AssetStorage(deps.env.storage));
   // After the asset bucket is ensured: dev and CI keep the access log in that same bucket.
   const accessLog = wireAccessLog(app, { env, clock, archive: deps.accessLogArchive });
+  wireHousekeeping(app, { db: deps.db, clock, scheduler: new TimerScheduler() });
   const processor = new SharpImageProcessor();
   const fetcher = new GuardedImageFetcher();
   // The membership the asset read already warmed: a policy does not read it again.
