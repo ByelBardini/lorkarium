@@ -41,7 +41,7 @@ import { LightGestures } from './light-gestures';
 import { erasedStrokesOf, wallTargetAt } from './wall-view';
 import { pointOf, prefersReducedMotion, wheelFields } from './dom-input';
 import { HoverReport, tokenScreenRect, type HoveredToken } from './hover-report';
-import { hoverRouteOf, menuRouteOf } from './press-route';
+import { hoverRouteOf, menuIntentOf, menuRouteOf } from './press-route';
 import { PrimaryPress, type PressContext, type PressPoint } from './primary-press';
 import { tokenCenterOf } from './token-box';
 import { PixiDrawingLayer } from './pixi-drawing-layer';
@@ -84,6 +84,7 @@ export function createPixiBoardRenderer(
 class PixiBoardRenderer implements BoardRenderer {
   private app: Application | null = null;
   private destroyed = false;
+  private paused = false;
   private shown: Camera = { offsetX: 0, offsetY: 0, zoom: 1 };
   private view: BoardView | null = null;
   private framed = false;
@@ -212,6 +213,18 @@ class PixiBoardRenderer implements BoardRenderer {
       const moving = this.tokens.animate(now) || pinging || speaking || auras;
       if (moving || this.frame.renderDue()) app.render();
     });
+    if (this.paused) app.ticker.stop();
+  }
+
+  pause(): void {
+    this.paused = true;
+    this.app?.ticker.stop();
+  }
+
+  resume(): void {
+    this.paused = false;
+    this.frame.sceneTouched();
+    this.app?.ticker.start();
   }
 
   // Kept and marked: a burst of views in one frame is drawn once, by the ticker.
@@ -436,19 +449,8 @@ class PixiBoardRenderer implements BoardRenderer {
     this.showCursor();
     if (!drag || !this.view || endRightDrag(drag) !== 'context') return;
     const menu = menuRouteOf(this.view, this.worldOf(event), this.shown.zoom);
-    const at = { x: event.clientX, y: event.clientY };
-    if (menu?.kind === 'light') {
-      this.onIntent({ kind: 'lightMenuRequested', lightId: menu.lightId, ...at });
-    }
-    if (menu?.kind === 'door')
-      this.onIntent({ kind: 'doorMenuRequested', wallId: menu.wallId, ...at });
-    if (menu?.kind === 'token')
-      this.onIntent({ kind: 'tokenMenuRequested', tokenId: menu.tokenId, ...at });
-  }
-
-  private cellAt(event: PointerEvent): ReturnType<typeof cellAtWorld> {
-    if (!this.view) return null;
-    return cellAtWorld(this.view.grid.cells, this.worldOf(event));
+    const intent = menuIntentOf(menu, { x: event.clientX, y: event.clientY });
+    if (intent) this.onIntent(intent);
   }
 
   private pressContext(): PressContext {
@@ -459,7 +461,9 @@ class PixiBoardRenderer implements BoardRenderer {
     const { shiftKey, altKey, ctrlKey, metaKey, timeStamp: time } = event;
     const keys = { shiftKey, altKey, ctrlKey, metaKey };
     const screen = pointOf(event);
-    return { screen, world: this.worldOf(event), cell: this.cellAt(event), ...keys, time };
+    const world = this.worldOf(event);
+    const cell = this.view ? cellAtWorld(this.view.grid.cells, world) : null;
+    return { screen, world, cell, ...keys, time };
   }
 
   private auraFrame(): AuraMotionFrame {

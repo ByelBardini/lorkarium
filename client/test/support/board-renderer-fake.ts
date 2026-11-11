@@ -108,6 +108,17 @@ export class BoardRendererFake implements BoardRenderer {
     for (const intent of this.saysOnReset) this.onIntent(intent);
   }
 
+  /** Each `pause` and `resume`, in order. */
+  readonly pauses: Array<'pause' | 'resume'> = [];
+
+  pause(): void {
+    this.pauses.push('pause');
+  }
+
+  resume(): void {
+    this.pauses.push('resume');
+  }
+
   destroy(): void {
     this.destroyed = true;
   }

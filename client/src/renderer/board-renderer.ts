@@ -178,6 +178,10 @@ export interface BoardRenderer {
    *
    *  Example: `renderer.resetScene({ camera: cameras.get(tabKey) })` */
   resetScene(options?: BoardMountOptions): void;
+  /** Something covers the whole board (a document): nothing is drawn, not even an animated
+   *  aura, until `resume`, which draws once what changed meanwhile. Safe before `mount`. */
+  pause(): void;
+  resume(): void;
   /** Safe at any time, even before `mount` resolves. */
   destroy(): void;
 }
