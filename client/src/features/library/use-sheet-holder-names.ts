@@ -5,6 +5,7 @@ import type { SheetHolderNames } from '@/features/sheets/sheet-messages';
 import type { BoardStore } from '@/stores/board-store';
 import type { CharactersStore } from '@/stores/characters-store';
 import type { OpenTable } from '@/stores/open-tables-store';
+import type { TablePresenceStore } from '@/stores/table-presence-store';
 
 /** A player the master may give a sheet to: "Bia (Lyra)" in the menus. */
 export type SheetPlayer = Readonly<{ userId: string; label: string }>;
@@ -13,17 +14,36 @@ export type SheetPlayer = Readonly<{ userId: string; label: string }>;
  *  (each player's character's name) and its group grid (a token's name). */
 export type SheetHolderDirectory = Readonly<{ names: SheetHolderNames; players: SheetPlayer[] }>;
 
-/** Who holds the library's sheets, as this reader knows them; follows the characters and the
- *  grid.
+type SheetHolderMember = Pick<CampaignMemberDto, 'userId' | 'name' | 'role'>;
+
+/** Who holds the library's sheets, as this reader knows them; follows the live roster (a player
+ *  who joined after the room opened is not in the loader's `members`), the characters and the
+ *  grid. `members` only counts until the table's first presence snapshot.
  *
  *  Example: `const { names, players } = useSheetHolderNames(campaign.members, tableView.table)` */
 export function useSheetHolderNames(
   members: readonly CampaignMemberDto[],
   table: OpenTable | null,
 ): SheetHolderDirectory {
+  const live = useLiveMembersOf(table?.presence ?? null);
   const grid = useBoardOf(table?.board ?? null);
   const characters = useCharactersOf(table?.characters ?? null);
-  return useMemo(() => directoryOf(members, characters, grid), [members, characters, grid]);
+  const roster = live ?? members;
+  return useMemo(() => directoryOf(roster, characters, grid), [roster, characters, grid]);
+}
+
+// `null` until the first snapshot: before it the presence store has no members at all.
+function useLiveMembersOf(
+  store: StoreApi<TablePresenceStore> | null,
+): readonly SheetHolderMember[] | null {
+  const subscribe = useCallback(
+    (onChange: () => void) => store?.subscribe(onChange) ?? (() => undefined),
+    [store],
+  );
+  return useSyncExternalStore(subscribe, () => {
+    const state = store?.getState();
+    return state && state.version !== null ? state.members : null;
+  });
 }
 
 const NO_CHARACTERS: readonly CharacterDto[] = [];
@@ -45,7 +65,7 @@ function useBoardOf(store: StoreApi<BoardStore> | null): BoardStateDto | null {
 }
 
 function directoryOf(
-  members: readonly CampaignMemberDto[],
+  members: readonly SheetHolderMember[],
   characters: readonly CharacterDto[],
   grid: BoardStateDto | null,
 ): SheetHolderDirectory {
@@ -62,7 +82,7 @@ function directoryOf(
   return { names, players };
 }
 
-function playerLabelOf(member: CampaignMemberDto, names: SheetHolderNames): string {
+function playerLabelOf(member: SheetHolderMember, names: SheetHolderNames): string {
   const character = names.characterName(member.userId);
   return character === null ? member.name : `${member.name} (${character})`;
 }
