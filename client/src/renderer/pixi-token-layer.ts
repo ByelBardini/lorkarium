@@ -1,13 +1,14 @@
-import { Container, Graphics, Text, type Texture } from 'pixi.js';
+import { BitmapText, Container, Graphics, type Texture } from 'pixi.js';
 import { barColorNumber } from '@/lib/bar-display';
 import { NO_PERF_PROBE, type PerfProbe } from '@/lib/perf-probe';
 import type { TokenLayerDto, TokenSideDto } from '@lorkarium/contracts';
 import { facingVector } from '@lorkarium/game-core';
 import type { GhostView, TokenView } from './board-view';
-import { type Point, textResolutionFor, zoomProofTextResolution } from './camera';
+import type { Point } from './camera';
 import { PixiAuraFloors } from './pixi-aura-floors';
 import type { AuraImages, PixiTokenAura } from './pixi-token-aura';
 import { PixiConditionMarks } from './pixi-condition-marks';
+import { INITIALS_FONT_NAME } from './pixi-initials-font';
 import { PixiTokenArt, ROUND_RADIUS_SHARE } from './pixi-token-art';
 import type { PixiTextureCache } from './pixi-texture-cache';
 import { showsNameTag } from './name-tag';
@@ -49,7 +50,7 @@ type TokenSprite = Readonly<{
   disc: Graphics;
   art: PixiTokenArt;
   shape: Graphics;
-  label: Text;
+  label: BitmapText;
   cross: Graphics;
   look: PixiTokenLook;
   marks: PixiConditionMarks;
@@ -282,14 +283,10 @@ export class PixiTokenLayer {
   private add(view: TokenView, at: Point, nowMs: number): void {
     const root = new Container({ label: `token:${view.id}` });
     const shape = new Graphics();
-    const label = new Text({
+    // One atlas for every token (`pixi-initials-font.ts`): no texture per token.
+    const label = new BitmapText({
       text: '',
-      resolution: zoomProofTextResolution(globalThis.devicePixelRatio),
-      style: {
-        fontFamily: 'Hanken Grotesk Variable, sans-serif',
-        fontWeight: '600',
-        fill: TEXT_COLOR,
-      },
+      style: { fontFamily: INITIALS_FONT_NAME, fill: TEXT_COLOR },
     });
     label.anchor.set(0.5);
     const marks = new PixiConditionMarks(this.textures);
@@ -375,7 +372,6 @@ function drawToken(sprite: TokenSprite, texture: Texture | null): void {
   label.text = view.initials;
   const fontSize = Math.round(Math.min(box.width, box.height) * 0.3);
   label.style.fontSize = fontSize;
-  label.resolution = textResolutionFor(globalThis.devicePixelRatio, fontSize);
   label.position.set(center.x, center.y);
   drawDefeated(sprite, box, square);
 }

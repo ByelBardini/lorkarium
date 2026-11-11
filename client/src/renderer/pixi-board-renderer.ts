@@ -60,6 +60,7 @@ import { PixiSceneGrid } from './pixi-scene-grid';
 import { PixiAuraAnimator, type AuraMotionFrame } from './pixi-aura-animator';
 import { PixiAuraSources } from './pixi-aura-sources';
 import { pixiAuraDecoding } from './pixi-aura-decoding';
+import { SHARED_INITIALS_FONT } from './pixi-initials-font';
 import { PixiTextureCache } from './pixi-texture-cache';
 import { PixiTokenLayer } from './pixi-token-layer';
 
@@ -152,7 +153,8 @@ class PixiBoardRenderer implements BoardRenderer {
     const app = new Application();
     // WebGL even where WebGPU exists: the aura shaders are GLSL only (WebGPU would ask for WGSL).
     const look = { resizeTo: host, background: PANEL_COLOR, antialias: true, autoDensity: true };
-    await app.init({ ...look, preference: 'webgl' });
+    // The initials atlas before the first token: a glyph rasterized in the fallback font stays so.
+    await Promise.all([app.init({ ...look, preference: 'webgl' }), SHARED_INITIALS_FONT.ready()]);
     // Unmounted while `init` ran (StrictMode does it on purpose): tear down what init built.
     if (this.destroyed) return void app.destroy(true, { children: true });
     this.app = app;

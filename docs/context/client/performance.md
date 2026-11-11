@@ -51,6 +51,8 @@ Cada regra diz o que custa quebrá-la, medido na cena de estresse. Mexeu em rend
 
 16. **Textura sai por folga, nunca na hora** (`PixiTextureCache`, `PixiAuraSources`, sobre o `IdleShelf` de `idle-shelf.ts`): o `retain` põe o que a vista deixou de desenhar numa prateleira (64 texturas, 16 imagens de aura) e só o mais antigo além do teto é descarregado; a url que volta dentro da folga não carrega nem decodifica de novo (o Caio andando no escuro tirava e repunha a arte e o GIF de quem saía da visão a cada passo). A textura que chega depois de dispensada é descarregada (se ninguém a pediu de novo: o `Assets` dá a mesma textura às duas cargas). Arte, fundo e imagem de condição pedem `autoGenerateMipmaps` (desenhados bem menores que o tamanho real, sem serrilhado no zoom afastado; +1/3 de VRAM por textura). Provado em `pixi-texture-cache.spec.ts` (`TextureAssetsFake`) e `pixi-aura-sources.spec.ts`.
 
+17. **Iniciais por atlas, nunca um `Text` por token** (`pixi-initials-font.ts`, `PixiTokenLayer`): as iniciais são `BitmapText` da família `INITIALS_FONT_NAME`, glifos brancos tingidos pela cor do token; um `Text` por token era uma textura por token (~300 × 0,5 MB, ~40 MB de ~57 MB parados na cena de estresse, ver [`zoom.md`](zoom.md)). Caractere fora do conjunto pt-BR do atlas entra sob demanda (fonte dinâmica do Pixi). Provado em `pixi-token-layer.spec.ts` ("draws the initials from one atlas") e `pixi-initials-font.spec.ts`.
+
 ## Armadilhas
 
 - **Pixi renderiza todo quadro por padrão** (o `TickerPlugin` põe `app.render` no `ticker`): no runner do CI o WebGL é por software, e um render da tela inteira a 60 fps em 3 páginas ocupava a thread principal — o clique do Playwright não terminava e o tabuleiro não aparecia em 5 s. O renderer tira esse render (`app.ticker.remove(app.render, app)`) e só renderiza quando o `FrameWork.renderDue()` diz (vista, câmera, evento de DOM pelo `on`/`touching`, textura) ou quando o `animate` deu um passo (tokens que deslizam, ou ping vivo no `PixiPingLayer.animate`, que sem ping não toca em nada — ver [`pings.md`](pings.md) —, ou aura animada na tela pelo `PixiAuraAnimator`, regra 10). O balão da fala (`PixiSpeechLayer.animate`) só pede render quando uma bolha entra, sai ou muda de lugar — sem balão, ou bolha parada com câmera parada, não pede. Mudança nova no grafo de cena fora desses caminhos precisa marcar `sceneTouched()`, senão a tela fica velha. Medido com CPU 6× e build de produção: combat.spec:84 falhava (5 s no `toBeVisible`) → passa em 53 s; board.spec 33,6 s (estourava 30 s) → 25,3 s; long tasks do combat 4× em dev: 108 s → 12,5 s somadas.
@@ -84,45 +86,6 @@ Rodar três vezes e anotar a mediana da coluna `mean` (ms). A máquina oscila; o
 - `src/main.tsx` — só com `import.meta.env.DEV` **e** `?perf=1` na URL cria o `RecordingPerfProbe`, monta o painel e passa o probe ao `createPixiBoardRenderer(onIntent, probe)`. Em produção o probe nunca é criado e o painel nunca monta.
 - O que conta: o `ticker` registra `deltaMS`; cada `drawView` do `flush` (no máximo um por quadro) conta `view.draw`; cada corpo de token redesenhado conta `token.redraw` (tabuleiro parado: 0); a grade redesenhada conta `grid.draw` e as sobreposições `overlays.draw` (W A S D dentro da faixa: 0). Cada mudança de zoom na câmera conta `zoom.event`; cada faixa de condições tocada (zoom assentado, imagem que chega) conta `strip.redraw`; a cada segundo o `PixiTextureGauge` (`pixi-texture-gauge.ts`, só com probe de verdade) soma as texturas da GPU (`renderer.texture.managedTextures`, obsoleto desde o Pixi 8.15 sem substituto; vagas `null` filtradas) pelo `textureMemoryBytes` (`texture-memory.ts`) e grava `texture.mb`. O tempo do `buildBoardView` (React) entra no tempo de quadro; a conta isolada fica no bench.
 
-## Medições (`mean` em ms, mediana de 3, mesma máquina)
+## Medições
 
-"Sem memória" é o tabuleiro sem nenhuma das regras acima; "atual", com todas ("olho anda uma casa" atual: uma rodada). O painel (p95 do quadro) ainda não tem número: medir à mão com `?perf=1`.
-
-| Caso                        | Sem memória | Atual  | Orçamento | Regras que seguram |
-| --------------------------- | ----------- | ------ | --------- | ------------------ |
-| build frio                  | 325         | 41     | —         | 7, 8               |
-| só a régua                  | 83          | 0,50   | ≤ 2       | 1, 4               |
-| arraste remoto (não olho)   | 313         | 0,53   | ≤ 4       | 1, 2, 3, 4         |
-| olho anda uma casa          | 320         | 7,5    | ≤ 8       | 3, 4, 7, 8         |
-| `sightArea` alcance 12      | 0,27        | 0,24   | —         | 7                  |
-| `sightArea` infinito        | 14,6        | 2,1    | —         | 7                  |
-| `lineOfSight` pela masmorra | 0,08        | 0,0004 | —         | 7                  |
-
-Com as 30 auras na cena de estresse (2026-10-25, mediana de 3, outras sessões rodando testes na mesma máquina): só a régua 0,43, arraste remoto 0,45, olho anda uma casa 8,1 (mesma faixa de antes sob carga; sem aura, nas mesmas condições, 6,7 a 8,7), build frio 36,7. "A aura de um token muda" custa 7,6: como todo restyle, o `tokens` novo refaz o filtro de visão (regra 3, chave por identidade); a vista em si só compara a `auraKeyOf` de quem mudou. Antes da cena ter auras: só a régua 0,41 e arraste remoto 0,42.
-
-A imagem de condição (regra 9) fica fora da tabela: a cena de estresse não tem condição com imagem, e o custo na vista é um `assetUrlOf` por condição no `conditionsOf`, dentro da oscilação do bench.
-
-Dados 3D (fase 17, 2026-10-25, uma rodada antes e depois, outras sessões rodando na mesma máquina): antes só a régua 0,68, arraste remoto 0,68, olho anda uma casa 9,8, aura muda 12,1, build frio 49,4; depois 0,37, 0,43, 9,4, 7,3, 36,7. O overlay não entra no caminho do tabuleiro (a diferença é oscilação da máquina, para baixo); a sala parada continua sem quadro dos dados.
-
-No renderer (contado pelo probe, não pelo bench): 1 token mudando entre 300 redesenha 1 (antes, 300 a cada desenho); pan sem zoom redesenha 0 sobreposições (antes, todas a cada tique da roda e a cada quadro de W A S D); uma rajada de eventos no mesmo quadro é 1 desenho.
-
-Chat (retomada em 2026-10-28, uma rodada antes/depois, sob carga de testes): régua 0,80/0,83 ms, arraste remoto 0,63/0,77 ms, olho anda uma casa 12,02/9,48 ms, aura muda 10,68/9,49 ms, build frio 58,77/54,23 ms. Os caminhos locais seguem dentro do orçamento; o olho excede 8 ms nas duas medições sob carga, portanto esta rodada não confirma esse orçamento. O balão não altera `buildBoardView`; sua ociosidade é provada por `pixi-speech-layer.spec.ts`.
-
-Sem bloqueador (2026-11-04, tokens que bloqueiam a visão, mediana de 3, nada mais rodando; "antes" é a mediana de 3 antes de todo o trabalho, na mesma máquina): só a régua 0,249 (antes 0,266), arraste remoto 0,278 (0,292), olho anda uma casa 4,39 (4,56), aura muda 4,29 (4,38), build frio 27,3 (28,0), `sightArea` alcance 12 0,153 (0,164), `sightArea` infinito 1,40 (1,54), `lineOfSight` 0,0002 (0,0002). Lado a lado com a `main`, 5 rodadas alternadas: régua −11%, arraste −9%, aura −7%, olho −11%, frio −9% (nos mínimos: +0,4%, −1,4%, −1,5%, −6,4%, −0,2%): o recurso não custa nada a quem não o usa (regra 12).
-
-Com 50 bloqueadores de 48 vértices (2026-11-04, mediana de 3, nada mais rodando):
-
-| Caso                                | `mean` | p75  | Orçamento | Resultado |
-| ----------------------------------- | ------ | ---- | --------- | --------- |
-| só a régua                          | 0,371  | 0,30 | ≤ 2       | dentro    |
-| arraste remoto (não olho)           | 0,373  | 0,36 | ≤ 4       | dentro    |
-| olho anda uma casa                  | 7,38   | 7,22 | ≤ 8       | dentro    |
-| bloqueador arrastado uma casa       | 81,1   | 94,6 | ≤ 8       | **10×**   |
-| giro de bloqueador com imagem       | 76,7   | 90,1 | —         | como ele  |
-| olho e luz em 2 bloqueadores (anda) | 14,5   | 11,0 | —         | —         |
-
-**O bloqueador arrastado estoura o orçamento, e o custo foi aceito (2026-11-04):** só ocorre ao mudar de casa ou de direção, nunca a cada quadro, e a cena de estresse é o pior caso. Reabrir se o painel mostrar travada em mesa real. Onde vai o tempo de um passo (uma rodada): filtro ~12 ms, vistas ~80 ms; o `preparedWalls` de 3300 trechos só ~0,9 ms (900 trechos, ~0,4 ms), então preparar paredes reais e bloqueadores em separado não resolve. A causa é a memória das áreas: o array novo troca o `wallSetIdOf`, e as ~65 luzes acesas da cena mais os olhos voltam todos ao `sightArea`, inclusive os da outra ponta da masmorra. Um `sightArea` de alcance 8 custa 0,73 ms com os 50 e 0,16 ms sem eles. Por isso o custo quase não depende da quantidade (mediana do passo): 1 bloqueador 27 ms, 5 30 ms, 10 37 ms, 25 49 ms, 50 66 ms. O caso "2 bloqueadores" tem o p75 abaixo da média porque a 1ª amostra refaz tudo ao trocar de tabuleiro.
-
-Patrulha (2026-11-08, mediana de 3 antes/depois, com outra sessão rodando testes do server na mesma máquina; "antes" com os 4 arquivos quentes da `HEAD`): régua 0,33/0,43, arraste remoto 0,35/0,42, olho anda uma casa 6,23/6,79, aura muda 5,50/6,31, build frio 36,2/35,8 (dentro da oscilação sob carga). Casos novos ("buildBoardView while patrols walk", `stressPatrolBoardOf`): 20 patrulhas que não são olho nem luz dão um passo 0,77 (orçamento ≤ 4); 20 de olhos ou tochas 6,33 (≤ 8).
-
-Legibilidade do balão (2026-10-28, uma rodada antes/depois sob carga): Hanken 14 semibold substitui a serifa itálica; só o estilo usado ao criar a bolha muda, sem medição de texto por quadro. Régua 0,37/0,66 ms, arraste remoto 0,68/1,05 ms, olho anda uma casa 10,03/10,43 ms, aura muda 13,03/10,44 ms, build frio 39,99/51,09 ms. Os caminhos locais seguem no orçamento; o olho já excedia 8 ms antes. Estes benches não medem rasterização da fonte; os specs conferem zero leitura do relógio e zero construção sem balão, e nenhuma reconstrução/render extra com bolha e câmera paradas.
+Os números de antes e depois de cada regra (bench, painel e textura) estão em [`performance-medicoes.md`](performance-medicoes.md).
