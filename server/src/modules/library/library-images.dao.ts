@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { hiddenByFolderSql } from '../../database/hidden-by-folder-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { assets, type AssetPo } from '../assets/assets.po';
@@ -32,6 +32,20 @@ export class LibraryImagesDao {
       .orderBy(libraryImages.createdAt, libraryImages.id);
   }
   async findInCampaign(campaignId: string, imageId: string): Promise<LibraryImageRow | undefined> {
+    return this.findOne(
+      and(eq(libraryImages.campaignId, campaignId), eq(libraryImages.id, imageId)),
+    );
+  }
+  /** The library record of one file, by the unique `asset_id`; another table's is `undefined`.
+   *
+   *  Example: `(await dao.findByAsset(vharnId, assetId))?.image.visibility // 'public'` */
+  async findByAsset(campaignId: string, assetId: string): Promise<LibraryImageRow | undefined> {
+    return this.findOne(
+      and(eq(libraryImages.campaignId, campaignId), eq(libraryImages.assetId, assetId)),
+    );
+  }
+
+  private async findOne(where: SQL | undefined): Promise<LibraryImageRow | undefined> {
     const [row] = await this.db
       .select(IMAGE_WITH_ASSET)
       .from(libraryImages)
@@ -39,9 +53,10 @@ export class LibraryImagesDao {
         assets,
         and(eq(assets.id, libraryImages.assetId), eq(assets.campaignId, libraryImages.campaignId)),
       )
-      .where(and(eq(libraryImages.campaignId, campaignId), eq(libraryImages.id, imageId)));
+      .where(where);
     return row;
   }
+
   async insert(row: NewLibraryImagePo): Promise<LibraryImagePo> {
     const [saved] = await this.db.insert(libraryImages).values(row).returning();
     if (!saved) throw new Error(`No library image inserted for ${row.assetId}`);

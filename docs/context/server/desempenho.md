@@ -22,6 +22,14 @@ Detalhe do hub [`server.md`](../server.md).
 | `wall:setDoor` do mestre, com bloqueador        | —           | 6     | —                  |
 | `wall:setDoor` de jogador com a visão `off`     | —           | 6     | —                  |
 
+Leituras HTTP quentes (`test/integration/query-budget-http.spec.ts`, contadas depois do primeiro pedido de quem lê; as 2 da sessão e da conta entram):
+
+| Leitura (cenário do spec)                                | Antes | Atual | Regras que seguram |
+| -------------------------------------------------------- | ----- | ----- | ------------------ |
+| `GET /assets/:id` `library_image` pública, jogador       | 10    | 7     | 2, 13              |
+| `GET /assets/:id` `library_image`, mestre                | 8     | 5     | 2, 13              |
+| `GET /assets/:id` `library_image` em pasta privada (404) | 14    | 10    | 2, 13              |
+
 Os números contam `begin`/`commit`. "Sem memória" é o custo medido antes das regras abaixo.
 
 ### Regras de desempenho (não desfazer)
@@ -41,3 +49,4 @@ Cada regra diz onde mora e quantas consultas voltam se for quebrada. Mexeu num D
 10. **Snapshot numa transação `repeatable read` `read only`** (`runInSnapshot`, `BoardService.snapshotFor`): as ≈13 leituras do `board:sync` veem o mesmo instante (custa o `begin` e o `commit`: 13 → 15). Tirar a transação devolve 2 consultas, mas um comando que grava entre duas leituras volta a entregar um tabuleiro misturado (tokens novos com paredes velhas, versão que não bate).
 11. **Socket.IO pelos limites do contracts** (`realtimeServerOptions()`, `REALTIME_MESSAGE_MAX_BYTES`, `REALTIME_COMPRESSION_THRESHOLD_BYTES`; `realtimeClientOptions()` no client): buffer de 5 MiB, compressão a partir de 4 KB e websocket primeiro. Voltar ao buffer de 1 MB derruba a conexão de quem cola 64 desenhos grandes (o `drawings.spec.ts` prova); compressão sem limiar gasta CPU em cada prévia de arraste; polling primeiro custa uma volta HTTP a mais em cada conexão e reconexão. Não custa consulta.
 12. **Toda FK nova entra com índice ou na exceção do spec** (`foreign-key-indexes.spec.ts`): o Postgres não indexa o lado que referencia, então o `SET NULL`/`CASCADE` de apagar o pai varre a tabela filha de todas as mesas (apagar uma forma varria `tokens` inteira sob a trava da cena). Índice parcial (`WHERE col IS NOT NULL`) quando a coluna é quase sempre nula; a exceção só quando a FK não dispara em uso normal, com o motivo escrito. Não custa consulta: custa uma varredura sequencial por linha apagada.
+13. **Política de leitura recebe a linha lida; nunca lista para achar um** (`AssetReadPolicyPort.canRead(…, purpose)`, `AssetsDao.findHeaderById`, `LibraryImagesDao.findByAsset`): o `AssetsService` lê o asset uma vez, sem o `sight_outline`, e passa a finalidade; a composição do `buildApp` não relê; o asset, a política da biblioteca e a do documento leem a participação pela `CachedMemberships`. Voltar a reler o asset custa +1 por imagem servida, a participação própria +1 por política, e o `listOfCampaign` para achar uma imagem lê a biblioteca inteira (com o CTE de pasta por linha) a cada imagem aberta.

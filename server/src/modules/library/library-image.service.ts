@@ -48,7 +48,13 @@ export type LibraryImageDaos = Readonly<{
   assets: Pick<AssetsDao, 'findInCampaign'>;
   images: Pick<
     LibraryImagesDao,
-    'listOfCampaign' | 'findInCampaign' | 'insert' | 'update' | 'delete' | 'moveFromFolder'
+    | 'listOfCampaign'
+    | 'findInCampaign'
+    | 'findByAsset'
+    | 'insert'
+    | 'update'
+    | 'delete'
+    | 'moveFromFolder'
   >;
   presentations: Pick<ImagePresentationsDao, 'findOfCampaign' | 'save'>;
   folders: Pick<SceneFoldersDao, 'listOfCampaign'>;
@@ -122,11 +128,7 @@ export class LibraryImageService {
     const saved = await this.edit(requester, async (daos) => {
       const asset = await daos.assets.findInCampaign(requester.campaignId, input.assetId);
       requireLibraryImageAsset(asset, input.assetId);
-      if (
-        (await daos.images.listOfCampaign(requester.campaignId)).some(
-          (row) => row.asset.id === input.assetId,
-        )
-      )
+      if (await daos.images.findByAsset(requester.campaignId, input.assetId))
         throw new LibraryImageNotFoundError(requester.campaignId, input.assetId);
       await this.requireFolder(daos, requester.campaignId, input.folderId ?? null);
       const image = await daos.images.insert({
