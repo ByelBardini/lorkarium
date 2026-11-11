@@ -78,7 +78,7 @@ Mensagens pelo `MessagePort`, validadas nas duas pontas. Nenhuma mensagem do fra
   - `bars.create`: `bar` (`sheetBarCreationDto`; hex recusado citando a paleta, `current` recusado: nasce cheia);
   - `bars.spend`: `costs` (1–`MAX_BARS_PER_TOKEN` de `{ bar, amount }`: `bar` como no `bars.adjust`, `amount` o do `sheetBarCostDto`, inteiro ≥ 1; `barId` é recusado: o host resolve o nome);
   - `character.set`: `changes` estrito só com `armorClass?`/`difficultyClass?` (inteiro 0–`CHARACTER_STAT_MAX`, sem `null`: a ficha não apaga a CA; a recusa cita o valor), ao menos um ("changes is empty; expected at least one of armorClass, difficultyClass"); `name` e o resto são recusados;
-  - `character.setImage` e `assets.upload`: `image` `{ type, bytes }` com `type` PNG/JPEG/WebP (o GIF fica para a aura; SVG nunca) e `bytes` um `ArrayBuffer` de até `ASSET_MAX_BYTES` ("image has N bytes; expected at most 20971520");
+  - `character.setImage` e `assets.upload`: `image` `{ type, bytes }` com `type` PNG/JPEG/WebP/GIF (a imagem da ficha guarda o GIF animado; o retrato, um asset `token`, guarda o 1º quadro; SVG nunca) e `bytes` um `ArrayBuffer` de até `ASSET_MAX_BYTES` ("image has N bytes; expected at most 20971520");
   - `assets.read`: `assetId` (uuid);
   - `documents.list`, `documents.tabs` (`documentId`) e `documents.readTab` (`documentId`, `tabId`), uuids; respostas em `sheet-bridge-documents.dto.ts` ([`documentos.md`](documentos.md));
   - `console` (sem `requestId`, o host nunca responde): `level` (`SHEET_CONSOLE_LEVELS`: `log`, `info`, `warn`, `error`, `debug`), `message` (até `SHEET_CONSOLE_MESSAGE_MAX_LENGTH` = 2000) e `at` (até `SHEET_CONSOLE_POSITIONS_MAX` = 8 `sheetConsolePositionDto` `{ line ≥ 1, column ≥ 0 }` do `srcdoc`, o topo da pilha primeiro);

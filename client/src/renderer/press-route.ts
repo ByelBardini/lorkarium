@@ -64,7 +64,7 @@ export function pressRouteOf(view: BoardView, world: Point, zoom: number): Press
   // A door icon sits on its line, often over a token standing in the doorway: the door wins.
   const door = doorIconAt(view.doors, world, zoom);
   if (door) return { kind: 'door', wallId: door.wallId };
-  const token = topTokenAt(view.tokens, world);
+  const token = grabbedTokenAt(view.tokens, world);
   if (token) return { kind: 'token', token };
   const area = topEffectAreaAt(view.effectAreas, world);
   if (area) return { kind: 'effectArea', area };
@@ -112,7 +112,7 @@ export function menuRouteOf(view: BoardView, world: Point, zoom: number): MenuRo
   if (door) return { kind: 'door', wallId: door.wallId };
   const light = view.layerMenu ? topLightAt(view.lights, world, zoom) : null;
   if (light) return { kind: 'light', lightId: light.id };
-  const tokenId = tokenMenuTarget(view, topTokenAt(view.tokens, world));
+  const tokenId = tokenMenuTarget(view, grabbedTokenAt(view.tokens, world));
   return tokenId ? { kind: 'token', tokenId } : null;
 }
 
@@ -130,6 +130,13 @@ export function hoverRouteOf(view: BoardView, world: Point, zoom: number): Hover
 export function topTokenAt(tokens: readonly TokenView[], world: Point): TokenView | null {
   const topFirst = [...tokens].reverse();
   return topFirst.find((token) => token.pickable && tokenContains(token, world)) ?? null;
+}
+
+// A player's token covered by an NPC or another player's token was stuck under it: the press
+// reaches past what this viewer cannot move to the topmost one they can, before the top one.
+function grabbedTokenAt(tokens: readonly TokenView[], world: Point): TokenView | null {
+  const draggable = tokens.filter((token) => token.draggable);
+  return topTokenAt(draggable, world) ?? topTokenAt(tokens, world);
 }
 
 function resizeHandleOf(view: BoardView, world: Point, zoom: number): ResizeHandle | null {

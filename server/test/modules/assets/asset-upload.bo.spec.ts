@@ -48,12 +48,15 @@ describe('resizeFor', () => {
 });
 
 describe('animationFor', () => {
-  it('an aura image may stay animated within 120 frames and 16 MP decoded', () => {
-    expect(animationFor('aura', ANIMATION)).toEqual({
-      maxFrames: 120,
-      maxDecodedPixels: 16_000_000,
-    });
-  });
+  it.each(['aura', 'sheet_image'] as const)(
+    'a %s image may stay animated within 120 frames and 16 MP decoded',
+    (purpose) => {
+      expect(animationFor(purpose, ANIMATION)).toEqual({
+        maxFrames: 120,
+        maxDecodedPixels: 16_000_000,
+      });
+    },
+  );
 
   it.each(['token', 'background', 'cover', 'condition'] as const)(
     'a %s image never animates (no budget)',

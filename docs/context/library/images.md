@@ -35,7 +35,7 @@ GET /scenes preserva suas chaves estritas. Novo agregado reutiliza SceneLibraryB
 
 ## Arquivo e sigilo
 
-library_image só é enviado/importado por mestre, autorizado antes do fetch/processamento. PNG/JPEG/WebP estáticos até 20 MiB e maior lado 4096 px, sem recorte; preserva proporção/alfa/orientação. GIF/SVG recusados. Usa processador/fetcher existentes.
+library_image só é enviado/importado por mestre, autorizado antes do fetch/processamento. PNG/JPEG/WebP estáticos (GIF entra como PNG do 1º quadro) até 20 MiB e maior lado 4096 px, sem recorte; preserva proporção/alfa/orientação. GIF/SVG recusados. Usa processador/fetcher existentes.
 
 AssetReadPolicyPort injetada pelo composition root mantém Assets independente da biblioteca. Sem política nega nova finalidade. LibraryImageReadPolicy lê coerentemente: mestre lê inclusive órfão; jogador/espectador lê item público ou imagem atualmente apresentada; resto é ASSET_NOT_FOUND. Substituição/exclusão revoga novas leituras da privada anterior; fechar local não altera acesso. Cache dedicado: private, no-store, também na rota genérica. Finalidades antigas mantêm cache imutável.
 

@@ -114,11 +114,17 @@ describe('AssetsService', () => {
     },
   );
 
-  it('sheet ingestion keeps a still image within 4096 px under the sheet purpose', async () => {
+  it('sheet ingestion keeps an image within 4096 px, a GIF animated on the aura budget', async () => {
     const result = await service.uploadSheetImage(BIA_ID, VHARN_ID, PNG);
 
     expect(result).toEqual({ id: NEW_ID, mimeType: 'image/png', width: 1024, height: 512 });
-    expect(processor.resizes).toEqual([{ maxSide: 4096, square: false }]);
+    expect(processor.resizes).toEqual([
+      {
+        maxSide: 4096,
+        square: false,
+        animation: { maxFrames: 120, maxDecodedPixels: 16_000_000 },
+      },
+    ]);
     expect(assets.rows[0]).toMatchObject({ purpose: 'sheet_image', ownerId: BIA_ID });
     expect(journal).toEqual(['normalize', 'put', 'insert']);
   });

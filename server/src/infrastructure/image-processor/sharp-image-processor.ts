@@ -13,11 +13,11 @@ import { keptAnimatedGif } from './animated-gif';
 // 100 megapixels: far above any map, far below a decompression bomb.
 const DEFAULT_MAX_INPUT_PIXELS = 100_000_000;
 const QUALITY = 90;
-const EXPECTED = 'expected png, jpeg or webp';
-const EXPECTED_ANIMATED = 'expected png, jpeg, webp or gif';
+const EXPECTED = 'expected png, jpeg, webp or gif';
 
-// SVG is left out on purpose: it decodes through a renderer that may carry script. GIF is kept
-// only with an animation budget (the aura); everywhere else a moving image is refused.
+// SVG is left out on purpose: it decodes through a renderer that may carry script. GIF stays a GIF
+// only with an animation budget (aura, sheet image); everywhere else it keeps its first frame as a
+// PNG, so any image field takes one.
 const STILL_FORMATS: Readonly<Record<string, AssetMimeTypeDto>> = {
   png: 'image/png',
   jpeg: 'image/jpeg',
@@ -33,7 +33,8 @@ type Inspected =
 
 /** `ImageProcessorPort` over `sharp`: reads the real format from the bytes, turns the image
  *  upright by its EXIF, shrinks it to `maxSide` (or cuts its centre square) and re-encodes it
- *  without any metadata. With an animation budget a GIF is let in and kept animated.
+ *  without any metadata. With an animation budget a GIF is kept animated; without, as a PNG of its
+ *  first frame.
  *
  *  Example: `await new SharpImageProcessor().normalize(bytes, { maxSide: 256, square: true })` */
 export class SharpImageProcessor implements ImageProcessorPort {
@@ -50,11 +51,11 @@ export class SharpImageProcessor implements ImageProcessorPort {
       inspected.mimeType === 'image/gif'
         ? await this.animated(bytes, inspected.frames, options)
         : await this.still(bytes, options, inspected);
-    return image ? { ok: true, image } : notAnImage(bytes, options);
+    return image ? { ok: true, image } : notAnImage(bytes);
   }
 
-  // No `animated`: sharp reads only the 1st frame, since only an aura moves (an animated WebP or
-  // APNG comes out still: just the GIF keeps its frames).
+  // No `animated`: sharp reads only the 1st frame (an animated WebP, APNG or a GIF with no budget
+  // comes out still: only a GIF with a budget keeps its frames).
   private async still(bytes: Uint8Array, options: NormalizeOptions, inspected: StillInspected) {
     const { mimeType } = inspected;
     const resized = sharp(bytes, { limitInputPixels: this.maxInputPixels })
@@ -86,19 +87,21 @@ export class SharpImageProcessor implements ImageProcessorPort {
     const metadata = await sharp(bytes, { limitInputPixels: false })
       .metadata()
       .catch(() => null);
-    if (!metadata) return notAnImage(bytes, options);
+    if (!metadata) return notAnImage(bytes);
     if (metadata.format === 'gif' && options.animation) {
       return this.inspectGif(metadata, options.animation.maxFrames);
     }
-    const mimeType = STILL_FORMATS[metadata.format];
+    const mimeType = metadata.format === 'gif' ? 'image/png' : STILL_FORMATS[metadata.format];
     if (mimeType === undefined) {
-      return refused('format', `format ${metadata.format} is not kept`, expectedOf(options));
+      return refused('format', `format ${metadata.format} is not kept`, EXPECTED);
     }
-    const pixels = metadata.width * metadata.height;
-    const shortSide = Math.min(metadata.width, metadata.height);
+    // A GIF's height counts all its frames; only the first is read.
+    const height = frameHeightOf(metadata);
+    const pixels = metadata.width * height;
+    const shortSide = Math.min(metadata.width, height);
     if (pixels <= this.maxInputPixels) return { ok: true, mimeType, shortSide, frames: 1 };
     const what = `the image has ${pixels} pixels, above the limit of ${this.maxInputPixels}`;
-    return refused('too-many-pixels', what, expectedOf(options));
+    return refused('too-many-pixels', what, EXPECTED);
   }
 
   private inspectGif(metadata: Metadata, maxFrames: number): Inspected {
@@ -142,13 +145,9 @@ async function outlineOfKept(kept: Buffer): Promise<TracedOutline> {
   return outlineOfAlpha({ width: info.width, height: info.height, alpha: new Uint8Array(data) });
 }
 
-function expectedOf(options: NormalizeOptions): string {
-  return options.animation ? EXPECTED_ANIMATED : EXPECTED;
-}
-
-function notAnImage(bytes: Uint8Array, options: NormalizeOptions): Refused {
+function notAnImage(bytes: Uint8Array): Refused {
   const what = `the ${bytes.byteLength} bytes do not decode as an image`;
-  return refused('not-an-image', what, expectedOf(options));
+  return refused('not-an-image', what, EXPECTED);
 }
 
 function refused(reason: ImageRefusal['reason'], what: string, expected: string): Refused {

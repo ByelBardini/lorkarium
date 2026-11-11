@@ -23,11 +23,12 @@ export function resizeFor(purpose: AssetPurpose, limits: SideLimits): AssetResiz
 /** How much a kept image may animate (the contract's `AURA_ANIMATION_LIMITS`). */
 export type AnimationLimits = Readonly<{ maxFrames: number; maxDecodedPixels: number }>;
 
-// Only the aura moves on the board; a token, a background, a cover or a condition stays still.
-const ANIMATED_PURPOSES: ReadonlySet<AssetPurpose> = new Set(['aura']);
+// The aura moves on the board and a sheet image in its frame; a token, a background, a cover or a
+// condition stays still (its GIF keeps the first frame).
+const ANIMATED_PURPOSES: ReadonlySet<AssetPurpose> = new Set(['aura', 'sheet_image']);
 
-/** How much an image sent for `purpose` may keep animating; `null` = it must be still (a GIF is
- *  refused, an animated WebP comes out with its first frame).
+/** How much an image sent for `purpose` may keep animating; `null` = it must be still (a GIF or
+ *  an animated WebP comes out with its first frame).
  *
  *  Example: `animationFor('aura', AURA_ANIMATION_LIMITS) // { maxFrames: 120, maxDecodedPixels: 16_000_000 }` */
 export function animationFor(

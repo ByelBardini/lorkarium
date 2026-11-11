@@ -58,7 +58,7 @@ function applyFold(box) {
 }
 /* imagem guardada como id de asset da ficha (assets.upload); o arquivo é lido por assets.read */
 const imgSlot = (p, label, cls) =>
-  `<div class="img-slot ${cls}" data-img="${p}" data-label="${esc(label)}"><button type="button" class="img-btn"></button><button type="button" class="img-rm" data-edit-only hidden>Remover imagem</button><input type="file" accept="image/png,image/jpeg,image/webp" hidden aria-label="Arquivo: ${esc(label)}"></div>`;
+  `<div class="img-slot ${cls}" data-img="${p}" data-label="${esc(label)}"><button type="button" class="img-btn"></button><button type="button" class="img-rm" data-edit-only hidden>Remover imagem</button><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden aria-label="Arquivo: ${esc(label)}"></div>`;
 const optImg = (p) => imgSlot(p, 'Adicionar imagem', 'opt');
 const pageHead = (eyebrow, title, hint = '') =>
   `<header><p class="eyebrow">${eyebrow}</p><h1 class="h1">${title}</h1>${hint ? `<p class="hint">${hint}</p>` : ''}</header>`;

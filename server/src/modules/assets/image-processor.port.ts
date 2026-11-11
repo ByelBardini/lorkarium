@@ -37,7 +37,7 @@ export type NormalizeOptions = Readonly<{
   outline?: boolean;
 }>;
 
-/** Proves the bytes are a PNG, JPEG or WebP (or a GIF, when `animation` is given) and rewrites
+/** Proves the bytes are a PNG, JPEG, WebP or GIF (kept animated only when `animation` is given) and rewrites
  *  them no larger than `maxSide` (§8.5), cut to a centred square when `square`; anything else
  *  comes back as a refusal, never thrown. */
 export interface ImageProcessorPort {
