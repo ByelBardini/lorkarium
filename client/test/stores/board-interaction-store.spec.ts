@@ -9,6 +9,7 @@ import {
 } from '@/stores/board-interaction-store';
 import { ROUTE_BEND_DWELL_MS, routePath } from '@/lib/token-route';
 import { InteractionClockFake } from '../support/interaction-clock-fake';
+import { NotificationCounter } from '../support/notification-counter';
 import { TableBoardCommandsFake } from '../support/table-board-commands-fake';
 import type { EditEntry } from '@/lib/edit-history';
 import { PATH_ID, SQUARE_ID } from '../support/drawing-fixtures';
@@ -504,10 +505,10 @@ describe('board interaction store', () => {
 
     it('the cell under the pointer is kept for the paste, and cleared when it leaves', () => {
       store.getState().pointer({ kind: 'pointerHovered', cell: cell(10, 6) });
-      expect(store.getState().hoverCell).toEqual(cell(10, 6));
+      expect(store.getState().hover.current).toEqual(cell(10, 6));
 
       store.getState().pointer({ kind: 'pointerHovered', cell: null });
-      expect(store.getState().hoverCell).toBeNull();
+      expect(store.getState().hover.current).toBeNull();
     });
   });
 
@@ -616,5 +617,54 @@ describe('the master previewing the sight of the selected tokens', () => {
     store.getState().followVision('off');
 
     expect(store.getState().sightPreview).toBe(false);
+  });
+});
+
+describe('board interaction store notifications', () => {
+  let store: StoreApi<BoardInteractionStore>;
+
+  beforeEach(() => {
+    store = createBoardInteractionStore({
+      scopeOf: () => VHARN_GRID,
+      commands: new TableBoardCommandsFake(),
+      describeRefusal: String,
+    });
+  });
+
+  it('leaving read only twice notifies nobody', () => {
+    const notified = new NotificationCounter(store);
+
+    store.getState().setReadOnly(false);
+    store.getState().setReadOnly(false);
+
+    expect(notified.count).toBe(0);
+  });
+
+  it('the pointer moving with no ruler tool notifies nobody', () => {
+    const notified = new NotificationCounter(store);
+
+    store.getState().pointer({ kind: 'pointerMove', cell: cell(3, 2) });
+    store.getState().pointer({ kind: 'pointerUp', cell: cell(3, 2) });
+
+    expect(notified.count).toBe(0);
+  });
+
+  it('the pointer crossing cells notifies nobody (only the paste reads it)', () => {
+    const notified = new NotificationCounter(store);
+
+    store.getState().pointer({ kind: 'pointerHovered', cell: cell(1, 1) });
+    store.getState().pointer({ kind: 'pointerHovered', cell: cell(2, 1) });
+
+    expect(notified.count).toBe(0);
+  });
+
+  it('the ruler growing notifies once per cell', () => {
+    store.getState().setTool('ruler');
+    store.getState().pointer({ kind: 'pointerDown', cell: cell(0, 0) });
+    const notified = new NotificationCounter(store);
+
+    store.getState().pointer({ kind: 'pointerMove', cell: cell(3, 2) });
+
+    expect(notified.count).toBe(1);
   });
 });

@@ -54,7 +54,16 @@ import {
 import { aimLightOf, changeLightAnglesOf, previewLightAimOf } from './light-cone-flow';
 import { setLightsLitOf } from './light-lit-flow';
 import { setTokensHiddenOf, type HidingToken } from './token-hidden-flow';
-import { afterIntent, joined, NO_SELECTION, toggled } from './board-pointer-intents';
+import {
+  afterIntent,
+  hoverCellRef,
+  joined,
+  NO_PREVIEWS,
+  NO_SELECTION,
+  toggled,
+  type HoverCellRef,
+} from './board-pointer-intents';
+import { changedPatchOf } from '@/lib/state-patch';
 import {
   drawModeChangeOf,
   hintOf,
@@ -126,7 +135,7 @@ export type BoardInteractionState = Readonly<{
   drawingPreview: readonly DrawingPreview[];
   drag: TokenDrag | null;
   /** The cell under the pointer over the board (`null` off it): where a paste lands. */
-  hoverCell: Cell | null;
+  hover: HoverCellRef;
   /** Reconnecting: there is no queue, so nothing is sent and nothing is dragged. */
   readOnly: boolean;
   /** The master's "Ver como os selecionados": the board through the selected tokens' eyes. */
@@ -263,15 +272,6 @@ export type BoardInteractionDeps = Readonly<{
 }>;
 
 type SetInteraction = StoreApi<BoardInteractionStore>['setState'];
-const NO_PREVIEWS = {
-  preview: [],
-  drawingPreview: [],
-  facingPreview: {},
-  resizePreview: {},
-  effectAreaPreview: {},
-  lightPreview: {},
-  lightAimPreview: {},
-} as const;
 
 /** The local side of the board for one room visit. Commands go to the server and the board
  *  only changes when its event arrives; a refused move puts the token back and says why.
@@ -283,6 +283,10 @@ export function createBoardInteractionStore(
   return createStore<BoardInteractionStore>()((set, get) => {
     const store = { getState: get, setState: set };
     const drags = new TokenDragFlow(deps, store, (result) => sayIfRefused(deps, set, result));
+    const change = (patch: Partial<BoardInteractionState>): void => {
+      const changed = changedPatchOf(get(), patch);
+      if (changed) set(changed);
+    };
     return {
       tool: 'select',
       localGridVisible: true,
@@ -295,19 +299,13 @@ export function createBoardInteractionStore(
       selectedEffectAreaIds: [],
       selectedWallIds: [],
       selectedLightIds: [],
-      lightPreview: {},
-      lightAimPreview: {},
-      effectAreaPreview: {},
+      ...NO_PREVIEWS,
       wallMode: 'draw',
       drawMode: 'draw',
       activeLayer: 'tokens',
       canChooseLayer: false,
-      preview: [],
-      facingPreview: {},
-      resizePreview: {},
-      drawingPreview: [],
       drag: null,
-      hoverCell: null,
+      hover: hoverCellRef(),
       readOnly: false,
       sightPreview: false,
       setTool: (tool) => {
@@ -315,7 +313,7 @@ export function createBoardInteractionStore(
         if (change) set(change);
       },
       toggleLocalGrid: () => set({ localGridVisible: !get().localGridVisible }),
-      pointer: (intent) => set(afterIntent(get(), intent)),
+      pointer: (intent) => change(afterIntent(get(), intent)),
       escape: () => {
         drags.cancel();
         const notice = hintOf(get().tool, get());
@@ -344,8 +342,7 @@ export function createBoardInteractionStore(
       },
       setReadOnly: (readOnly) => {
         if (readOnly) drags.forget();
-        const previews = { ...NO_PREVIEWS };
-        set(readOnly ? { readOnly, ...previews } : { readOnly });
+        change(readOnly ? { readOnly, ...NO_PREVIEWS } : { readOnly });
       },
       moveToken: (tokenId, to, announce) => drags.move({ tokenId, to, announce }),
       moveTokens: (moves, announce) => drags.moveGroup(moves, announce),
@@ -421,7 +418,7 @@ export function createBoardInteractionStore(
       reshapeEffectAreas: (reshapes, announce) =>
         reshapeEffectAreasOf(deps, store, reshapes, announce),
       previewEffectArea: (effectAreaId, shape) => previewEffectArea(store, effectAreaId, shape),
-      dropPreview: () => set({ ...NO_PREVIEWS }),
+      dropPreview: () => change(NO_PREVIEWS),
       command: async (send) => {
         if (get().readOnly) return false;
         const result = await send(deps.commands, deps.scopeOf());

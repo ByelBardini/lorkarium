@@ -58,7 +58,7 @@ export function shapeOfDrawing(drawing: DrawingDto): DrawingShapeInput {
  *  in by the edge (an area counts by its origin, the rest of it is clipped). `null` when the group
  *  is bigger than the scene.
  *
- *  Example: `const placed = pastePlacement(copied, interaction.hoverCell, scene)` */
+ *  Example: `const placed = pastePlacement(copied, interaction.hover.current, scene)` */
 export function pastePlacement(
   copied: CopiedSelection,
   cursor: Cell | null,
