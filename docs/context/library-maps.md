@@ -105,7 +105,7 @@ Todas sob `/api`, exigem sessão (401 sem cookie), aninhadas na mesa (§2.6). DT
 
 - Jogador ou espectador em rota de mestre → 403 `FORBIDDEN`; quem não é membro → 404 `CAMPAIGN_NOT_FOUND`, antes de qualquer trava. O espectador lê como jogador.
 - Mapa privado que não é o Principal, para quem não é mestre → 404 `LIBRARY_MAP_NOT_FOUND`.
-- As leituras respondem `cache-control: private, no-store`: quem vê muda com a visibilidade e com o Principal.
+- As leituras respondem `cache-control: private, no-store`: quem vê muda com a visibilidade e com o Principal. Os bytes do mapa (`GET /assets/:id`, `library_map`) saem `private, no-cache` com `ETag`: reabrir o mapa revalida (304 sem S3) depois da `LibraryMapReadPolicy` (ver [`assets.md`](assets.md)).
 - O `GET /:mapId` devolve as regiões já projetadas para o leitor, em snapshot; ver [Regiões](library-maps/regioes.md). As rotas das regiões, `shows` e `map-appearances` estão lá.
 - **`library:changed`** (sem dado nenhum; cada client relê pela rota, que filtra por papel) depois de cada mutação confirmada do mapa. Recusa não publica. Escrita de região avisa por `library:mapChanged`.
 

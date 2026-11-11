@@ -72,23 +72,29 @@ export function useMountedRenderer(
 }
 
 // Destroyed even while `mount` is still pending: the adapter finishes init and then tears down.
+// Torn down while the renderer chunk still loads: the renderer is destroyed as soon as it comes.
 function mountAttempt(
   host: HTMLElement,
   camera: Camera | undefined,
   wiring: MountWiring,
 ): () => void {
   let alive = true;
-  const created = wiring.create((intent) => {
+  let created: BoardRenderer | null = null;
+  const loaded = wiring.create((intent) => {
     if (intent.kind !== 'boardLost') return wiring.intentRef.current(intent);
-    if (alive) wiring.lostRef.current(created);
+    if (alive && created) wiring.lostRef.current(created);
   });
-  created.mount(host, camera ? { camera } : undefined).then(
-    () => alive && wiring.show(created),
-    () => alive && wiring.fail(),
-  );
+  const mounted = loaded.then((renderer) => {
+    created = renderer;
+    if (!alive) return renderer.destroy();
+    return renderer.mount(host, camera ? { camera } : undefined).then(() => {
+      if (alive) wiring.show(renderer);
+    });
+  });
+  mounted.catch(() => alive && wiring.fail());
   return () => {
     alive = false;
-    created.destroy();
+    created?.destroy();
     wiring.show(null);
   };
 }

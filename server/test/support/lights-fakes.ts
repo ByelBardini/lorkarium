@@ -14,6 +14,7 @@ import { corridorTorchPo } from './lights-factories';
 type LightsDaoMethods =
   | 'insertMany'
   | 'listOfScene'
+  | 'countOfScene'
   | 'findManyInScene'
   | 'moveMany'
   | 'setRanges'
@@ -55,6 +56,10 @@ export class LightsDaoFake implements Pick<LightsDao, LightsDaoMethods> {
 
   async listOfScene(sceneId: string): Promise<LightPo[]> {
     return this.rows.filter((row) => row.sceneId === sceneId);
+  }
+
+  async countOfScene(sceneId: string): Promise<number> {
+    return (await this.listOfScene(sceneId)).length;
   }
 
   async findManyInScene(sceneId: string, lightIds: readonly string[]): Promise<LightPo[]> {

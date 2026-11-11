@@ -169,6 +169,74 @@ describe('SharpImageProcessor.normalize', () => {
   });
 });
 
+// An RGBA PNG whose every pixel is solid: what most editors export for a map.
+async function solidRgbaPng(width: number, height: number): Promise<Uint8Array> {
+  const background = { r: 30, g: 90, b: 60, alpha: 1 };
+  return new Uint8Array(
+    await sharp({ create: { width, height, channels: 4, background } })
+      .png()
+      .toBuffer(),
+  );
+}
+
+async function formatOf(bytes: Uint8Array): Promise<string | undefined> {
+  return (await sharp(bytes).metadata()).format;
+}
+
+const OPAQUE_AS_WEBP = { maxSide: 4096, opaqueAsWebp: true };
+
+describe('SharpImageProcessor.normalize output format by purpose and alpha', () => {
+  it('an opaque 5000×3000 PNG background comes out a 4096 px WebP', async () => {
+    const png = await imageOf(5000, 3000, 'png');
+
+    const image = keptOf(await processor.normalize(png, OPAQUE_AS_WEBP));
+
+    expect(image).toMatchObject({ mimeType: 'image/webp', width: 4096, height: 2458 });
+    expect(await formatOf(image.bytes)).toBe('webp');
+  });
+
+  it('an RGBA PNG with every pixel solid also comes out a WebP', async () => {
+    const image = keptOf(await processor.normalize(await solidRgbaPng(300, 200), OPAQUE_AS_WEBP));
+
+    expect(image.mimeType).toBe('image/webp');
+    expect(await formatOf(image.bytes)).toBe('webp');
+  });
+
+  it('a PNG with transparency stays a PNG that keeps its alpha', async () => {
+    const png = await imageOf(300, 200, 'png', true);
+
+    const image = keptOf(await processor.normalize(png, OPAQUE_AS_WEBP));
+
+    expect(image.mimeType).toBe('image/png');
+    expect((await sharp(image.bytes).metadata()).channels).toBe(4);
+  });
+
+  it('a JPEG background comes out a WebP', async () => {
+    const image = keptOf(
+      await processor.normalize(await imageOf(300, 200, 'jpeg'), OPAQUE_AS_WEBP),
+    );
+
+    expect(image.mimeType).toBe('image/webp');
+    expect(await formatOf(image.bytes)).toBe('webp');
+  });
+
+  it('without the option an opaque PNG stays a PNG (token, condition)', async () => {
+    const png = await imageOf(300, 200, 'png');
+
+    expect(keptOf(await processor.normalize(png, TOKEN)).mimeType).toBe('image/png');
+    expect(keptOf(await processor.normalize(png, CONDITION)).mimeType).toBe('image/png');
+  });
+
+  it('bytes that do not decode are refused as before', async () => {
+    const html = new TextEncoder().encode('<html><body>not an image</body></html>');
+
+    expect(await processor.normalize(html, OPAQUE_AS_WEBP)).toMatchObject({
+      ok: false,
+      refusal: { reason: 'not-an-image' },
+    });
+  });
+});
+
 describe('SharpImageProcessor.normalize with square', () => {
   it('a 600×300 PNG with alpha comes out a 256×256 PNG that keeps its alpha', async () => {
     const image = keptOf(

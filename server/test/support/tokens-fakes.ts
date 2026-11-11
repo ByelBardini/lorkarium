@@ -1,6 +1,10 @@
 import { WallsDaoFake } from './walls-fakes';
 import { TokenPatrolsDaoFake } from './token-patrols-fakes';
-import type { BarValuesPo, TokenLayerPo, TokenStylePo } from '../../src/modules/tokens/tokens.po';
+import type {
+  BarValuesWritePo,
+  TokenLayerPo,
+  TokenStylePo,
+} from '../../src/modules/tokens/tokens.po';
 import type {
   DragGroupPo,
   HiddenTokenPo,
@@ -238,12 +242,14 @@ export class TokensDaoFake implements Pick<
     return items.filter(({ tokenId }) => ids.has(tokenId));
   }
 
-  async setBarValues(barId: string, { current, max, temp }: BarValuesPo): Promise<void> {
-    const owner = this.rows.find(({ bars }) => bars.some((bar) => bar.id === barId));
-    if (!owner) throw new Error(`TokensDaoFake has no bar ${barId}`);
-    this.replace(owner.token.id, (found) => ({
+  async setBarValues(tokenId: string, writes: readonly BarValuesWritePo[]): Promise<void> {
+    const valuesOf = new Map(writes.map(({ barId, values }) => [barId, values]));
+    const owner = this.rows.find(({ token }) => token.id === tokenId);
+    const stray = writes.find(({ barId }) => !owner?.bars.some((bar) => bar.id === barId));
+    if (stray) throw new Error(`TokensDaoFake has no bar ${stray.barId} on token ${tokenId}`);
+    this.replace(tokenId, (found) => ({
       ...found,
-      bars: found.bars.map((bar) => (bar.id === barId ? { ...bar, current, max, temp } : bar)),
+      bars: found.bars.map((bar) => ({ ...bar, ...valuesOf.get(bar.id) })),
     }));
   }
 

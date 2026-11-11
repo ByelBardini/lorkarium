@@ -73,7 +73,7 @@ export type ConditionWriteDaos = Readonly<{
     | 'updateDefinition'
     | 'deleteDefinition'
     | 'findDefinitionInCampaign'
-    | 'apply'
+    | 'applyMany'
     | 'remove'
     | 'setRounds'
     | 'stacksOf'
@@ -364,7 +364,7 @@ async function knownDefinition(
   return known;
 }
 
-// One read for every holder: each lands one stack above what it had, up to the cap.
+// One read and one write for every holder: each lands one stack above what it had, up to the cap.
 async function applyTo(
   daos: ConditionWriteDaos,
   holders: readonly ConditionHolder[],
@@ -372,13 +372,11 @@ async function applyTo(
   duration: ConditionDuration,
 ): Promise<ActiveConditionRow[]> {
   const current = await daos.conditions.stacksOf(holders, known.id);
-  const applied: ActiveConditionRow[] = [];
-  for (const holder of holders) {
+  const applications = holders.map((holder) => {
     const had = current.get(holderIdOf(holder)) ?? null;
-    const stacks = RULES.stacksAfterApply(had, known.maxStacks);
-    applied.push(await daos.conditions.apply(holder, known.id, duration, stacks));
-  }
-  return applied;
+    return { holder, stacks: RULES.stacksAfterApply(had, known.maxStacks) };
+  });
+  return daos.conditions.applyMany(known.id, duration, applications);
 }
 
 async function stacksSetOn(

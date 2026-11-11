@@ -76,12 +76,18 @@ export const libraryDocumentActions = pgTable(
     operation: text('operation').notNull(),
     fingerprint: text('fingerprint').notNull(),
     receipt: jsonb('receipt').notNull(),
+    // The housekeeping deletes a receipt a day old: the same actionId after that is a new command.
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.campaignId, t.userId, t.actionId] })],
+  (t) => [
+    primaryKey({ columns: [t.campaignId, t.userId, t.actionId] }),
+    index('library_document_actions_created_idx').on(t.createdAt),
+  ],
 );
 export type DocumentPo = typeof libraryDocuments.$inferSelect;
 export type NewDocumentPo = typeof libraryDocuments.$inferInsert;
 export type DocumentChangesPo = Partial<
   Pick<DocumentPo, 'name' | 'folderId' | 'visibility' | 'version' | 'updatedAt'>
 >;
-export type DocumentActionPo = typeof libraryDocumentActions.$inferSelect;
+// Written and read without its age: only the housekeeping looks at `created_at`.
+export type DocumentActionPo = Omit<typeof libraryDocumentActions.$inferSelect, 'createdAt'>;

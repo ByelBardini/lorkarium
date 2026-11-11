@@ -64,6 +64,7 @@ export type SheetDaos = SheetHolderDaos &
     sheets: Pick<
       SheetsDao,
       | 'find'
+      | 'lockById'
       | 'listOfToken'
       | 'listOfCharacter'
       | 'characterPlacesOf'
@@ -127,26 +128,29 @@ type Saved = Readonly<{
   skippedBars?: readonly string[];
 }>;
 type WriteInput = UpdateSheetValuesRequestDto | UpdateSheetRequestDto;
-/** What a write is, for the receipt, what it takes of the requester (checked on a replay too)
- *  and whether the library shows what it changes. */
+/** What a write is, for the receipt, what it takes of the requester (checked on a replay too),
+ *  whether the library shows what it changes and whether it locks the table or only the sheet. */
 type WriteKind = Readonly<{
   operation: 'values' | 'update';
   authorize: (rules: SheetAccessBo) => void;
   library: boolean;
+  locks: 'table' | 'sheet';
 }>;
 const VALUES_WRITE: WriteKind = {
   operation: 'values',
   authorize: (rules) => rules.requireEdit('write values of'),
   library: false,
+  locks: 'sheet',
 };
 const MANAGE_WRITE: WriteKind = {
   operation: 'update',
   authorize: (rules) => rules.requireManage('manage'),
   library: true,
+  locks: 'table',
 };
 
 /** The sheets of the library: read, create (nobody's, a token's or a character's), write values,
- *  manage and delete. Every write locks the table, keeps an idempotent receipt per `actionId`,
+ *  manage and delete. Every write locks the table (a values write only its sheet), keeps an idempotent receipt per `actionId`,
  *  commits, and only then tells the table `sheet:changed` (without values), `library:changed`
  *  when the library line changed and `character:changed` when a character's main sheet did.
  *
@@ -250,7 +254,7 @@ export class SheetsService {
     return this.write(requester, sheetId, input, VALUES_WRITE, async ({ daos, sheet }) => {
       const updatedAt = this.deps.clock.now();
       if (input.patches) {
-        // Merged here, under the table's lock, by the same rule the client shows.
+        // Merged here, under the sheet's lock, by the same rule the client shows.
         const values = sheetValuesDto.parse(applySheetValueEdits(sheet.values, input));
         const saved = await daos.sheets.replaceValues(campaignId, sheetId, { values, updatedAt });
         return { sheet: saved, characters: null };
@@ -332,7 +336,8 @@ export class SheetsService {
     save: (scope: SheetScope) => Promise<Saved>,
   ): Promise<SheetWriteResponseDto> {
     const result = await this.deps.transaction(async (daos) => {
-      const access = await this.lockedAccess(daos, requester);
+      const locked = kind.locks === 'sheet' ? sheetId : undefined;
+      const access = await this.lockedAccess(daos, requester, locked);
       const scope = await this.scopeOf(daos, access, sheetId);
       kind.authorize(scope.rules);
       const fingerprint = commandFingerprint(`sheet-${kind.operation}`, sheetId, input);
@@ -346,13 +351,16 @@ export class SheetsService {
     return this.published(requester.campaignId, result);
   }
 
-  // Locks the table, then reads the membership again under the lock.
+  // Locks the table, or only the row of `sheetId` (a values write; an unknown one locks nothing
+  // and the scope refuses it), then reads the membership again under the lock.
   private async lockedAccess(
     daos: SheetDaos,
     requester: LibraryRequester,
+    sheetId?: string,
   ): Promise<CampaignAccessBo> {
     await viewerAccessOf(this.deps.read.members, requester.campaignId, requester.userId);
-    if (!(await daos.campaigns.lockById(requester.campaignId)))
+    if (sheetId) await daos.sheets.lockById(requester.campaignId, sheetId);
+    else if (!(await daos.campaigns.lockById(requester.campaignId)))
       throw new CampaignNotFoundError(requester);
     return viewerAccessOf(daos.members, requester.campaignId, requester.userId);
   }

@@ -11,6 +11,7 @@ import type {
   ConditionDefinitionUpdatedDto,
   DiceRolledDto,
   DiceRolledSecretlyDto,
+  DocumentTabChangedDto,
   SessionCampaignDeletedDto,
   SessionRemovedFromTableDto,
   SessionCampaignUpdatedDto,
@@ -87,6 +88,9 @@ export type TableSessionUpdate =
   | Readonly<{ kind: 'mapRegionShown'; event: LibraryMapRegionShownDto }>
   /** A sheet of the table changed (no values): whoever shows it reads it again by its route. */
   | Readonly<{ kind: 'sheetChanged'; event: SheetChangedEventDto }>
+  /** The body of one document tab was saved (no content): whoever has that tab open at an older
+   *  version reads it again by its route. */
+  | Readonly<{ kind: 'documentTabChanged'; event: DocumentTabChangedDto }>
   | Readonly<{ kind: 'imagePresentationChanged'; event: ImagePresentationChangedDto }>;
 
 /** What reaches the store of one grid: its snapshot, its events and the drags over it. */
@@ -130,6 +134,9 @@ export type CharactersHandle = Readonly<{
 
 export type TableSessionListener = (update: TableSessionUpdate) => void;
 
+/** Starts fetching an image the board is about to draw (a grid's background, from its snapshot). */
+export type BoardImagePrefetch = (url: string) => void;
+
 export type TableSessionHandle = Readonly<{
   close: () => void;
   /** Asks for a fresh board snapshot; it arrives as a `board` update. */
@@ -156,6 +163,8 @@ export interface TableSessionApi {
  *  (spec §5.6). Every open table shares one connection: it connects with the first and
  *  disconnects after the last closes.
  *
+ *  `prefetchImage` gets each snapshot's background url before the board does.
+ *
  *  Example: `new RealtimeTableSessionApi(new SocketIoRealtimeTransport(), () => crypto.randomUUID())` */
 export class RealtimeTableSessionApi implements TableSessionApi {
   private readonly visits = new Set<TableVisit>();
@@ -163,10 +172,12 @@ export class RealtimeTableSessionApi implements TableSessionApi {
   constructor(
     private readonly transport: RealtimeTransport,
     private readonly newActionId: () => string,
+    private readonly prefetchImage: BoardImagePrefetch = () => undefined,
   ) {}
 
   open(campaignId: string, listener: TableSessionListener): TableSessionHandle {
-    const visit = new TableVisit(this.transport, this.newActionId, campaignId, listener);
+    const { transport, newActionId, prefetchImage } = this;
+    const visit = new TableVisit(transport, newActionId, campaignId, listener, prefetchImage);
     const isFirst = this.visits.size === 0;
     this.visits.add(visit);
     visit.start(this.transport.isConnected());

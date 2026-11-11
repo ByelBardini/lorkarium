@@ -411,12 +411,12 @@ export class TokensService {
     const found = await tokenIn(daos, scene, scene.campaignId, tokenId);
     const writes = writesOf(found);
     const character = await linkedCharacterIn(locked, found);
-    const bars = character ? daos.characters : daos.tokens;
-    for (const { barId, values } of writes) await bars.setBarValues(barId, values);
     if (character) {
+      await daos.characters.setBarValues(character.character.id, writes);
       const shared = await characterIn(daos, scene.campaignId, character.character.id);
       return { value: { changed: null, shared, veiled: null }, grid: false, characters: true };
     }
+    await daos.tokens.setBarValues(found.token.id, writes);
     const changed = await this.reread(daos, scene, found);
     const veiled = await changeSceneOf(daos, scene, found, changed.row, false);
     return { value: { changed, shared: null, veiled }, grid: true, characters: false };

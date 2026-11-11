@@ -1,4 +1,5 @@
 import type { ResizeHandle } from '@lorkarium/game-core';
+import type { BoardIntent } from './board-renderer';
 import type { BoardView, TokenView } from './board-view';
 import type { Point } from './camera';
 import { topDrawingAt, type DrawingView } from './drawing-view';
@@ -42,6 +43,11 @@ export type MenuRoute =
   | Readonly<{ kind: 'light'; lightId: string }>
   | Readonly<{ kind: 'token'; tokenId: string }>
   | null;
+
+type BoardMenuIntent = Extract<
+  BoardIntent,
+  { kind: 'doorMenuRequested' | 'lightMenuRequested' | 'tokenMenuRequested' }
+>;
 
 /** What the pointer without a button shows: the token whose name appears, the handle whose
  *  stretch cursor appears. */
@@ -114,6 +120,19 @@ export function menuRouteOf(view: BoardView, world: Point, zoom: number): MenuRo
   if (light) return { kind: 'light', lightId: light.id };
   const tokenId = tokenMenuTarget(view, grabbedTokenAt(view.tokens, world));
   return tokenId ? { kind: 'token', tokenId } : null;
+}
+
+/** The intent a short right click sends at `at` (viewport px); `null` with no menu there.
+ *
+ *  Example: `menuIntentOf({ kind: 'door', wallId }, { x, y }) // { kind: 'doorMenuRequested', … }` */
+export function menuIntentOf(
+  menu: MenuRoute,
+  at: Readonly<{ x: number; y: number }>,
+): BoardMenuIntent | null {
+  if (menu?.kind === 'door') return { kind: 'doorMenuRequested', wallId: menu.wallId, ...at };
+  if (menu?.kind === 'light') return { kind: 'lightMenuRequested', lightId: menu.lightId, ...at };
+  if (menu?.kind === 'token') return { kind: 'tokenMenuRequested', tokenId: menu.tokenId, ...at };
+  return null;
 }
 
 /** The route of the pointer moving with no button pressed.

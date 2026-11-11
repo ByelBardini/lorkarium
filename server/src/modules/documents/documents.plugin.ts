@@ -23,7 +23,7 @@ export type DocumentsModuleOptions = Readonly<{
   db: Database;
   assets: AssetsService;
   clock: ClockPort;
-  publisher: Pick<LibraryPublisherPort, 'libraryChanged'>;
+  publisher: Pick<LibraryPublisherPort, 'libraryChanged' | 'documentTabChanged'>;
 }>;
 export function documentDaos(executor: DatabaseExecutor): DocumentDaos {
   return {

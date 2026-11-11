@@ -3,7 +3,7 @@ import { CrosshairIcon, LockIcon } from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useBoardSight } from '@/features/board/use-board-sight';
+import { useBoardSeen } from '@/features/board/use-board-sight';
 import { BarMeter } from '@/features/tokens/bar-meter';
 import { BarQuickEdit } from '@/features/tokens/bar-quick-edit';
 import { TokenFace } from '@/features/tokens/token-face';
@@ -187,7 +187,7 @@ export type LocateButtonProps = Readonly<{
  *
  *  Example: `<LocateButton token={lyra} name="Lyra" board={board} interaction={interaction} />` */
 export function LocateButton({ token, name, board, interaction }: LocateButtonProps) {
-  const sight = useBoardSight(board, interaction);
+  const sight = useBoardSeen(board, interaction);
   const onGrid = useOnGrid(board, token.id);
   if (!onGrid || levelOf(sight, token.id) !== 'seen') return null;
   return (

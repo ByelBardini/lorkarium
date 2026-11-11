@@ -1,4 +1,5 @@
 import { imagePresentation } from '../support/image-presentation-fixtures';
+import type { DocumentTabChangedDto } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   RealtimeTableSessionApi,
@@ -7,11 +8,15 @@ import {
   type TableSessionUpdate,
 } from '@/services/table-session-api';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
+import { PixiTextureCache } from '@/renderer/pixi-texture-cache';
 import { RealtimeTransportFake } from '../support/realtime-transport-fake';
+import { TextureAssetsFake } from '../support/texture-assets-fake';
 import { TORRE_SCENE, torreBoard } from '../support/scene-tab-fixtures';
 import { veiledTorch } from '../support/light-fixtures';
+import { documentTabChanged } from '../support/documents-fixtures';
 import {
   boardPinged,
+  VHARN_SCENE,
   vharnBoard,
   vharnState,
   veiledLightsChanged,
@@ -163,5 +168,151 @@ describe('veiled lights of a table visit', () => {
     transport.serverEmits('token:veiledLightsChanged', event);
 
     expect(veiledOf(tableUpdates)).toEqual([]);
+  });
+});
+
+describe('document:tabChanged of a table visit', () => {
+  let transport: RealtimeTransportFake;
+  let tableUpdates: TableSessionUpdate[];
+
+  beforeEach(async () => {
+    transport = new RealtimeTransportFake();
+    tableUpdates = [];
+    new RealtimeTableSessionApi(transport, () => ACTION_ID).open(VHARN.id, (update) =>
+      tableUpdates.push(update),
+    );
+    transport.lifecycle({ kind: 'connected' });
+    await transport.answerAck({ ok: true, state: vharnState() });
+    await transport.answerAck({ ok: true, state: vharnBoard() }, 'board:sync');
+  });
+
+  function tabChangesOf(updates: readonly TableSessionUpdate[]): TableSessionUpdate[] {
+    return updates.filter(({ kind }) => kind === 'documentTabChanged');
+  }
+
+  it('a valid document:tabChanged of this table becomes a documentTabChanged update', () => {
+    const event = documentTabChanged({ campaignId: VHARN.id, version: 4 });
+
+    transport.serverEmits('document:tabChanged', event);
+
+    expect(tabChangesOf(tableUpdates)).toEqual([{ kind: 'documentTabChanged', event }]);
+  });
+
+  it('a document:tabChanged of another table is not this one', () => {
+    transport.serverEmits('document:tabChanged', documentTabChanged({ campaignId: QUELM.id }));
+
+    expect(tabChangesOf(tableUpdates)).toEqual([]);
+  });
+
+  it('a document:tabChanged without a version is dropped, with no resync and the visit still live', () => {
+    const noVersion: Partial<DocumentTabChangedDto> = documentTabChanged({ campaignId: VHARN.id });
+    delete noVersion.version;
+
+    transport.serverEmits('document:tabChanged', noVersion);
+    transport.serverEmits('board:pinged', boardPinged());
+
+    expect(tabChangesOf(tableUpdates)).toEqual([]);
+    expect(transport.pendingAcksOf('board:sync')).toBe(0);
+    expect(tableUpdates.at(-1)).toEqual({ kind: 'pinged', event: boardPinged() });
+  });
+});
+
+/** A payload of another table that writes down every field read from it: a parse reads them all,
+ *  the campaign check only `campaignId`. */
+function foreignPayload(reads: Set<string>): object {
+  const fields = { ...boardPinged({ campaignId: QUELM.id }), version: 9, sceneId: TORRE_SCENE.id };
+  return new Proxy(fields, {
+    get: (target, key, receiver) => {
+      reads.add(String(key));
+      return Reflect.get(target, key, receiver);
+    },
+    ownKeys: (target) => {
+      reads.add('<keys>');
+      return Reflect.ownKeys(target);
+    },
+  });
+}
+
+describe('order and filter of the events of a table visit', () => {
+  let transport: RealtimeTransportFake;
+
+  beforeEach(async () => {
+    transport = new RealtimeTransportFake();
+    const handle = new RealtimeTableSessionApi(transport, () => ACTION_ID).open(VHARN.id, () => {});
+    handle.followCharacters(() => {});
+    transport.lifecycle({ kind: 'connected' });
+    await transport.answerAck({ ok: true, state: vharnState() });
+  });
+
+  it('an event of another table reads only its campaignId, never its DTO, on every event the visit hears', () => {
+    const events = transport.listenedEvents();
+    expect(events.length).toBeGreaterThan(30);
+    for (const event of events) {
+      const reads = new Set<string>();
+      transport.serverEmits(event, foreignPayload(reads));
+      expect({ event, reads: [...reads] }).toEqual({ event, reads: ['campaignId'] });
+    }
+    expect(transport.pendingAcksOf('board:sync')).toBe(1);
+  });
+});
+
+const MAP_ASSET_ID = '5a4b3c2d-1e0f-4a9b-8c7d-6e5f4a3b2c1d';
+const MAP_URL = `/api/assets/${MAP_ASSET_ID}`;
+
+describe('entering a table: both syncs at once and the background fetched with the snapshot', () => {
+  let transport: RealtimeTransportFake;
+  let assets: TextureAssetsFake;
+  let handle: TableSessionHandle;
+  let requestsAtFirstBoard: number | null;
+
+  beforeEach(async () => {
+    transport = new RealtimeTransportFake();
+    assets = new TextureAssetsFake();
+    requestsAtFirstBoard = null;
+    const prefetch = (url: string): void => PixiTextureCache.prefetch(url, assets);
+    handle = new RealtimeTableSessionApi(transport, () => ACTION_ID, prefetch).open(
+      VHARN.id,
+      (update) => {
+        if (update.kind === 'board') requestsAtFirstBoard ??= assets.requests.length;
+      },
+    );
+    handle.followCharacters(() => {});
+    transport.lifecycle({ kind: 'connected' });
+    await transport.answerAck({ ok: true, state: vharnState() });
+  });
+
+  function mapBoard(): ReturnType<typeof vharnBoard> {
+    const background = { assetId: MAP_ASSET_ID, width: 2048, height: 1024 };
+    return vharnBoard({ scene: { ...VHARN_SCENE, background } });
+  }
+
+  it('the join sends board:sync and character:sync before any of them answers', () => {
+    expect(transport.pendingAcksOf('board:sync')).toBe(1);
+    expect(transport.pendingAcksOf('character:sync')).toBe(1);
+  });
+
+  it('the snapshot with a background asks the texture loader for it before the board hears of it', async () => {
+    await transport.answerAck({ ok: true, state: mapBoard() }, 'board:sync');
+
+    expect(assets.requests.map(({ src }) => src)).toEqual([MAP_URL]);
+    expect(requestsAtFirstBoard).toBe(1);
+  });
+
+  it('a snapshot without a background asks the loader for nothing', async () => {
+    await transport.answerAck({ ok: true, state: vharnBoard() }, 'board:sync');
+
+    expect(requestsAtFirstBoard).toBe(0);
+    expect(assets.requests).toEqual([]);
+  });
+
+  it('the snapshot of an extra tab fetches its background too', async () => {
+    await transport.answerAck({ ok: true, state: vharnBoard() }, 'board:sync');
+    handle.watch(TORRE_SCENE.id, () => {});
+    const background = { assetId: MAP_ASSET_ID, width: 512, height: 512 };
+    const state = torreBoard({ scene: { ...TORRE_SCENE, background } });
+
+    await transport.answerAck({ ok: true, state }, 'scene:watch');
+
+    expect(assets.requests.map(({ src }) => src)).toEqual([MAP_URL]);
   });
 });

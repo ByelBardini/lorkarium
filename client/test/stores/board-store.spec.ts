@@ -29,6 +29,9 @@ import { biaCone } from '../support/effect-area-fixtures';
 import { ESTRADA_SCENE, estradaBoard } from '../support/scene-tab-fixtures';
 import { CORRIDOR_TORCH_ID, corridorTorch, veiledTorch } from '../support/light-fixtures';
 import { formChangedAt, shapeshiftingLyra } from '../support/token-form-fixtures';
+import { chatSent } from '../support/chat-fixtures';
+import { biaRolled } from '../support/dice-fixtures';
+import { NotificationCounter } from '../support/notification-counter';
 
 const AT_OF_AREAS = '2026-10-18T12:00:00.000Z';
 
@@ -565,6 +568,39 @@ describe('board store', () => {
         { kind: 'veiledLights', event: otherTable },
       );
       expect(store.getState().board?.veiledLights).toEqual([]);
+    });
+  });
+  describe('notifications', () => {
+    it.each([
+      ['a chat message', { kind: 'chatSent', event: chatSent() }],
+      ['a roll', { kind: 'diceRolled', event: biaRolled() }],
+      ['a presence status', { kind: 'status', status: 'live' }],
+    ] as const)('%s tells no subscriber of the board', (_, update) => {
+      apply({ kind: 'board', state: vharnBoard() });
+      const notified = new NotificationCounter(store);
+
+      apply(update);
+
+      expect(notified.count).toBe(0);
+    });
+
+    it('a group move with nobody dragging keeps the very same dragged cells', () => {
+      apply({ kind: 'board', state: vharnBoard({ tokens: [lyra()] }) });
+      const before = store.getState().dragged;
+      const moves = [{ tokenId: LYRA_ID, col: 8, row: 6 }];
+
+      apply({ kind: 'boardEvent', event: eventAt(5, { type: 'tokensMoved', payload: { moves } }) });
+
+      expect(store.getState().dragged).toBe(before);
+    });
+
+    it('a confirmed event notifies once', () => {
+      apply({ kind: 'board', state: vharnBoard() });
+      const notified = new NotificationCounter(store);
+
+      apply(sceneEvent(5));
+
+      expect(notified.count).toBe(1);
     });
   });
 });

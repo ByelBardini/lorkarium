@@ -61,3 +61,25 @@ export const updateDocumentTabContentRequestDto = z.strictObject({
   content: documentContentDto,
 });
 export type UpdateDocumentTabContentRequestDto = z.infer<typeof updateDocumentTabContentRequestDto>;
+
+/** Document event names on the table connection. */
+export const DOCUMENT_EVENTS = { tabChanged: 'document:tabChanged' } as const;
+
+/** `document:tabChanged`: the body of one tab was saved (its version is now `version`). Only the
+ *  ids go through the socket; whoever has that tab open reads it again by the route, so neither
+ *  the body nor a title leaks. A `masters` tab goes only to the masters of the table.
+ *
+ *  Example: `documentTabChangedDto.parse({ campaignId, documentId, tabId, version: 4, at })` */
+export const documentTabChangedDto = z.strictObject({
+  campaignId: z.uuid(),
+  documentId: z.uuid(),
+  tabId: z.uuid(),
+  version: documentVersionDto,
+  at: z.iso.datetime(),
+});
+export type DocumentTabChangedDto = z.infer<typeof documentTabChangedDto>;
+
+/** Server → room document events, merged into `LibraryServerEvents`. */
+export type DocumentServerEvents = {
+  'document:tabChanged': (event: DocumentTabChangedDto) => void;
+};

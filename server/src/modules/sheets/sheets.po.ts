@@ -54,6 +54,10 @@ export const tokenSheets = pgTable(
     unique('token_sheets_campaign_id_id_unique').on(t.campaignId, t.id),
     index('token_sheets_template_idx').on(t.campaignId, t.templateId),
     index('token_sheets_token_idx').on(t.campaignId, t.tokenId),
+    // The FK action of a deleted token looks up by token_id alone, which the pair above cannot lead.
+    index('token_sheets_token_only_idx')
+      .on(t.tokenId)
+      .where(sql`${t.tokenId} IS NOT NULL`),
     index('token_sheets_folder_idx').on(t.campaignId, t.folderId),
     index('token_sheets_character_idx').on(t.campaignId, t.characterId),
     // Narrowed by hand to SET NULL ("character_id"), as the folder key below.
@@ -93,11 +97,17 @@ export const sheetActions = pgTable(
     operation: text('operation').notNull(),
     fingerprint: text('fingerprint').notNull(),
     receipt: jsonb('receipt').notNull(),
+    // The housekeeping deletes a receipt a day old: the same actionId after that is a new command.
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.campaignId, t.userId, t.actionId] })],
+  (t) => [
+    primaryKey({ columns: [t.campaignId, t.userId, t.actionId] }),
+    index('sheet_actions_created_idx').on(t.createdAt),
+  ],
 );
 
 export type SheetPo = typeof tokenSheets.$inferSelect;
 export type NewSheetPo = typeof tokenSheets.$inferInsert;
 export type SheetVisibilityPo = SheetPo['visibility'];
-export type SheetActionPo = typeof sheetActions.$inferSelect;
+// Written and read without its age: only the housekeeping looks at `created_at`.
+export type SheetActionPo = Omit<typeof sheetActions.$inferSelect, 'createdAt'>;

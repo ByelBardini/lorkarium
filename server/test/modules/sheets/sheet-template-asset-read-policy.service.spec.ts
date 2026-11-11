@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { SheetHolderService } from '../../../src/modules/sheets/sheet-holder.service';
 import { SheetTemplateAssetReadPolicy } from '../../../src/modules/sheets/sheet-template-asset-read-policy.service';
 import { ANA_ID } from '../../support/auth-factories';
 import { BIA_ID, CAIO_ID, DUDA_ID, VHARN_ID } from '../../support/campaigns-factories';
@@ -10,7 +9,7 @@ import {
 import { LYRA_SHEET_ID } from '../../support/sheets-fakes';
 
 function policyOf(harness: SheetTemplateAssetsHarness): SheetTemplateAssetReadPolicy {
-  return new SheetTemplateAssetReadPolicy(harness.readWork, new SheetHolderService());
+  return new SheetTemplateAssetReadPolicy(harness.readWork);
 }
 
 function usedByLyra(harness: SheetTemplateAssetsHarness, campaignId = VHARN_ID): void {

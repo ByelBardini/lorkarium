@@ -1,0 +1,1 @@
+CREATE INDEX "saved_rolls_folder_idx" ON "saved_rolls" USING btree ("folder_id") WHERE "saved_rolls"."folder_id" IS NOT NULL;

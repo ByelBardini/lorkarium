@@ -1,6 +1,8 @@
 import type { TokenDto, WallDto } from '@lorkarium/contracts';
+import { useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
   TOO_MANY_TABLES_MESSAGE,
   sessionFailureMessage,
@@ -80,6 +82,8 @@ export type BoardAreaProps = Readonly<{
   clock?: InteractionClock;
   /** The master's patrol editor: its draft is drawn and a press adds its next point. */
   patrolEditor?: StoreApi<TokenPatrolEditor>;
+  /** The grid tab shown: the canvas stays, only its scene and camera change with it. */
+  tabKey?: string;
 }>;
 
 /** What fills the room behind the floating UI: the canvas once the board is ready, or why not.
@@ -93,22 +97,47 @@ export function BoardArea({ view, ...canvas }: BoardAreaProps): React.JSX.Elemen
 type OpenBoardProps = Omit<BoardAreaProps, 'view'> &
   Readonly<{ presence: StoreApi<TablePresenceStore>; board: StoreApi<BoardStore> }>;
 
+// The canvas mounts with the first grid ready and stays, hidden, while another tab loads or
+// fails: switching tabs never pays a new WebGL context nor reloads the textures.
 function OpenBoard({ presence, board, ...canvas }: OpenBoardProps): React.JSX.Element | null {
   const sessionFailure = useTablePresence(presence, (state) => state.failure);
   const status = useBoard(board, (state) => state.status);
+  const alert = boardAlertOf(sessionFailure, status, board);
+  const ready = !alert && status === 'ready';
+  const opened = useOpenedOnce(ready);
+  return (
+    <>
+      {alert}
+      {ready && <EffectAreasSummary key={canvas.tabKey} board={board} presence={presence} />}
+      {opened && (
+        <div
+          className={cn('absolute inset-0', !ready && 'invisible')}
+          inert={!ready}
+          aria-hidden={ready ? undefined : true}
+        >
+          <InteractiveCanvas board={board} {...canvas} />
+        </div>
+      )}
+    </>
+  );
+}
+
+function useOpenedOnce(ready: boolean): boolean {
+  const [opened, setOpened] = useState(ready);
+  if (ready && !opened) setOpened(true);
+  return opened || ready;
+}
+
+function boardAlertOf(
+  sessionFailure: TablePresenceStore['failure'],
+  status: BoardStore['status'],
+  board: StoreApi<BoardStore>,
+): React.JSX.Element | null {
   if (sessionFailure && sessionFailure !== 'unauthenticated') {
     return <BoardAlert message={sessionFailureMessage(sessionFailure)} />;
   }
-  if (status === 'failed') {
-    return <BoardAlert message={BOARD_LOAD_FAILED} onRetry={() => board.getState().retry()} />;
-  }
-  if (status === 'loading') return null;
-  return (
-    <>
-      <EffectAreasSummary board={board} presence={presence} />
-      <InteractiveCanvas board={board} {...canvas} />
-    </>
-  );
+  if (status !== 'failed') return null;
+  return <BoardAlert message={BOARD_LOAD_FAILED} onRetry={() => board.getState().retry()} />;
 }
 
 function InteractiveCanvas({
@@ -131,6 +160,7 @@ function InteractiveCanvas({
   onPing,
   clock,
   patrolEditor,
+  tabKey,
 }: Omit<OpenBoardProps, 'presence'>): React.JSX.Element {
   const onKeyDown = useBoardKeyboard({
     board,
@@ -150,6 +180,7 @@ function InteractiveCanvas({
         createBoardRenderer={createBoardRenderer}
         clock={clock}
         patrolEditor={patrolEditor}
+        tabKey={tabKey}
         onIntent={(intent) => {
           if (intent.kind === 'patrolPointPicked') {
             return patrolEditor?.getState().addPoint(intent.cell);

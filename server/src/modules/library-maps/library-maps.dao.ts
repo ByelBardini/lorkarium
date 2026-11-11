@@ -12,10 +12,17 @@ import {
 /** A map as its gates read it: the row and whether a private folder above it hides it. */
 export type LibraryMapReachPo = LibraryMapPo & Readonly<{ hiddenByFolder: boolean }>;
 export type LibraryMapRow = Readonly<{ map: LibraryMapReachPo; asset: AssetPo }>;
+/** A map as the library lists it, before its folder chain is decided. */
+export type LibraryMapListedRow = Readonly<{ map: LibraryMapPo; asset: AssetPo }>;
 const MAP_WITH_FOLDER = {
   ...getTableColumns(libraryMaps),
   hiddenByFolder: hiddenByFolderSql('"library_maps"."folder_id"'),
 };
+
+const MAP_ASSET = and(
+  eq(assets.id, libraryMaps.assetId),
+  eq(assets.campaignId, libraryMaps.campaignId),
+);
 
 /** Every query filters by the campaign of the session: an id of another campaign finds, changes
  *  and deletes nothing. Receives the `db` or an open `tx`.
@@ -31,11 +38,17 @@ export class LibraryMapsDao {
     return saved;
   }
 
-  /** The maps of the campaign with their images, in creation order.
+  /** The maps of the campaign with their images, in creation order, without the folder chain
+   *  (the library decides it over the folders it already read).
    *
    *  Example: `await mapsDao.listOfCampaign(campaignId)` */
-  async listOfCampaign(campaignId: string): Promise<LibraryMapRow[]> {
-    return this.rowsWhere(eq(libraryMaps.campaignId, campaignId));
+  async listOfCampaign(campaignId: string): Promise<LibraryMapListedRow[]> {
+    return this.db
+      .select({ map: libraryMaps, asset: assets })
+      .from(libraryMaps)
+      .innerJoin(assets, MAP_ASSET)
+      .where(eq(libraryMaps.campaignId, campaignId))
+      .orderBy(libraryMaps.createdAt, libraryMaps.id);
   }
 
   /** Example: `await mapsDao.findInCampaign(campaignId, mapId)` */
@@ -141,10 +154,7 @@ export class LibraryMapsDao {
     return this.db
       .select({ map: MAP_WITH_FOLDER, asset: assets })
       .from(libraryMaps)
-      .innerJoin(
-        assets,
-        and(eq(assets.id, libraryMaps.assetId), eq(assets.campaignId, libraryMaps.campaignId)),
-      )
+      .innerJoin(assets, MAP_ASSET)
       .where(condition)
       .orderBy(libraryMaps.createdAt, libraryMaps.id);
   }

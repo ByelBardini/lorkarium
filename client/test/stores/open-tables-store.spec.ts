@@ -14,7 +14,7 @@ import { tabInteractions } from '../support/tab-interactions';
 import { TableSessionApiFake } from '../support/table-session-api-fake';
 import { copiedOf } from '@/lib/paste-placement';
 import { chatSent, directBetween } from '../support/chat-fixtures';
-import { biaRolled } from '../support/dice-fixtures';
+import { biaRolled, biaRolledKept } from '../support/dice-fixtures';
 import {
   BIA_AT_TABLE,
   lyra,
@@ -300,6 +300,15 @@ describe('open tables store', () => {
       });
     });
 
+    it('campaignUpdated that changes nothing shown keeps the very same tables', () => {
+      api.emitTo(VHARN.id, { kind: 'campaignUpdated', event: vharnRenamed({ version: 2 }) });
+      const before = store.getState().tables;
+
+      api.emitTo(VHARN.id, { kind: 'campaignUpdated', event: vharnRenamed({ version: 3 }) });
+
+      expect(store.getState().tables).toBe(before);
+    });
+
     it('campaignUpdated also moves the version of that table presence', () => {
       api.emitTo(VHARN.id, { kind: 'campaignUpdated', event: vharnRenamed({ version: 2 }) });
 
@@ -374,7 +383,7 @@ describe('open tables store', () => {
       api.emitTo(VHARN.id, { kind: 'diceRolled', event: biaRolled() });
 
       expect(diceOf(VHARN.id)).toEqual([
-        { kind: 'rolled', event: biaRolled(), receivedAtMs: 1000, revealAtMs: 3400 },
+        { kind: 'rolled', event: biaRolledKept(), receivedAtMs: 1000, revealAtMs: 3400 },
       ]);
       expect(diceOf(QUELM.id)).toEqual([]);
     });

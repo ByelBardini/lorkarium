@@ -1,5 +1,6 @@
-import { Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { BitmapText, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
+import { INITIALS_FONT_NAME } from '@/renderer/pixi-initials-font';
 import { PixiTokenLayer, type TokenTextures } from '@/renderer/pixi-token-layer';
 import type { TokenView } from '@/renderer/token-view';
 import { AuraImagesFake, fakeAuraSource } from '../support/aura-decoding-fakes';
@@ -426,5 +427,50 @@ describe('PixiTokenLayer draws the aura images that arrive', () => {
     expect(shown).toEqual([true, true, false, false]);
     expect(layer.animatedAuras().size).toBe(2);
     expect(probe.counts['token.redraw']).toBe(0);
+  });
+});
+
+describe('PixiTokenLayer draws the initials from one atlas', () => {
+  function nodesOf<T extends Container>(node: Container, kind: new () => T): T[] {
+    const own = node instanceof kind ? [node] : [];
+    return node.children.reduce<T[]>((all, child) => [...all, ...nodesOf(child, kind)], own);
+  }
+
+  it('300 tokens draw their initials as bitmap text of the initials font, none as Text', () => {
+    const { layer } = layerWith();
+
+    layer.sync(horde(300), [], 0);
+
+    const initials = nodesOf(layer.container, BitmapText).filter(({ text }) => text === 'GO');
+    expect(initials).toHaveLength(300);
+    expect(new Set(initials.map(({ style }) => style.fontFamily))).toEqual(
+      new Set([INITIALS_FONT_NAME]),
+    );
+    expect(nodesOf(layer.container, Text).filter(({ text }) => text === 'GO')).toEqual([]);
+  });
+
+  it('the initials keep the bone color, tinted over the white atlas', () => {
+    const { layer } = layerWith();
+
+    layer.sync(horde(1), [], 0);
+
+    const [initials] = nodesOf(layer.container, BitmapText);
+    expect(initials?.style.fill).toBe(0xeae5da);
+  });
+
+  it('renaming one token among 300 draws only its initials again', () => {
+    const { layer, probe } = layerWith();
+    layer.sync(horde(300), [], 0);
+    probe.counts['token.redraw'] = 0;
+
+    layer.sync(
+      horde(300, (index) => (index === 4 ? { initials: 'ÉÇ' } : {})),
+      [],
+      16,
+    );
+
+    const renamed = nodesOf(layer.container, BitmapText).filter(({ text }) => text === 'ÉÇ');
+    expect(renamed).toHaveLength(1);
+    expect(probe.counts['token.redraw']).toBe(1);
   });
 });

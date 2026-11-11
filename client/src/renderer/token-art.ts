@@ -6,7 +6,7 @@ export type ArtImageSize = Readonly<{ width: number; height: number }>;
 export type ArtBox = Readonly<{ x: number; y: number; width: number; height: number }>;
 
 /** How the image fits a token of `token` px: whole inside it (`square`, contain: a cut-out PNG
- *  keeps its tips), or filling the ellipse (`round`, cover: the mask trims the overflow). The fit is
+ *  keeps its tips), or filling the ellipse (`round`, cover: the ellipse it fills trims the overflow). The fit is
  *  made on a square and then stretched with the token, so a token stretched by one side stretches
  *  its image and one scaled by a corner keeps it.
  *
@@ -18,6 +18,27 @@ export function artBox(frame: TokenFrameDto, image: ArtImageSize, token: ArtImag
   const height = image.height * scale * token.height;
   return { x: (token.width - width) / 2, y: (token.height - height) / 2, width, height };
 }
+
+/** Where the image's center sits from the token's center, and the scale that takes the image's
+ *  px to the token's (signed by the flips): what the sprite and the round fill both apply.
+ *
+ *  Example: `artPlacement({ frame: 'round', flipX: true, flipY: false }, { width: 400, height: 600 }, { width: 64, height: 64 }) // { x: 0, y: 0, scaleX: -0.16, scaleY: 0.16 }` */
+export function artPlacement(
+  art: Readonly<{ frame: TokenFrameDto; flipX: boolean; flipY: boolean }>,
+  image: ArtImageSize,
+  token: ArtImageSize,
+): ArtPlacement {
+  const box = artBox(art.frame, image, token);
+  const signs = flipSigns(art.flipX, art.flipY);
+  return {
+    x: box.x + box.width / 2 - token.width / 2,
+    y: box.y + box.height / 2 - token.height / 2,
+    scaleX: (signs.x * box.width) / image.width,
+    scaleY: (signs.y * box.height) / image.height,
+  };
+}
+
+export type ArtPlacement = Readonly<{ x: number; y: number; scaleX: number; scaleY: number }>;
 
 /** The scale signs that mirror the image (the flips of the right-click menu).
  *

@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { Profiler } from 'react';
 import userEvent from '@testing-library/user-event';
 import { cell } from '@lorkarium/game-core';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -12,6 +13,7 @@ import { createBoardStore, type BoardStore } from '@/stores/board-store';
 import { createTablePresenceStore, type TablePresenceStore } from '@/stores/table-presence-store';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
+import { RenderCounter } from '../../support/render-counter';
 import {
   LYRA_ID,
   groupDraggedOver,
@@ -395,5 +397,74 @@ describe('SceneTokenList while Lyra turns', () => {
 
     await act(async () => commands.release());
     expect(listed()).toEqual([expect.stringContaining('Lyra')]);
+  });
+});
+
+describe('SceneTokenList while someone else drags a goblin', () => {
+  // Bia in the dark: Lyra's torch of 3 + 3 cells at (3, 4) shows the goblin at (5, 4); from
+  // (15, 4) nothing shows him.
+  const GOBLIN_ID = 'bb22cc33-dd44-4e55-8f66-0011223344aa';
+  let board: StoreApi<BoardStore>;
+  let renders: RenderCounter;
+
+  beforeEach(() => {
+    board = createBoardStore(VHARN.id, () => undefined);
+    const presence = createTablePresenceStore(VHARN.id);
+    presence.getState().apply({ kind: 'state', state: vharnState() });
+    const interaction = createBoardInteractionStore({
+      scopeOf: () => VHARN_GRID,
+      commands: new TableBoardCommandsFake(),
+      describeRefusal: String,
+    });
+    const torch = { light: { bright: 3, dim: 3, color: null, angle: 360 }, lightLit: true };
+    const goblin = lyra({ id: GOBLIN_ID, name: 'Goblin', col: 5, row: 4, canControl: false });
+    board.getState().apply({
+      kind: 'board',
+      state: vharnBoard({
+        viewer: { userId: BIA_AT_TABLE.userId, role: 'player' },
+        scene: { ...VHARN_SCENE, vision: 'dark' },
+        tokens: [lyra({ sight: null, ...torch }), { ...goblin, controllerIds: [] }],
+      }),
+    });
+    renders = new RenderCounter();
+    render(
+      <Profiler id="na-cena" onRender={renders.onRender}>
+        <SceneTokenList
+          board={board}
+          presence={presence}
+          interaction={interaction}
+          isMaster={false}
+        />
+      </Profiler>,
+    );
+    renders.count = 0;
+  });
+
+  function goblinDraggedTo(col: number): void {
+    const drag = groupDraggedOver([{ tokenId: GOBLIN_ID, cell: { col, row: 4 } }]);
+    act(() => board.getState().apply({ kind: 'tokensDragged', drag }));
+  }
+
+  it('the goblin dragged a cell while still seen does not render the list', () => {
+    goblinDraggedTo(4);
+
+    expect(renders.count).toBe(0);
+  });
+
+  it('Lyra, the eye, dragged a cell that keeps the goblin in her light does not render the list', () => {
+    const drag = groupDraggedOver([{ tokenId: LYRA_ID, cell: { col: 4, row: 4 } }]);
+    act(() => board.getState().apply({ kind: 'tokensDragged', drag }));
+
+    expect(renders.count).toBe(0);
+  });
+
+  it('the goblin dragged into the dark renders the list once, without him', () => {
+    goblinDraggedTo(15);
+
+    expect(renders.count).toBe(1);
+    const list = within(screen.getByRole('list', { name: 'Na cena' }));
+    expect(list.getAllByRole('button').map((button) => button.textContent)).toEqual([
+      expect.stringContaining('Lyra'),
+    ]);
   });
 });

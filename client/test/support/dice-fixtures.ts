@@ -38,6 +38,17 @@ export function biaRolled(overrides: Partial<DiceRolledDto> = {}): DiceRolledDto
   };
 }
 
+/** `biaRolled()` as the history keeps it: no throw, no 3D model on the dice.
+ *
+ *  Example: `expect(entries[0]?.event).toEqual(biaRolledKept())` */
+export function biaRolledKept(overrides: Partial<DiceRolledDto> = {}): DiceRolledDto {
+  const parts = biaRolled().parts.map((part) => ({
+    ...part,
+    dice: part.dice.map(({ sides, value, status }) => ({ sides, value, status })),
+  }));
+  return biaRolled({ throw: null, parts, ...overrides });
+}
+
 /** The ack of Bia's "Acerto" as the server answers her: the result of `biaRolled` without the
  *  throw (17 + 5 = 22, settling in 2.4 s).
  *

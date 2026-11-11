@@ -72,7 +72,7 @@ describe('the image of a library map', () => {
     const response = await read(live.ana, asset.id);
 
     expect(response.statusCode).toBe(200);
-    expect(response.headers['cache-control']).toBe('private, no-store');
+    expect(response.headers['cache-control']).toBe('private, no-cache');
   });
 
   it('a player and a spectator read a public map', async () => {

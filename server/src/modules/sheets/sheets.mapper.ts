@@ -9,7 +9,14 @@ import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import { SceneAccessBo } from '../scenes/scene-access.bo';
 import type { TokenControl } from '../tokens/token-access.bo';
 import { SheetAccessBo, type SheetHolderReach } from './sheet-access.bo';
-import type { SheetHolderPlacePo, SheetPlacesPo, SheetRow, TokenPlacePo } from './sheets.dao';
+import type {
+  SheetHolderPlacePo,
+  SheetLineRow,
+  SheetListedPo,
+  SheetPlacesPo,
+  SheetRow,
+  TokenPlacePo,
+} from './sheets.dao';
 import type { SheetPo } from './sheets.po';
 
 /** The access of one reader to a sheet, from the row and the place of its holder (`null` = the
@@ -18,7 +25,7 @@ import type { SheetPo } from './sheets.po';
  *  Example: `toSheetAccessBo(access, sheet, { character: lyraPlace }).canEdit()` */
 export function toSheetAccessBo(
   access: CampaignAccessBo,
-  sheet: SheetRow,
+  sheet: Pick<SheetRow, 'id' | 'visibility' | 'hiddenByFolder'>,
   place: SheetHolderPlacePo | null,
 ): SheetAccessBo {
   const holder = place ? toHolderReach(access, place) : null;
@@ -51,7 +58,10 @@ function isTokenSeen(access: CampaignAccessBo, place: TokenPlacePo): boolean {
 /** The holder of `sheet` among places read in bulk (`null` = nobody, or not among them).
  *
  *  Example: `holderPlaceIn(sheet, await sheets.holdersOf(campaignId, [sheet]))` */
-export function holderPlaceIn(sheet: SheetPo, places: SheetPlacesPo): SheetHolderPlacePo | null {
+export function holderPlaceIn(
+  sheet: Pick<SheetPo, 'tokenId' | 'characterId'>,
+  places: SheetPlacesPo,
+): SheetHolderPlacePo | null {
   const token = places.tokens.find(({ tokenId }) => tokenId === sheet.tokenId);
   if (token) return { token };
   const character = places.characters.find(({ characterId: id }) => id === sheet.characterId);
@@ -63,7 +73,7 @@ export function holderPlaceIn(sheet: SheetPo, places: SheetPlacesPo): SheetHolde
  *
  *  Example: `toSheetSummaryDto(sheet, { character: lyraPlace }) // { …, tokenId: null, memberId: biaId }` */
 export function toSheetSummaryDto(
-  sheet: SheetPo,
+  sheet: SheetListedPo,
   place: SheetHolderPlacePo | null,
 ): SheetSummaryDto {
   return {
@@ -97,7 +107,7 @@ export function toSheetDto(
  *  Example: `readableSheetSummaries(caioAccess, sheets, places) // only the table ones he sees` */
 export function readableSheetSummaries(
   access: CampaignAccessBo,
-  sheets: readonly SheetRow[],
+  sheets: readonly SheetLineRow[],
   places: SheetPlacesPo,
 ): SheetSummaryDto[] {
   return sheets.flatMap((sheet) => readableLineOf(access, sheet, holderPlaceIn(sheet, places)));
@@ -108,7 +118,7 @@ export function readableSheetSummaries(
  *  Example: `readableHolderSheets(caioAccess, lyraSheets, { character: lyraPlace })` */
 export function readableHolderSheets(
   access: CampaignAccessBo,
-  sheets: readonly SheetRow[],
+  sheets: readonly SheetLineRow[],
   place: SheetHolderPlacePo,
 ): SheetSummaryDto[] {
   return sheets.flatMap((sheet) => readableLineOf(access, sheet, place));
@@ -116,7 +126,7 @@ export function readableHolderSheets(
 
 function readableLineOf(
   access: CampaignAccessBo,
-  sheet: SheetRow,
+  sheet: SheetLineRow,
   place: SheetHolderPlacePo | null,
 ): SheetSummaryDto[] {
   if (!toSheetAccessBo(access, sheet, place).canRead()) return [];

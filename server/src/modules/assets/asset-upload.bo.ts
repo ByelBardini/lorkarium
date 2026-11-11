@@ -56,6 +56,21 @@ export function outlineFor(purpose: AssetPurpose): boolean {
   return OUTLINED_PURPOSES.has(purpose);
 }
 
+// The big pictures behind the board: an opaque PNG of them weighs ~3× a WebP with no visible
+// gain, in download and in VRAM decode. A transparent one stays PNG.
+const OPAQUE_AS_WEBP_PURPOSES: ReadonlySet<AssetPurpose> = new Set([
+  'background',
+  'library_image',
+  'library_map',
+]);
+
+/** Whether an opaque image sent for `purpose` is kept as WebP whatever format it came in.
+ *
+ *  Example: `opaqueAsWebpFor('background') // true` */
+export function opaqueAsWebpFor(purpose: AssetPurpose): boolean {
+  return OPAQUE_AS_WEBP_PURPOSES.has(purpose);
+}
+
 // Who may read these changes while the id stays the same, so the bytes go through a read policy,
 // are never cached and cannot become the art of something every member sees.
 const PROTECTED_PURPOSES: ReadonlySet<AssetPurpose> = new Set([

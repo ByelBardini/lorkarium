@@ -379,7 +379,9 @@ describe('TokensDao on Postgres', () => {
     const saved = await tokens.insert(lyra());
     const pv = saved.bars[0];
     if (!pv) throw new Error('Lyra was saved without bars');
-    await tokens.setBarValues(pv.id, { current: -4, max: 50, temp: 0 });
+    await tokens.setBarValues(saved.token.id, [
+      { barId: pv.id, values: { current: -4, max: 50, temp: 0 } },
+    ]);
     const found = await tokens.findInScene(sceneId, saved.token.id);
     expect(found?.bars.map(({ current, max }) => [current, max])).toEqual([
       [-4, 50],
@@ -392,9 +394,35 @@ describe('TokensDao on Postgres', () => {
     const pv = saved.bars[0];
     if (!pv) throw new Error('Lyra was saved without bars');
     expect(pv.temp).toBe(0);
-    await tokens.setBarValues(pv.id, { current: 30, max: 50, temp: 7 });
+    await tokens.setBarValues(saved.token.id, [
+      { barId: pv.id, values: { current: 30, max: 50, temp: 7 } },
+    ]);
     const found = await tokens.findInScene(sceneId, saved.token.id);
     expect(found?.bars.map(({ temp }) => temp)).toEqual([7, 0]);
+  });
+
+  it('setBarValues writes every bar of the token in one statement and no bar of another token', async () => {
+    const saved = await tokens.insert(lyra());
+    const other = await tokens.insert(lyra());
+    const [pv, inspiration] = saved.bars;
+    const foreign = other.bars[0];
+    if (!pv || !inspiration || !foreign) throw new Error('Lyra was saved without her 2 bars');
+    queries.reset();
+
+    await tokens.setBarValues(saved.token.id, [
+      { barId: pv.id, values: { current: 10, max: 50, temp: 2 } },
+      { barId: inspiration.id, values: { current: 0, max: 1, temp: 0 } },
+      { barId: foreign.id, values: { current: 99, max: 99, temp: 0 } },
+    ]);
+
+    expect(queries.count).toBe(1);
+    const found = await tokens.findInScene(sceneId, saved.token.id);
+    expect(found?.bars.map(({ current, temp }) => [current, temp])).toEqual([
+      [10, 2],
+      [0, 0],
+    ]);
+    const untouched = await tokens.findInScene(sceneId, other.token.id);
+    expect(untouched?.bars[0]?.current).toBe(foreign.current);
   });
 
   it('a bar saved without a display reads back as number, and percent is kept', async () => {

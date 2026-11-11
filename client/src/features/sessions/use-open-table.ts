@@ -1,5 +1,5 @@
 import { MAX_OPEN_TABLES, type CampaignDetailDto } from '@lorkarium/contracts';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { useOpenTables, type OpenTable, type OpenTablesStore } from '@/stores/open-tables-store';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
@@ -48,12 +48,21 @@ export function useOpenTable(
   useEffect(() => {
     if (!isFull) openTables.getState().open({ campaignId, name, cover });
   }, [campaignId, name, cover, isFull, openTables]);
+  // The same view while the table stands: the room's memo and the keys' listener hang on it.
+  return useMemo(() => tableViewOf(isFull, table, pending), [isFull, table, pending]);
+}
+
+type PendingTable = Omit<Extract<OpenTableView, { kind: 'open' }>, 'kind' | 'tabs'>;
+
+function tableViewOf(
+  isFull: boolean,
+  table: OpenTable | null,
+  pending: PendingTable,
+): OpenTableView {
   if (isFull) return { kind: 'full' };
-  if (table) {
-    const { presence, board, characters, edits, tabs } = table;
-    return { kind: 'open', presence, board, characters, edits, tabs };
-  }
-  return { kind: 'open', ...pending, tabs: null };
+  if (!table) return { kind: 'open', ...pending, tabs: null };
+  const { presence, board, characters, edits, tabs } = table;
+  return { kind: 'open', presence, board, characters, edits, tabs };
 }
 
 function tableOf(state: OpenTablesStore, campaignId: string): OpenTable | null {

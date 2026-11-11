@@ -8,6 +8,7 @@ import { AssetsDao } from '../../src/modules/assets/assets.dao';
 import { UsersDao } from '../../src/modules/auth/users.dao';
 import { CampaignsDao } from '../../src/modules/campaigns/campaigns.dao';
 import { campaigns } from '../../src/modules/campaigns/campaigns.po';
+import { LibraryImagesDao } from '../../src/modules/library/library-images.dao';
 import { SceneFoldersDao } from '../../src/modules/library/scene-folders.dao';
 import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
 import { tokens } from '../../src/modules/tokens/tokens.po';
@@ -255,6 +256,43 @@ describe('SceneFoldersDao and the library queries of ScenesDao on Postgres', () 
 
       expect(await scenesDao.delete(quelmId, hall.id)).toBe(false);
       expect(await scenesDao.findById(hall.id)).toBeDefined();
+    });
+  });
+
+  describe('LibraryImagesDao.findByAsset', () => {
+    async function portraitIn(campaignId: string, folderId: string | null): Promise<string> {
+      const asset = newAssetPo({ campaignId, purpose: 'library_image' });
+      const { id: assetId } = await new AssetsDao(connection.db).insert(asset);
+      await new LibraryImagesDao(connection.db).insert({
+        campaignId,
+        assetId,
+        folderId,
+        name: 'R',
+      });
+      return assetId;
+    }
+
+    it('finds the record of the file in its campaign, hidden by a private folder above it', async () => {
+      const segredos = await folders.insert({
+        campaignId: vharnId,
+        name: 'Segredos',
+        visibility: 'private',
+      });
+      const assetId = await portraitIn(vharnId, segredos.id);
+      await portraitIn(vharnId, null);
+
+      const found = await new LibraryImagesDao(connection.db).findByAsset(vharnId, assetId);
+
+      expect(found).toMatchObject({ image: { assetId }, asset: { id: assetId } });
+      expect(found?.hiddenByFolder).toBe(true);
+    });
+
+    it('finds nothing for the file of Vharn asked through Quelm', async () => {
+      const assetId = await portraitIn(vharnId, null);
+
+      expect(
+        await new LibraryImagesDao(connection.db).findByAsset(quelmId, assetId),
+      ).toBeUndefined();
     });
   });
 });

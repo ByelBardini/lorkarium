@@ -1,4 +1,5 @@
 import type {
+  DocumentTabChangedDto,
   LibraryChangedDto,
   LibraryMapChangedDto,
   LibraryMapRegionShownDto,
@@ -7,7 +8,7 @@ import type {
 } from '@lorkarium/contracts';
 import type { LibraryPublisherPort } from '../../modules/library/library-publisher.port';
 import type { RealtimeServer } from '../../realtime/realtime-server';
-import { campaignRoom } from '../../realtime/rooms';
+import { campaignMastersRoom, campaignRoom } from '../../realtime/rooms';
 
 /** Emits each library change to the room of its table, and only there (spec §2.6).
  *
@@ -33,5 +34,12 @@ export class SocketIoLibraryPublisher implements LibraryPublisherPort {
 
   sceneActivated(event: SceneActivatedDto): void {
     this.io.to(campaignRoom(event.campaignId)).emit('scene:activated', event);
+  }
+
+  documentTabChanged(event: DocumentTabChangedDto, mastersOnly: boolean): void {
+    const room = mastersOnly
+      ? campaignMastersRoom(event.campaignId)
+      : campaignRoom(event.campaignId);
+    this.io.to(room).emit('document:tabChanged', event);
   }
 }

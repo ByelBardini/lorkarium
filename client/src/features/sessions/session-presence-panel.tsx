@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
+import { useTokensBesidesPose } from '@/features/board/use-board-tokens';
 import { sessionFailureMessage } from '@/features/campaigns/campaign-messages';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import {
@@ -77,14 +78,16 @@ export function SessionPresencePanel(props: SessionPresencePanelProps): React.JS
 
 function TableSections(props: SessionPresencePanelProps): React.JSX.Element | null {
   const members = useTablePresence(props.store, (state) => state.members);
-  const board = useBoard(props.board, (state) => state.board);
+  // Where a token stands is never on the roster: a move renders nothing here.
+  const tokens = useTokensBesidesPose(props.board);
+  const viewerId = useBoard(props.board, (state) => state.board?.viewer.userId ?? '');
   const characters = useCharacters(props.characters, (state) =>
     state.version === null ? null : state.characters,
   );
   const serverAt = useTablePresence(props.store, (state) => state.at);
   const campaignId = useTablePresence(props.store, (state) => state.campaignId);
   if (members.length === 0) return null;
-  const viewerId = board?.viewer.userId ?? '';
+  const board = { tokens };
   const roster = tableRosterOf({ members, board, characters, viewerId, ownerId: props.ownerId });
   const rows = { campaignId, clock: props.clock, serverAt };
   return (

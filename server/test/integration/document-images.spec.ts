@@ -36,7 +36,7 @@ describe('document image authorization and references', () => {
     );
     const readable = await readAsset(live.caio, asset.id);
     expect(readable.statusCode).toBe(200);
-    expect(readable.headers['cache-control']).toBe('private, no-store');
+    expect(readable.headers['cache-control']).toBe('private, no-cache');
     await documents.administer(document, { visibility: 'private' });
     expect((await readAsset(live.caio, asset.id)).statusCode).toBe(404);
   });
