@@ -1,7 +1,7 @@
 import type { SessionMemberDto, TokenDto } from '@lorkarium/contracts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
-import { useBoardSight } from '@/features/board/use-board-sight';
+import { useBoardSeen } from '@/features/board/use-board-sight';
 import { SelectionConditions } from '@/features/combat/selection-conditions';
 import { seenTokensOf } from '@/lib/board-sight';
 import type { PrepItem } from '@/lib/combat-prep';
@@ -30,7 +30,7 @@ const NO_TOKENS: readonly TokenDto[] = [];
  *  Example: `<SceneTokenList board={board} presence={presence} interaction={interaction} isMaster />` */
 export function SceneTokenList(props: SceneTokenListProps): React.JSX.Element {
   const all = useBoard(props.board, (state) => state.board?.tokens ?? NO_TOKENS);
-  const sight = useBoardSight(props.board, props.interaction);
+  const sight = useBoardSeen(props.board, props.interaction);
   // Only what this viewer sees whole (a silhouette or a hidden token is never named), and only the
   // Tokens layer: the chest of Objetos is still picked on the board.
   const sections = useMemo(

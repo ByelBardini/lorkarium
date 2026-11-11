@@ -1,7 +1,7 @@
 import type { CharacterDto, TokenDto } from '@lorkarium/contracts';
 import { useMemo } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
-import { useBoardSight } from '@/features/board/use-board-sight';
+import { useBoardSeen } from '@/features/board/use-board-sight';
 import { ConditionsEditor } from '@/features/combat/conditions-editor';
 import { seenTokensOf } from '@/lib/board-sight';
 import { cellsText, positionText } from '@/lib/cells-text';
@@ -86,7 +86,7 @@ type DockedToken =
 // selection, so nobody moves their own token by accident.
 function useDockedToken({ board, interaction, characters }: TokenDockProps): DockedToken | null {
   const state = useBoard(board, (current) => current.board);
-  const sight = useBoardSight(board, interaction);
+  const sight = useBoardSeen(board, interaction);
   const confirmed = useCharacters(characters, (current) => current.characters);
   const selectedId = useBoardInteraction(interaction, (current) =>
     singleSelectedOf(current.selectedTokenIds),

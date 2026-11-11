@@ -12,6 +12,9 @@ O lado React das regras de desempenho: o que impede painel, lista e sala de re-r
 
    Campo novo em store que um evento comum reescreve com o mesmo valor: passe pelo `changedPatchOf`. Valor recalculado (array ou objeto novo com o mesmo conteúdo) conta como mudança: devolva a referência antiga quando nada mudar.
 
+2. **Painel que só nomeia o visto usa `useBoardSeen`, nunca `useBoardSight`** (`features/board/use-board-sight.ts`; hoje `scene-token-list.tsx` e `token-dock.tsx`). O `useBoardSight` assina `dragged`, `drag` e `patrol`: o painel re-renderizava a cada casa de todo arraste remoto (10/s) e a cada passo de patrulha. O `useBoardSeen` lê as stores por `useSyncExternalStore` e devolve a visão anterior enquanto níveis, olhos e modo forem os mesmos (`sameSeen`). Por baixo, o `sightWithMovedOf` devolve a própria visão anterior quando nenhum nível mudou, e a memória do `sightNowOf` é uma por grid (`WeakMap` pela `scene`), então grupo e aba mostrada não se refazem a frio. Provado em `scene-token-list.spec.tsx` (`RenderCounter` num `<Profiler>`: arraste dentro da luz → 0 renders; para o escuro → 1).
+
 ## Armadilhas
 
 - **Teste de notificação conta assinante, não estado**: `NotificationCounter` (`client/test/support/notification-counter.ts`) assina a store e conta; `toEqual` no estado passa mesmo com notificação à toa.
+- **Contar render com `<Profiler>`** (`RenderCounter`, `client/test/support/render-counter.ts`): zere o contador depois do `render` inicial e conte só o que o evento provoca.
