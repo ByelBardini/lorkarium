@@ -15,7 +15,7 @@ import {
 import { boardOf } from './support/tables';
 
 // The Lork sheet as a real template: built by fixtures/ficha-lork/build-lksheet.ts from the
-// sources in fixtures/ficha-lork/modelo (files, manifest with three permissions and four bars,
+// sources in fixtures/ficha-lork/modelo (files, manifest with four permissions and four bars,
 // and the fonts as assets).
 const LORK_FILE = fileURLToPath(new URL('./fixtures/ficha-lork.lksheet', import.meta.url));
 const PICTURE = fileURLToPath(new URL('./fixtures/token.png', import.meta.url));
@@ -31,7 +31,12 @@ async function importLorkTemplate(admin: Page): Promise<void> {
   await expect(confirm.getByRole('textbox', { name: 'Nome do modelo' })).toHaveValue(TEMPLATE);
   await expect(
     confirm.getByRole('list', { name: 'Permissões pedidas' }).getByRole('listitem'),
-  ).toHaveText(['Gravar CA e CD do personagem', 'Trocar o retrato', 'Enviar imagens']);
+  ).toHaveText([
+    'Gravar CA e CD do personagem',
+    'Trocar o retrato',
+    'Enviar imagens',
+    'Criar barras no personagem',
+  ]);
   await expect(confirm).toContainText(
     'Barras esperadas: HP (até 12), MP (até 10), EN (até 10), ES (até 15)',
   );

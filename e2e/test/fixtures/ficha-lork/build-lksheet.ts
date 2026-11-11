@@ -48,7 +48,7 @@ const FONT_ASSETS = [
 ] as const;
 
 const MANIFEST = {
-  permissions: ['character:stats', 'character:portrait', 'sheet:images'],
+  permissions: ['character:stats', 'character:portrait', 'sheet:images', 'character:bars'],
   bars: [
     { label: 'HP', color: 'ember', max: 12 },
     { label: 'MP', color: 'steel', max: 10 },

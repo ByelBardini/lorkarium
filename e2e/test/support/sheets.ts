@@ -234,7 +234,7 @@ export async function giveLibrarySheetTo(
   expect((await given).status(), `give ${sheet} to ${player}`).toBe(200);
 }
 
-/** The "Abrir ficha de <character>" button of the player's card on the "Na mesa" tab (the one
+/** The "Abrir ficha de <character>" button of the player's card on the "Na mesa" tab (the only
  *  sheet the reader may see), opening `sheet`; answers the content of the sandboxed frame.
  *
  *  Example: `const frame = await openSheetFromCard(bia, 'Lyra', 'Ficha Tormenta · Lyra')` */
@@ -249,7 +249,7 @@ export async function openSheetFromCard(
   return sheetFrameOf(page, sheet);
 }
 
-/** The card's "Fichas de <character>" menu (several sheets, or the master), picking `sheet`.
+/** The card's "Fichas de <character>" menu (several sheets, or the master's with none), picking `sheet`.
  *
  *  Example: `await openSheetFromCardMenu(bia, 'Bia', 'Diário de viagem')` */
 export async function openSheetFromCardMenu(
@@ -272,7 +272,7 @@ export function sheetButtonOf(page: Page, character: string): Locator {
     .getByRole('button', { name: `Abrir ficha de ${character}`, exact: true });
 }
 
-/** The card's "Fichas de <character>" menu button (several sheets, or always for the master). */
+/** The card's "Fichas de <character>" menu button (several sheets, or the master's with none). */
 export function sheetsMenuOf(page: Page, character: string): Locator {
   return page
     .getByRole('region', { name: 'Na mesa' })

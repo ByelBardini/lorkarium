@@ -130,7 +130,24 @@ function contaBarNote(label) {
   if (!filled(label)) return '';
   const b = tableBar(label);
   if (b && resOf(b)) return `${b.label} já tem conta fixa.`;
-  return b ? '' : 'A mesa ainda não tem essa barra.';
+  return b ? '' : 'A mesa ainda não tem essa barra: ela é criada com este máximo.';
+}
+/* barra que a mesa não tem: pedida uma vez por rótulo nesta abertura (o state seguinte a traz);
+   a mesa só a cria se o modelo declara character:bars */
+const creatingBars = new Set();
+function createMissingContaBars(t) {
+  const vals = contaValues(t);
+  for (const [, c] of itemsOf('contas')) {
+    if (!filled(c.bar) || !filled(c.f) || tableBar(c.bar)) continue;
+    const key = barKey(c.bar);
+    const r = evalConta(c.f, vals);
+    if (creatingBars.has(key) || !r.ok || r.value < 1) continue;
+    creatingBars.add(key);
+    lorkarium.bars.create({ label: String(c.bar).trim(), max: r.value }).catch((e) => {
+      creatingBars.delete(key);
+      setStatus('A barra não foi criada: ' + failText(e));
+    });
+  }
 }
 /* [barra da mesa, máximo] das contas válidas; duas contas na mesma barra: vale a última */
 function contaMaxes(t) {

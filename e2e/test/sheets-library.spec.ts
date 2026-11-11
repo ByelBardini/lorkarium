@@ -93,13 +93,13 @@ test('Ana opens the template in a tab, gives a library sheet to Bia before she h
   await expect(sheet.locator('#pv')).toBeVisible();
   expect((await readSheet(bia, campaignId, diary.sheetId)).status).toBe(200);
 
-  // A second sheet for Bia (by "Dono" in the dialog): the button keeps the main one, the menu
+  // A second sheet for Bia (by "Dono" in the dialog): the card's one icon becomes the menu, which
   // lists both, and she opens the second through it.
   const spells = await createSheetInLibrary(library, 'Caderno de magias', 1);
   await closeLibrary(library);
   await bia.getByRole('tab', { name: /^Cena 1/ }).click();
   await bia.getByRole('tab', { name: 'Na mesa' }).click();
-  await expect(sheetButtonOf(bia, 'Bia')).toBeVisible();
+  await expect(sheetButtonOf(bia, 'Bia')).toHaveCount(0);
   await sheetsMenuOf(bia, 'Bia').click();
   const menu = bia.getByRole('menu');
   await expect(menu.getByRole('menuitem', { name: new RegExp(`^${diary.name}`) })).toContainText(
