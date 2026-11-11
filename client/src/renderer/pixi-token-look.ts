@@ -42,7 +42,7 @@ function sharedGreyFilter(): ColorMatrixFilter {
  *  outline around it, "z z" on its top right and, hidden from the players, the crossed eye on its
  *  top left.
  *
- *  Example: `look.draw([disc, art.container, label], tokenLookStyle(view), box)` */
+ *  Example: `look.draw(face, tokenLookStyle(view), box)` */
 export class PixiTokenLook {
   readonly container = new Container();
   private readonly outline = new Graphics();
@@ -64,11 +64,11 @@ export class PixiTokenLook {
     this.container.addChild(this.outline, this.hiddenEye, this.sleep);
   }
 
-  draw(faces: readonly Container[], style: TokenLookStyle, box: LookBox): void {
-    for (const face of faces) {
-      face.alpha = style.alpha;
-      face.filters = style.grey ? [sharedGreyFilter()] : [];
-    }
+  /** `face`: the one container of the token's disc, art and initials. Fading and greying it as a
+   *  whole costs one filter per greyed token, not one per part. */
+  draw(face: Container, style: TokenLookStyle, box: LookBox): void {
+    face.alpha = style.alpha;
+    face.filters = style.grey ? [sharedGreyFilter()] : null;
     this.outline.clear();
     if (style.dashedOutline) drawDashedOutline(this.outline, box);
     this.hiddenEye.clear();
