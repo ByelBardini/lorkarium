@@ -13,6 +13,8 @@ import { keptAnimatedGif } from './animated-gif';
 // 100 megapixels: far above any map, far below a decompression bomb.
 const DEFAULT_MAX_INPUT_PIXELS = 100_000_000;
 const QUALITY = 90;
+// The forum consensus for VTT maps: no visible loss against the PNG at a fraction of its weight.
+const CONVERTED_WEBP_QUALITY = 85;
 const EXPECTED = 'expected png, jpeg or webp';
 const EXPECTED_ANIMATED = 'expected png, jpeg, webp or gif';
 
@@ -56,11 +58,12 @@ export class SharpImageProcessor implements ImageProcessorPort {
   // No `animated`: sharp reads only the 1st frame, since only an aura moves (an animated WebP or
   // APNG comes out still: just the GIF keeps its frames).
   private async still(bytes: Uint8Array, options: NormalizeOptions, inspected: StillInspected) {
-    const { mimeType } = inspected;
+    const mimeType = await this.keptMimeOf(bytes, options, inspected.mimeType);
     const resized = sharp(bytes, { limitInputPixels: this.maxInputPixels })
       .autoOrient()
       .resize(resizeOf(options, inspected.shortSide));
-    const output = await encoded(resized, mimeType)
+    const quality = mimeType === inspected.mimeType ? QUALITY : CONVERTED_WEBP_QUALITY;
+    const output = await encoded(resized, mimeType, quality)
       .toBuffer({ resolveWithObject: true })
       .catch(() => null);
     if (!output) return null;
@@ -73,6 +76,25 @@ export class SharpImageProcessor implements ImageProcessorPort {
       height: info.height,
       outline,
     };
+  }
+
+  // A transparent pixel keeps the sent format: only PNG and WebP carry alpha, and a JPEG has none.
+  private async keptMimeOf(
+    bytes: Uint8Array,
+    options: NormalizeOptions,
+    sent: AssetMimeTypeDto,
+  ): Promise<AssetMimeTypeDto> {
+    if (options.opaqueAsWebp !== true || sent === 'image/webp') return sent;
+    if (sent === 'image/jpeg') return 'image/webp';
+    const opaque = await this.isOpaque(bytes);
+    return opaque ? 'image/webp' : sent;
+  }
+
+  // `isOpaque` reads the alpha channel; most editors export RGBA even for a map with no hole.
+  private async isOpaque(bytes: Uint8Array): Promise<boolean> {
+    const image = sharp(bytes, { limitInputPixels: this.maxInputPixels });
+    const stats = await image.stats().catch(() => null);
+    return stats?.isOpaque ?? false;
   }
 
   private async animated(bytes: Uint8Array, frames: number, options: NormalizeOptions) {
@@ -155,8 +177,8 @@ function refused(reason: ImageRefusal['reason'], what: string, expected: string)
   return { ok: false, refusal: { reason, detail: `${what}; ${expected}` } };
 }
 
-function encoded(image: Sharp, mimeType: AssetMimeTypeDto): Sharp {
+function encoded(image: Sharp, mimeType: AssetMimeTypeDto, quality: number): Sharp {
   if (mimeType === 'image/png') return image.png();
-  if (mimeType === 'image/jpeg') return image.jpeg({ quality: QUALITY });
-  return image.webp({ quality: QUALITY });
+  if (mimeType === 'image/jpeg') return image.jpeg({ quality });
+  return image.webp({ quality });
 }

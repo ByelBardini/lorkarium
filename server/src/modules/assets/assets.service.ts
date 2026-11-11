@@ -18,6 +18,7 @@ import {
   dedicatedEndpointOf,
   isMasterOnlyAssetPurpose,
   isProtectedAssetPurpose,
+  opaqueAsWebpFor,
   outlineFor,
   requireSize,
   requireWoff2,
@@ -253,6 +254,7 @@ function keptAs(purpose: AssetPurposeDto): NormalizeOptions {
     ...resize,
     ...(animation ? { animation } : {}),
     ...(outlineFor(purpose) ? { outline: true } : {}),
+    ...(opaqueAsWebpFor(purpose) ? { opaqueAsWebp: true } : {}),
   };
 }
 
