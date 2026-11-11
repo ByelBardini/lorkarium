@@ -59,7 +59,7 @@ Corpo até 2 MiB. Id malformado na URL = 404. Não membro → 404 `CAMPAIGN_NOT_
 
 - `sheet-images.routes.ts` (plugin próprio `createSheetImagesModule({ db, assets })`, registrado no `buildApp` depois do das fichas): parser cru para os tipos do `ASSET_MIME_TYPES`, `bodyLimit` de 20 MiB, e no **`onRequest`** a sessão e depois `SheetImagesService.authorizeSender`: quem só lê a ficha recebe 403 antes de o corpo ser lido (até um corpo acima de 20 MiB). 20 envios por minuto por usuário no `preParsing`.
 - `SheetImagesService.upload`: `requireEdit` num snapshot → `AssetsService.uploadSheetImage` (processa e grava fora de trava) → transação com `lockById` da mesa, `requireEdit` de novo e `SheetAssetsDao.associate`. Direito perdido no meio (ficha excluída, controle tirado) recusa e deixa um asset órfão que ninguém lê. Não publica evento: a ficha guarda o id nos valores.
-- `SheetAssetReadPolicy` (`createSheetAssetReadPolicy(db)`, composta no `readPolicy` do `buildApp` para `purpose = sheet_image`): lê quem lê **alguma** ficha associada (`sheetRulesOf` + `canRead`). Regra de finalidade e cache em [`../assets.md`](../assets.md) (Imagens da ficha).
+- `SheetAssetReadPolicy` (`createSheetAssetReadPolicy(db)`, composta no `readPolicy` do `buildApp` para `purpose = sheet_image`): lê quem lê **alguma** ficha associada, por `readsAnySheet` (`sheet-images.service.ts`): as fichas num `SheetsDao.findLines(campaignId, ids)` (sem `values`, com o oculto por pasta) e os donos em lote (`holdersOf`), então o custo não cresce com o número de fichas que usam a imagem. Regra de finalidade e cache em [`../assets.md`](../assets.md) (Imagens da ficha).
 
 ## Barras pela ficha
 

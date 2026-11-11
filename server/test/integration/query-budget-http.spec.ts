@@ -3,10 +3,13 @@ import {
   campaignLibraryDto,
   libraryImageDto,
   sceneFolderDto,
+  sheetTemplateAssetResponseDto,
   sheetTemplateResponseDto,
+  sheetWriteResponseDto,
   type CampaignLibraryDto,
 } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
+import { SheetAssetsDao } from '../../src/modules/sheets/sheet-assets.dao';
 import { pngOf } from '../support/images';
 import type { SignedInUser } from '../support/sign-in';
 import { useTokenTable } from '../support/token-table';
@@ -19,6 +22,8 @@ const BUDGET = {
   libraryImageRefused: 10,
   libraryPlayer: 13,
   libraryMaster: 14,
+  sheetImage: 11,
+  templateAsset: 11,
 } as const;
 
 const READS_SHEET_VALUES = /"values"[\s\S]*from "token_sheets"/;
@@ -184,6 +189,100 @@ describe('the queries each hot HTTP read costs', () => {
       const assetId = await uploaded(live.quelm, live.caio);
 
       expect(await read(live.bia, assetId)).toBe(404);
+    });
+  });
+
+  describe('GET /assets/:id of a sheet_image and a sheet_template_asset', () => {
+    const sheetsUrl = (): string => `/api/campaigns/${live.vharn.id}/sheets`;
+    const WOFF2 = Buffer.from([0x77, 0x4f, 0x46, 0x32, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x10]);
+
+    async function template(manifest?: object): Promise<string> {
+      const url = `/api/campaigns/${live.vharn.id}/sheet-templates`;
+      const payload = { files: [{ path: 'index.html', content: '<p></p>' }], manifest };
+      const response = await live.http(live.ana, { method: 'POST', url, payload });
+      expect(response.statusCode, response.body).toBe(201);
+      return sheetTemplateResponseDto.parse(response.json()).template.id;
+    }
+
+    // Lyra's sheets, read only by Bia (and the masters): Caio reads none of them.
+    async function lyraSheets(templateId: string, count: number): Promise<string[]> {
+      const ids: string[] = [];
+      for (let index = 0; index < count; index += 1) {
+        const holder = { memberId: live.bia.id };
+        const payload = {
+          actionId: crypto.randomUUID(),
+          templateId,
+          name: `Lyra ${index}`,
+          holder,
+        };
+        const response = await live.http(live.ana, { method: 'POST', url: sheetsUrl(), payload });
+        expect(response.statusCode, response.body).toBe(201);
+        ids.push(sheetWriteResponseDto.parse(response.json()).sheet.id);
+      }
+      return ids;
+    }
+
+    async function imageOnSheets(count: number): Promise<string> {
+      const [first, ...others] = await lyraSheets(await template(), count);
+      const response = await live.http(live.ana, {
+        method: 'POST',
+        url: `${sheetsUrl()}/${first}/images`,
+        headers: { 'content-type': 'image/png' },
+        payload: await pngOf(40, 40),
+      });
+      expect(response.statusCode, response.body).toBe(201);
+      const assetId = assetResponseDto.parse(response.json()).asset.id;
+      const ties = new SheetAssetsDao(live.connection.db);
+      for (const sheetId of others) await ties.associate(live.vharn.id, sheetId, assetId);
+      return assetId;
+    }
+
+    async function fontOnSheets(count: number): Promise<string> {
+      const url = `/api/campaigns/${live.vharn.id}/sheet-template-assets`;
+      const headers = { 'content-type': 'font/woff2' };
+      const sent = await live.http(live.ana, { method: 'POST', url, headers, payload: WOFF2 });
+      expect(sent.statusCode, sent.body).toBe(201);
+      const assetId = sheetTemplateAssetResponseDto.parse(sent.json()).asset.id;
+      const manifest = { assets: [{ path: 'fontes/cormorant.woff2', assetId }] };
+      await lyraSheets(await template(manifest), count);
+      return assetId;
+    }
+
+    async function refusedToCaio(assetId: string): Promise<number> {
+      await read(live.caio, assetId);
+      let status = 0;
+      const queries = await counted(async () => (status = await read(live.caio, assetId)));
+      expect(status).toBe(404);
+      return queries;
+    }
+
+    it(`a sheet_image costs at most ${BUDGET.sheetImage} with 1 sheet or 10 using it`, async () => {
+      const one = await refusedToCaio(await imageOnSheets(1));
+      const ten = await refusedToCaio(await imageOnSheets(10));
+
+      expect(ten).toBe(one);
+      expect(ten).toBeLessThanOrEqual(BUDGET.sheetImage);
+    });
+
+    it(`a sheet_template_asset costs at most ${BUDGET.templateAsset} with 1 sheet or 10 using it`, async () => {
+      const one = await refusedToCaio(await fontOnSheets(1));
+      const ten = await refusedToCaio(await fontOnSheets(10));
+
+      expect(ten).toBe(one);
+      expect(ten).toBeLessThanOrEqual(BUDGET.templateAsset);
+    });
+
+    it('the player who reads one of the sheets reads the image', async () => {
+      const assetId = await imageOnSheets(3);
+
+      expect(await read(live.bia, assetId)).toBe(200);
+    });
+
+    it('a sheet_image of another table answers 404 to someone outside it', async () => {
+      const assetId = await imageOnSheets(1);
+      const outsider = await live.signUp('Duda');
+
+      expect(await read(outsider, assetId)).toBe(404);
     });
   });
 });
