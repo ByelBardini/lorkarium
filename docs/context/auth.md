@@ -2,7 +2,7 @@
 
 Contas, login por e-mail ou @ e senha, sessão por cookie e papel global (`user`/`admin`). Vive em `server/src/modules/auth/` (módulo do server) e `client/src/features/auth/` (tela de login). Os DTOs estão em [`contracts.md`](contracts.md).
 
-Detalhe: [`auth/cifra.md`](auth/cifra.md) — `DataCipherPort`, e-mail cifrado com índice cego, a regra do @, as migrações `0037`–`0039` e o `pnpm db:encrypt-emails`. [`auth/duas-etapas.md`](auth/duas-etapas.md) — tabelas do 2FA, `TotpPort`, `TwoFactorBo`/`TwoFactorCheckService` e o login em duas etapas (`lk_2fa`, desafio). Senha, sessões ativas, troca de e-mail e o 2FA da conta: [`account-security.md`](account-security.md).
+Detalhe: [`auth/cifra.md`](auth/cifra.md) — `DataCipherPort`, e-mail cifrado com índice cego, a regra do @, as migrações `0037`–`0039` e o `pnpm db:encrypt-emails`. [`auth/duas-etapas.md`](auth/duas-etapas.md) — tabelas do 2FA, `TotpPort`, `TwoFactorBo`/`TwoFactorCheckService` e o login em duas etapas (`lk_2fa`, desafio). [`auth/armadilhas.md`](auth/armadilhas.md) — as pegadinhas do módulo. Senha, sessões ativas, troca de e-mail e o 2FA da conta: [`account-security.md`](account-security.md).
 
 ## Estrutura
 
@@ -57,7 +57,7 @@ Detalhe: [`auth/cifra.md`](auth/cifra.md) — `DataCipherPort`, e-mail cifrado c
 ## Tabelas (`server/drizzle/0000_auth.sql`, `0037`–`0039`)
 
 - `users`: `id` uuid (`gen_random_uuid()`), `name` (o apelido; nasce igual ao @), `username` (o @, **único**, imutável, `a-z 0-9 . _`, 3 a 20), `email_cipher` (AES-GCM, contexto = `id`) e `email_index` (HMAC, **único**) — o e-mail em claro não existe —, `password_hash`, `role` enum `user_role` (`user` padrão · `admin`), `color` text com `CHECK users_color_value` (nome da paleta ou `#rrggbb`; nulo = automática), `bio` (≤ 190, `CHECK`), `avatar_id` uuid nulo, `dice_texture_id` e `dice_number_color` nulos (`0059`, ver [`profiles.md`](profiles.md)), `password_changed_at` nulo, `suspended_at` nulo (suspensa pelo backoffice; `0045`), `last_seen_at` nulo (último login ou toque de sessão, nos degraus de 5 min; `0045`), `terms_accepted_at` e `terms_version` nulos (o aceite dos Termos e da Privacidade no convite; `CHECK users_terms_acceptance_pair`: os dois juntos; `0054`, ver [`legal.md`](legal.md)), `created_at`.
-- `auth_sessions`: `id` = SHA-256 hex do token do cookie, `public_id` uuid **único** (`gen_random_uuid()`, o id que sai para a lista de sessões; o hash nunca sai), `user_id` → `users.id` **on delete cascade** (índice), `expires_at`, `persistent`, `user_agent` (nulo, cortado em `USER_AGENT_MAX_LENGTH` 512 no login), `last_seen_at` (padrão `now()`; a `0040` copia o `created_at` das sessões que já existiam), `created_at`. Índice `auth_sessions_expires_at_idx` (`0103`): o housekeeping apaga as vencidas de hora em hora, em lotes, e os desafios 2FA vencidos pelo mesmo caminho (ver [`housekeeping.md`](housekeeping.md)).
+- `auth_sessions`: `id` = SHA-256 hex do token do cookie, `public_id` uuid **único** (`gen_random_uuid()`, o id que sai para a lista de sessões; o hash nunca sai), `user_id` → `users.id` **on delete cascade** (índice), `expires_at`, `persistent`, `user_agent` (nulo, cortado em `USER_AGENT_MAX_LENGTH` 512 no login), `last_seen_at` (padrão `now()`; a `0040` copia o `created_at` das sessões que já existiam), `created_at`. Índice em `expires_at` (`0103`) para a limpeza horária das vencidas ([`housekeeping.md`](housekeeping.md)).
 - As tabelas do 2FA (`user_two_factor`, `recovery_codes`, `two_factor_challenges`, migrações `0042`/`0043`) estão em `auth/duas-etapas.md`; a `email_change_requests` (`0041`) em `account-security.md`.
 
 ## Regras de negócio (BO + mapper)
@@ -108,16 +108,3 @@ Detalhe: [`auth/cifra.md`](auth/cifra.md) — `DataCipherPort`, e-mail cifrado c
 - `server/test/support/auth-factories.ts` — `newUserPo`, `userPo` (aceitam `email` em claro e gravam @ e cifrados no formato do fake), `fakeSealedEmail`, `newAuthSessionPo`, `authSessionPo` (e `ANA_ID`). `test/support/sign-in.ts` — `testDataCipher()`, `insertTestAccount` (conta com a cifra real, para o login HTTP).
 - `server/test/support/auth-fakes.ts` — `UsersDaoFake` (`rows`, `inserted`, `lookedUp`: índices de e-mail consultados, `plain`/`sealed` do backfill), `DataCipherFake` (`sealed:<finalidade>:<contexto>:<texto>`, `idx:<finalidade>:<valor>`), `AuthSessionsDaoFake` (`rows` por hash, `touched`; `public_id` previsível no insert), `PasswordHasherFake` (`hashed:<senha>`, registra `verifications`), `SessionTokenFake` (`token-1`…, hash `sha:<token>`), `SessionEndedFake` (`ended`, `whenEnded`), `ClockFake` (`current`).
 - Unit: `server/test/modules/auth/*.spec.ts` (BO, mapper, services).
-
-## Armadilhas
-
-- Em `preHandler` assíncrono que responde (guarda), é `return reply.code(...).send(...)`: sem o `return` o Fastify segue para o handler.
-- `errorResponseBuilder` do rate-limit **lança** o que devolve: ele devolve `RateLimitedError`, que o error handler do módulo traduz. O header `Retry-After` já vem posto pela lib.
-- E-mail e @ da mesma conta são **baldes diferentes** do rate limit (5 + 5 por minuto por IP): aceito; juntar exigiria achar a conta antes de contar a tentativa.
-- O balde do login é `request.ip|identificador`, então o rate limit só vale com o `TRUST_PROXY` certo (ver `server.md`, Env): `0` atrás do Traefik junta todo mundo no IP do proxy (um errando a senha bloqueia a mesa toda); salto demais deixa o cliente forjar o `X-Forwarded-For` e fugir do limite. Provado em `test/integration/trust-proxy.spec.ts`.
-
-- A tabela é `auth_sessions`, não `sessions`: o spec §6 reserva `Session` para a sessão multiplayer.
-- Erro do Postgres chega embrulhado pelo Drizzle: o código (`23505` = unicidade) está em `error.cause.code`, não em `error.code`.
-- `Algorithm` do `@node-rs/argon2` é `const enum`: com `isolatedModules` não dá para importar o valor. O adaptador usa `2` tipado como `Algorithm` (é o Argon2id, e também o padrão da lib).
-- Busca por e-mail em SQL não funciona mais (`WHERE email = …`, `users.email`): o e-mail só existe cifrado. Use o índice — `findByEmailIndex(emailIndexOf(cipher, email))` — ou, para as contas de seed, o @ (`findByUsername`). Insert de conta sempre por `toSealedEmail(cipher, id, email)`, com o `id` gerado antes.
-- Puxar as fases 4 e 5 juntas (ou atualizar um banco anterior à `0037`): o `pnpm db:migrate` do `pnpm dev` para na guarda da `0039` e desfaz tudo (uma transação só). Rode `pnpm db:encrypt-emails` (migra até a `0038`, cifra com a `DATA_ENCRYPTION_KEY` do `server/.env` e aplica o resto) e suba de novo. Spec de migração que semeia `users` cru numa migração antiga migra só até `LAST_MIGRATION_WITH_PLAIN_EMAIL`.

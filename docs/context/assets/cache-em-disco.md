@@ -34,5 +34,6 @@ O cache fica **abaixo** da checagem de permissão: o service confere a participa
 ## Armadilhas
 
 - **Toda rota que serve bytes confere a permissão antes do `open`.** O disco não sabe de mesa nem de usuário: um `open` sem guarda serve do cache o que a política negaria.
+- **A única chave que muda de conteúdo é a do `pnpm db:recompress-images`** (PNG opaco regravado em WebP na mesma chave, fora do server): o disco segue com o PNG e o server o serve com o tipo novo da linha. Depois do script, esvaziar o `ASSET_CACHE_DIR` com o server parado (ver `server/scripts.md`, `deploy.md`).
 - Objetos órfãos no bucket (mesa excluída) continuam lá; o LRU só os tira do disco.
 - Não há métrica de hit/miss: o log só registra a falha do disco.
