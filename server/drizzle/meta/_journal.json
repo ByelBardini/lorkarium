@@ -722,6 +722,13 @@
       "when": 1794361875068,
       "tag": "0102_saved_roll_folder_index",
       "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1794366950580,
+      "tag": "0103_receipt_created_at",
+      "breakpoints": true
     }
   ]
 }

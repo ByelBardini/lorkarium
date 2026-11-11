@@ -97,11 +97,17 @@ export const sheetActions = pgTable(
     operation: text('operation').notNull(),
     fingerprint: text('fingerprint').notNull(),
     receipt: jsonb('receipt').notNull(),
+    // The housekeeping deletes a receipt a day old: the same actionId after that is a new command.
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.campaignId, t.userId, t.actionId] })],
+  (t) => [
+    primaryKey({ columns: [t.campaignId, t.userId, t.actionId] }),
+    index('sheet_actions_created_idx').on(t.createdAt),
+  ],
 );
 
 export type SheetPo = typeof tokenSheets.$inferSelect;
 export type NewSheetPo = typeof tokenSheets.$inferInsert;
 export type SheetVisibilityPo = SheetPo['visibility'];
-export type SheetActionPo = typeof sheetActions.$inferSelect;
+// Written and read without its age: only the housekeeping looks at `created_at`.
+export type SheetActionPo = Omit<typeof sheetActions.$inferSelect, 'createdAt'>;
