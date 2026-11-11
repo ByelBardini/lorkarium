@@ -76,11 +76,9 @@ const arrayBufferDto = z.custom<ArrayBuffer>(isArrayBuffer).superRefine((bytes, 
 export const sheetFrameImageDto = z.strictObject({ type: assetMimeTypeDto, bytes: arrayBufferDto });
 export type SheetFrameImageDto = z.infer<typeof sheetFrameImageDto>;
 
-// GIF is kept only for an aura: neither a portrait nor a sheet image takes it.
-const uploadImageDto = z.strictObject({
-  type: assetMimeTypeDto.exclude(['image/gif']),
-  bytes: arrayBufferDto,
-});
+// Any image a sheet sends may be a GIF: a sheet image keeps it animated, a portrait (a token
+// asset) keeps its first frame; the server decides from the bytes either way.
+const uploadImageDto = z.strictObject({ type: assetMimeTypeDto, bytes: arrayBufferDto });
 
 const characterStatsFields = ['armorClass', 'difficultyClass'] as const;
 

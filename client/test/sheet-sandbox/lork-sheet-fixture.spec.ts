@@ -389,3 +389,55 @@ describe('the bar formulas of the Lork sheet', () => {
     expect(sent('bars.create').map(({ bar }) => bar)).toEqual([{ label: 'Sorte', max: 7 }]);
   });
 });
+
+describe('the zoom of the Lork sheet', () => {
+  const press = (key: string, init: KeyboardEventInit = { ctrlKey: true }): KeyboardEvent => {
+    const event = new frame.view.KeyboardEvent('keydown', {
+      key,
+      bubbles: true,
+      cancelable: true,
+      ...init,
+    });
+    frame.document.body.dispatchEvent(event);
+    return event;
+  };
+  const zoom = (): string => frame.document.documentElement.style.zoom;
+
+  it('Ctrl with +, − and 0 zooms only the sheet, and keeps the browser zoom off', () => {
+    deliverState({});
+    const plus = press('=');
+    expect(plus.defaultPrevented).toBe(true);
+    expect(zoom()).toBe('1.1');
+    expect(frame.document.documentElement.style.getPropertyValue('--zoom')).toBe('1.1');
+    expect(element('#zoom-pill').textContent).toBe('Zoom 110%');
+    press('-');
+    press('-');
+    expect(zoom()).toBe('0.9');
+    press('0');
+    expect(zoom()).toBe('1');
+  });
+
+  it('stops at 160% and at 70%', () => {
+    deliverState({});
+    for (let i = 0; i < 12; i++) press('+');
+    expect(zoom()).toBe('1.6');
+    for (let i = 0; i < 12; i++) press('-');
+    expect(zoom()).toBe('0.7');
+  });
+
+  it('Ctrl+wheel zooms too; the keys without Ctrl type as usual', () => {
+    deliverState({});
+    const wheel = new frame.view.WheelEvent('wheel', {
+      deltaY: -100,
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    frame.document.body.dispatchEvent(wheel);
+    expect(wheel.defaultPrevented).toBe(true);
+    expect(zoom()).toBe('1.1');
+    const typed = press('=', {});
+    expect(typed.defaultPrevented).toBe(false);
+    expect(zoom()).toBe('1.1');
+  });
+});

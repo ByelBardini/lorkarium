@@ -136,16 +136,16 @@ describe('SharpImageProcessor.normalize', () => {
       ok: false,
       refusal: {
         reason: 'not-an-image',
-        detail: 'the 200 bytes do not decode as an image; expected png, jpeg or webp',
+        detail: 'the 200 bytes do not decode as an image; expected png, jpeg, webp or gif',
       },
     });
   });
 
-  it('a GIF is refused citing gif and the accepted formats', async () => {
-    expect(await processor.normalize(await imageOf(16, 16, 'gif'), TOKEN)).toEqual({
-      ok: false,
-      refusal: { reason: 'format', detail: 'format gif is not kept; expected png, jpeg or webp' },
-    });
+  it('a GIF with no animation budget is kept as a PNG of its first frame', async () => {
+    const image = keptOf(await processor.normalize(await imageOf(16, 16, 'gif'), TOKEN));
+
+    expect(image).toMatchObject({ mimeType: 'image/png', width: 16, height: 16 });
+    expect((await sharp(image.bytes).metadata()).format).toBe('png');
   });
 
   it('an SVG is refused even though sharp could render it', async () => {
@@ -155,7 +155,7 @@ describe('SharpImageProcessor.normalize', () => {
 
     expect(await processor.normalize(svg, TOKEN)).toMatchObject({
       ok: false,
-      refusal: { reason: 'format', detail: expect.stringMatching(/svg.*png, jpeg or webp/) },
+      refusal: { reason: 'format', detail: expect.stringMatching(/svg.*png, jpeg, webp or gif/) },
     });
   });
 
@@ -214,16 +214,15 @@ describe('SharpImageProcessor.normalize with square', () => {
     expect([image.width, image.height]).toEqual([1024, 512]);
   });
 
-  it('a GIF is refused with square too, citing gif and the accepted formats', async () => {
-    expect(await processor.normalize(await imageOf(16, 16, 'gif'), CONDITION)).toEqual({
-      ok: false,
-      refusal: { reason: 'format', detail: 'format gif is not kept; expected png, jpeg or webp' },
-    });
+  it('a GIF kept square with no budget is a PNG too', async () => {
+    const image = keptOf(await processor.normalize(await imageOf(16, 16, 'gif'), CONDITION));
+
+    expect(image).toMatchObject({ mimeType: 'image/png', width: 16, height: 16 });
   });
 });
 
 describe('SharpImageProcessor.normalize of an animation', () => {
-  // Regression: a GIF is refused, so a moving image must not come back as an animated WebP.
+  // Regression: a still purpose keeps one frame, so a moving image must not come back as an animated WebP.
   it.each([
     ['as a token', TOKEN],
     ['as a square condition', CONDITION],
@@ -323,10 +322,10 @@ describe('SharpImageProcessor.normalize with an animation budget', () => {
     });
   });
 
-  it('a GIF without a budget is still refused citing gif (token, background, cover, condition)', async () => {
-    expect(await processor.normalize(await animatedGif(3, 16), TOKEN)).toEqual({
-      ok: false,
-      refusal: { reason: 'format', detail: 'format gif is not kept; expected png, jpeg or webp' },
-    });
+  it('an animated GIF with no budget keeps only its first frame, the size of one frame', async () => {
+    const image = keptOf(await processor.normalize(await animatedGif(3, 16), TOKEN));
+
+    expect(image).toMatchObject({ mimeType: 'image/png', width: 16, height: 16 });
+    expect((await sharp(image.bytes, { animated: true }).metadata()).pages ?? 1).toBe(1);
   });
 });

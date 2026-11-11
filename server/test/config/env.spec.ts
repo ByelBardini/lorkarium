@@ -42,6 +42,7 @@ describe('readEnv', () => {
       sitePublicUrl: 'http://localhost:4321',
       trustProxyHops: 0,
       clientDistDir: null,
+      assetCache: null,
       accessLog: null,
     });
   });
@@ -305,6 +306,46 @@ describe('readEnv, CLIENT_DIST_DIR', () => {
   it('a relative path is refused citing the value and an absolute path', () => {
     expect(() => readEnv({ ...REQUIRED, CLIENT_DIST_DIR: 'client/dist' })).toThrow(
       /CLIENT_DIST_DIR must be an absolute path.*"client\/dist"/,
+    );
+  });
+});
+
+describe('readEnv, ASSET_CACHE_DIR e ASSET_CACHE_MAX_MB', () => {
+  const MEBIBYTE = 1024 * 1024;
+
+  it('an absolute dir without a maximum is the disk cache of 10240 MB', () => {
+    const env = readEnv({ ...REQUIRED, ASSET_CACHE_DIR: '/var/cache/x' });
+    expect(env.assetCache).toEqual({ dir: '/var/cache/x', maxBytes: 10240 * MEBIBYTE });
+  });
+
+  it.each([undefined, ''])('ASSET_CACHE_DIR=%j means no disk cache', (value) => {
+    expect(readEnv({ ...REQUIRED, ASSET_CACHE_DIR: value }).assetCache).toBeNull();
+  });
+
+  it('ASSET_CACHE_MAX_MB=1 with the dir caps the cache at one mebibyte', () => {
+    const env = readEnv({ ...REQUIRED, ASSET_CACHE_DIR: '/var/cache/x', ASSET_CACHE_MAX_MB: '1' });
+    expect(env.assetCache?.maxBytes).toBe(MEBIBYTE);
+  });
+
+  it('a relative dir is refused citing the value and an absolute path', () => {
+    expect(() => readEnv({ ...REQUIRED, ASSET_CACHE_DIR: 'cache/assets' })).toThrow(
+      /ASSET_CACHE_DIR must be an absolute path.*"cache\/assets"/,
+    );
+  });
+
+  it.each(['0', '1.5', 'abc'])(
+    'ASSET_CACHE_MAX_MB=%s is refused citing the value and the range',
+    (value) => {
+      const source = { ...REQUIRED, ASSET_CACHE_DIR: '/var/cache/x', ASSET_CACHE_MAX_MB: value };
+      expect(() => readEnv(source)).toThrow(
+        new RegExp(`ASSET_CACHE_MAX_MB must be an integer from 1 to 1048576.*"${value}"`),
+      );
+    },
+  );
+
+  it('ASSET_CACHE_MAX_MB without ASSET_CACHE_DIR is refused naming the pair', () => {
+    expect(() => readEnv({ ...REQUIRED, ASSET_CACHE_MAX_MB: '512' })).toThrow(
+      /ASSET_CACHE_MAX_MB is valid only with ASSET_CACHE_DIR.*"512"/,
     );
   });
 });

@@ -142,13 +142,16 @@ describe('assets HTTP edge', () => {
     expect(codeOf(response)).toBe('CAMPAIGN_NOT_FOUND');
   });
 
-  // Contract change (aura plan, 2026-10-25): image/gif now has a parser, so a GIF that is not for
-  // an aura is decoded and refused by the processor (422), no longer turned away as a type (415).
-  it('a GIF sent as a token is 422 UNSUPPORTED_IMAGE: GIF is only for an aura', async () => {
+  // A GIF for a purpose that never moves is kept still: its first frame, as a PNG.
+  it('a GIF sent as a token is 201, kept as a PNG of its first frame', async () => {
     const response = await upload(ana, await animatedGifOf(3, 32), { type: 'image/gif' });
 
-    expect(response.statusCode).toBe(422);
-    expect(codeOf(response)).toBe('UNSUPPORTED_IMAGE');
+    expect(response.statusCode, response.body).toBe(201);
+    expect(assetResponseDto.parse(response.json()).asset).toMatchObject({
+      mimeType: 'image/png',
+      width: 32,
+      height: 32,
+    });
   });
 
   it('an SVG content type is still 415 UNSUPPORTED_IMAGE', async () => {
@@ -227,15 +230,19 @@ describe('assets HTTP edge', () => {
       });
     });
 
-    it('a GIF is 422 UNSUPPORTED_IMAGE', async () => {
+    it('a GIF is 201, kept as a square PNG', async () => {
       const gif = await sharp(await pngOf(32, 32))
         .gif()
         .toBuffer();
 
       const response = await upload(ana, gif, { purpose: 'condition', type: 'image/gif' });
 
-      expect(response.statusCode).toBe(422);
-      expect(codeOf(response)).toBe('UNSUPPORTED_IMAGE');
+      expect(response.statusCode, response.body).toBe(201);
+      expect(assetResponseDto.parse(response.json()).asset).toMatchObject({
+        mimeType: 'image/png',
+        width: 32,
+        height: 32,
+      });
     });
 
     it('a spectator of the table is 403 FORBIDDEN', async () => {

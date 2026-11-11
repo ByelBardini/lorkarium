@@ -128,6 +128,13 @@ export function workspaceItemTitle(item: WorkspaceItem): string {
   if (item.kind === 'map') return item.mapName;
   return item.document.name;
 }
+/** The bare name of an item, without its kind (the tab's icon says it).
+ *  Example: `workspaceItemName(entry) // 'Lyra'` */
+export function workspaceItemName(item: WorkspaceItem): string {
+  if (item.kind === 'sheet') return item.sheetName;
+  if (item.kind === 'sheet-template') return item.templateName;
+  return workspaceItemTitle(item);
+}
 export function useDocumentWorkspaceSlice<T>(
   store: StoreApi<DocumentWorkspaceStore> | undefined,
   pick: (state: DocumentWorkspaceStore) => T,
