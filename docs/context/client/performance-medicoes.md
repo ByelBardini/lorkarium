@@ -56,3 +56,9 @@ O que login e home baixam antes de rodar: o chunk de entrada mais os `moduleprel
 | entrada + preloads (bruto)                                        | 2 699 164                | 1 718 927                        |
 | entrada + preloads (gzip)                                         | 810 203                  | 523 797                          |
 | chunk `pixi-board-renderer` (gzip, sem os chunks que ele importa) | —                        | ≈ 113 000 (só na primeira mesa)  |
+
+## Linha de base 2026-11 (antes e depois das regras 15–24 e das 1–8 do React)
+
+`pnpm bench`, `main` e a branch alternadas no mesmo minuto (3 rodadas cada), com a máquina a 85% de CPU por outra sessão: os dois lados empatam dentro do ruído. Régua 0,63–0,87 / 0,63–1,05 ms, arraste remoto 0,84–1,06 / 0,61–1,02 ms, build frio 45–61 / 52–61 ms. Nenhum caso do `buildBoardView` piorou; o ganho destas regras está fora do bench (React, GPU, rede), e o painel `?perf=1` (FPS, `texture.mb`, draw calls) na Mesa de estresse ainda não foi medido com a máquina quieta.
+
+`vite build`: chunk de entrada 2 094,96 kB (gzip 629,47 kB) → 1 217,70 kB (gzip 369,85 kB); o `pixi-board-renderer` 143,68 kB (gzip 47,48 kB) só baixa na primeira mesa.

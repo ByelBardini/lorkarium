@@ -38,6 +38,9 @@ Leituras HTTP quentes (`test/integration/query-budget-http.spec.ts`, contadas de
 | `GET /assets/:id` `library_image` pública, jogador       | 10    | 7     | 2, 14              |
 | `GET /assets/:id` `library_image`, mestre                | 8     | 5     | 2, 14              |
 | `GET /assets/:id` `library_image` em pasta privada (404) | 14    | 10    | 2, 14              |
+| `GET …/library`, jogador (sem `values`, 1 recursiva)     | 13    | 13    | 15                 |
+| `GET /assets/:id` `sheet_image` recusada, 1 / 10 fichas  | 11/47 | 11    | 16                 |
+| `GET /assets/:id` `sheet_template_asset`, 1 / 10 fichas  | 11/47 | 11    | 16                 |
 
 Os números contam `begin`/`commit`. "Sem memória" é o custo medido antes das regras abaixo.
 
