@@ -141,6 +141,10 @@ export class DocumentTabsDaoFake implements TabOperations {
   ): Promise<DocumentTabPo | undefined> {
     return this.of(campaignId, documentId).find((row) => row.id === tabId);
   }
+  async lockById(campaignId: string, documentId: string, tabId: string): Promise<boolean> {
+    this.journal.push('lock tab');
+    return this.of(campaignId, documentId).some((row) => row.id === tabId);
+  }
   async insert(input: NewDocumentTabPo): Promise<DocumentTabPo> {
     const row = documentTabPo({ ...input, id: input.id ?? randomUUID() });
     this.rows.push(row);

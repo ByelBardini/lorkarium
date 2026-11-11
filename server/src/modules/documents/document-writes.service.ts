@@ -39,7 +39,14 @@ export type DocumentDaos = Readonly<{
   >;
   tabs: Pick<
     DocumentTabsDao,
-    'listOfDocument' | 'findInDocument' | 'insert' | 'update' | 'saveContent' | 'reorder' | 'delete'
+    | 'listOfDocument'
+    | 'findInDocument'
+    | 'lockById'
+    | 'insert'
+    | 'update'
+    | 'saveContent'
+    | 'reorder'
+    | 'delete'
   >;
   assets: Pick<DocumentAssetsDao, 'ofDocument' | 'ofAsset' | 'prepare' | 'confirmTab'>;
   campaigns: Pick<CampaignsDao, 'lockById'>;
@@ -78,6 +85,26 @@ export class DocumentWriteSteps {
     await viewerAccessOf(daos.members, requester.campaignId, requester.userId);
     if (!(await daos.campaigns.lockById(requester.campaignId)))
       throw new CampaignNotFoundError(requester);
+    return this.protectedAccess(daos, requester);
+  }
+  /** Like `lockedAccess`, for a tab body: locks only that tab's row (an unknown tab locks nothing
+   *  and is refused by the scope), so the body never waits on the table.
+   *
+   *  Example: `const access = await steps.tabLockedAccess(daos, requester, documentId, tabId)` */
+  async tabLockedAccess(
+    daos: DocumentDaos,
+    requester: LibraryRequester,
+    documentId: string,
+    tabId: string,
+  ): Promise<CampaignAccessBo> {
+    await viewerAccessOf(daos.members, requester.campaignId, requester.userId);
+    await daos.tabs.lockById(requester.campaignId, documentId, tabId);
+    return this.protectedAccess(daos, requester);
+  }
+  private async protectedAccess(
+    daos: DocumentDaos,
+    requester: LibraryRequester,
+  ): Promise<CampaignAccessBo> {
     const membership = await daos.members.findMembership(
       requester.campaignId,
       requester.userId,

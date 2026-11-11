@@ -139,7 +139,7 @@ export class DocumentTabsService {
     input: UpdateDocumentTabContentRequestDto,
   ): Promise<DocumentTabWriteResponseDto> {
     const result = await this.deps.transaction(async (daos) => {
-      const access = await this.steps.lockedAccess(daos, requester);
+      const access = await this.steps.tabLockedAccess(daos, requester, documentId, tabId);
       const scope = await this.tabsScope(daos, access, documentId);
       const tab = scope.tabs.requireEdit(tabId);
       const fingerprint = commandFingerprint('tab-content', tabId, input);

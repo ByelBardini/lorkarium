@@ -175,7 +175,7 @@ describe('DocumentTabsService tab content', () => {
       { actionId: ACTION_ID, expectedVersion: 0, content: documentText('Corda') },
     );
     expect(harness.journal).toEqual([
-      'lock',
+      'lock tab',
       'load tabs',
       'confirm assets',
       'save content',
