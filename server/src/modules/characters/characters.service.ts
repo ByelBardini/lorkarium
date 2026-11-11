@@ -101,7 +101,7 @@ export class CharactersService {
     const { barId, change } = command;
     return this.write(userId, campaignId, command.characterId, async (daos, bo, row) => {
       const values = bo.adjustBar(row.bars, barId, change, this.deps.barLimit);
-      await daos.characters.setBarValues(barId, values);
+      await daos.characters.setBarValues(row.character.id, [{ barId, values }]);
     });
   }
 
@@ -117,9 +117,7 @@ export class CharactersService {
   ): Promise<number> {
     return this.write(userId, campaignId, characterId, async (daos, bo, row) => {
       bo.requireEdit('change the bars of');
-      for (const { barId, values } of rule(row.bars)) {
-        await daos.characters.setBarValues(barId, values);
-      }
+      await daos.characters.setBarValues(row.character.id, rule(row.bars));
     });
   }
 

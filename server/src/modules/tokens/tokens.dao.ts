@@ -30,7 +30,7 @@ import {
   type TokenFormPo,
   type TokenBarInputPo,
   type TokenBarPo,
-  type BarValuesPo,
+  type BarValuesWritePo,
   type TokenFieldsPo,
   type TokenLayerPo,
   type TokenStylePo,
@@ -331,8 +331,27 @@ export class TokensDao {
       .where(inArray(tokens.id, [...tokenIds]));
   }
 
-  async setBarValues(barId: string, { current, max, temp }: BarValuesPo): Promise<void> {
-    await this.db.update(tokenBars).set({ current, max, temp }).where(eq(tokenBars.id, barId));
+  /** The values of several bars of one token in one `UPDATE`; a bar of another token in the
+   *  group does not change.
+   *
+   *  Example: `await dao.setBarValues(lyraId, [{ barId: pvId, values: { current: 18, max: 30, temp: 0 } }])` */
+  async setBarValues(tokenId: string, writes: readonly BarValuesWritePo[]): Promise<void> {
+    if (writes.length === 0) return;
+    const columns = [
+      { column: tokenBars.current, cast: 'integer' },
+      { column: tokenBars.max, cast: 'integer' },
+      { column: tokenBars.temp, cast: 'integer' },
+    ];
+    const rows = writes.map(({ barId, values }) => [
+      barId,
+      values.current,
+      values.max,
+      values.temp,
+    ]);
+    const where = eq(tokenBars.tokenId, tokenId);
+    await this.db.execute(
+      updateManySql({ table: tokenBars, key: tokenBars.id, columns, rows, where }),
+    );
   }
 
   /** Several statements (forms, token, bars, controllers): run it on the `tx` DAO. */

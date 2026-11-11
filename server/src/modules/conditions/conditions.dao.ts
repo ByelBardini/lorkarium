@@ -39,6 +39,9 @@ export type ConditionDuration = Readonly<{
   appliedRound: number | null;
 }>;
 
+/** One holder of a group apply and the stacks it lands with. */
+export type ConditionApplication = Readonly<{ holder: ConditionHolder; stacks: number }>;
+
 const HOLDER_COLUMNS = {
   tokenId: activeConditions.tokenId,
   characterId: activeConditions.characterId,
@@ -180,18 +183,37 @@ export class ConditionsDao {
     duration: ConditionDuration,
     stacks = 1,
   ): Promise<ActiveConditionRow> {
-    const [saved] = await this.db
-      .insert(activeConditions)
-      .values({ ...holder, conditionId, ...duration, stacks })
-      .onConflictDoUpdate({
-        target: [holderColumnOf(holder), activeConditions.conditionId],
-        set: { ...duration, stacks, appliedAt: sql`now()` },
-      })
-      .returning({ id: activeConditions.id });
-    if (!saved) throw new Error(`apply of ${conditionId} on ${holderIdOf(holder)} returned no row`);
-    const [row] = await this.activeRows(eq(activeConditions.id, saved.id));
-    if (!row) throw new Error(`active condition ${saved.id} vanished right after it was saved`);
+    const [row] = await this.applyMany(conditionId, duration, [{ holder, stacks }]);
+    if (!row) throw new Error(`apply of ${conditionId} on ${holderIdOf(holder)} returned no row`);
     return row;
+  }
+
+  /** Puts the condition on every holder with the stacks the BO decided for each: one
+   *  `INSERT … ON CONFLICT` per kind of holder and one read, however many holders. Answers the
+   *  rows in the order of `applications`.
+   *
+   *  Example: `await dao.applyMany(caidoId, duration, [{ holder: { tokenId }, stacks: 1 }])` */
+  async applyMany(
+    conditionId: string,
+    duration: ConditionDuration,
+    applications: readonly ConditionApplication[],
+  ): Promise<ActiveConditionRow[]> {
+    const onTokens = applications.filter(({ holder }) => 'tokenId' in holder);
+    const onCharacters = applications.filter(({ holder }) => 'characterId' in holder);
+    const ids = [
+      ...(await this.upsertActive(conditionId, duration, onTokens, activeConditions.tokenId)),
+      ...(await this.upsertActive(
+        conditionId,
+        duration,
+        onCharacters,
+        activeConditions.characterId,
+      )),
+    ];
+    if (ids.length === 0) return [];
+    const rows = await this.activeRows(inArray(activeConditions.id, ids));
+    const order = new Map(applications.map(({ holder }, index) => [holderIdOf(holder), index]));
+    const place = (row: ActiveConditionRow) => order.get(holderIdOfRow(row)) ?? 0;
+    return rows.sort((left, right) => place(left) - place(right));
   }
 
   /** `false` when the active condition is not on that holder. */
@@ -313,6 +335,27 @@ export class ConditionsDao {
       eq(conditionDefinitions.campaignId, campaignId),
       eq(conditionDefinitions.id, conditionId),
     );
+  }
+
+  // Applying again replaces the duration and takes the stacks this row brings (`excluded`).
+  private async upsertActive(
+    conditionId: string,
+    duration: ConditionDuration,
+    applications: readonly ConditionApplication[],
+    holderColumn: HolderColumn,
+  ): Promise<string[]> {
+    if (applications.length === 0) return [];
+    const saved = await this.db
+      .insert(activeConditions)
+      .values(
+        applications.map(({ holder, stacks }) => ({ ...holder, conditionId, ...duration, stacks })),
+      )
+      .onConflictDoUpdate({
+        target: [holderColumn, activeConditions.conditionId],
+        set: { ...duration, stacks: sql`excluded.stacks`, appliedAt: sql`now()` },
+      })
+      .returning({ id: activeConditions.id });
+    return saved.map(({ id }) => id);
   }
 
   private activeRows(where: SQL | undefined): Promise<ActiveConditionRow[]> {

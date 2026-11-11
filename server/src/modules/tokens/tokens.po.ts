@@ -208,6 +208,8 @@ export type TokenFormInputPo = Pick<
   'id' | 'name' | 'imageAssetId' | 'width' | 'height' | 'frame'
 >;
 export type BarValuesPo = Pick<TokenBarPo, 'current' | 'max' | 'temp'>;
+/** The new values of one bar of a group write (a token's or a character's). */
+export type BarValuesWritePo = Readonly<{ barId: string; values: BarValuesPo }>;
 export type TokenLayerPo = TokenPo['layer'];
 export type TokenLookPo = Pick<TokenPo, 'imageAssetId' | 'frame' | 'flipX' | 'flipY'>;
 /** The seven aura columns, written always together (all null = no aura). */

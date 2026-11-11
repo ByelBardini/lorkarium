@@ -76,6 +76,21 @@ export class SheetsDao {
     return row;
   }
 
+  /** Locks the row of one sheet for a values write; `false` when it is not of that table. The
+   *  values lock their own row, not the table's: a save would otherwise wait on every HP and
+   *  condition write of the characters, which hold the table's row. Managing the sheet still
+   *  locks the table, and its write to this row waits here.
+   *
+   *  Example: `await new SheetsDao(tx).lockById(campaignId, sheetId)` */
+  async lockById(campaignId: string, sheetId: string): Promise<boolean> {
+    const rows = await this.db
+      .select({ id: tokenSheets.id })
+      .from(tokenSheets)
+      .where(this.oneOf(campaignId, sheetId))
+      .for('no key update');
+    return rows.length > 0;
+  }
+
   /** The sheets a token holds, in creation order. */
   async listOfToken(campaignId: string, tokenId: string): Promise<SheetRow[]> {
     const where = and(eq(tokenSheets.campaignId, campaignId), eq(tokenSheets.tokenId, tokenId));
@@ -130,7 +145,7 @@ export class SheetsDao {
     });
   }
 
-  /** The whole values, merged by the caller under the table's lock (the path patches), and the
+  /** The whole values, merged by the caller under the sheet's lock (the path patches), and the
    *  version up by one. */
   async replaceValues(
     campaignId: string,

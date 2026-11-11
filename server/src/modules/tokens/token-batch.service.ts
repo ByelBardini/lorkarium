@@ -36,8 +36,8 @@ import {
   newTokenRowOf,
   requireAssetsOf,
   leaveCombat,
+  tokenConditionsOf,
   tokensIn,
-  withConditions,
   type TokenRightsReader,
   type TokenTransactionRunner,
   type TokenWithConditions,
@@ -199,27 +199,28 @@ export class TokenBatchService {
       const value = { tokens: [], skippedMemberIds, combat: null, veil: veilOf([]) };
       return { value, grid: false, characters: false };
     }
-    const rows = await this.linkedRowsOf(daos, scene, missing, center, onGrid);
+    const rows = this.linkedRowsOf(scene, missing, center, onGrid);
     const created = await daos.tokens.insertMany(rows);
     const ids = created.map(({ token }) => token.id);
     const composed = await tokensIn(daos, scene, scene.campaignId, ids);
-    const tokens = await Promise.all(composed.map((row) => withConditions(daos, row)));
+    const conditionsOf = await tokenConditionsOf(daos.conditions, composed);
+    const tokens = composed.map((row) => ({ row, conditions: conditionsOf(row) }));
     const combat = await combatOf(daos, scene);
     const veil = await combatVeilOf(daos, scene.id, composed, combat);
     return { value: { tokens, skippedMemberIds, combat, veil }, grid: true, characters: false };
   }
 
-  private async linkedRowsOf(
-    daos: TokenWriteDaos,
+  private linkedRowsOf(
     scene: ScenePo,
     characters: readonly CharacterRow[],
     center: AddPlayers['center'],
     onGrid: readonly TokenRow[],
-  ): Promise<NewTokenRow[]> {
+  ): NewTokenRow[] {
     const occupied = onGrid.filter(({ token }) => token.layer === 'tokens').map(boxOf);
     const footprints = characters.map(({ character }) => character);
     const cells = placeCharacters({ sceneId: scene.id, scene, center, footprints, occupied });
-    this.rulesFor(scene, []).admit(await daos.tokens.countOfScene(scene.id), characters.length);
+    // The grid was just read whole under the lock: its length is the count.
+    this.rulesFor(scene, []).admit(onGrid.length, characters.length);
     return characters.map((character, index) => linkedRowOf(scene.id, character, cells[index]));
   }
 

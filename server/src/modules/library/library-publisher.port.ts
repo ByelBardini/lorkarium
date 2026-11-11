@@ -1,4 +1,5 @@
 import type {
+  DocumentTabChangedDto,
   LibraryChangedDto,
   LibraryMapChangedDto,
   LibraryMapRegionShownDto,
@@ -14,4 +15,6 @@ export interface LibraryPublisherPort {
   libraryMapChanged(event: LibraryMapChangedDto): void;
   mapRegionShown(event: LibraryMapRegionShownDto): void;
   sceneActivated(event: SceneActivatedDto): void;
+  /** `document:tabChanged`: to the masters only when `mastersOnly` (a `masters` tab). */
+  documentTabChanged(event: DocumentTabChangedDto, mastersOnly: boolean): void;
 }

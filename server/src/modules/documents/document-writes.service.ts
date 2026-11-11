@@ -4,6 +4,7 @@ import {
   type DocumentContentDto,
   type DocumentDto,
   type DocumentReceiptDto,
+  type DocumentTabWriteResponseDto,
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
@@ -38,7 +39,14 @@ export type DocumentDaos = Readonly<{
   >;
   tabs: Pick<
     DocumentTabsDao,
-    'listOfDocument' | 'findInDocument' | 'insert' | 'update' | 'saveContent' | 'reorder' | 'delete'
+    | 'listOfDocument'
+    | 'findInDocument'
+    | 'lockById'
+    | 'insert'
+    | 'update'
+    | 'saveContent'
+    | 'reorder'
+    | 'delete'
   >;
   assets: Pick<DocumentAssetsDao, 'ofDocument' | 'ofAsset' | 'prepare' | 'confirmTab'>;
   campaigns: Pick<CampaignsDao, 'lockById'>;
@@ -53,7 +61,7 @@ export type DocumentsServiceDeps = Readonly<{
   snapshot: DocumentTransaction;
   clock: ClockPort;
   newId: () => string;
-  publisher: Pick<LibraryPublisherPort, 'libraryChanged'>;
+  publisher: Pick<LibraryPublisherPort, 'libraryChanged' | 'documentTabChanged'>;
   /** At most this many tabs per document (`DOCUMENT_TABS_MAX`, given by the plugin). */
   tabLimit: number;
 }>;
@@ -77,6 +85,26 @@ export class DocumentWriteSteps {
     await viewerAccessOf(daos.members, requester.campaignId, requester.userId);
     if (!(await daos.campaigns.lockById(requester.campaignId)))
       throw new CampaignNotFoundError(requester);
+    return this.protectedAccess(daos, requester);
+  }
+  /** Like `lockedAccess`, for a tab body: locks only that tab's row (an unknown tab locks nothing
+   *  and is refused by the scope), so the body never waits on the table.
+   *
+   *  Example: `const access = await steps.tabLockedAccess(daos, requester, documentId, tabId)` */
+  async tabLockedAccess(
+    daos: DocumentDaos,
+    requester: LibraryRequester,
+    documentId: string,
+    tabId: string,
+  ): Promise<CampaignAccessBo> {
+    await viewerAccessOf(daos.members, requester.campaignId, requester.userId);
+    await daos.tabs.lockById(requester.campaignId, documentId, tabId);
+    return this.protectedAccess(daos, requester);
+  }
+  private async protectedAccess(
+    daos: DocumentDaos,
+    requester: LibraryRequester,
+  ): Promise<CampaignAccessBo> {
     const membership = await daos.members.findMembership(
       requester.campaignId,
       requester.userId,
@@ -151,6 +179,26 @@ export class DocumentWriteSteps {
   published<T>(campaignId: string, result: Applied<T>): T {
     if (result.changed)
       this.deps.publisher.libraryChanged({ campaignId, at: this.deps.clock.now().toISOString() });
+    return result.value;
+  }
+  /** Publishes `document:tabChanged` only for an applied body save, after its commit: the body
+   *  never goes through `library:changed`, so the library is not read again for an edit. */
+  tabChanged(
+    campaignId: string,
+    result: Applied<DocumentTabWriteResponseDto>,
+  ): DocumentTabWriteResponseDto {
+    if (!result.changed) return result.value;
+    const { tab, receipt } = result.value;
+    this.deps.publisher.documentTabChanged(
+      {
+        campaignId,
+        documentId: receipt.documentId,
+        tabId: tab.id,
+        version: tab.version,
+        at: this.deps.clock.now().toISOString(),
+      },
+      tab.visibility === 'masters',
+    );
     return result.value;
   }
 }

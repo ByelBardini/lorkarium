@@ -151,6 +151,31 @@ describe('WallsDao on Postgres', () => {
     expect(changed).toMatchObject({ kind: 'door', doorState: 'closed', x: '2.50' });
   });
 
+  it('setKinds gives each wall of the group its own kind and leaves a wall of Quelm as it was', async () => {
+    const [door, line] = await walls.insertMany([
+      northLine({ kind: 'door', doorState: 'open' }),
+      northLine(),
+    ]);
+    const theirs = await savedOne(northLine({ sceneId: otherSceneId }));
+    if (!door || !line) throw new Error('insertMany returned fewer walls');
+
+    await walls.setKinds(sceneId, [
+      { wallId: door.id, kind: 'curtain', doorState: null },
+      { wallId: line.id, kind: 'door', doorState: 'locked' },
+      { wallId: theirs.id, kind: 'grate', doorState: null },
+    ]);
+
+    const kinds = (await walls.listOfScene(sceneId)).map(({ kind, doorState }) => [
+      kind,
+      doorState,
+    ]);
+    expect(kinds).toEqual([
+      ['curtain', null],
+      ['door', 'locked'],
+    ]);
+    expect((await walls.listOfScene(otherSceneId))[0]).toMatchObject({ kind: 'wall' });
+  });
+
   it('setDoor changes only the door state', async () => {
     const door = await savedOne(northLine({ kind: 'door', doorState: 'closed' }));
 
