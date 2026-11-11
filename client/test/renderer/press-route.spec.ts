@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_DRAWING_STYLE } from '@/lib/drawing-style';
 import { buildBoardView, type BoardView } from '@/renderer/board-view';
 import { CELL_WORLD_SIZE } from '@/renderer/camera';
-import { hoverRouteOf, menuRouteOf, pressRouteOf, topTokenAt } from '@/renderer/press-route';
+import {
+  hoverRouteOf,
+  menuIntentOf,
+  menuRouteOf,
+  pressRouteOf,
+  topTokenAt,
+} from '@/renderer/press-route';
 import { SQUARE_ID, square } from '../support/drawing-fixtures';
 import { BIA_CONE_ID, biaCone } from '../support/effect-area-fixtures';
 import { boardSightOf } from '@/lib/board-sight';
@@ -356,5 +362,31 @@ describe('pressRouteOf and the handle of a spotlight', () => {
       lightId: CORRIDOR_TORCH_ID,
     });
     expect(pressRouteOf(spotlightPicked, at(12, 2), 1)).toEqual({ kind: 'light', lightId: null });
+  });
+});
+
+describe('menuIntentOf, what the room hears of a short right click', () => {
+  const AT = { x: 120, y: 80 };
+
+  it('each menu asks for itself where the click was, in viewport px', () => {
+    expect(menuIntentOf({ kind: 'door', wallId: 'w1' }, AT)).toEqual({
+      kind: 'doorMenuRequested',
+      wallId: 'w1',
+      ...AT,
+    });
+    expect(menuIntentOf({ kind: 'light', lightId: 'l1' }, AT)).toEqual({
+      kind: 'lightMenuRequested',
+      lightId: 'l1',
+      ...AT,
+    });
+    expect(menuIntentOf({ kind: 'token', tokenId: 't1' }, AT)).toEqual({
+      kind: 'tokenMenuRequested',
+      tokenId: 't1',
+      ...AT,
+    });
+  });
+
+  it('with no menu under the click there is nothing to ask', () => {
+    expect(menuIntentOf(null, AT)).toBeNull();
   });
 });

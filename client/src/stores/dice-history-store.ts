@@ -44,8 +44,8 @@ export type DiceHistoryStore = DiceHistoryState &
     apply: (update: TableSessionUpdate, receivedAtMs: number) => void;
     /** Leaving the table: forgets the history and its storage key. */
     clear: () => void;
-    /** Hears each roll as it enters (with its throw, for the 3D overlay), never the ones read
-     *  back from the storage. */
+    /** Hears each roll as it enters (with its throw, for the 3D overlay and the sound), never
+     *  the ones read back from the storage; `entries` keeps it without the throw. */
     onNewEntry: (listener: DiceHistoryListener) => Unsubscribe;
   }>;
 
@@ -91,7 +91,7 @@ export function createDiceHistoryStore(deps: DiceHistoryDeps): StoreApi<DiceHist
     apply: (update, receivedAtMs) => {
       const entry = entryOf(update, receivedAtMs, deps.campaignId);
       if (!entry || get().entries.some((kept) => kept.event.rollId === entry.event.rollId)) return;
-      set({ entries: [...get().entries, entry].slice(-DICE_HISTORY_LIMIT) });
+      set({ entries: [...get().entries, storableOf(entry)].slice(-DICE_HISTORY_LIMIT) });
       writeStored(deps, get().entries);
       for (const listener of listeners) listener(entry);
     },
@@ -130,7 +130,8 @@ function entryOf(
   return { kind: 'secret', event: update.event, receivedAtMs, revealAtMs };
 }
 
-// The throw is only for the replay as it arrives, and its frames would fill the storage quota.
+// The throw is only for the replay as it arrives: its frames would fill the storage quota, and
+// 200 of them kept in memory would weigh megabytes for a session that never replays them.
 function storableOf(entry: DiceHistoryEntry): DiceHistoryEntry {
   if (entry.kind === 'secret') return entry;
   const parts = entry.event.parts.map((part) => ({
@@ -161,7 +162,7 @@ function writeStored(
   entries: readonly DiceHistoryEntry[],
 ): void {
   try {
-    storage.setItem(diceHistoryStorageKey(campaignId), JSON.stringify(entries.map(storableOf)));
+    storage.setItem(diceHistoryStorageKey(campaignId), JSON.stringify(entries));
   } catch {
     // Keeps working in memory for this visit.
   }
