@@ -1,4 +1,11 @@
-import { assetResponseDto, libraryImageDto, sceneFolderDto } from '@lorkarium/contracts';
+import {
+  assetResponseDto,
+  campaignLibraryDto,
+  libraryImageDto,
+  sceneFolderDto,
+  sheetTemplateResponseDto,
+  type CampaignLibraryDto,
+} from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import { pngOf } from '../support/images';
 import type { SignedInUser } from '../support/sign-in';
@@ -10,8 +17,11 @@ const BUDGET = {
   libraryImagePlayer: 7,
   libraryImageMaster: 5,
   libraryImageRefused: 10,
+  libraryPlayer: 13,
+  libraryMaster: 14,
 } as const;
 
+const READS_SHEET_VALUES = /"values"[\s\S]*from "token_sheets"/;
 const LISTS_LIBRARY_IMAGES = /from "library_images"(?![\s\S]*"library_images"\."asset_id" = )/;
 
 describe('the queries each hot HTTP read costs', () => {
@@ -34,9 +44,9 @@ describe('the queries each hot HTTP read costs', () => {
     return assetResponseDto.parse(response.json()).asset.id;
   }
 
-  async function libraryImage(folderId: string | null = null): Promise<string> {
+  async function libraryImage(folderId: string | null = null, name = 'Retrato'): Promise<string> {
     const assetId = await uploaded();
-    const payload = { name: 'Retrato', assetId, folderId, visibility: 'public' };
+    const payload = { name, assetId, folderId, visibility: 'public' };
     const url = `/api/campaigns/${live.vharn.id}/library-images`;
     const response = await live.http(live.ana, { method: 'POST', url, payload });
     expect(response.statusCode, response.body).toBe(201);
@@ -44,8 +54,16 @@ describe('the queries each hot HTTP read costs', () => {
   }
 
   async function privateFolder(): Promise<string> {
+    return folder('Segredos', 'private', null);
+  }
+
+  async function folder(
+    name: string,
+    visibility: 'public' | 'private',
+    parentId: string | null,
+  ): Promise<string> {
     const url = `/api/campaigns/${live.vharn.id}/scene-folders`;
-    const payload = { name: 'Segredos', visibility: 'private' };
+    const payload = { name, visibility, parentId };
     const response = await live.http(live.ana, { method: 'POST', url, payload });
     expect(response.statusCode, response.body).toBe(201);
     return sceneFolderDto.parse(response.json()).id;
@@ -56,6 +74,44 @@ describe('the queries each hot HTTP read costs', () => {
     return response.statusCode;
   }
 
+  async function sheetsIn(folderId: string | null, count: number): Promise<void> {
+    const templates = `/api/campaigns/${live.vharn.id}/sheet-templates`;
+    const code = { files: [{ path: 'index.html', content: '<p></p>' }] };
+    const made = await live.http(live.ana, { method: 'POST', url: templates, payload: code });
+    const templateId = sheetTemplateResponseDto.parse(made.json()).template.id;
+    for (let index = 0; index < count; index += 1) {
+      const payload = {
+        actionId: crypto.randomUUID(),
+        templateId,
+        name: `Goblin ${index}`,
+        folderId,
+      };
+      const url = `/api/campaigns/${live.vharn.id}/sheets`;
+      const response = await live.http(live.ana, { method: 'POST', url, payload });
+      expect(response.statusCode, response.body).toBe(201);
+    }
+  }
+
+  async function libraryOf(user: SignedInUser): Promise<CampaignLibraryDto> {
+    const url = `/api/campaigns/${live.vharn.id}/library`;
+    const response = await live.http(user, { method: 'GET', url });
+    expect(response.statusCode, response.body).toBe(200);
+    return campaignLibraryDto.parse(response.json());
+  }
+
+  // Ato (public) > Segredos (private) > Cofre (public): what sits in Cofre is hidden too.
+  async function threeLevels(): Promise<void> {
+    const ato = await folder('Ato', 'public', null);
+    const segredos = await folder('Segredos', 'private', ato);
+    const cofre = await folder('Cofre', 'public', segredos);
+    await libraryImage(ato, 'Mapa do ato');
+    await libraryImage(cofre, 'Tesouro');
+    await sheetsIn(ato, 3);
+    await sheetsIn(cofre, 2);
+    await libraryOf(live.bia);
+    await libraryOf(live.ana);
+  }
+
   // Three other images first: a policy that lists the library to find one would read them all.
   async function shelfWith(folderId: string | null = null): Promise<string> {
     for (let index = 0; index < 3; index += 1) await libraryImage();
@@ -64,6 +120,33 @@ describe('the queries each hot HTTP read costs', () => {
     await read(live.ana, wanted);
     return wanted;
   }
+
+  describe('GET /campaigns/:id/library', () => {
+    it(`a player reads it in at most ${BUDGET.libraryPlayer}, hiding what a private folder above hides`, async () => {
+      await threeLevels();
+
+      let library: CampaignLibraryDto | undefined;
+      const queries = await counted(async () => (library = await libraryOf(live.bia)));
+
+      expect(library?.images.map(({ name }) => name)).toEqual(['Mapa do ato']);
+      expect(library?.folders.map(({ name }) => name)).toEqual(['Ato']);
+      expect(queries).toBeLessThanOrEqual(BUDGET.libraryPlayer);
+    });
+
+    it(`the master reads every item in at most ${BUDGET.libraryMaster}, without the sheet values nor a recursive query per item`, async () => {
+      await threeLevels();
+
+      let library: CampaignLibraryDto | undefined;
+      const queries = await counted(async () => (library = await libraryOf(live.ana)));
+
+      expect(library?.images).toHaveLength(2);
+      expect(library?.sheets).toHaveLength(5);
+      expect(queries).toBeLessThanOrEqual(BUDGET.libraryMaster);
+      expect(live.queries.matching(READS_SHEET_VALUES)).toBe(0);
+      // Only the grids keep theirs: the folder edits and the scene watch read it from the row.
+      expect(live.queries.matching(/with recursive/)).toBe(1);
+    });
+  });
 
   describe('GET /assets/:id of a library_image', () => {
     it(`a player reading a public image costs at most ${BUDGET.libraryImagePlayer}, without listing the library`, async () => {

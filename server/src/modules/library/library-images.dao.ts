@@ -13,6 +13,8 @@ export type LibraryImageRow = Readonly<{
   asset: AssetPo;
   hiddenByFolder: boolean;
 }>;
+/** An image as the library lists it, before its folder chain is decided. */
+export type LibraryImageListedRow = Omit<LibraryImageRow, 'hiddenByFolder'>;
 const IMAGE_WITH_ASSET = {
   image: libraryImages,
   asset: assets,
@@ -20,9 +22,11 @@ const IMAGE_WITH_ASSET = {
 };
 export class LibraryImagesDao {
   constructor(private readonly db: DatabaseExecutor) {}
-  async listOfCampaign(campaignId: string): Promise<LibraryImageRow[]> {
+  /** The images of the table, in creation order, without the folder chain: the library decides
+   *  it over the folders it already read. */
+  async listOfCampaign(campaignId: string): Promise<LibraryImageListedRow[]> {
     return this.db
-      .select(IMAGE_WITH_ASSET)
+      .select({ image: libraryImages, asset: assets })
       .from(libraryImages)
       .innerJoin(
         assets,
