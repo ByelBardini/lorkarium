@@ -178,4 +178,6 @@ export interface BoardRenderer {
 
 export type BoardMountOptions = Readonly<{ camera?: Camera }>;
 
-export type CreateBoardRenderer = (onIntent: BoardIntentListener) => BoardRenderer;
+/** Async: the PixiJS renderer is its own chunk, fetched on the first board (login and home never
+ *  download it). Rejects when the chunk fails to load. */
+export type CreateBoardRenderer = (onIntent: BoardIntentListener) => Promise<BoardRenderer>;

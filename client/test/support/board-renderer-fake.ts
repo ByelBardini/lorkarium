@@ -124,8 +124,14 @@ export class BoardRendererFake implements BoardRenderer {
 export class BoardRenderersFake {
   readonly made: BoardRendererFake[] = [];
   mountMode: MountMode = 'resolve';
+  /** `false`: the renderer chunk fails to download, so nothing is made. */
+  loads = true;
+  /** Every call to `create`, made or not. */
+  calls = 0;
 
-  readonly create: CreateBoardRenderer = (onIntent) => {
+  readonly create: CreateBoardRenderer = async (onIntent) => {
+    this.calls += 1;
+    if (!this.loads) throw new TypeError('Failed to fetch dynamically imported module');
     const renderer = new BoardRendererFake(onIntent, this.mountMode);
     this.made.push(renderer);
     return renderer;

@@ -73,7 +73,7 @@ const PRIMARY_BUTTON = 0;
  *  (`?perf=1`) hands it a recording probe, and `auraMotion` says whether "Animar auras" is on
  *  (read by the animator each frame, never through the view: toggling it redraws nothing).
  *
- *  Example: `buildRoutes({ ...deps, createBoardRenderer: (onIntent) => createPixiBoardRenderer(onIntent, probe, () => store.getState().animated) })` */
+ *  Example: `buildRoutes({ ...deps, createBoardRenderer: async (onIntent) => (await import('@/renderer/pixi-board-renderer')).createPixiBoardRenderer(onIntent, probe, () => store.getState().animated) })` */
 export function createPixiBoardRenderer(
   onIntent: Parameters<CreateBoardRenderer>[0],
   probe: PerfProbe = NO_PERF_PROBE,

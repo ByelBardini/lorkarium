@@ -59,7 +59,7 @@ Comandos da raiz (`package.json`):
 - `pnpm bench` — os `*.bench.ts` (cena de estresse do tabuleiro, visão do game-core, física dos dados do server), fora do `pnpm test` e do CI (ver `docs/context/client/performance.md` e `docs/context/dice/fisica.md`)
 - `pnpm lint` · `pnpm format` · `pnpm format:check`
 - `pnpm mail:preview` — um exemplar de cada e-mail do sistema no Mailpit (ver `docs/context/mail.md`)
-- `pnpm db:up` / `pnpm db:down` — Postgres e SeaweedFS (S3) de desenvolvimento · `pnpm db:generate` — SQL de migração a partir dos PO · `pnpm db:migrate` — aplica as migrações no `DATABASE_URL` · `pnpm db:seed-dev` — jogadores de teste Bia e Caio (senha `lorkarium-dev`; recusa em produção) · `pnpm db:seed-stress` — a "Mesa de estresse" da Bia no tamanho-alvo do bench (depois do `db:seed-dev`; recusa em produção)
+- `pnpm db:up` / `pnpm db:down` — Postgres e SeaweedFS (S3) de desenvolvimento · `pnpm db:generate` — SQL de migração a partir dos PO · `pnpm db:migrate` — aplica as migrações no `DATABASE_URL` · `pnpm db:recompress-images [--dry-run] [--yes]` — regrava em WebP os PNG opacos de fundo, mapa e biblioteca (uma vez depois do deploy; ver `docs/context/server/scripts.md`) · `pnpm db:seed-dev` — jogadores de teste Bia e Caio (senha `lorkarium-dev`; recusa em produção) · `pnpm db:seed-stress` — a "Mesa de estresse" da Bia no tamanho-alvo do bench (depois do `db:seed-dev`; recusa em produção)
 
 ## Camadas do server
 

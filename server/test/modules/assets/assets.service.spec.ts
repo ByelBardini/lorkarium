@@ -74,7 +74,7 @@ describe('AssetsService', () => {
   it('a master uploads a library image with a proportional 4096 px static budget', async () => {
     const asset = await service.upload(ANA_ID, VHARN_ID, { bytes: PNG, purpose: 'library_image' });
     expect(asset).toEqual({ id: NEW_ID, mimeType: 'image/png', width: 1024, height: 512 });
-    expect(processor.resizes).toEqual([{ maxSide: 4096, square: false }]);
+    expect(processor.resizes).toEqual([{ maxSide: 4096, square: false, opaqueAsWebp: true }]);
     expect(assets.rows[0]).toMatchObject({ purpose: 'library_image', ownerId: ANA_ID });
     expect(journal).toEqual(['normalize', 'put', 'insert']);
   });
@@ -241,13 +241,13 @@ describe('AssetsService', () => {
       purpose: 'library_image',
     });
     expect(fetcher.fetched).toEqual(['https://example.com/portrait.webp']);
-    expect(processor.resizes).toEqual([{ maxSide: 4096, square: false }]);
+    expect(processor.resizes).toEqual([{ maxSide: 4096, square: false, opaqueAsWebp: true }]);
     expect(assets.rows[0]?.purpose).toBe('library_image');
   });
 
   it('a master uploads a map image with a proportional 8192 px static budget', async () => {
     await service.upload(ANA_ID, VHARN_ID, { bytes: PNG, purpose: 'library_map' });
-    expect(processor.resizes).toEqual([{ maxSide: 8192, square: false }]);
+    expect(processor.resizes).toEqual([{ maxSide: 8192, square: false, opaqueAsWebp: true }]);
     expect(assets.rows[0]).toMatchObject({ purpose: 'library_map', ownerId: ANA_ID });
     expect(journal).toEqual(['normalize', 'put', 'insert']);
   });
@@ -257,7 +257,7 @@ describe('AssetsService', () => {
       url: 'https://example.com/world.webp',
       purpose: 'library_map',
     });
-    expect(processor.resizes).toEqual([{ maxSide: 8192, square: false }]);
+    expect(processor.resizes).toEqual([{ maxSide: 8192, square: false, opaqueAsWebp: true }]);
     expect(assets.rows[0]?.purpose).toBe('library_map');
   });
 
@@ -353,10 +353,20 @@ describe('AssetsService', () => {
     expect(assets.rows[0]).toMatchObject({ ownerId: BIA_ID, campaignId: VHARN_ID, sizeBytes: 6 });
   });
 
-  it('a background is normalized up to 4096 px', async () => {
+  it('a background is normalized up to 4096 px, opaque as WebP', async () => {
     await service.upload(ANA_ID, VHARN_ID, { bytes: PNG, purpose: 'background' });
 
-    expect(processor.resizes).toEqual([{ maxSide: 4096, square: false }]);
+    expect(processor.resizes).toEqual([{ maxSide: 4096, square: false, opaqueAsWebp: true }]);
+  });
+
+  it('a PNG kept as WebP is stored and recorded with the type that came out', async () => {
+    processor.result = { ...processor.result, mimeType: 'image/webp' };
+
+    const asset = await service.upload(ANA_ID, VHARN_ID, { bytes: PNG, purpose: 'background' });
+
+    expect(asset.mimeType).toBe('image/webp');
+    expect(storage.objects.get(`assets/${NEW_ID}`)?.contentType).toBe('image/webp');
+    expect(assets.rows[0]?.mimeType).toBe('image/webp');
   });
 
   it('a condition file is normalized as a square of 256 px, then stored and recorded', async () => {
