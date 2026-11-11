@@ -29,7 +29,7 @@ Qualidade e testes do monorepo: scripts de teste por camada, cobertura e (nas se
 
 ## Build
 
-`pnpm build` roda o `build` de cada workspace: client (`tsc && vite build` → `client/dist/`) e server (`tsdown` → `server/dist/index.mjs` e `server/dist/deploy-migrate.mjs`, com um chunk comum, + sourcemap). Config em `server/tsdown.config.ts`:
+`pnpm build` roda o `build` de cada workspace: client (`tsc && vite build` → `client/dist/`) e server (`tsdown` → `server/dist/index.mjs`, `server/dist/deploy-migrate.mjs` e `server/dist/recompress-images.mjs`, com um chunk comum, + sourcemap). Config em `server/tsdown.config.ts`:
 
 - ESM, `platform: 'node'`, alvo `node26`, entradas `src/index.ts` e `src/deploy-migrate.ts`.
 - `@lorkarium/*` vão **dentro** do bundle (`deps.alwaysBundle`): os pacotes internos exportam `.ts` cru, que o Node não carrega de `node_modules`.
