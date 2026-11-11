@@ -54,6 +54,10 @@ export const tokenSheets = pgTable(
     unique('token_sheets_campaign_id_id_unique').on(t.campaignId, t.id),
     index('token_sheets_template_idx').on(t.campaignId, t.templateId),
     index('token_sheets_token_idx').on(t.campaignId, t.tokenId),
+    // The FK action of a deleted token looks up by token_id alone, which the pair above cannot lead.
+    index('token_sheets_token_only_idx')
+      .on(t.tokenId)
+      .where(sql`${t.tokenId} IS NOT NULL`),
     index('token_sheets_folder_idx').on(t.campaignId, t.folderId),
     index('token_sheets_character_idx').on(t.campaignId, t.characterId),
     // Narrowed by hand to SET NULL ("character_id"), as the folder key below.
