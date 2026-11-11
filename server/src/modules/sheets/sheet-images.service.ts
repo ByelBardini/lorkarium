@@ -11,14 +11,14 @@ import type { SheetAssetsDao } from './sheet-assets.dao';
 import type { SheetHolderDaos, SheetHolderService } from './sheet-holder.service';
 import type { SheetsDao } from './sheets.dao';
 import { SheetNotFoundError } from './sheets.error';
-import { toSheetAccessBo } from './sheets.mapper';
+import { holderPlaceIn, toSheetAccessBo } from './sheets.mapper';
 
 /** What the images of a sheet read, all on one executor. */
 export type SheetImageDaos = SheetHolderDaos &
   Readonly<{
     members: Pick<CampaignMembersDao, 'findMembership'>;
     campaigns: Pick<CampaignsDao, 'lockById'>;
-    sheets: SheetHolderDaos['sheets'] & Pick<SheetsDao, 'find'>;
+    sheets: SheetHolderDaos['sheets'] & Pick<SheetsDao, 'find' | 'findLines' | 'holdersOf'>;
     sheetAssets: Pick<SheetAssetsDao, 'associate' | 'sheetsOfAsset'>;
   }>;
 
@@ -45,6 +45,22 @@ export async function sheetRulesOf(
   const sheet = await daos.sheets.find(access.campaignIdOf(), sheetId);
   if (!sheet) return null;
   return toSheetAccessBo(access, sheet, await holders.placeOfSheet(daos, sheet));
+}
+
+/** Whether `access` reads at least one of the sheets, in a constant number of queries: the
+ *  sheets in one read (without values), their holders in bulk.
+ *
+ *  Example: `await readsAnySheet(daos, caioAccess, await daos.sheetAssets.sheetsOfAsset(vharnId, imageId))` */
+export async function readsAnySheet(
+  daos: SheetImageDaos,
+  access: CampaignAccessBo,
+  sheetIds: readonly string[],
+): Promise<boolean> {
+  const sheets = await daos.sheets.findLines(access.campaignIdOf(), sheetIds);
+  const places = await daos.sheets.holdersOf(access.campaignIdOf(), sheets);
+  return sheets.some((sheet) =>
+    toSheetAccessBo(access, sheet, holderPlaceIn(sheet, places)).canRead(),
+  );
 }
 
 /** Images sent to a sheet by who edits it: authorized before the image is decoded and kept, then

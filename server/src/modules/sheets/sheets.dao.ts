@@ -98,6 +98,18 @@ export class SheetsDao {
     return this.ordered(where);
   }
 
+  /** The asked sheets of the table as their gates read them, without the values; ids of another
+   *  table are left out, and no ids is no query.
+   *
+   *  Example: `await dao.findLines(vharnId, await sheetAssets.sheetsOfAsset(vharnId, imageId))` */
+  async findLines(campaignId: string, sheetIds: readonly string[]): Promise<SheetLineRow[]> {
+    if (sheetIds.length === 0) return [];
+    return this.db
+      .select({ ...SHEET_LISTED, hiddenByFolder: SHEET_WITH_FOLDER.hiddenByFolder })
+      .from(tokenSheets)
+      .where(and(eq(tokenSheets.campaignId, campaignId), inArray(tokenSheets.id, [...sheetIds])));
+  }
+
   /** Every sheet of the table as the library lists it, in creation order: without the values
    *  (up to 256 KiB each) nor the folder chain, which the caller decides over its folders.
    *
