@@ -14,6 +14,8 @@ O lado React das regras de desempenho: o que impede painel, lista e sala de re-r
 
 2. **Painel que só nomeia o visto usa `useBoardSeen`, nunca `useBoardSight`** (`features/board/use-board-sight.ts`; hoje `scene-token-list.tsx` e `token-dock.tsx`). O `useBoardSight` assina `dragged`, `drag` e `patrol`: o painel re-renderizava a cada casa de todo arraste remoto (10/s) e a cada passo de patrulha. O `useBoardSeen` lê as stores por `useSyncExternalStore` e devolve a visão anterior enquanto níveis, olhos e modo forem os mesmos (`sameSeen`). Por baixo, o `sightWithMovedOf` devolve a própria visão anterior quando nenhum nível mudou, e a memória do `sightNowOf` é uma por grid (`WeakMap` pela `scene`), então grupo e aba mostrada não se refazem a frio. Provado em `scene-token-list.spec.tsx` (`RenderCounter` num `<Profiler>`: arraste dentro da luz → 0 renders; para o escuro → 1).
 
+3. **Painel que não mostra onde o token está lê os tokens pelo `useTokensBesidesPose`** (`features/board/use-board-tokens.ts`): o mesmo array enquanto só `col`, `row` e `facing` mudaram (`sameTokensBesidesPose`, comparação rasa campo a campo, que vale porque o reducer só troca o token tocado e mantém os arrays dele). Hoje a ordem de iniciativa (`combatant-list.tsx`, com o `combat` por seletor) e a condição nos selecionados (`selection-conditions.tsx`). Painel nunca assina `s => s.board` inteiro: todo evento troca o `board`, e a sala re-renderia o painel a cada arraste confirmado, presença ou versão.
+
 ## Armadilhas
 
 - **Teste de notificação conta assinante, não estado**: `NotificationCounter` (`client/test/support/notification-counter.ts`) assina a store e conta; `toEqual` no estado passa mesmo com notificação à toa.

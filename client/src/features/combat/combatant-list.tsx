@@ -1,7 +1,8 @@
 import type { CombatDto } from '@lorkarium/contracts';
 import { useMemo, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
-import { useBoardSight } from '@/features/board/use-board-sight';
+import { useBoardSeen } from '@/features/board/use-board-sight';
+import { useTokensBesidesPose } from '@/features/board/use-board-tokens';
 import { seenTokensOf } from '@/lib/board-sight';
 import { trackerRowsOf } from '@/lib/combat-rows';
 import {
@@ -30,19 +31,22 @@ type Folding = Readonly<{ open: boolean; turn: string }>;
  *
  *  Example: `<CombatantList board={board} presence={presence} interaction={interaction} isMaster />` */
 export function CombatantList(props: CombatantListProps): React.JSX.Element | null {
-  const state = useBoard(props.board, (current) => current.board);
-  const sight = useBoardSight(props.board, props.interaction);
+  const combat = useBoard(props.board, (current) => current.board?.combat ?? null);
+  const tokens = useTokensBesidesPose(props.board);
+  const sight = useBoardSeen(props.board, props.interaction);
   const members = useTablePresence(props.presence, (current) => current.members);
   const selected = useBoardInteraction(props.interaction, (current) =>
     singleSelectedOf(current.selectedTokenIds),
   );
-  const folding = useGroupFolding(state?.combat ?? null);
+  const folding = useGroupFolding(combat);
   const rows = useMemo(
-    () => (state ? trackerRowsOf(state, seenTokensOf(state, sight), props.isMaster) : []),
-    [state, sight, props.isMaster],
+    () =>
+      combat
+        ? trackerRowsOf({ combat, tokens }, seenTokensOf({ tokens }, sight), props.isMaster)
+        : [],
+    [combat, tokens, sight, props.isMaster],
   );
-  const combat = state?.combat;
-  if (!state || !combat) return null;
+  if (!combat) return null;
   return (
     <div className="flex flex-col gap-3">
       <SelectionConditions

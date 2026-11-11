@@ -1,7 +1,7 @@
-import type { TokenDto } from '@lorkarium/contracts';
 import type { StoreApi } from 'zustand/vanilla';
+import { useTokensBesidesPose } from '@/features/board/use-board-tokens';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
-import { useBoard, type BoardStore } from '@/stores/board-store';
+import type { BoardStore } from '@/stores/board-store';
 import { ConditionPicker } from './condition-picker';
 
 export type SelectionConditionsProps = Readonly<{
@@ -9,8 +9,6 @@ export type SelectionConditionsProps = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
   isMaster: boolean;
 }>;
-
-const NO_TOKENS: readonly TokenDto[] = [];
 
 /** With 2 or more selected, one condition on all of them in one `condition:applyMany`, whoever
  *  controls them (master and players alike act on any token's conditions). Nothing read-only.
@@ -20,7 +18,7 @@ export function SelectionConditions(props: SelectionConditionsProps): React.JSX.
   const { board, interaction, isMaster } = props;
   const selectedIds = useBoardInteraction(interaction, (state) => state.selectedTokenIds);
   const readOnly = useBoardInteraction(interaction, (state) => state.readOnly);
-  const tokens = useBoard(board, (state) => state.board?.tokens ?? NO_TOKENS);
+  const tokens = useTokensBesidesPose(board);
   if (selectedIds.length < 2 || readOnly) return null;
   const targets = tokens.filter(({ id }) => selectedIds.includes(id)).map(({ id }) => id);
   if (targets.length < 2) return null;
