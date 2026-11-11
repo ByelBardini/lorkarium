@@ -21,13 +21,15 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm --filter @lorkarium/server deploy --prod --legacy /out
 
 FROM node:26.13.0-bookworm-slim AS runtime
-ENV NODE_ENV=production PORT=3333 CLIENT_DIST_DIR=/app/client/dist
+ENV NODE_ENV=production PORT=3333 CLIENT_DIST_DIR=/app/client/dist ASSET_CACHE_DIR=/var/cache/lorkarium/assets
 WORKDIR /app/server
 COPY --from=prod-deps --chown=node:node /out/node_modules ./node_modules
 COPY --from=build --chown=node:node /repo/server/package.json ./package.json
 COPY --from=build --chown=node:node /repo/server/dist ./dist
 COPY --from=build --chown=node:node /repo/server/drizzle ./drizzle
 COPY --from=build --chown=node:node /repo/client/dist /app/client/dist
+# Owned by node so an empty named volume mounted here (Coolify's Volume Mount) inherits a writable owner.
+RUN mkdir -p /var/cache/lorkarium/assets && chown -R node:node /var/cache/lorkarium
 USER node
 EXPOSE 3333
 # No curl in the image: Node 26's fetch asks the health route.
