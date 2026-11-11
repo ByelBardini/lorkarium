@@ -1,5 +1,6 @@
 import type { TokenDto } from '@lorkarium/contracts';
 import { act, render, screen, within } from '@testing-library/react';
+import { Profiler } from 'react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
@@ -11,9 +12,11 @@ import {
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
+import { RenderCounter } from '../../support/render-counter';
 import {
   KAEL_COMBATANT,
   LYRA_COMBATANT,
+  eventAt,
   lyra,
   vharnBoard,
   vharnCombat,
@@ -218,5 +221,53 @@ describe('CombatHeader', () => {
       expect(screen.queryByRole('alertdialog')).toBeNull();
       expect(commands.sent).toEqual([]);
     });
+  });
+});
+
+describe('CombatHeader renders', () => {
+  let board: StoreApi<BoardStore>;
+  let renders: RenderCounter;
+
+  beforeEach(() => {
+    board = createBoardStore(VHARN.id, () => undefined);
+    const interaction = createBoardInteractionStore({
+      scopeOf: () => VHARN_GRID,
+      commands: new TableBoardCommandsFake(),
+      describeRefusal: String,
+    });
+    const tokens = [KAEL, LYRA];
+    board.getState().apply({ kind: 'board', state: vharnBoard({ tokens, combat: vharnCombat() }) });
+    renders = new RenderCounter();
+    render(
+      <Profiler id="cabecalho" onRender={renders.onRender}>
+        <CombatHeader
+          board={board}
+          interaction={interaction}
+          isMaster
+          onPrepare={() => undefined}
+          onAdd={() => undefined}
+          onTokenless={() => undefined}
+        />
+      </Profiler>,
+    );
+    renders.count = 0;
+  });
+
+  function applied(event: Parameters<typeof eventAt>[1]): void {
+    act(() => board.getState().apply({ kind: 'boardEvent', event: eventAt(5, event) }));
+  }
+
+  it('a token moved on the board does not render the header', () => {
+    applied({ type: 'tokensMoved', payload: { moves: [{ tokenId: KAEL.id, col: 9, row: 6 }] } });
+
+    expect(renders.count).toBe(0);
+  });
+
+  it('the next round renders the header once, with the round', () => {
+    applied({ type: 'combatUpdated', payload: { combat: vharnCombat({ round: 3 }) } });
+
+    expect(renders.count).toBe(1);
+    const tracker = screen.getByRole('region', { name: 'Combate em andamento' });
+    expect(tracker).toHaveTextContent('Rodada 3');
   });
 });

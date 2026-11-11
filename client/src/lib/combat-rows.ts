@@ -22,7 +22,7 @@ export type SummedBar = Readonly<{ current: number; max: number; temp: number }>
  *
  *  Example: `trackerRowsOf(board, seenTokensOf(board, sight), isMaster)[0]?.label // 'Kael'` */
 export function trackerRowsOf(
-  state: BoardStateDto,
+  state: Readonly<{ combat: BoardStateDto['combat']; tokens: readonly TokenDto[] }>,
   seenTokens: readonly TokenDto[],
   isMaster: boolean,
 ): TrackerRow[] {

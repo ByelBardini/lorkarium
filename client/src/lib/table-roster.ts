@@ -1,4 +1,4 @@
-import type { BoardStateDto, CharacterDto, SessionMemberDto, TokenDto } from '@lorkarium/contracts';
+import type { CharacterDto, SessionMemberDto, TokenDto } from '@lorkarium/contracts';
 import { assignableRolesOf, type TableRole, type TableSeat } from '@lorkarium/game-core';
 import { characterTokenOf } from './main-token';
 
@@ -35,8 +35,8 @@ export type TableRoster = Readonly<{
 
 export type TableRosterInput = Readonly<{
   members: readonly SessionMemberDto[];
-  /** The group grid's board (`null` while it loads). */
-  board: BoardStateDto | null;
+  /** The group grid's board, only its tokens are read (`null` while it loads). */
+  board: Readonly<{ tokens: readonly TokenDto[] }> | null;
   /** The table's characters (`null` until their first `character:sync`). */
   characters: readonly CharacterDto[] | null;
   viewerId: string;

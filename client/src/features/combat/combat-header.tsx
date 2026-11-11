@@ -3,7 +3,8 @@ import { SwordsIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
-import { useBoardSight } from '@/features/board/use-board-sight';
+import { useBoardSeen } from '@/features/board/use-board-sight';
+import { useTokensBesidesPose } from '@/features/board/use-board-tokens';
 import { seenTokensOf } from '@/lib/board-sight';
 import {
   canRunEntry,
@@ -17,8 +18,6 @@ import { CombatMenu } from './combat-menu';
 import { combatSummaryOf, type CombatSummary } from './combat-view';
 import { EndCombatConfirm } from './end-combat-confirm';
 import { TurnControls } from './turn-controls';
-
-const NO_TOKENS: readonly TokenDto[] = [];
 
 export type CombatHeaderProps = Readonly<{
   board: StoreApi<BoardStore>;
@@ -41,15 +40,13 @@ export type CombatHeaderProps = Readonly<{
  *  Example: `<CombatHeader board={board} interaction={interaction} isMaster onPrepare={prepare} onAdd={add} onTokenless={form} />` */
 export function CombatHeader(props: CombatHeaderProps): React.JSX.Element {
   const { board, interaction } = props;
-  const current = useBoard(board, (state) => state.board);
-  const sight = useBoardSight(board, interaction);
-  const seen = useMemo(
-    () => (current ? seenTokensOf(current, sight) : NO_TOKENS),
-    [current, sight],
-  );
-  const summary = useMemo(() => combatSummaryOf(current, seen), [current, seen]);
-  if (!summary || !current) return <OutOfCombat {...props} seen={seen} />;
-  return <InCombat {...props} summary={summary} seen={seen} tokens={current.tokens} />;
+  const combat = useBoard(board, (state) => state.board?.combat ?? null);
+  const tokens = useTokensBesidesPose(board);
+  const sight = useBoardSeen(board, interaction);
+  const seen = useMemo(() => seenTokensOf({ tokens }, sight), [tokens, sight]);
+  const summary = useMemo(() => combatSummaryOf({ combat }, seen), [combat, seen]);
+  if (!summary) return <OutOfCombat {...props} seen={seen} />;
+  return <InCombat {...props} summary={summary} seen={seen} tokens={tokens} />;
 }
 
 type OutOfCombatProps = CombatHeaderProps & Readonly<{ seen: readonly TokenDto[] }>;

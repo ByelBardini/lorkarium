@@ -7,7 +7,7 @@ import {
 import { cn } from '@/lib/utils';
 import { isDesktopShell } from '@/lib/desktop-shell';
 import type { CampaignDetailDto } from '@lorkarium/contracts';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { useOpenTable, type OpenTableView } from '@/features/sessions/use-open-table';
 import { useOpenTableOf } from '@/features/chat/use-chat-people';
@@ -82,8 +82,8 @@ import { RoomToolbar } from './room-toolbar';
 import { ConfigureSceneDialog } from './configure-scene-dialog';
 import { FocusToggle } from './focus-toggle';
 import { TokenContextMenu, type TokenMenuRequest } from './token-context-menu';
-import { TokenHoverCard } from './token-hover-card';
-import { useTokenHover } from './use-token-hover';
+import { HoverCardLayer, type HoverCardLayerHandle } from './hover-card-layer';
+import type { TokenHoverRequest } from './use-token-hover';
 import { RoomHeader } from './room-header';
 import { RoomSidePanel } from './room-panel';
 import { useInteractionFollowsTable } from './use-interaction-follows-table';
@@ -168,7 +168,12 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const [conditionTool] = useState(createConditionToolStore);
   const role = campaign.myRole;
   const isMaster = role === 'master';
-  const hover = useTokenHover(props.interactionClock);
+  // The hover lives in its own layer: resting on a token never renders the room.
+  const hoverLayer = useRef<HoverCardLayerHandle>(null);
+  const onTokenHover = useCallback(
+    (request: TokenHoverRequest | null) => hoverLayer.current?.onTokenHover(request),
+    [],
+  );
   useEffect(() => interaction.getState().allowLayerChoice(isMaster), [interaction, isMaster]);
   const focus = useRoomLayout(roomLayout, (state) => state.focus);
   useRoomShortcuts({ roomLayout, interaction, role, enabled: !activeDocument });
@@ -282,10 +287,10 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
               }}
               onDeleteSelection={setDeletion}
               onTokenMenu={(request) => {
-                hover.onTokenHover(null);
+                onTokenHover(null);
                 if (!watchesOnly(role)) setTokenMenu(request);
               }}
-              onTokenHover={hover.onTokenHover}
+              onTokenHover={onTokenHover}
               onDoorMenu={(request) => isMaster && setDoorMenu(request)}
               onLightMenu={(request) => isMaster && setLightMenu(request)}
               drawingStyle={props.drawingStyle}
@@ -332,13 +337,12 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
                 lightColor={props.lightColor}
               />
             )}
-            {hover.hovered && table && (
-              <TokenHoverCard
-                request={hover.hovered}
-                board={table.board}
-                interaction={interaction}
-              />
-            )}
+            <HoverCardLayer
+              ref={hoverLayer}
+              clock={props.interactionClock}
+              board={table?.board ?? null}
+              interaction={interaction}
+            />
             {tokenMenu && table && (
               <TokenContextMenu
                 request={tokenMenu}

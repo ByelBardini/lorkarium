@@ -1,5 +1,6 @@
 import type { MemberColorDto } from '@lorkarium/contracts';
 import { memberColorOf } from '@lorkarium/game-core';
+import { useMemo } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import {
   createTablePresenceStore,
@@ -26,11 +27,15 @@ export function useRollerIdentity(
   presence: StoreApi<TablePresenceStore> | null,
 ): (userId: string) => RollerIdentity {
   const members = useTablePresence(presence ?? EMPTY_PRESENCE, (state) => state.members);
-  return (userId) => {
-    const member = members.find((each) => each.userId === userId);
-    if (member === undefined) {
-      return { name: UNKNOWN_ROLLER, color: memberColorOf(userId, null), avatarId: null };
-    }
-    return { name: member.name, color: member.color, avatarId: member.avatarId };
-  };
+  // The same function while the roster stands: the lines of the chat are `memo`.
+  return useMemo(
+    () => (userId) => {
+      const member = members.find((each) => each.userId === userId);
+      if (member === undefined) {
+        return { name: UNKNOWN_ROLLER, color: memberColorOf(userId, null), avatarId: null };
+      }
+      return { name: member.name, color: member.color, avatarId: member.avatarId };
+    },
+    [members],
+  );
 }

@@ -13,6 +13,7 @@ import type {
   TableSessionStatus,
   TableSessionUpdate,
 } from '@/services/table-session-api';
+import { changedPatchOf } from '@/lib/state-patch';
 
 /** Who is at one table, as the server confirmed it; `version: null` until the first snapshot. */
 export type TablePresenceState = Readonly<{
@@ -34,14 +35,17 @@ export type TablePresenceStore = TablePresenceState &
  *
  *  Example: `const store = createTablePresenceStore(campaignId); handle = api.open(campaignId, store.getState().apply)` */
 export function createTablePresenceStore(campaignId: string): StoreApi<TablePresenceStore> {
-  return createStore<TablePresenceStore>()((set) => ({
+  return createStore<TablePresenceStore>()((set, get) => ({
     campaignId,
     status: 'connecting',
     failure: null,
     version: null,
     members: [],
     at: null,
-    apply: (update) => set((state) => applyUpdate(state, update)),
+    apply: (update) => {
+      const patch = changedPatchOf(get(), applyUpdate(get(), update));
+      if (patch) set(patch);
+    },
   }));
 }
 

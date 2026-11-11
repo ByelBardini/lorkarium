@@ -89,7 +89,7 @@ function copyWorkOf({ table, interaction }: OpenEditDeps): EditWork | null {
 async function paste(deps: OpenEditDeps): Promise<void> {
   const scene = deps.table.board.getState().board?.scene;
   if (!scene) return;
-  const cursor = deps.interaction.getState().hoverCell;
+  const cursor = deps.interaction.getState().hover.current;
   const target = {
     cursor,
     scene: { widthCells: scene.widthCells, heightCells: scene.heightCells },

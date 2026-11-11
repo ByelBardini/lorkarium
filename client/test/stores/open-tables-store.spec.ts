@@ -300,6 +300,15 @@ describe('open tables store', () => {
       });
     });
 
+    it('campaignUpdated that changes nothing shown keeps the very same tables', () => {
+      api.emitTo(VHARN.id, { kind: 'campaignUpdated', event: vharnRenamed({ version: 2 }) });
+      const before = store.getState().tables;
+
+      api.emitTo(VHARN.id, { kind: 'campaignUpdated', event: vharnRenamed({ version: 3 }) });
+
+      expect(store.getState().tables).toBe(before);
+    });
+
     it('campaignUpdated also moves the version of that table presence', () => {
       api.emitTo(VHARN.id, { kind: 'campaignUpdated', event: vharnRenamed({ version: 2 }) });
 

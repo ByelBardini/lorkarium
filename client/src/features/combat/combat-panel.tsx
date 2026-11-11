@@ -1,7 +1,8 @@
-import type { CombatEntryInput, TokenDto } from '@lorkarium/contracts';
+import type { CombatEntryInput } from '@lorkarium/contracts';
 import { useMemo, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
-import { useBoardSight } from '@/features/board/use-board-sight';
+import { useBoardSeen } from '@/features/board/use-board-sight';
+import { useTokensBesidesPose } from '@/features/board/use-board-tokens';
 import { SceneTokenList } from '@/features/tokens/scene-token-list';
 import { TokenDock } from '@/features/tokens/token-dock';
 import { seenTokensOf } from '@/lib/board-sight';
@@ -33,8 +34,6 @@ export type CombatPanelProps = Readonly<{
 /** What the tab shows besides the board's state: the preparation to start or to add, or the form
  *  of an entry without token. Local: switching tab or reloading drops it. */
 type PanelMode = 'idle' | CombatPrepMode | 'tokenless';
-
-const NO_TOKENS: readonly TokenDto[] = [];
 
 /** The "Combate" tab: out of combat → the scene and "Iniciar combate"; the preparation ("Quem
  *  entra na briga?") in the panel itself; in combat → the round, the turn and the order. The
@@ -117,9 +116,10 @@ function shownModeOf(mode: PanelMode, inCombat: boolean): PanelMode {
 type PanelPrepProps = CombatPanelProps & Readonly<{ mode: CombatPrepMode; onDone: () => void }>;
 
 function PanelPrep({ table, interaction, mode, onDone }: PanelPrepProps) {
-  const state = useBoard(table.board, (current) => current.board);
-  const sight = useBoardSight(table.board, interaction);
-  const seen = useMemo(() => (state ? seenTokensOf(state, sight) : NO_TOKENS), [state, sight]);
+  const combat = useBoard(table.board, (current) => current.board?.combat ?? null);
+  const tokens = useTokensBesidesPose(table.board);
+  const sight = useBoardSeen(table.board, interaction);
+  const seen = useMemo(() => seenTokensOf({ tokens }, sight), [tokens, sight]);
   const members = useTablePresence(table.presence, (current) => current.members);
   const readOnly = useBoardInteraction(interaction, (current) => current.readOnly);
   const submit = async (entries: readonly CombatEntryInput[]): Promise<void> => {
@@ -134,7 +134,7 @@ function PanelPrep({ table, interaction, mode, onDone }: PanelPrepProps) {
     <CombatPrep
       mode={mode}
       tokens={seen}
-      combat={state?.combat ?? null}
+      combat={combat}
       members={members}
       readOnly={readOnly}
       onSubmit={(entries) => void submit(entries)}
