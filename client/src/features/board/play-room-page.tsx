@@ -276,7 +276,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             aria-hidden={activeDocument ? true : undefined}
           >
             <BoardArea
-              key={shown.key}
+              tabKey={shown.key}
               view={view}
               interaction={interaction}
               createBoardRenderer={props.createBoardRenderer}
@@ -512,7 +512,7 @@ type ShownTab = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
   scopeOf: () => BoardScope;
   tabs: StoreApi<SceneTabsStore> | null;
-  /** Changes with the tab shown: the canvas mounts again for another grid. */
+  /** Changes with the tab shown: the same canvas shows another grid, at that tab's camera. */
   key: string;
   /** The others' pings on the grid shown. */
   pings: PingFeed | null;

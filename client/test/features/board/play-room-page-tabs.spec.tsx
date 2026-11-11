@@ -1,9 +1,11 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cell } from '@lorkarium/game-core';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildRoutes } from '@/app/router';
 import type { OpenTable } from '@/stores/open-tables-store';
+import { GROUP_TAB } from '@/stores/scene-tabs-store';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
 import { detailOf, VHARN } from '../../support/campaigns-api-fake';
@@ -138,6 +140,81 @@ describe('play room: grid tabs', () => {
     expect(screen.getByRole('application')).toHaveAccessibleName(
       'Tabuleiro: Cena 1, 20 × 12 casas',
     );
+  });
+
+  describe('one renderer for every grid tab', () => {
+    const TORRE_CAMERA = { offsetX: -40, offsetY: 12, zoom: 2 };
+    const GROUP_CAMERA = { offsetX: 8, offsetY: -16, zoom: 0.5 };
+
+    function showTab(key: string): void {
+      act(() => table.tabs.getState().show(key));
+    }
+
+    it('group → Torre → group mounts one renderer and destroys none', async () => {
+      await showTorre();
+      showTab(GROUP_TAB);
+      showTab(TORRE_SCENE.id);
+
+      expect(deps.boardRenderers.calls).toBe(1);
+      expect(deps.boardRenderers.alive).toHaveLength(1);
+      expect(deps.boardRenderers.latest().lastView?.tokens.map(({ id }) => id)).toEqual([KAEL_ID]);
+    });
+
+    it('each tab opens at its own camera; a grid never shown before fits its scene', async () => {
+      const renderer = deps.boardRenderers.latest();
+      renderer.cameraNow = GROUP_CAMERA;
+      await showTorre();
+      renderer.cameraNow = TORRE_CAMERA;
+      showTab(GROUP_TAB);
+      showTab(TORRE_SCENE.id);
+
+      expect(renderer.resets).toEqual([undefined, GROUP_CAMERA, TORRE_CAMERA]);
+    });
+
+    it('a drag cancelled by the switch goes to the tab it started on', async () => {
+      const renderer = deps.boardRenderers.latest();
+      renderer.emit({
+        kind: 'tokenDragged',
+        tokenId: LYRA_ID,
+        origin: cell(3, 4),
+        cell: cell(5, 4),
+      });
+      const group = table.tabs.getState().tabs[0];
+      const dragging = group?.interaction.getState().drag;
+      renderer.saysOnReset = [{ kind: 'tokenDragCancelled', tokenId: LYRA_ID }];
+
+      await showTorre();
+
+      expect(dragging).not.toBeNull();
+      expect(group?.interaction.getState().drag).toBeNull();
+    });
+
+    it('a lost context on a tab mounts one renderer more, which the next tab keeps', async () => {
+      await showTorre();
+      deps.boardRenderers.latest().lose();
+      await act(() => Promise.resolve());
+      showTab(GROUP_TAB);
+
+      expect(deps.boardRenderers.calls).toBe(2);
+      expect(deps.boardRenderers.alive).toHaveLength(1);
+      expect(deps.boardRenderers.latest().resets).toHaveLength(1);
+    });
+
+    it('a tab still loading hides the canvas and keeps its renderer', () => {
+      act(() => table.tabs.getState().open(UNLOADED_GRID));
+
+      expect(screen.queryByRole('application')).toBeNull();
+      expect(deps.boardRenderers.alive).toHaveLength(1);
+      expect(deps.boardRenderers.latest().resets).toEqual([undefined]);
+    });
+
+    it('leaving the room destroys the renderer', async () => {
+      await showTorre();
+
+      cleanup();
+
+      expect(deps.boardRenderers.made.map(({ destroyed }) => destroyed)).toEqual([true]);
+    });
   });
 
   it('the turn line and the tracker follow the tab shown', async () => {

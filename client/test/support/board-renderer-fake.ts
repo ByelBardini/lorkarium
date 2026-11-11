@@ -99,8 +99,13 @@ export class BoardRendererFake implements BoardRenderer {
   /** Each `resetScene` call, in order: the camera the next grid opens at (`undefined`: fit). */
   readonly resets: Array<Camera | undefined> = [];
 
+  /** What the canvas says while it resets (the real one cancels a drag), outside `act`: the
+   *  reset runs inside React's commit. */
+  saysOnReset: BoardIntent[] = [];
+
   resetScene(options?: BoardMountOptions): void {
     this.resets.push(options?.camera);
+    for (const intent of this.saysOnReset) this.onIntent(intent);
   }
 
   destroy(): void {
