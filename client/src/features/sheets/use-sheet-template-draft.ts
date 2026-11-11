@@ -33,11 +33,16 @@ export function useSheetTemplateDraft(
     void draft.getState().start();
   }, [draft]);
   const bytes = useMemo(() => sourceBytes(state.draft), [state.draft]);
+  // Only a key in the manifest tab changes it: the html, css and js tabs never read it again.
+  const manifestInvalid = useMemo(
+    () => !readSheetManifestText(state.draft.manifest).ok,
+    [state.draft.manifest],
+  );
   return {
     ...state,
     bytes,
     overBudget: bytes > SHEET_TEMPLATE_SOURCE_MAX_BYTES,
-    manifestInvalid: !readSheetManifestText(state.draft.manifest).ok,
+    manifestInvalid,
     dirty: isTemplateDraftDirty(state),
     problem: state.failure ? sheetTemplateFailureMessage(state.failure) : null,
   };

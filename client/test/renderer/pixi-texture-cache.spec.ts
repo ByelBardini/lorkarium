@@ -140,3 +140,25 @@ describe('PixiTextureCache unloads what arrives after it was dropped', () => {
     expect(cache.textureOf(GOBLIN)).not.toBeNull();
   });
 });
+
+describe('PixiTextureCache.prefetch starts a load before any board draws it', () => {
+  it('asks the loader for the url as the cache would, with mipmaps', () => {
+    const assets = new TextureAssetsFake();
+
+    PixiTextureCache.prefetch(MAP, assets);
+
+    expect(assets.requests).toEqual([
+      { src: MAP, parser: 'texture', data: { autoGenerateMipmaps: true } },
+    ]);
+  });
+
+  it('a prefetch that fails is swallowed and unloads nothing: the cache meets the failure itself', async () => {
+    const assets = new TextureAssetsFake();
+    PixiTextureCache.prefetch(MAP, assets);
+
+    await assets.fail(MAP);
+    await Promise.resolve();
+
+    expect(assets.unloaded).toEqual([]);
+  });
+});

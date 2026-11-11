@@ -1,4 +1,5 @@
 import type {
+  DocumentTabChangedDto,
   LibraryMapRegionShownDto,
   SceneActivatedDto,
   SceneClosedDto,
@@ -68,6 +69,9 @@ export type SceneTabsState = Readonly<{
   /** The last `sheet:changed` of the table: each one is a new object, so a subscriber sees them
    *  all, one by one. */
   sheetChange: SheetChangedEventDto | null;
+  /** The last `document:tabChanged` of the table: each one is a new object, so the open document
+   *  sees them all; the library and the maps never move for a tab body. */
+  documentTabChange: DocumentTabChangedDto | null;
   /** The last `library:mapRegionShown` of the table: each one is a new object. Only a subscriber
    *  reads it, at the moment it lands: shown to whoever was in the room then, and no one later. */
   regionShown: LibraryMapRegionShownDto | null;
@@ -134,6 +138,7 @@ export function createSceneTabsStore(deps: SceneTabsDeps): StoreApi<SceneTabsSto
       sceneActivations: 0,
       arrivedAtHome: false,
       sheetChange: null,
+      documentTabChange: null,
       regionShown: null,
       open: (sceneId) => actions.open(sceneId),
       show: (key) => actions.show(key),
@@ -232,6 +237,7 @@ class SceneTabsActions {
     if (update.kind === 'sceneClosed') return this.onClosed(update.event);
     if (update.kind === 'pinged') return groupTabOf(this.get()).pings.push(update.event);
     if (update.kind === 'sheetChanged') return this.set({ sheetChange: update.event });
+    if (update.kind === 'documentTabChanged') return this.set({ documentTabChange: update.event });
     if (update.kind === 'mapChanged') return this.set({ mapRevision: this.get().mapRevision + 1 });
     if (update.kind === 'mapRegionShown') return this.set({ regionShown: update.event });
     if (update.kind === 'libraryChanged') {

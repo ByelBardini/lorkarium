@@ -245,6 +245,26 @@ describe('one draft per document tab', () => {
     await store.getState().revalidate();
     await vi.waitFor(() => expect(items.getState().draft?.content).toEqual(documentText('Escudo')));
   });
+  it('rereadTab reads an open tab once at a newer version, and never a tab not open or already there', async () => {
+    const { api, store, open } = await withThreeTabs();
+    const items = await open(ITEMS_TAB_ID);
+    const before = api.tabReads.length;
+    store.getState().rereadTab(GENERAL_TAB_ID, 5);
+    store.getState().rereadTab(ITEMS_TAB_ID, 0);
+    expect(api.tabReads).toHaveLength(before);
+    api.writeTab(
+      documentTabFixture({
+        id: ITEMS_TAB_ID,
+        name: 'Itens',
+        version: 2,
+        content: documentText('Arco'),
+      }),
+    );
+    store.getState().rereadTab(ITEMS_TAB_ID, 2);
+    await vi.waitFor(() => expect(items.getState().draft?.content).toEqual(documentText('Arco')));
+    expect(api.tabReads.slice(before)).toEqual([ITEMS_TAB_ID]);
+    expect(api.detailCalls).toBe(1);
+  });
   it('a tab command goes against the document version and the next name save uses the new one', async () => {
     const { api, store } = await withThreeTabs();
     const created = await store.getState().runTabCommand({ kind: 'create', name: 'Mapas' });
