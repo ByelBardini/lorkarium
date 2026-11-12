@@ -9,8 +9,13 @@ import {
 import { byteSizeText } from '@/lib/byte-size-text';
 import { PLAN_COUNT_LABELS } from './plan-section-labels';
 
-/** One line of the "Seu plano" grid: its label and the text of the cell of each plan. */
-export type PlanGridRow = Readonly<{ label: string; cellOf: (limits: PlanLimits) => string }>;
+/** One line of the "Seu plano" grid: its label, the text of the cell of each plan and, on the
+ *  numeric lines, the amount the plans are compared by (`null`: nothing to compare). */
+export type PlanGridRow = Readonly<{
+  label: string;
+  cellOf: (limits: PlanLimits) => string;
+  amountOf?: (limits: PlanLimits) => number | null;
+}>;
 
 const NUMBER = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
 
@@ -58,31 +63,50 @@ export function auraCell(limits: PlanLimits): string {
 
 const yesNo = (allowed: boolean): string => (allowed ? 'sim' : 'não');
 
-const FEATURE_ROWS: readonly PlanGridRow[] = [
-  { label: 'Dados com física por rolagem', cellOf: (l) => NUMBER.format(l.maxDiceModelsPerRoll) },
-  { label: 'Aura', cellOf: auraCell },
+/** The lines that say whether a plan has a feature, the marks on top of the grid.
+ *
+ *  Example: `PLAN_FEATURE_ROWS[0]?.cellOf(PLAN_LIMITS.free) // 'não'` */
+export const PLAN_FEATURE_ROWS: readonly PlanGridRow[] = [
   { label: 'Condição com imagem própria', cellOf: (l) => yesNo(l.conditionImage) },
   { label: 'Duplicar grid', cellOf: (l) => yesNo(l.sceneCopy) },
   { label: 'Janelas Chat e Imagens', cellOf: (l) => yesNo(l.desktopWindows) },
-  {
-    label: 'Lado máximo do mapa / fundo de grid',
-    cellOf: (l) => `${l.maxMapSide} / ${l.maxBackgroundSide} px`,
-  },
   { label: 'Cor personalizada no conteúdo da mesa', cellOf: (l) => yesNo(l.customColor) },
   // Of the account, not of the tables: what sets the Apoiador apart from Grátis.
   {
     label: 'Personalizações da conta (cor própria, textura do dado, foto animada)',
     cellOf: (l) => yesNo(l.plan !== 'free'),
   },
+  { label: 'Aura', cellOf: auraCell },
 ];
 
-/** Every line of the grid, the counted resources first, in the order of the contracts.
+// A fair-use or missing ceiling is not a number to compare.
+function countAmount(resource: PlanCountResource, limits: PlanLimits): number | null {
+  if (PLAN_FAIR_USE_RESOURCES[limits.plan].includes(resource)) return null;
+  return limits[PLAN_COUNT_LIMIT_KEY[resource]];
+}
+
+/** The numeric lines, below the marks: the counted resources in the order of the contracts.
  *
- *  Example: `PLAN_GRID_ROWS.map((row) => row.cellOf(PLAN_LIMITS.free))` */
-export const PLAN_GRID_ROWS: readonly PlanGridRow[] = [
+ *  Example: `PLAN_AMOUNT_ROWS[0]?.amountOf?.(PLAN_LIMITS.narrador) // 5` */
+export const PLAN_AMOUNT_ROWS: readonly PlanGridRow[] = [
   ...PLAN_COUNT_RESOURCES.map((resource) => ({
     label: PLAN_COUNT_LABELS[resource],
     cellOf: (limits: PlanLimits) => countCell(resource, limits),
+    amountOf: (limits: PlanLimits) => countAmount(resource, limits),
   })),
-  ...FEATURE_ROWS,
+  {
+    label: 'Dados com física por rolagem',
+    cellOf: (l) => NUMBER.format(l.maxDiceModelsPerRoll),
+    amountOf: (l) => l.maxDiceModelsPerRoll,
+  },
+  {
+    label: 'Lado máximo do mapa / fundo de grid',
+    cellOf: (l) => `${l.maxMapSide} / ${l.maxBackgroundSide} px`,
+    amountOf: (l) => l.maxMapSide,
+  },
 ];
+
+/** Every line of the grid: the marks first, then the numbers.
+ *
+ *  Example: `PLAN_GRID_ROWS.map((row) => row.cellOf(PLAN_LIMITS.free))` */
+export const PLAN_GRID_ROWS: readonly PlanGridRow[] = [...PLAN_FEATURE_ROWS, ...PLAN_AMOUNT_ROWS];
