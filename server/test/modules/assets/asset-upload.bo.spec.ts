@@ -4,6 +4,7 @@ import {
   dedicatedEndpointOf,
   isMasterOnlyAssetPurpose,
   isProtectedAssetPurpose,
+  opaqueAsWebpFor,
   outlineFor,
   resizeFor,
   requireSize,
@@ -48,12 +49,15 @@ describe('resizeFor', () => {
 });
 
 describe('animationFor', () => {
-  it('an aura image may stay animated within 120 frames and 16 MP decoded', () => {
-    expect(animationFor('aura', ANIMATION)).toEqual({
-      maxFrames: 120,
-      maxDecodedPixels: 16_000_000,
-    });
-  });
+  it.each(['aura', 'sheet_image'] as const)(
+    'a %s image may stay animated within 120 frames and 16 MP decoded',
+    (purpose) => {
+      expect(animationFor(purpose, ANIMATION)).toEqual({
+        maxFrames: 120,
+        maxDecodedPixels: 16_000_000,
+      });
+    },
+  );
 
   it.each(['token', 'background', 'cover', 'condition'] as const)(
     'a %s image never animates (no budget)',
@@ -79,6 +83,27 @@ describe('outlineFor', () => {
     'library_map',
   ] as const)('a %s image is not traced', (purpose) => {
     expect(outlineFor(purpose)).toBe(false);
+  });
+});
+
+describe('opaqueAsWebpFor', () => {
+  it.each(['background', 'library_image', 'library_map'] as const)(
+    'an opaque %s image is kept as WebP',
+    (purpose) => {
+      expect(opaqueAsWebpFor(purpose)).toBe(true);
+    },
+  );
+
+  it.each([
+    'token',
+    'cover',
+    'condition',
+    'aura',
+    'document_image',
+    'sheet_image',
+    'sheet_template_asset',
+  ] as const)('a %s image keeps its own format', (purpose) => {
+    expect(opaqueAsWebpFor(purpose)).toBe(false);
   });
 });
 

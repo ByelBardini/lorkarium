@@ -712,8 +712,29 @@
     {
       "idx": 101,
       "version": "7",
-      "when": 1794443743594,
-      "tag": "0101_user_plans",
+      "when": 1794361791912,
+      "tag": "0101_missing_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1794361875068,
+      "tag": "0102_saved_roll_folder_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1794366950580,
+      "tag": "0103_receipt_created_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1794447108799,
+      "tag": "0104_user_plans",
       "breakpoints": true
     }
   ]

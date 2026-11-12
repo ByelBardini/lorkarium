@@ -1,13 +1,14 @@
-import { Container, Graphics, Text, type Texture } from 'pixi.js';
+import { BitmapText, Container, Graphics, type Texture } from 'pixi.js';
 import { barColorNumber } from '@/lib/bar-display';
 import { NO_PERF_PROBE, type PerfProbe } from '@/lib/perf-probe';
 import type { TokenLayerDto, TokenSideDto } from '@lorkarium/contracts';
 import { facingVector } from '@lorkarium/game-core';
 import type { GhostView, TokenView } from './board-view';
-import { type Point, textResolutionFor, zoomProofTextResolution } from './camera';
+import type { Point } from './camera';
 import { PixiAuraFloors } from './pixi-aura-floors';
 import type { AuraImages, PixiTokenAura } from './pixi-token-aura';
 import { PixiConditionMarks } from './pixi-condition-marks';
+import { INITIALS_FONT_NAME } from './pixi-initials-font';
 import { PixiTokenArt, ROUND_RADIUS_SHARE } from './pixi-token-art';
 import type { PixiTextureCache } from './pixi-texture-cache';
 import { showsNameTag } from './name-tag';
@@ -44,10 +45,12 @@ const DEFEATED_OUTLINE = 3;
 
 type TokenSprite = Readonly<{
   root: Container;
+  /** The disc, the art and the initials: what a look fades and greys, as one. */
+  face: Container;
   disc: Graphics;
   art: PixiTokenArt;
   shape: Graphics;
-  label: Text;
+  label: BitmapText;
   cross: Graphics;
   look: PixiTokenLook;
   marks: PixiConditionMarks;
@@ -280,14 +283,10 @@ export class PixiTokenLayer {
   private add(view: TokenView, at: Point, nowMs: number): void {
     const root = new Container({ label: `token:${view.id}` });
     const shape = new Graphics();
-    const label = new Text({
+    // One atlas for every token (`pixi-initials-font.ts`): no texture per token.
+    const label = new BitmapText({
       text: '',
-      resolution: zoomProofTextResolution(globalThis.devicePixelRatio),
-      style: {
-        fontFamily: 'Hanken Grotesk Variable, sans-serif',
-        fontWeight: '600',
-        fill: TEXT_COLOR,
-      },
+      style: { fontFamily: INITIALS_FONT_NAME, fill: TEXT_COLOR },
     });
     label.anchor.set(0.5);
     const marks = new PixiConditionMarks(this.textures);
@@ -296,7 +295,9 @@ export class PixiTokenLayer {
     const nameTag = new PixiNameTag();
     const cross = new Graphics();
     const look = new PixiTokenLook();
-    root.addChild(disc, art.container, shape, label, look.container, cross);
+    const face = new Container();
+    face.addChild(disc, art.container, label);
+    root.addChild(face, shape, look.container, cross);
     const overlay = new Container();
     overlay.addChild(marks.container, nameTag.container);
     root.position.set(at.x, at.y);
@@ -305,6 +306,7 @@ export class PixiTokenLayer {
     this.strips[view.layer].addChild(overlay);
     const sprite: TokenSprite = {
       root,
+      face,
       disc,
       art,
       shape,
@@ -370,7 +372,6 @@ function drawToken(sprite: TokenSprite, texture: Texture | null): void {
   label.text = view.initials;
   const fontSize = Math.round(Math.min(box.width, box.height) * 0.3);
   label.style.fontSize = fontSize;
-  label.resolution = textResolutionFor(globalThis.devicePixelRatio, fontSize);
   label.position.set(center.x, center.y);
   drawDefeated(sprite, box, square);
 }
@@ -379,8 +380,8 @@ function drawToken(sprite: TokenSprite, texture: Texture | null): void {
 // face fades (and greys) by the defeat, the looks and being hidden together, so the cross still
 // reads first.
 function drawDefeated(sprite: TokenSprite, box: TokenShape, square = false): void {
-  const { disc, art, label, cross, view } = sprite;
-  sprite.look.draw([disc, art.container, label], tokenLookStyle(view), { ...box, square });
+  const { face, cross, view } = sprite;
+  sprite.look.draw(face, tokenLookStyle(view), { ...box, square });
   cross.clear();
   if (!view.defeated) return;
   const { strokes, width } = defeatedCross(box);

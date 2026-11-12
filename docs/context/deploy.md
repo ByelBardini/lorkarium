@@ -9,11 +9,12 @@ Runbook de produção: **Coolify** num VPS Linux (Traefik na frente), Postgres 1
 ## A imagem (`Dockerfile` na raiz)
 
 - Multi-estágio em `node:26.13.0-bookworm-slim` (glibc: `sharp` e `argon2` têm binário nativo glibc, nada de Alpine). O build gera `client/dist` (Vite) e `server/dist` (`index.mjs` e `deploy-migrate.mjs`, com os `@lorkarium/*` no bundle); o runtime leva só isso, `server/drizzle/` e as dependências de produção do server.
-- Runtime: `WORKDIR /app/server`, `ENV NODE_ENV=production CLIENT_DIST_DIR=/app/client/dist PORT=3333`, `USER node`, `EXPOSE 3333`.
+- Runtime: `WORKDIR /app/server`, `ENV NODE_ENV=production CLIENT_DIST_DIR=/app/client/dist PORT=3333 ASSET_CACHE_DIR=/var/cache/lorkarium/assets`, `USER node`, `EXPOSE 3333`. A pasta do cache em disco dos assets nasce na imagem com dono `node` (o `mkdir` + `chown` vêm antes do `USER node`).
 - `HEALTHCHECK` por `node -e "fetch('http://127.0.0.1:3333/api/health')…"` (não há `curl` na imagem). É ele que o Coolify usa para trocar o container.
 - `CMD sh -c "node dist/deploy-migrate.mjs && exec node dist/index.mjs"`: migra no início do container, depois sobe o server. Migração que falha sai com 1 e o server nem sobe. O `exec` deixa o Node como PID 1, para o SIGTERM do `docker stop` chegar ao `app.close()`.
+- O `build` do client termina em `node scripts/precompress.ts` (`client/scripts/precompress.ts`, `node:zlib`): `.br` (brotli 11) e `.gz` (nível 9) ao lado de todo `.js`, `.css`, `.html`, `.svg` e `.json` acima de 1 KB do `client/dist`; o `COPY` do `client/dist` os leva, e o `serveClient` os serve pelo `Accept-Encoding` (ver `server.md`). Conferir na imagem: `curl -sI -H 'Accept-Encoding: br' https://mesa.example.com/` → `content-encoding: br`.
 - Um processo serve tudo: a SPA (com fallback de rota), `/api` e o Socket.IO (`/api/socket.io`) na mesma origem. Nenhuma env de build: o client não lê `VITE_*`.
-- O job `docker-image` do CI constrói a imagem e faz o smoke a cada PR (ver [`ci.md`](ci.md)). O smoke é `infra/docker/smoke.sh <container> <url>`: espera o `healthy`, `GET /api/health` 200, `/` e `/campaigns/x` com o `index.html`, e "migrations applied" antes de "Server listening" no log. Local: `docker build -t lorkarium .` e um `docker run` com as envs de dev mais `NODE_ENV=production`, `SMTP_URL` (Mailpit), `APP_PUBLIC_URL`, `SITE_PUBLIC_URL` e as `ACCESS_LOG_S3_*` (o bucket dos assets serve) (imagem ≈ 470 MB; `node_modules` de produção ≈ 110 MB).
+- O job `docker-image` do CI constrói a imagem e faz o smoke a cada PR (ver [`ci.md`](ci.md)). O smoke é `infra/docker/smoke.sh <container> <url>`: espera o `healthy`, `GET /api/health` 200, `/` e `/campaigns/x` com o `index.html`, a pasta do cache gravável pelo usuário da imagem (`test -w /var/cache/lorkarium/assets`) e "migrations applied" antes de "Server listening" no log. Local: `docker build -t lorkarium .` e um `docker run` com as envs de dev mais `NODE_ENV=production`, `SMTP_URL` (Mailpit), `APP_PUBLIC_URL`, `SITE_PUBLIC_URL` e as `ACCESS_LOG_S3_*` (o bucket dos assets serve) (imagem ≈ 470 MB; `node_modules` de produção ≈ 110 MB).
 
 ## AWS
 
@@ -44,8 +45,9 @@ Detalhe e JSON em [`deploy/aws.md`](deploy/aws.md). Resumo:
 5. _Ports Exposes_ `3333` e _Ports Mappings_ **vazio**: a porta só pode ser alcançada pelo Traefik (ver Armadilhas, `TRUST_PROXY`). _Domains_ `https://mesa.example.com` (o `https://` faz o Traefik emitir o certificado Let's Encrypt e redirecionar o http).
 6. _Health Check_ do painel **desligado**: ele exige `curl`/`wget`, que a imagem não tem; o `HEALTHCHECK` do Dockerfile já vale.
 7. **Sem réplicas** e sem escalar horizontalmente: o server é instância única (spec §5.7; fila por mesa, presença e expulsão do Socket.IO em memória).
-8. _Environment Variables_: a tabela abaixo, todas **runtime** (desmarque _Build Variable_: nenhuma é usada no build e segredo não deve ir para a camada da imagem).
-9. _Auto Deploy_ ligado (push na `main` → deploy).
+8. _Persistent Storage_ → **Volume Mount** (volume nomeado, não _Directory Mount_) com _Destination Path_ `/var/cache/lorkarium/assets`. O volume vazio herda o dono `node` da pasta da imagem. Sem ele o cache vive na camada do container: cada deploy o zera e a sessão seguinte baixa tudo da AWS de novo.
+9. _Environment Variables_: a tabela abaixo, todas **runtime** (desmarque _Build Variable_: nenhuma é usada no build e segredo não deve ir para a camada da imagem).
+10. _Auto Deploy_ ligado (push na `main` → deploy).
 
 ## Envs (produção)
 
@@ -79,6 +81,8 @@ Lidas por `server/src/config/env.ts`; a regra completa de cada uma está em [`se
 | `ACCESS_LOG_S3_BUCKET`            | **obrig.**     | não     | o bucket dos registros de acesso, já criado com a regra de 184 dias ([`deploy/aws.md`](deploy/aws.md))                  |
 | `ACCESS_LOG_S3_ACCESS_KEY_ID`     | **obrig.**     | não     | a chave do `lorkarium-access-log` (só `s3:PutObject`); endpoint e região são os do `S3_*`                               |
 | `ACCESS_LOG_S3_SECRET_ACCESS_KEY` | **obrig.**     | **sim** | o segredo da mesma chave (8+ caracteres)                                                                                |
+| `ASSET_CACHE_DIR`                 | já na imagem   | não     | `/var/cache/lorkarium/assets`, onde vai o _Volume Mount_; caminho absoluto, e sem ela o cache em disco fica desligado   |
+| `ASSET_CACHE_MAX_MB`              | opcional       | não     | teto do cache em disco; padrão `10240` (10 GB). Deixe folga para o disco do VPS                                         |
 
 O erro de boot cita cada variável errada e redige os segredos; ele aparece no log do deploy no Coolify.
 
@@ -104,12 +108,14 @@ O primeiro deploy migra o banco vazio inteiro (as `0000…` de `server/drizzle/`
 - [ ] Criar uma mesa e enviar uma imagem de fundo: o objeto aparece em `assets/<uuid>` no bucket e a imagem carrega no tabuleiro.
 - [ ] Socket.IO: DevTools → Network → WS mostra `wss://mesa.example.com/api/socket.io/?EIO=4&transport=websocket` com 101; abrir a mesa em duas abas e mover um token aparece na outra.
 - [ ] Backoffice → Teste de e-mail para um endereço seu: chega, fora do spam, com links em `https://mesa.example.com`.
+- [ ] Cache em disco: abrir um mapa duas vezes (outra aba, ou recarregar) e, no terminal do container (Coolify → _Terminal_), `du -sh /var/cache/lorkarium/assets` cresce depois da primeira abertura; nenhum `asset disk cache failed; served from S3` no log.
 - [ ] _Backup now_ no banco e o objeto no bucket de backups.
 - [ ] Registros de acesso: logo depois do deploy, `access-log/boots/AAAA/MM/DD/…jsonl.gz` no bucket deles; 5 min depois, o primeiro lote `access-log/AAAA/MM/DD/…-0.jsonl.gz`. Baixe um e confira com `zcat … | jq .` que tem o seu IP (não o do Traefik) e a sua conta.
 
 ## Atualizar e voltar
 
 - **Atualizar**: push (merge) na `main` → webhook do Coolify → build da imagem → container novo sobe, migra e só recebe tráfego quando o `HEALTHCHECK` fica `healthy`; aí o antigo para (_rolling update_ do build pack Dockerfile). Ninguém é deslogado: a sessão está no Postgres, o socket reconecta sozinho ao container novo e a aba aberta no meio da troca espera o server em vez de cair no login ([`auth.md`](auth.md)). Se o client mudou, a página aberta (navegador ou app desktop) avisa e recarrega quando é seguro ([`client/app-update.md`](client/app-update.md)).
+- **Imagens antigas em WebP (uma vez)**: depois do deploy em que o fundo, o mapa e a imagem da biblioteca opacos passaram a ser guardados em WebP, rode no terminal do container do app no Coolify (que já tem as envs e enxerga o banco) `node dist/recompress-images.mjs --dry-run` (mostra o ganho e não grava), depois `node dist/recompress-images.mjs --yes`. Fora da imagem, `pnpm db:recompress-images` faz o mesmo pelo `tsx`, com as envs da produção num `server/.env` (o `readEnv` valida todas) e o banco alcançável. Rodar de novo converte 0 (ver `server/scripts.md`). Com o cache em disco ligado, **esvazie o `ASSET_CACHE_DIR` depois do `--yes`** (server parado, apagar o conteúdo do volume, subir de novo: o `init()` refaz o índice vazio): o disco guarda o PNG antigo de cada chave regravada, e o server o serviria com o `content-type: image/webp` da linha nova.
 - **Migração que falha**: o migrador aplica as pendentes numa transação só, então desfaz tudo; o container novo sai com 1, nunca fica `healthy` e o **antigo segue no ar**. Leia o erro no log do deploy, corrija e publique de novo.
 - **Voltar o código**: _Deployments_ do Coolify → redeploy de um commit anterior (ou `git revert` na `main`). Só é seguro se nenhuma migração nova entrou: migração **não tem _down_**.
 - **Voltar o banco**: o caminho é o **backup**. Antes de publicar uma migração que mexe em dado, rode _Backup now_. Para restaurar: parar a Application, restaurar o dump no recurso do banco (restauração do Coolify ou `pg_restore --clean` com o dump baixado do S3), publicar o commit compatível com aquele schema.
@@ -137,4 +143,5 @@ A landing de `site/` ([`site.md`](site.md)) é outra Application do Coolify, no 
 - **Réplicas**: nunca. A fila por mesa e a expulsão de sockets são em memória (§5.7).
 - **`SMTP_URL` com caractere especial** na senha (`@`, `/`, `:`): URL-encode, senão o boot recusa a URL ou o login SMTP falha.
 - **Porta SMTP bloqueada**: alguns VPS (Hetzner, conta nova) bloqueiam saída na 25 e na 465. Use a 587 (`smtp://`, STARTTLS) e confira pelo Teste de e-mail.
+- **Cache montado como _Directory Mount_**: o bind de uma pasta do host nasce do `root`; o `node` não grava nela, todo `open` cai no S3 e o log mostra `asset disk cache failed; served from S3` (`warn`) a cada miss. Use _Volume Mount_ (ou dê `chown 1000:1000` na pasta do host).
 - **Healthcheck do painel ligado**: sem `curl` na imagem ele nunca passa e o deploy é dado como falho.

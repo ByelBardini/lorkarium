@@ -617,5 +617,31 @@ describe('ConditionsDao on Postgres', () => {
 
       await expect(both).rejects.toMatchObject({ cause: { code: '23514' } });
     });
+
+    it('applyMany on a character and tokens costs 3 queries, renews each row and keeps the order', async () => {
+      const lyra = await characterOf(vharnId, 'Lyra');
+      const goblin = await tokenIn((await scenesDao.insert({ campaignId: vharnId })).id, 'Goblin');
+      const envenenado = await definitionNamed('Envenenado');
+      const held = await conditions.apply({ tokenId: goblin }, envenenado, FOREVER, 1);
+      const duration = { remainingRounds: 2, appliedRound: 4 };
+      queries.reset();
+
+      const applied = await conditions.applyMany(envenenado, duration, [
+        { holder: { tokenId: goblin }, stacks: 3 },
+        { holder: { characterId: lyra }, stacks: 1 },
+        { holder: { tokenId: lyraId }, stacks: 2 },
+      ]);
+
+      expect(queries.count).toBe(3);
+      expect(
+        applied.map(({ tokenId, characterId, stacks }) => [tokenId, characterId, stacks]),
+      ).toEqual([
+        [goblin, null, 3],
+        [null, lyra, 1],
+        [lyraId, null, 2],
+      ]);
+      expect(applied[0]).toMatchObject({ id: held.id, ...duration });
+      expect(await conditions.applyMany(envenenado, duration, [])).toEqual([]);
+    });
   });
 });

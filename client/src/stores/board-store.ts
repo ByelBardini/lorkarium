@@ -6,6 +6,7 @@ import type { BoardSyncFailure, TableSessionUpdate } from '@/services/table-sess
 import { boardWithTable, type TableLinks } from '@/lib/linked-tokens';
 import { IDLE_PATROLS, patrolClockOf, type PatrolClock } from '@/lib/patrol-poses';
 import { lowerOffsetOf, serverNowOf, serverOffsetOf } from '@/lib/server-time';
+import { changedPatchOf } from '@/lib/state-patch';
 import { applyBoardEvent } from './board-reducer';
 import type { CharactersStore } from './characters-store';
 
@@ -109,7 +110,8 @@ export function createBoardStore(
       apply: (update) => {
         const serverOffsetMs = offsetAfter(get(), update, wallClock());
         const next = withLinks(nextState(get(), update, resyncOnce), linksOf);
-        set(settled({ ...next, serverOffsetMs }));
+        const patch = changedPatchOf(get(), settled({ ...next, serverOffsetMs }));
+        if (patch) set(patch);
       },
       retry: () => {
         set({ status: 'loading', failure: null });
@@ -245,7 +247,6 @@ function withoutDragOf(dragged: DraggedCells, event: BoardEvent): DraggedCells {
     );
   }
   if (event.type !== 'tokenMoved' && event.type !== 'tokenDeleted') return dragged;
-  if (!(event.payload.tokenId in dragged)) return dragged;
   return withoutToken(dragged, event.payload.tokenId);
 }
 
@@ -253,7 +254,9 @@ function withoutToken(dragged: DraggedCells, tokenId: string): DraggedCells {
   return withoutTokens(dragged, [tokenId]);
 }
 
+// Nobody dragging any of them keeps the very cells: the drag layer is not drawn again.
 function withoutTokens(dragged: DraggedCells, tokenIds: readonly string[]): DraggedCells {
+  if (!tokenIds.some((id) => id in dragged)) return dragged;
   return Object.fromEntries(Object.entries(dragged).filter(([id]) => !tokenIds.includes(id)));
 }
 

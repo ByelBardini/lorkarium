@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from 'react';
 import type { AssetDto } from '@lorkarium/contracts';
 import { useStore } from 'zustand';
+import { useShallow } from 'zustand/shallow';
 import type { StoreApi } from 'zustand/vanilla';
 import { assetUrlOf } from '@/services/assets-api';
 import type { Clipboard } from '@/services/clipboard';
@@ -28,11 +29,25 @@ export type DocumentTabBodyProps = Readonly<{
 }>;
 const READ_ONLY_STATUSES = ['conflict', 'forbidden', 'not_found', 'loading'];
 
+// The actions never change: a write that leaves these four alone renders nothing.
+function shownTabStateOf({
+  confirmed,
+  draft,
+  status,
+  dirty,
+}: DocumentTabEditorState): Pick<
+  DocumentTabEditorState,
+  'confirmed' | 'draft' | 'status' | 'dirty'
+> {
+  return { confirmed, draft, status, dirty };
+}
+
 /** One tab's body: its own draft, saved against the tab's version, with the image pickers.
  *
  *  Example: `<DocumentTabBody key={tabKey} editor={tabEditor} canEdit {...context} />` */
 export function DocumentTabBody(props: DocumentTabBodyProps): React.JSX.Element {
-  const state = useStore(props.editor);
+  const state = useStore(props.editor, useShallow(shownTabStateOf));
+  const actions = props.editor.getState();
   const [imageAnswer, setImageAnswer] = useState<((image: AssetDto | null) => void) | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const { api, campaignId, documentId, tabId } = props;
@@ -62,9 +77,9 @@ export function DocumentTabBody(props: DocumentTabBodyProps): React.JSX.Element 
         dirty={state.dirty}
         draft={state.draft.content}
         clipboard={props.clipboard}
-        onDiscard={() => state.discard()}
+        onDiscard={() => actions.discard()}
         onConfirmReload={props.onConfirmReload}
-        onRetry={() => void state.flush()}
+        onRetry={() => void actions.flush()}
       />
       <Suspense
         fallback={
@@ -76,7 +91,7 @@ export function DocumentTabBody(props: DocumentTabBodyProps): React.JSX.Element 
         <RichDocumentEditor
           content={editable ? state.draft.content : state.confirmed.content}
           editable={editable}
-          onChange={(content) => state.edit({ content })}
+          onChange={(content) => actions.edit({ content })}
           assetUrl={assetUrlOf}
           onInsertImage={insertImage}
           onImageFiles={(files) =>

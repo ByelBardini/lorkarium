@@ -1,5 +1,6 @@
 import type { ImagePresentationChangedDto } from './image-presentation.dto';
 import type { LibraryMapServerEvents } from './library-map-events';
+import type { DocumentServerEvents } from '../documents/document-tab.dto';
 import { z } from 'zod';
 import { sceneBackgroundDto } from '../board/scene.dto';
 
@@ -163,9 +164,10 @@ export const sceneClosedDto = z.strictObject({
 export type SceneClosedDto = z.infer<typeof sceneClosedDto>;
 
 /** Every server → client event of the library. */
-export type LibraryServerEvents = LibraryMapServerEvents & {
-  'library:imagePresentationChanged': (event: ImagePresentationChangedDto) => void;
-  'library:changed': (event: LibraryChangedDto) => void;
-  'scene:activated': (event: SceneActivatedDto) => void;
-  'scene:closed': (event: SceneClosedDto) => void;
-};
+export type LibraryServerEvents = LibraryMapServerEvents &
+  DocumentServerEvents & {
+    'library:imagePresentationChanged': (event: ImagePresentationChangedDto) => void;
+    'library:changed': (event: LibraryChangedDto) => void;
+    'scene:activated': (event: SceneActivatedDto) => void;
+    'scene:closed': (event: SceneClosedDto) => void;
+  };

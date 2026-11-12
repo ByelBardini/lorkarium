@@ -121,6 +121,10 @@ export type TestDependencies = AppDependencies & {
 };
 
 /** The client build every spec's page runs, and the server publishes until a spec deploys. */
+// The play room is a lazy chunk in the app: its cold import (the whole board graph) takes more
+// than the 1 s of a `findBy`, so the specs that render the router load it while collecting.
+await import('@/features/board/play-room-page');
+
 export const TEST_BUILD = '/assets/index-test.js';
 
 // Wednesday, 14 October 2026, local time: the date the overline is written against.

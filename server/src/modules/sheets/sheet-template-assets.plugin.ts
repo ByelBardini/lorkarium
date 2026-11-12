@@ -6,7 +6,6 @@ import type { AssetsService } from '../assets/assets.service';
 import { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { CampaignsDao } from '../campaigns/campaigns.dao';
 import { SheetAssetsDao } from './sheet-assets.dao';
-import { SheetHolderService } from './sheet-holder.service';
 import {
   SheetTemplateAssetReadPolicy,
   type SheetTemplateAssetReadDaos,
@@ -41,10 +40,7 @@ export function createSheetTemplateAssetsModule(
  *
  *  Example: `createSheetTemplateAssetReadPolicy(db).canRead(userId, campaignId, assetId)` */
 export function createSheetTemplateAssetReadPolicy(db: Database): AssetReadPolicyPort {
-  return new SheetTemplateAssetReadPolicy(
-    (work) => runInSnapshot(db, (tx) => work(readDaos(tx))),
-    new SheetHolderService(),
-  );
+  return new SheetTemplateAssetReadPolicy((work) => runInSnapshot(db, (tx) => work(readDaos(tx))));
 }
 
 function readDaos(executor: DatabaseExecutor): SheetTemplateAssetReadDaos {

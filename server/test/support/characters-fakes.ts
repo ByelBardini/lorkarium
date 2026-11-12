@@ -27,7 +27,7 @@ import type { SheetsDao } from '../../src/modules/sheets/sheets.dao';
 import { AssetsDaoFake } from './assets-fakes';
 import type { SheetRow } from '../../src/modules/sheets/sheets.dao';
 import { formRowsOf } from '../../src/modules/tokens/token-forms.dao';
-import type { BarValuesPo, TokenFormInputPo } from '../../src/modules/tokens/tokens.po';
+import type { BarValuesWritePo, TokenFormInputPo } from '../../src/modules/tokens/tokens.po';
 import { characterBarPo, characterPo } from './characters-factories';
 import { ConditionsDaoFake } from './conditions-fakes';
 import { planAccount } from './plan-account-fakes';
@@ -155,12 +155,15 @@ export class CharactersDaoFake implements Pick<CharactersDao, FakeDaoMethods> {
     this.replace(characterId, (row) => ({ ...row, character: { ...row.character, ...changes } }));
   }
 
-  async setBarValues(barId: string, values: BarValuesPo): Promise<void> {
+  /** One 'set bar' for the whole group, like the one `UPDATE`; a bar of another character is
+   *  left alone. */
+  async setBarValues(characterId: string, writes: readonly BarValuesWritePo[]): Promise<void> {
     this.journal.push('set bar');
-    const owner = this.rows.find((row) => row.bars.some(({ id }) => id === barId));
-    if (!owner) return;
-    const bars = owner.bars.map((bar) => (bar.id === barId ? { ...bar, ...values } : bar));
-    this.replace(owner.character.id, (row) => ({ ...row, bars }));
+    const valuesOf = new Map(writes.map(({ barId, values }) => [barId, values]));
+    this.replace(characterId, (row) => ({
+      ...row,
+      bars: row.bars.map((bar) => ({ ...bar, ...valuesOf.get(bar.id) })),
+    }));
   }
 
   async setUser(characterId: string, userId: string | null): Promise<void> {

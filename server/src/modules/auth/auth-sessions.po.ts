@@ -23,7 +23,11 @@ export const authSessions = pgTable(
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('auth_sessions_user_id_idx').on(table.userId)],
+  (table) => [
+    index('auth_sessions_user_id_idx').on(table.userId),
+    // The housekeeping deletes the expired ones in batches, by this.
+    index('auth_sessions_expires_at_idx').on(table.expiresAt),
+  ],
 );
 
 export type AuthSessionPo = typeof authSessions.$inferSelect;

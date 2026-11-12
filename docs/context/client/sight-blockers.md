@@ -88,7 +88,7 @@ A chave leva o **id do asset**, não os vértices: o contorno de um asset nunca 
 | `hidden`            | não                        | não                            | nada                      |
 
 - A chave leva os níveis; mover ou chegar contorno já troca o `wallSetIdOf(geometry.walls)`. Régua, seleção e arraste de outro token devolvem a **mesma** `FogView`.
-- `pixi-fog-layer.ts`: cada folha preenche os polígonos no `own` das aberturas, fora da máscara das linhas de visão, porque o corpo abre mesmo sem luz por cima dele. O PixiJS fica fora do unit: a prova na tela é o e2e da Fase 11.
+- `pixi-fog-layer.ts`: cada folha apaga (`erase`) os polígonos no `own` das aberturas, fora da máscara das linhas de visão, porque o corpo abre mesmo sem luz por cima dele. O PixiJS fica fora do unit: a prova na tela é o e2e da Fase 11.
 - Sem bloqueador, `blockerHoles` vem com as duas listas vazias e nada mais muda.
 
 ## O interruptor e o aviso

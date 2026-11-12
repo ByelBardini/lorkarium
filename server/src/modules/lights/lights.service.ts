@@ -64,7 +64,7 @@ export type LightWriteDaos = GridLockDaos &
     lights: Pick<
       LightsDao,
       | 'insertMany'
-      | 'listOfScene'
+      | 'countOfScene'
       | 'findManyInScene'
       | 'moveMany'
       | 'setRanges'
@@ -111,8 +111,8 @@ export class LightsService {
           rules.place(sceneLightOfPlacement(placement));
           CustomColorPlanBo.requirePaletteUnlessAllowed(placement.color, rules.plan);
         }
-        const stored = await locked.daos.lights.listOfScene(locked.scene.id);
-        rules.admit(stored.length, command.lights.length);
+        const stored = await locked.daos.lights.countOfScene(locked.scene.id);
+        rules.admit(stored, command.lights.length);
         const rows = command.lights.map((placement) => toNewLightPo(locked.scene.id, placement));
         return (await locked.daos.lights.insertMany(rows)).map(toLightDto);
       },

@@ -66,6 +66,11 @@ export class PixiPingLayer {
     return true;
   }
 
+  /** Another grid shown: its pings mark spots that are not on it. */
+  clear(): void {
+    for (const ping of [...this.alive]) this.remove(ping);
+  }
+
   aliveCount(): number {
     return this.alive.length;
   }

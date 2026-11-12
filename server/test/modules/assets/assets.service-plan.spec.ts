@@ -63,8 +63,8 @@ describe('AssetsService under the plan of the table owner', () => {
       await service.upload(ANA_ID, VHARN_ID, { bytes: PNG, purpose: 'background' });
 
       expect(processor.resizes).toEqual([
-        { maxSide: 4096, square: false },
-        { maxSide: 2048, square: false },
+        { maxSide: 4096, square: false, opaqueAsWebp: true },
+        { maxSide: 2048, square: false, opaqueAsWebp: true },
       ]);
       expect(quota.tableOwners.asked).toEqual([VHARN_ID, VHARN_ID]);
     });
@@ -77,7 +77,7 @@ describe('AssetsService under the plan of the table owner', () => {
         purpose: 'library_map',
       });
 
-      expect(processor.resizes).toEqual([{ maxSide: 4096, square: false }]);
+      expect(processor.resizes).toEqual([{ maxSide: 4096, square: false, opaqueAsWebp: true }]);
     });
 
     it('on a narrador table the map keeps up to 8192 px', async () => {
@@ -85,7 +85,7 @@ describe('AssetsService under the plan of the table owner', () => {
 
       await service.upload(ANA_ID, VHARN_ID, { bytes: PNG, purpose: 'library_map' });
 
-      expect(processor.resizes).toEqual([{ maxSide: 8192, square: false }]);
+      expect(processor.resizes).toEqual([{ maxSide: 8192, square: false, opaqueAsWebp: true }]);
     });
 
     it('a token on a free table keeps its technical side', async () => {

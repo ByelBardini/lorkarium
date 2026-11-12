@@ -6,13 +6,14 @@ import {
   tokenSheetsResponseDto,
   type SheetWriteResponseDto,
 } from '@lorkarium/contracts';
+import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { linkToPlayerCharacter, lyraPoisonedAtVharn, tokenIn } from '../support/characters';
 import { gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
 import type { SignedInUser } from '../support/sign-in';
-import { characterOfUser } from '../support/table-characters';
+import { characterOfUser, lyraBarsOnBia } from '../support/table-characters';
 import type { Table } from '../support/tables';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
@@ -465,5 +466,65 @@ describe('sheet values by path over HTTP', () => {
       code: 'INVALID_BODY',
       message: expect.stringContaining('"constructor"'),
     });
+  });
+});
+
+describe('writing sheet values does not lock the table', () => {
+  // What `character:adjustBar` holds while it writes HP: the row of the table, for no key update.
+  async function whileTheTableIsLocked<T>(work: () => Promise<T>): Promise<T> {
+    return live.connection.db.transaction(async (tx) => {
+      await tx.execute(sql`select id from campaigns where id = ${live.vharn.id} for no key update`);
+      return work();
+    });
+  }
+
+  it('Bia writes forca 16 while a character write holds the table, and it is not waiting', async () => {
+    const { lyra } = await lyraPoisonedAtVharn(live);
+    const { sheet } = await linked(lyra.id);
+    const started = Date.now();
+
+    const response = await whileTheTableIsLocked(() =>
+      writeValues(live.bia, sheet.id, { forca: 16 }),
+    );
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
+  it('Ana managing the sheet still waits for the table: it is not a values write', async () => {
+    const { lyra } = await lyraPoisonedAtVharn(live);
+    const { sheet } = await linked(lyra.id);
+    const url = `${sheetsUrl()}/${sheet.id}`;
+    const payload = { actionId: crypto.randomUUID(), name: 'Lyra II' };
+
+    const response = await whileTheTableIsLocked(() =>
+      live.http(live.ana, { method: 'PATCH', url, payload }),
+    );
+
+    expect(response.statusCode).toBe(500);
+  });
+
+  it('the sheet of Lyra and the PV of her character written at once both land, with no deadlock', async () => {
+    const { bia, lyra } = await lyraOnTwoGrids();
+    await lyraBarsOnBia(live);
+    const { sheet } = await linked(lyra.id);
+    const { character, bars } = await characterOfUser(live, live.vharn, live.bia);
+    const adjust = { ...envelope(live.vharn.id), characterId: character.id };
+    const pv = bars[0];
+    if (!pv) throw new Error('the character of Bia has no bar');
+
+    const [written, adjusted] = await Promise.all([
+      writeValues(live.bia, sheet.id, { forca: 16 }),
+      send(bia, 'character:adjustBar', {
+        ...adjust,
+        barId: pv.id,
+        change: { op: 'add', amount: -1 },
+      }),
+    ]);
+
+    expect(written.statusCode).toBe(200);
+    expect(adjusted).toMatchObject({ ok: true });
+    const after = await characterOfUser(live, live.vharn, live.bia);
+    expect(after.bars[0]?.current).toBe(pv.current - 1);
   });
 });

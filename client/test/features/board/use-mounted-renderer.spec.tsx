@@ -56,6 +56,32 @@ describe('useMountedRenderer', () => {
     expect(renderers.alive).toEqual([]);
   });
 
+  it('a renderer that fails to load ends in the failure, and the retry loads it again', async () => {
+    renderers.loads = false;
+    const { result } = mounted();
+    await act(() => Promise.resolve());
+    expect(result.current.failed).toBe(true);
+    expect(renderers.made).toEqual([]);
+
+    renderers.loads = true;
+    act(() => result.current.retry());
+    await act(() => Promise.resolve());
+
+    expect(renderers.calls).toBe(2);
+    expect(result.current.failed).toBe(false);
+    expect(result.current.renderer).toBe(renderers.latest());
+  });
+
+  it('a mount torn down while its renderer still loads destroys it once it arrives', async () => {
+    const { unmount } = mounted();
+    unmount();
+    await act(() => Promise.resolve());
+
+    expect(renderers.made).toHaveLength(1);
+    expect(renderers.alive).toEqual([]);
+    expect(renderers.latest().mounted).toBe(false);
+  });
+
   it('the intents other than a lost context reach onIntent', async () => {
     mounted();
     await act(() => Promise.resolve());

@@ -1,6 +1,7 @@
 import type {
   SheetTemplateSummaryDto,
   SheetSummaryDto,
+  DocumentSummaryDto,
   CampaignLibraryDto,
   CreateLibraryImageRequestDto,
   UpdateLibraryImageRequestDto,
@@ -29,6 +30,7 @@ import { requireLibraryImageAsset } from './library-image.bo';
 import { LibraryImageNotFoundError } from './library-image.error';
 import { toLibraryImageDto, toImagePresentationState } from './library-image.mapper';
 import { toLibrarySceneDto, toSceneFolderDto } from './library.mapper';
+import { FolderPrivacyBo } from './folder-privacy.bo';
 import { SceneLibraryBo } from './scene-library.bo';
 import { DocumentAccessBo } from '../documents/document-access.bo';
 import { toDocumentSummary } from '../documents/documents.mapper';
@@ -48,7 +50,13 @@ export type LibraryImageDaos = Readonly<{
   assets: Pick<AssetsDao, 'findInCampaign'>;
   images: Pick<
     LibraryImagesDao,
-    'listOfCampaign' | 'findInCampaign' | 'insert' | 'update' | 'delete' | 'moveFromFolder'
+    | 'listOfCampaign'
+    | 'findInCampaign'
+    | 'findByAsset'
+    | 'insert'
+    | 'update'
+    | 'delete'
+    | 'moveFromFolder'
   >;
   presentations: Pick<ImagePresentationsDao, 'findOfCampaign' | 'save'>;
   folders: Pick<SceneFoldersDao, 'listOfCampaign'>;
@@ -75,9 +83,8 @@ export class LibraryImageService {
       if (!campaign) throw new CampaignNotFoundError(requester);
       const folders = await daos.folders.listOfCampaign(requester.campaignId);
       const scenes = await daos.scenes.listOfCampaign(requester.campaignId);
-      const images = (await daos.images.listOfCampaign(requester.campaignId)).filter(
-        (row) => access.isMaster() || (row.image.visibility === 'public' && !row.hiddenByFolder),
-      );
+      const privacy = new FolderPrivacyBo(folders);
+      const images = await imagesFor(daos, access, privacy);
       const tree = new SceneLibraryBo({
         campaignId: requester.campaignId,
         activeSceneId: campaign.activeSceneId,
@@ -85,17 +92,9 @@ export class LibraryImageService {
         folders,
         scenes,
       });
-      const ownerRows = (await daos.documents?.ownersOfCampaign(requester.campaignId)) ?? [];
-      const documentRows = (await daos.documents?.listOfCampaign(requester.campaignId)) ?? [];
-      const documents = documentRows.flatMap((row) => {
-        const owners = ownerRows
-          .filter((owner) => owner.documentId === row.id)
-          .map((owner) => owner.userId);
-        if (!new DocumentAccessBo(access, { ...row, ownerIds: owners }).canRead()) return [];
-        return [toDocumentSummary(row, owners, access)];
-      });
-      const sheets = await sheetsFor(daos, access);
-      const maps = await visibleMapsOf(daos, access);
+      const documents = await documentsFor(daos, access, privacy);
+      const sheets = await sheetsFor(daos, access, privacy);
+      const maps = await visibleMapsOf(daos, access, privacy);
       const visible = tree.visibleTo(new SceneAccessBo(access, campaign.activeSceneId), [
         ...images.map((row) => row.image.folderId),
         ...documents.map((document) => document.folderId),
@@ -122,11 +121,7 @@ export class LibraryImageService {
     const saved = await this.edit(requester, async (daos) => {
       const asset = await daos.assets.findInCampaign(requester.campaignId, input.assetId);
       requireLibraryImageAsset(asset, input.assetId);
-      if (
-        (await daos.images.listOfCampaign(requester.campaignId)).some(
-          (row) => row.asset.id === input.assetId,
-        )
-      )
+      if (await daos.images.findByAsset(requester.campaignId, input.assetId))
         throw new LibraryImageNotFoundError(requester.campaignId, input.assetId);
       await this.requireFolder(daos, requester.campaignId, input.folderId ?? null);
       const image = await daos.images.insert({
@@ -208,10 +203,46 @@ export class LibraryImageService {
 async function visibleMapsOf(
   daos: LibraryImageDaos,
   access: CampaignAccessBo,
+  privacy: FolderPrivacyBo,
 ): Promise<LibraryMapSummaryDto[]> {
-  const rows = (await daos.maps?.listOfCampaign(access.campaignIdOf())) ?? [];
+  const listed = (await daos.maps?.listOfCampaign(access.campaignIdOf())) ?? [];
+  const rows = listed.map(({ map, asset }) => ({
+    map: { ...map, hiddenByFolder: privacy.hides(map.folderId) },
+    asset,
+  }));
   const mapAccess = new LibraryMapAccessBo(access);
   return rows.filter((row) => mapAccess.canSee(row.map)).map(toLibraryMapSummaryDto);
+}
+
+// A master gets every image; anyone else the public ones no private folder hides.
+async function imagesFor(
+  daos: LibraryImageDaos,
+  access: CampaignAccessBo,
+  privacy: FolderPrivacyBo,
+): Promise<LibraryImageRow[]> {
+  const listed = await daos.images.listOfCampaign(access.campaignIdOf());
+  const rows = listed.map((row) => ({ ...row, hiddenByFolder: privacy.hides(row.image.folderId) }));
+  if (access.isMaster()) return rows;
+  return rows.filter((row) => row.image.visibility === 'public' && !row.hiddenByFolder);
+}
+
+async function documentsFor(
+  daos: LibraryImageDaos,
+  access: CampaignAccessBo,
+  privacy: FolderPrivacyBo,
+): Promise<DocumentSummaryDto[]> {
+  const ownerRows = (await daos.documents?.ownersOfCampaign(access.campaignIdOf())) ?? [];
+  const documentRows = (await daos.documents?.listOfCampaign(access.campaignIdOf())) ?? [];
+  return documentRows.flatMap((listed) => {
+    const row = { ...listed, hiddenByFolder: privacy.hides(listed.folderId) };
+    const owners = ownerRows.filter((owner) => owner.documentId === row.id).map(userIdOf);
+    if (!new DocumentAccessBo(access, { ...row, ownerIds: owners }).canRead()) return [];
+    return [toDocumentSummary(row, owners, access)];
+  });
+}
+
+function userIdOf(owner: Readonly<{ userId: string }>): string {
+  return owner.userId;
 }
 
 // Only masters get the templates (without their code): it runs on every screen of the table.
@@ -228,9 +259,14 @@ async function sheetTemplatesFor(
 async function sheetsFor(
   daos: LibraryImageDaos,
   access: CampaignAccessBo,
+  privacy: FolderPrivacyBo,
 ): Promise<SheetSummaryDto[]> {
   if (!daos.sheets) return [];
-  const sheets = await daos.sheets.listOfCampaign(access.campaignIdOf());
+  const listed = await daos.sheets.listOfCampaign(access.campaignIdOf());
+  const sheets = listed.map((sheet) => ({
+    ...sheet,
+    hiddenByFolder: privacy.hides(sheet.folderId),
+  }));
   const places = await daos.sheets.holdersOf(access.campaignIdOf(), sheets);
   return readableSheetSummaries(access, sheets, places);
 }

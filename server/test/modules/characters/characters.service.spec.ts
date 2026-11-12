@@ -276,7 +276,6 @@ describe('CharactersService', () => {
       expect(journal).toEqual([
         'lock characters',
         'set bar',
-        'set bar',
         'bump characters',
         'commit',
         'publish',

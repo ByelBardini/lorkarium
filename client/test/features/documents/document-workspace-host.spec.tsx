@@ -6,7 +6,20 @@ import { describe, expect, it } from 'vitest';
 import { DocumentWorkspaceHost } from '@/features/documents/document-workspace-host';
 import type { AppDependencies } from '@/app/router';
 import { testDependencies } from '../../support/app-dependencies';
-import { documentFixture } from '../../support/documents-fixtures';
+import type { DocumentTabChangedDto } from '@lorkarium/contracts';
+import { documentTabEditorKey } from '@/stores/document-editor-store';
+import {
+  DOCUMENT_ID,
+  GENERAL_TAB_ID,
+  ITEMS_TAB_ID,
+  documentFixture,
+  documentTabChanged,
+  documentTabFixture,
+  documentText,
+} from '../../support/documents-fixtures';
+
+// A document the workspace does not have open.
+const OTHER_DOCUMENT_ID = '10000000-0000-4000-8000-0000000000f1';
 import { vharnLibrary } from '../../support/library-fixtures';
 import { detailOf, VHARN } from '../../support/campaigns-api-fake';
 import { ANA } from '../../support/auth-api-fake';
@@ -210,5 +223,38 @@ describe('persistent document workspace host', () => {
     await waitFor(() => expect(deps.documentWorkspace.getState().entries).toEqual([]));
     expect(popup.closed).toBe(true);
     expect(screen.queryByRole('textbox', { name: 'Nome do documento' })).not.toBeInTheDocument();
+  });
+  it('reads the open tab again when someone else saves it, and only that tab at a newer version', async () => {
+    const { deps } = await workspaceScreen();
+    const key = documentTabEditorKey(VHARN.id, DOCUMENT_ID, GENERAL_TAB_ID);
+    const tabEditor = () =>
+      deps.documentWorkspace.getState().entries[0]?.editor.getState().tabEditors[key];
+    await waitFor(() => expect(tabEditor()?.getState().status).toBe('saved'));
+    const readsBefore = deps.documentsApi.tabReads.length;
+    const generalReads = (): number => deps.documentsApi.tabReads.length - readsBefore;
+    const detailsBefore = deps.documentsApi.detailCalls;
+    const listsBefore = deps.libraryApi.callsOf('list').length;
+    deps.documentsApi.writeTab(documentTabFixture({ version: 1, content: documentText('B') }));
+    const changed = (changes: Partial<DocumentTabChangedDto>) =>
+      act(async () =>
+        deps.tableSessionApi.emit({
+          kind: 'documentTabChanged',
+          event: documentTabChanged({ campaignId: VHARN.id, ...changes }),
+        }),
+      );
+    await changed({ tabId: ITEMS_TAB_ID });
+    await changed({ documentId: OTHER_DOCUMENT_ID });
+    await changed({ version: 0 });
+    expect(generalReads()).toBe(0);
+    await changed({ version: 1 });
+    await waitFor(() =>
+      expect(tabEditor()?.getState().draft).toEqual({ content: documentText('B') }),
+    );
+    expect(deps.documentsApi.tabReads.slice(readsBefore)).toEqual([GENERAL_TAB_ID]);
+    await changed({ version: 1 });
+    expect(generalReads()).toBe(1);
+    expect(deps.documentsApi.detailCalls).toBe(detailsBefore);
+    expect(deps.libraryApi.callsOf('list')).toHaveLength(listsBefore);
+    act(() => deps.documentWorkspace.getState().clear());
   });
 });

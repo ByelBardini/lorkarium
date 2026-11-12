@@ -128,6 +128,10 @@ export class SheetsDaoFake implements SheetOperations {
   async countHeldByTokens(campaignId: string): Promise<number> {
     return this.rows.filter((row) => row.campaignId === campaignId && row.tokenId !== null).length;
   }
+  async lockById(campaignId: string, sheetId: string): Promise<boolean> {
+    this.journal.push('lock sheet');
+    return (await this.find(campaignId, sheetId)) !== undefined;
+  }
   async listOfToken(campaignId: string, tokenId: string): Promise<SheetRow[]> {
     return this.rows.filter((row) => row.campaignId === campaignId && row.tokenId === tokenId);
   }
@@ -196,7 +200,13 @@ export class SheetsDaoFake implements SheetOperations {
     const row = await this.characters.findOfUser(campaignId, userId);
     return row && placeOfCharacter(row);
   }
-  async holdersOf(campaignId: string, sheets: readonly SheetRow[]): Promise<SheetPlacesPo> {
+  async findLines(campaignId: string, sheetIds: readonly string[]): Promise<SheetRow[]> {
+    return this.rows.filter((row) => row.campaignId === campaignId && sheetIds.includes(row.id));
+  }
+  async holdersOf(
+    campaignId: string,
+    sheets: readonly Pick<SheetRow, 'tokenId' | 'characterId'>[],
+  ): Promise<SheetPlacesPo> {
     const tokenIds = sheets.flatMap(({ tokenId }) => (tokenId ? [tokenId] : []));
     const characterIds = sheets.flatMap(({ characterId }) => (characterId ? [characterId] : []));
     return {

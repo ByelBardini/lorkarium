@@ -19,7 +19,7 @@ export class AssetError extends Error {
   }
 }
 
-/** Bytes that are not a PNG, JPEG or WebP the server is willing to decode; `detail` is the
+/** Bytes that are not a PNG, JPEG, WebP or GIF the server is willing to decode; `detail` is the
  *  processor's own words (what was received and what was expected). */
 export class UnsupportedImageError extends AssetError {
   constructor(detail: string) {

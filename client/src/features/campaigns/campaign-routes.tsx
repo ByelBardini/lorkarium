@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import {
   Outlet,
   redirect,
@@ -16,7 +16,7 @@ import { COMPACT_RAIL_HANDLE } from '@/app/shell/rail-handle';
 import { cn } from '@/lib/utils';
 import { useSession } from '@/stores/session-store';
 import { CampaignDetailDialog, CampaignDetailErrorRoute } from './campaign-detail-dialog';
-import { PlayRoomPage } from '@/features/board/play-room-page';
+import { LazyPlayRoomPage } from '@/features/board/lazy-play-room-page';
 import { RoomMapFocus } from '@/features/maps/room-map-focus';
 import { MainMapReaderContext } from '@/features/maps/use-map-home';
 import { MemberRoleProvider } from '@/features/sessions/member-role-provider';
@@ -181,35 +181,37 @@ function tableRoute({
             <MainMapReaderContext value={libraryMapsApi}>
               <MemberRoleProvider changer={campaignsApi}>
                 <SheetRoomProvider campaign={campaign} services={sheetServices}>
-                  <PlayRoomPage
-                    key={campaign.id}
-                    campaign={campaign}
-                    openTables={openTables}
-                    roomLayout={roomLayout}
-                    drawingStyle={drawingStyle}
-                    effectAreaStyle={effectAreaStyle}
-                    wallStyle={wallStyle}
-                    lightReach={lightReach}
-                    lightColor={lightColor}
-                    auraMotion={auraMotion}
-                    clipboard={clipboard}
-                    createBoardRenderer={createBoardRenderer}
-                    boardCommands={boardCommands}
-                    pings={pings}
-                    sessionStore={sessionStore}
-                    assets={assets}
-                    interactionClock={interactionClock}
-                    dicePreferences={dicePreferences}
-                    createDiceRenderer={createDiceRenderer}
-                    createDiceSound={createDiceSound}
-                    dice={dice}
-                    savedRolls={savedRolls}
-                    diceClock={diceClock}
-                    chat={chat}
-                    chatWindowHost={chatWindowHost}
-                    documentWorkspace={documentWorkspace}
-                    covered={covered}
-                  />
+                  <Suspense fallback={null}>
+                    <LazyPlayRoomPage
+                      key={campaign.id}
+                      campaign={campaign}
+                      openTables={openTables}
+                      roomLayout={roomLayout}
+                      drawingStyle={drawingStyle}
+                      effectAreaStyle={effectAreaStyle}
+                      wallStyle={wallStyle}
+                      lightReach={lightReach}
+                      lightColor={lightColor}
+                      auraMotion={auraMotion}
+                      clipboard={clipboard}
+                      createBoardRenderer={createBoardRenderer}
+                      boardCommands={boardCommands}
+                      pings={pings}
+                      sessionStore={sessionStore}
+                      assets={assets}
+                      interactionClock={interactionClock}
+                      dicePreferences={dicePreferences}
+                      createDiceRenderer={createDiceRenderer}
+                      createDiceSound={createDiceSound}
+                      dice={dice}
+                      savedRolls={savedRolls}
+                      diceClock={diceClock}
+                      chat={chat}
+                      chatWindowHost={chatWindowHost}
+                      documentWorkspace={documentWorkspace}
+                      covered={covered}
+                    />
+                  </Suspense>
                 </SheetRoomProvider>
               </MemberRoleProvider>
             </MainMapReaderContext>

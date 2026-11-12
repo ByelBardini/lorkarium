@@ -14,7 +14,7 @@ export type CombatSummary = Readonly<{
  *
  *  Example: `combatSummaryOf(board, seenTokens)?.currentLabel // 'Inimigos'` */
 export function combatSummaryOf(
-  board: BoardStateDto | null,
+  board: Readonly<{ combat: BoardStateDto['combat'] }> | null,
   seenTokens: readonly TokenDto[],
 ): CombatSummary | null {
   const combat = board?.combat;

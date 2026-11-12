@@ -1,6 +1,7 @@
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, eq, inArray } from 'drizzle-orm';
 import { sceneRowsCopySql } from '../../database/copy-rows';
 import type { DatabaseExecutor } from '../../database/transaction';
+import { updateManySql, type UpdatedColumn } from '../../database/update-many';
 import {
   lights,
   type LightColorPo,
@@ -50,29 +51,53 @@ export class LightsDao {
       .orderBy(asc(lights.lightOrder));
   }
 
-  /** One `UPDATE` per light (a group is at most 64): run it on the DAO built with the `tx`. */
+  /** How many lights the scene has: the ceiling check of a create, without reading them. */
+  async countOfScene(sceneId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ total: count() })
+      .from(lights)
+      .where(eq(lights.sceneId, sceneId));
+    return row?.total ?? 0;
+  }
+
+  /** One `UPDATE` for the group; a light of another scene in it does not move. */
   async moveMany(sceneId: string, moves: readonly LightMovePo[]): Promise<void> {
-    for (const { lightId, x, y } of moves) {
-      await this.db.update(lights).set({ x, y }).where(this.inScene(sceneId, lightId));
-    }
+    const columns = [
+      { column: lights.x, cast: 'numeric' },
+      { column: lights.y, cast: 'numeric' },
+    ];
+    await this.updateMany(
+      sceneId,
+      columns,
+      moves.map(({ lightId, x, y }) => [lightId, x, y]),
+    );
   }
 
   async setRanges(sceneId: string, ranges: readonly LightRangePo[]): Promise<void> {
-    for (const { lightId, bright, dim } of ranges) {
-      await this.db.update(lights).set({ bright, dim }).where(this.inScene(sceneId, lightId));
-    }
+    const columns = [
+      { column: lights.bright, cast: 'numeric' },
+      { column: lights.dim, cast: 'numeric' },
+    ];
+    const rows = ranges.map(({ lightId, bright, dim }) => [lightId, bright, dim]);
+    await this.updateMany(sceneId, columns, rows);
   }
 
   async setColors(sceneId: string, colors: readonly LightColorPo[]): Promise<void> {
-    for (const { lightId, color } of colors) {
-      await this.db.update(lights).set({ color }).where(this.inScene(sceneId, lightId));
-    }
+    const columns = [{ column: lights.color, cast: 'text' }];
+    await this.updateMany(
+      sceneId,
+      columns,
+      colors.map(({ lightId, color }) => [lightId, color]),
+    );
   }
 
   async setCones(sceneId: string, cones: readonly LightConePo[]): Promise<void> {
-    for (const { lightId, facing, angle } of cones) {
-      await this.db.update(lights).set({ facing, angle }).where(this.inScene(sceneId, lightId));
-    }
+    const columns = [
+      { column: lights.facing, cast: 'smallint' },
+      { column: lights.angle, cast: 'smallint' },
+    ];
+    const rows = cones.map(({ lightId, facing, angle }) => [lightId, facing, angle]);
+    await this.updateMany(sceneId, columns, rows);
   }
 
   async setLit(sceneId: string, lightIds: readonly string[], lit: boolean): Promise<void> {
@@ -85,8 +110,14 @@ export class LightsDao {
     await this.db.delete(lights).where(this.manyInScene(sceneId, lightIds));
   }
 
-  private inScene(sceneId: string, lightId: string) {
-    return and(eq(lights.sceneId, sceneId), eq(lights.id, lightId));
+  private async updateMany(
+    sceneId: string,
+    columns: readonly UpdatedColumn[],
+    rows: readonly (readonly unknown[])[],
+  ): Promise<void> {
+    if (rows.length === 0) return;
+    const where = eq(lights.sceneId, sceneId);
+    await this.db.execute(updateManySql({ table: lights, key: lights.id, columns, rows, where }));
   }
 
   private manyInScene(sceneId: string, lightIds: readonly string[]) {

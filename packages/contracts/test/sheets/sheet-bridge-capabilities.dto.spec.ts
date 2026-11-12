@@ -74,7 +74,16 @@ describe('character.setImage and assets.upload', () => {
     expect(sheetFrameMessageDto.safeParse(at).success).toBe(true);
     expect(issuesOf(over)).toContain(`${ASSET_MAX_BYTES + 1} bytes`);
   });
-  it.each(['image/svg+xml', 'image/gif', 'text/html'])('refuses the type %s', (type) =>
+  it.each(['assets.upload', 'character.setImage'])('%s takes a GIF', (type) =>
+    expect(
+      sheetFrameMessageDto.safeParse({
+        type,
+        requestId: '1',
+        image: { type: 'image/gif', bytes: new ArrayBuffer(4) },
+      }).success,
+    ).toBe(true),
+  );
+  it.each(['image/svg+xml', 'text/html'])('refuses the type %s', (type) =>
     expect(
       sheetFrameMessageDto.safeParse({
         type: 'assets.upload',

@@ -324,18 +324,14 @@ class OpenTablesActions {
     this.set({ deletedNotice: { campaignId, name: table.name, reason } });
   }
 
+  // A change of what the table does not show (the description, the system) keeps the very
+  // tables: the tab bar and every reader of the list stay as they are.
   private retitle(campaign: CampaignInfoDto): void {
-    const tables = this.get().tables.map((table) =>
-      table.campaignId === campaign.id
-        ? {
-            ...table,
-            name: campaign.name,
-            cover: campaign.cover,
-            tokenRights: tableTokenRightsOf(campaign),
-            limits: campaign.limits,
-          }
-        : table,
+    const before = this.get().tables;
+    const tables = before.map((table) =>
+      table.campaignId === campaign.id ? retitled(table, campaign) : table,
     );
+    if (tables.every((table, index) => table === before[index])) return;
     this.set({ tables });
     writeStored(this.deps.storage, this.get());
   }
@@ -398,6 +394,18 @@ type TableStores = Readonly<{
   chat: StoreApi<ChatHistoryStore>;
   imagePresentation: StoreApi<ImagePresentationStore>;
 }>;
+
+function retitled(table: OpenTable, campaign: CampaignInfoDto): OpenTable {
+  const shown = {
+    name: campaign.name,
+    cover: campaign.cover,
+    tokenRights: tableTokenRightsOf(campaign),
+    limits: campaign.limits,
+  };
+  const { name, cover, tokenRights, limits } = table;
+  const same = JSON.stringify({ name, cover, tokenRights, limits }) === JSON.stringify(shown);
+  return same ? table : { ...table, ...shown };
+}
 
 // The roster names the owner for an `@` (nickname and @); before the snapshot, only the id.
 function chatViewerOf(

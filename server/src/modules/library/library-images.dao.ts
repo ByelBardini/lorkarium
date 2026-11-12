@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { hiddenByFolderSql } from '../../database/hidden-by-folder-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { assets, type AssetPo } from '../assets/assets.po';
@@ -13,6 +13,8 @@ export type LibraryImageRow = Readonly<{
   asset: AssetPo;
   hiddenByFolder: boolean;
 }>;
+/** An image as the library lists it, before its folder chain is decided. */
+export type LibraryImageListedRow = Omit<LibraryImageRow, 'hiddenByFolder'>;
 const IMAGE_WITH_ASSET = {
   image: libraryImages,
   asset: assets,
@@ -20,9 +22,11 @@ const IMAGE_WITH_ASSET = {
 };
 export class LibraryImagesDao {
   constructor(private readonly db: DatabaseExecutor) {}
-  async listOfCampaign(campaignId: string): Promise<LibraryImageRow[]> {
+  /** The images of the table, in creation order, without the folder chain: the library decides
+   *  it over the folders it already read. */
+  async listOfCampaign(campaignId: string): Promise<LibraryImageListedRow[]> {
     return this.db
-      .select(IMAGE_WITH_ASSET)
+      .select({ image: libraryImages, asset: assets })
       .from(libraryImages)
       .innerJoin(
         assets,
@@ -32,6 +36,20 @@ export class LibraryImagesDao {
       .orderBy(libraryImages.createdAt, libraryImages.id);
   }
   async findInCampaign(campaignId: string, imageId: string): Promise<LibraryImageRow | undefined> {
+    return this.findOne(
+      and(eq(libraryImages.campaignId, campaignId), eq(libraryImages.id, imageId)),
+    );
+  }
+  /** The library record of one file, by the unique `asset_id`; another table's is `undefined`.
+   *
+   *  Example: `(await dao.findByAsset(vharnId, assetId))?.image.visibility // 'public'` */
+  async findByAsset(campaignId: string, assetId: string): Promise<LibraryImageRow | undefined> {
+    return this.findOne(
+      and(eq(libraryImages.campaignId, campaignId), eq(libraryImages.assetId, assetId)),
+    );
+  }
+
+  private async findOne(where: SQL | undefined): Promise<LibraryImageRow | undefined> {
     const [row] = await this.db
       .select(IMAGE_WITH_ASSET)
       .from(libraryImages)
@@ -39,9 +57,10 @@ export class LibraryImagesDao {
         assets,
         and(eq(assets.id, libraryImages.assetId), eq(assets.campaignId, libraryImages.campaignId)),
       )
-      .where(and(eq(libraryImages.campaignId, campaignId), eq(libraryImages.id, imageId)));
+      .where(where);
     return row;
   }
+
   async insert(row: NewLibraryImagePo): Promise<LibraryImagePo> {
     const [saved] = await this.db.insert(libraryImages).values(row).returning();
     if (!saved) throw new Error(`No library image inserted for ${row.assetId}`);

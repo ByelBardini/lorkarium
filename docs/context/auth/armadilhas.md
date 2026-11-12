@@ -1,6 +1,6 @@
-# Auth — armadilhas
+# Auth · armadilhas
 
-Hub: [`../auth.md`](../auth.md).
+Hub: [`auth.md`](../auth.md).
 
 - Em `preHandler` assíncrono que responde (guarda), é `return reply.code(...).send(...)`: sem o `return` o Fastify segue para o handler.
 - `errorResponseBuilder` do rate-limit **lança** o que devolve: ele devolve `RateLimitedError`, que o error handler do módulo traduz. O header `Retry-After` já vem posto pela lib.

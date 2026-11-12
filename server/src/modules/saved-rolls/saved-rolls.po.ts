@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   check,
   foreignKey,
+  index,
   jsonb,
   pgTable,
   text,
@@ -65,6 +66,10 @@ export const savedRolls = pgTable(
       foreignColumns: [campaignMembers.campaignId, campaignMembers.userId],
     }).onDelete('cascade'),
     uniqueIndex('saved_rolls_member_name_unique').on(table.campaignId, table.userId, table.nameKey),
+    // Deleting a folder nulls this: without it the FK action scans the rolls of every table.
+    index('saved_rolls_folder_idx')
+      .on(table.folderId)
+      .where(sql`${table.folderId} IS NOT NULL`),
     check('saved_rolls_name_length', sql`char_length(${table.name}) BETWEEN 1 AND 40`),
   ],
 );

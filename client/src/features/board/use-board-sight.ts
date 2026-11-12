@@ -1,5 +1,5 @@
 import type { BoardStateDto } from '@lorkarium/contracts';
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import {
   boardSightOf,
@@ -118,7 +118,9 @@ type RememberedSight = Readonly<{
 // Six components and the keys ask for the sight, and a drag asks again at every cell: the last
 // computation is kept, so each change is computed once and every consumer gets the same instance.
 // A drag of a token that is nobody's eye and carries no light only works its own level out again.
-let lastSight: RememberedSight | null = null;
+// One memory per grid (its scene, replaced only by a scene change or a snapshot): the group grid
+// and the tab shown asked in turn would otherwise redo each other's filter cold.
+const lastSights = new WeakMap<BoardStateDto['scene'], RememberedSight>();
 
 function rememberedSightOf(
   board: BoardStateDto,
@@ -128,16 +130,16 @@ function rememberedSightOf(
   const { previewEyeIds, playerIds, outlines } = watchers;
   const parts = partsOf(board, watchers, sightGeometryOf(board, outlines, landing));
   const shapingKey = poseKeyOf(landing, poseShapingIdsOf(board, previewEyeIds, playerIds));
-  const last = lastSight;
+  const last = lastSights.get(board.scene);
   if (last && sameParts(last.parts, parts) && last.shapingKey === shapingKey) {
     const moved = movedIdsOf(last.landing, landing);
     if (moved.length === 0) return last.sight;
     const sight = sightWithMovedOf(last.sight, board, { ...watchers, landing }, moved);
-    lastSight = { parts, shapingKey, landing, sight };
+    lastSights.set(board.scene, { parts, shapingKey, landing, sight });
     return sight;
   }
   const sight = boardSightOf(board, { ...watchers, landing });
-  lastSight = { parts, shapingKey, landing, sight };
+  lastSights.set(board.scene, { parts, shapingKey, landing, sight });
   return sight;
 }
 
@@ -232,4 +234,50 @@ export function useBoardSight(
       outlines,
     ],
   );
+}
+
+/** The sight for a panel that only names what is seen (the list "Na cena", the dock): read from
+ *  the stores outside React, it renders the panel only when a level, an eye or the mode changes,
+ *  never at each cell of a drag or a patrol step that keeps the same tokens seen. The `eyes` of
+ *  what it gives may be of an earlier pose: the canvas goes through `useBoardSight`.
+ *
+ *  Example: `const seen = seenTokensOf(state, useBoardSeen(board, interaction))` */
+export function useBoardSeen(
+  board: StoreApi<BoardStore>,
+  interaction: StoreApi<BoardInteractionStore>,
+): BoardSight {
+  const players = useTablePlayers();
+  const outlines = useTableSightOutlines();
+  const shown = useRef<BoardSight>(CLEAR_SIGHT);
+  const subscribe = useCallback(
+    (notify: () => void) => {
+      const fromBoard = board.subscribe(notify);
+      const fromInteraction = interaction.subscribe(notify);
+      return () => {
+        fromBoard();
+        fromInteraction();
+      };
+    },
+    [board, interaction],
+  );
+  const snapshot = useCallback((): BoardSight => {
+    const now = sightNowOf(board.getState(), interaction.getState(), players, outlines);
+    if (!sameSeen(shown.current, now)) shown.current = now;
+    return shown.current;
+  }, [board, interaction, players, outlines]);
+  return useSyncExternalStore(subscribe, snapshot);
+}
+
+function sameSeen(a: BoardSight, b: BoardSight): boolean {
+  if (a === b) return true;
+  const sameLook = a.active === b.active && a.mode === b.mode && a.noEyes === b.noEyes;
+  if (!sameLook || a.previewBlind !== b.previewBlind) return false;
+  if (a.eyeTokenIds.join() !== b.eyeTokenIds.join()) return false;
+  return sameLevels(a.levels, b.levels);
+}
+
+function sameLevels(a: BoardSight['levels'], b: BoardSight['levels']): boolean {
+  if (a.size !== b.size) return false;
+  for (const [id, level] of a) if (b.get(id) !== level) return false;
+  return true;
 }

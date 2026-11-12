@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { artBox, flipSigns } from '@/renderer/token-art';
+import { artBox, artPlacement, flipSigns } from '@/renderer/token-art';
 
 const PORTRAIT = { width: 400, height: 600 };
 const SQUARE_64 = { width: 64, height: 64 };
@@ -49,5 +49,27 @@ describe('flipSigns', () => {
   it('no flip keeps both signs positive, and both flips mirror both', () => {
     expect(flipSigns(false, false)).toEqual({ x: 1, y: 1 });
     expect(flipSigns(true, true)).toEqual({ x: -1, y: -1 });
+  });
+});
+
+describe('artPlacement', () => {
+  it('a round 400 × 600 image flipped on x scales by -0.16 and 0.16, centered on the token', () => {
+    const placement = artPlacement(
+      { frame: 'round', flipX: true, flipY: false },
+      PORTRAIT,
+      SQUARE_64,
+    );
+
+    expect(placement).toEqual({ x: 0, y: 0, scaleX: -0.16, scaleY: 0.16 });
+  });
+
+  it('a square image on a token two cells wide sits in its middle, stretched with it', () => {
+    const placement = artPlacement(
+      { frame: 'square', flipX: false, flipY: true },
+      { width: 100, height: 100 },
+      { width: 128, height: 64 },
+    );
+
+    expect(placement).toEqual({ x: 0, y: 0, scaleX: 1.28, scaleY: -0.64 });
   });
 });

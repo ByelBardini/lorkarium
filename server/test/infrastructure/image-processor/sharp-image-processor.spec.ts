@@ -136,16 +136,16 @@ describe('SharpImageProcessor.normalize', () => {
       ok: false,
       refusal: {
         reason: 'not-an-image',
-        detail: 'the 200 bytes do not decode as an image; expected png, jpeg or webp',
+        detail: 'the 200 bytes do not decode as an image; expected png, jpeg, webp or gif',
       },
     });
   });
 
-  it('a GIF is refused citing gif and the accepted formats', async () => {
-    expect(await processor.normalize(await imageOf(16, 16, 'gif'), TOKEN)).toEqual({
-      ok: false,
-      refusal: { reason: 'format', detail: 'format gif is not kept; expected png, jpeg or webp' },
-    });
+  it('a GIF with no animation budget is kept as a PNG of its first frame', async () => {
+    const image = keptOf(await processor.normalize(await imageOf(16, 16, 'gif'), TOKEN));
+
+    expect(image).toMatchObject({ mimeType: 'image/png', width: 16, height: 16 });
+    expect((await sharp(image.bytes).metadata()).format).toBe('png');
   });
 
   it('an SVG is refused even though sharp could render it', async () => {
@@ -155,7 +155,7 @@ describe('SharpImageProcessor.normalize', () => {
 
     expect(await processor.normalize(svg, TOKEN)).toMatchObject({
       ok: false,
-      refusal: { reason: 'format', detail: expect.stringMatching(/svg.*png, jpeg or webp/) },
+      refusal: { reason: 'format', detail: expect.stringMatching(/svg.*png, jpeg, webp or gif/) },
     });
   });
 
@@ -165,6 +165,74 @@ describe('SharpImageProcessor.normalize', () => {
     expect(await small.normalize(await imageOf(40, 40, 'png'), TOKEN)).toMatchObject({
       ok: false,
       refusal: { reason: 'too-many-pixels', detail: expect.stringMatching(/1600 pixels.*1000/) },
+    });
+  });
+});
+
+// An RGBA PNG whose every pixel is solid: what most editors export for a map.
+async function solidRgbaPng(width: number, height: number): Promise<Uint8Array> {
+  const background = { r: 30, g: 90, b: 60, alpha: 1 };
+  return new Uint8Array(
+    await sharp({ create: { width, height, channels: 4, background } })
+      .png()
+      .toBuffer(),
+  );
+}
+
+async function formatOf(bytes: Uint8Array): Promise<string | undefined> {
+  return (await sharp(bytes).metadata()).format;
+}
+
+const OPAQUE_AS_WEBP = { maxSide: 4096, opaqueAsWebp: true };
+
+describe('SharpImageProcessor.normalize output format by purpose and alpha', () => {
+  it('an opaque 5000×3000 PNG background comes out a 4096 px WebP', async () => {
+    const png = await imageOf(5000, 3000, 'png');
+
+    const image = keptOf(await processor.normalize(png, OPAQUE_AS_WEBP));
+
+    expect(image).toMatchObject({ mimeType: 'image/webp', width: 4096, height: 2458 });
+    expect(await formatOf(image.bytes)).toBe('webp');
+  });
+
+  it('an RGBA PNG with every pixel solid also comes out a WebP', async () => {
+    const image = keptOf(await processor.normalize(await solidRgbaPng(300, 200), OPAQUE_AS_WEBP));
+
+    expect(image.mimeType).toBe('image/webp');
+    expect(await formatOf(image.bytes)).toBe('webp');
+  });
+
+  it('a PNG with transparency stays a PNG that keeps its alpha', async () => {
+    const png = await imageOf(300, 200, 'png', true);
+
+    const image = keptOf(await processor.normalize(png, OPAQUE_AS_WEBP));
+
+    expect(image.mimeType).toBe('image/png');
+    expect((await sharp(image.bytes).metadata()).channels).toBe(4);
+  });
+
+  it('a JPEG background comes out a WebP', async () => {
+    const image = keptOf(
+      await processor.normalize(await imageOf(300, 200, 'jpeg'), OPAQUE_AS_WEBP),
+    );
+
+    expect(image.mimeType).toBe('image/webp');
+    expect(await formatOf(image.bytes)).toBe('webp');
+  });
+
+  it('without the option an opaque PNG stays a PNG (token, condition)', async () => {
+    const png = await imageOf(300, 200, 'png');
+
+    expect(keptOf(await processor.normalize(png, TOKEN)).mimeType).toBe('image/png');
+    expect(keptOf(await processor.normalize(png, CONDITION)).mimeType).toBe('image/png');
+  });
+
+  it('bytes that do not decode are refused as before', async () => {
+    const html = new TextEncoder().encode('<html><body>not an image</body></html>');
+
+    expect(await processor.normalize(html, OPAQUE_AS_WEBP)).toMatchObject({
+      ok: false,
+      refusal: { reason: 'not-an-image' },
     });
   });
 });
@@ -214,16 +282,15 @@ describe('SharpImageProcessor.normalize with square', () => {
     expect([image.width, image.height]).toEqual([1024, 512]);
   });
 
-  it('a GIF is refused with square too, citing gif and the accepted formats', async () => {
-    expect(await processor.normalize(await imageOf(16, 16, 'gif'), CONDITION)).toEqual({
-      ok: false,
-      refusal: { reason: 'format', detail: 'format gif is not kept; expected png, jpeg or webp' },
-    });
+  it('a GIF kept square with no budget is a PNG too', async () => {
+    const image = keptOf(await processor.normalize(await imageOf(16, 16, 'gif'), CONDITION));
+
+    expect(image).toMatchObject({ mimeType: 'image/png', width: 16, height: 16 });
   });
 });
 
 describe('SharpImageProcessor.normalize of an animation', () => {
-  // Regression: a GIF is refused, so a moving image must not come back as an animated WebP.
+  // Regression: a still purpose keeps one frame, so a moving image must not come back as an animated WebP.
   it.each([
     ['as a token', TOKEN],
     ['as a square condition', CONDITION],
@@ -323,10 +390,10 @@ describe('SharpImageProcessor.normalize with an animation budget', () => {
     });
   });
 
-  it('a GIF without a budget is still refused citing gif (token, background, cover, condition)', async () => {
-    expect(await processor.normalize(await animatedGif(3, 16), TOKEN)).toEqual({
-      ok: false,
-      refusal: { reason: 'format', detail: 'format gif is not kept; expected png, jpeg or webp' },
-    });
+  it('an animated GIF with no budget keeps only its first frame, the size of one frame', async () => {
+    const image = keptOf(await processor.normalize(await animatedGif(3, 16), TOKEN));
+
+    expect(image).toMatchObject({ mimeType: 'image/png', width: 16, height: 16 });
+    expect((await sharp(image.bytes, { animated: true }).metadata()).pages ?? 1).toBe(1);
   });
 });

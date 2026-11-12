@@ -1,5 +1,5 @@
 {
-  "id": "1791a6f0-c54b-4df8-898f-043915d41562",
+  "id": "826678cc-4082-48f5-804d-38954cc072d3",
   "prevId": "3642d8bf-aea4-4b98-a26f-62948a3c1931",
   "version": "7",
   "dialect": "postgresql",
@@ -200,7 +200,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "active_conditions_condition_idx": {
+          "name": "active_conditions_condition_idx",
+          "columns": [
+            {
+              "expression": "condition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "active_conditions_token_id_tokens_id_fk": {
           "name": "active_conditions_token_id_tokens_id_fk",
@@ -752,7 +768,45 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "campaigns_visibility_created_idx": {
+          "name": "campaigns_visibility_created_idx",
+          "columns": [
+            {
+              "expression": "visibility",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campaigns_active_scene_idx": {
+          "name": "campaigns_active_scene_idx",
+          "columns": [
+            {
+              "expression": "active_scene_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"campaigns\".\"active_scene_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "campaigns_owner_id_users_id_fk": {
           "name": "campaigns_owner_id_users_id_fk",
@@ -4809,6 +4863,22 @@
           "method": "btree",
           "with": {}
         },
+        "token_sheets_token_only_idx": {
+          "name": "token_sheets_token_only_idx",
+          "columns": [
+            {
+              "expression": "token_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"token_sheets\".\"token_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "token_sheets_folder_idx": {
           "name": "token_sheets_folder_idx",
           "columns": [
@@ -5194,6 +5264,38 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "tokens_active_form_idx": {
+          "name": "tokens_active_form_idx",
+          "columns": [
+            {
+              "expression": "active_form_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"tokens\".\"active_form_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tokens_character_idx": {
+          "name": "tokens_character_idx",
+          "columns": [
+            {
+              "expression": "character_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"tokens\".\"character_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -5473,14 +5575,6 @@
           "notNull": true,
           "default": "'user'"
         },
-        "plan": {
-          "name": "plan",
-          "type": "user_plan",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'free'"
-        },
         "color": {
           "name": "color",
           "type": "text",
@@ -5549,7 +5643,40 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "users_avatar_idx": {
+          "name": "users_avatar_idx",
+          "columns": [
+            {
+              "expression": "avatar_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"users\".\"avatar_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "users_dice_texture_idx": {
+          "name": "users_dice_texture_idx",
+          "columns": [
+            {
+              "expression": "dice_texture_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"users\".\"dice_texture_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
@@ -5873,11 +6000,6 @@
       "name": "token_side",
       "schema": "public",
       "values": ["ally", "enemy", "neutral"]
-    },
-    "public.user_plan": {
-      "name": "user_plan",
-      "schema": "public",
-      "values": ["free", "apoiador", "narrador", "lenda", "amigo_do_dono"]
     },
     "public.user_role": {
       "name": "user_role",

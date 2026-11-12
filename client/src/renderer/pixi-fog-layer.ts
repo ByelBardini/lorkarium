@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Texture, type Renderer } from 'pixi.js';
+import { Container, Graphics, Sprite, Texture, type RenderTexture } from 'pixi.js';
 import type { Point } from './camera';
 import type { FogRect, FogView } from './fog-view';
 import { SceneRenderTexture } from './scene-render-texture';
@@ -8,64 +8,68 @@ const PENUMBRA_ALPHA = 0.55;
 
 type FogAreas = FogView['dim'];
 
-/** The fog on the canvas: two sheets of the scene's size, an opaque one cut (inverse mask) by the
- *  dim openings and one at 55% cut by the bright ones. Each sheet's openings are a texture: the
- *  areas the eyes see by their own range, the viewer's own tokens, the bodies of the blockers seen,
- *  and what the lights light masked by the eyes' lines of sight. Above the board and its tokens, under the ruler, the
- *  handles and the walls. Redrawn only when the fog's key changes. Proven by the e2e.
+/** What the fog bakes its sheets with: the app's renderer, or a fake in the specs. */
+export interface FogRenderer {
+  render(options: Readonly<{ container: Container; target: RenderTexture; clear: boolean }>): void;
+}
+
+/** The fog on the canvas: two sheets of the scene's size, an opaque one with the dim openings
+ *  erased and one at 55% with the bright ones erased. Each sheet is baked into a texture when the
+ *  fog's key changes and shown as a plain sprite: no mask on the board, so a render (an animated
+ *  aura, a gliding token) costs no mask pass over the whole screen. The openings are the areas the
+ *  eyes see by their own range, the viewer's own tokens, the bodies of the blockers seen, and what
+ *  the lights light masked by the eyes' lines of sight. Above the board and its tokens, under the
+ *  ruler, the handles and the walls. Proven by `pixi-fog-layer.spec.ts` and the e2e.
  *
  *  Example: `fog.sync(view.fog, app.renderer)` */
 export class PixiFogLayer {
   readonly container = new Container();
-  private readonly dark = new Graphics();
-  private readonly dimmed = new Graphics();
-  private readonly darkOpenings = new FogOpenings();
-  private readonly dimOpenings = new FogOpenings();
+  private readonly dimmed = new FogSheet(PENUMBRA_ALPHA);
+  private readonly dark = new FogSheet(1);
   private key: string | null = null;
 
   constructor() {
-    const { darkOpenings, dimOpenings } = this;
-    this.container.addChild(darkOpenings.sprite, dimOpenings.sprite, this.dimmed, this.dark);
-    this.dark.setMask({ mask: darkOpenings.sprite, inverse: true, channel: 'alpha' });
-    this.dimmed.setMask({ mask: dimOpenings.sprite, inverse: true, channel: 'alpha' });
+    this.container.addChild(this.dimmed.sprite, this.dark.sprite);
   }
 
-  sync(fog: FogView | null, renderer: Renderer): void {
+  sync(fog: FogView | null, renderer: FogRenderer): void {
     this.container.visible = fog !== null;
     if (!fog || fog.key === this.key) return;
     this.key = fog.key;
-    this.dark.clear().rect(0, 0, fog.width, fog.height).fill(FOG_COLOR);
-    this.dimmed.clear().rect(0, 0, fog.width, fog.height).fill({
-      color: FOG_COLOR,
-      alpha: PENUMBRA_ALPHA,
-    });
-    this.darkOpenings.draw(renderer, fog, [fog.dim, fog.blockerHoles.dim], fog.lit.dim);
-    this.dimOpenings.draw(renderer, fog, [fog.bright, fog.blockerHoles.bright], fog.lit.bright);
+    this.dimmed.bake(renderer, fog, [fog.bright, fog.blockerHoles.bright], fog.lit.bright);
+    this.dark.bake(renderer, fog, [fog.dim, fog.blockerHoles.dim], fog.lit.dim);
   }
 
   destroy(): void {
-    this.darkOpenings.destroy();
-    this.dimOpenings.destroy();
+    this.dimmed.destroy();
+    this.dark.destroy();
   }
 }
 
-// One sheet's openings, drawn into a texture read by its alpha: (own ∪ holes ∪ bodies) ∪ (lit ∩ sight lines).
-class FogOpenings {
+// One sheet baked into a texture: the fog color with (own ∪ holes ∪ bodies) ∪ (lit ∩ sight lines)
+// erased out of it.
+class FogSheet {
   readonly sprite = new Sprite(Texture.EMPTY);
   private readonly drawing = new Container();
+  private readonly sheet = new Graphics();
+  private readonly openings = new Container();
   private readonly own = new Graphics();
   private readonly lit = new Graphics();
   private readonly sightLines = new Graphics();
   // Drawn smaller on a big scene: a blurred edge does not show in the fog.
   private readonly target = new SceneRenderTexture();
 
-  constructor() {
-    this.drawing.addChild(this.own, this.lit, this.sightLines);
+  constructor(private readonly alpha: number) {
+    this.openings.blendMode = 'erase';
+    this.openings.addChild(this.own, this.lit, this.sightLines);
     this.lit.mask = this.sightLines;
+    this.drawing.addChild(this.sheet, this.openings);
   }
 
-  draw(renderer: Renderer, fog: FogView, own: readonly FogAreas[], lit: FogAreas): void {
+  bake(renderer: FogRenderer, fog: FogView, own: readonly FogAreas[], lit: FogAreas): void {
     const target = this.target.of(fog.width, fog.height);
+    const { alpha } = this;
+    this.sheet.clear().rect(0, 0, fog.width, fog.height).fill({ color: FOG_COLOR, alpha });
     this.own.clear();
     for (const areas of own) fillAreas(this.own, areas);
     fillHoles(this.own, fog.holes);

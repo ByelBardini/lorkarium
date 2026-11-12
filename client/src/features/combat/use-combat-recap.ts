@@ -33,6 +33,8 @@ export function useCombatRecap(
   useEffect(
     () =>
       board.subscribe((next, previous) => {
+        // A drag, a move or a chat line leaves the combat as it was: no filter to work out.
+        if (next.board?.combat === previous.board?.combat) return;
         if (!previous.board?.combat && next.board?.combat)
           return setTold({ lines: [], ended: false });
         const seen = next.board

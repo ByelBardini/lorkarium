@@ -24,9 +24,9 @@ export class DocumentsDao {
       .where(and(eq(libraryDocuments.campaignId, campaignId), eq(libraryDocuments.id, documentId)));
     return row;
   }
-  async listOfCampaign(
-    campaignId: string,
-  ): Promise<(DocumentSummaryPo & Readonly<{ hiddenByFolder: boolean }>)[]> {
+  /** The library lines of the table, without the folder chain: the caller decides it over the
+   *  folders it already read. */
+  async listOfCampaign(campaignId: string): Promise<DocumentSummaryPo[]> {
     const t = libraryDocuments;
     return this.db
       .select({
@@ -37,7 +37,6 @@ export class DocumentsDao {
         visibility: t.visibility,
         version: t.version,
         updatedAt: t.updatedAt,
-        hiddenByFolder: HIDDEN_BY_FOLDER,
       })
       .from(t)
       .where(eq(t.campaignId, campaignId))

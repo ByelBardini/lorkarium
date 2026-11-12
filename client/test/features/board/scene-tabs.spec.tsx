@@ -254,3 +254,17 @@ describe('SceneTabs with the viewer main sheet', () => {
     expect(documents.getState().activeByCampaign[VHARN.id]).not.toBe(main);
   });
 });
+
+describe('SceneTabs with sheets and templates', () => {
+  it('shows only the name beside the icon; the accessible name keeps the kind', async () => {
+    const table = openVharnTabs(new TableSessionApiFake());
+    const documents = workspaceOfFakes();
+    const campaign = detailOf(VHARN);
+    documents.getState().openSheet({ campaign, sheetId: LYRA_SHEET_ID, sheetName: 'Lyra' });
+    render(<SceneTabs tabs={table.tabs} documents={documents} campaignId={VHARN.id} />);
+    await act(() => Promise.resolve());
+    const tab = screen.getByRole('tab', { name: 'Ficha · Lyra de Vharn' });
+    expect(tab).toHaveTextContent(/^Lyra de Vharn$/);
+    expect(tab).toHaveAttribute('title', 'Ficha · Lyra de Vharn');
+  });
+});

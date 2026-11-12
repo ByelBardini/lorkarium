@@ -5,7 +5,7 @@ import {
   type MemberColorDto,
 } from '@lorkarium/contracts';
 import { sql } from 'drizzle-orm';
-import { check, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { check, index, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { paletteOrHexSql } from '../../database/palette-or-hex-sql';
 
 // Global account role; game master/player/spectator are per-campaign roles (spec §6).
@@ -52,6 +52,13 @@ export const users = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    // Every GET of a photo or a dice texture asks whether some account still points at it.
+    index('users_avatar_idx')
+      .on(table.avatarId)
+      .where(sql`${table.avatarId} IS NOT NULL`),
+    index('users_dice_texture_idx')
+      .on(table.diceTextureId)
+      .where(sql`${table.diceTextureId} IS NOT NULL`),
     check('users_bio_length', sql`char_length(${table.bio}) <= ${sql.raw(String(BIO_MAX_LENGTH))}`),
     check('users_color_value', paletteOrHexSql(table.color, MEMBER_COLOR_NAMES)),
     check('users_dice_number_color_hex', sql`${table.diceNumberColor} ~ '^#[0-9a-f]{6}$'`),

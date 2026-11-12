@@ -1,6 +1,8 @@
 import { documentWriteResponseDto } from '@lorkarium/contracts';
+import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { DocumentHttpHarness, documentText } from '../support/document-http';
+import { SceneFoldersDao } from '../../src/modules/library/scene-folders.dao';
+import { DocumentHttpHarness, documentText, firstTabOf } from '../support/document-http';
 import { useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
@@ -156,5 +158,66 @@ describe('document versioned edits and ownership', () => {
     expect(
       (await live.http(live.ana, { method: 'GET', url: documents.url(document.id) })).statusCode,
     ).toBe(404);
+  });
+});
+
+describe('saving a tab body does not lock the table', () => {
+  // What `character:adjustBar` holds while it writes HP: the row of the table, for no key update.
+  async function whileTheTableIsLocked<T>(work: () => Promise<T>): Promise<T> {
+    return live.connection.db.transaction(async (tx) => {
+      await tx.execute(sql`select id from campaigns where id = ${live.vharn.id} for no key update`);
+      return work();
+    });
+  }
+
+  it('Bia saves "Geral" while a character write holds the table, and it is not waiting', async () => {
+    const document = await documents.administer(await documents.create(), {
+      ownerIds: [live.bia.id],
+    });
+    const started = Date.now();
+
+    const saved = await whileTheTableIsLocked(() =>
+      documents.saveTab(document.id, firstTabOf(document), documentText('Corda'), live.bia),
+    );
+
+    expect(saved.tab.version).toBe(1);
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+  it('two saves of the same tab with the same version go one after the other: one wins, one conflicts', async () => {
+    const document = await documents.create();
+    const tab = firstTabOf(document);
+    const responses = await Promise.all(
+      ['Primeira', 'Segunda'].map((text) =>
+        live.http(live.ana, {
+          method: 'PATCH',
+          url: `${documents.tabUrl(document.id, tab.id)}/content`,
+          payload: {
+            actionId: crypto.randomUUID(),
+            expectedVersion: 0,
+            content: documentText(text),
+          },
+        }),
+      ),
+    );
+
+    expect(responses.map((response) => response.statusCode).sort()).toEqual([200, 409]);
+    expect((await documents.readTab(document.id, tab.id)).version).toBe(1);
+  });
+  it('moving the document to a folder while its body saves keeps both', async () => {
+    const document = await documents.create();
+    const folder = await new SceneFoldersDao(live.connection.db).insert({
+      campaignId: live.vharn.id,
+      name: 'Diários',
+    });
+
+    const [saved, moved] = await Promise.all([
+      documents.saveTab(document.id, firstTabOf(document), documentText('Corda')),
+      documents.administer(document, { folderId: folder.id }),
+    ]);
+
+    expect(saved.tab.version).toBe(1);
+    expect(moved.folderId).toBe(folder.id);
+    const tab = await documents.readTab(document.id, firstTabOf(document).id);
+    expect(tab.content).toEqual(documentText('Corda'));
   });
 });

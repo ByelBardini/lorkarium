@@ -38,13 +38,13 @@ import { RealtimeSheetCommands } from '@/services/sheet-commands';
 import { HttpSheetsApi, fetchAssetBytes } from '@/services/sheets-api';
 import { HttpSheetTemplatesApi } from '@/services/sheet-templates-api';
 import { storedSheetEditorLayout } from '@/lib/sheet-editor-layout';
+import { chunkLoaderOf } from '@/lib/chunk-loader';
 import { createWebAudioDiceSound } from '@/dice-audio/web-audio-dice-sound';
 import { HttpSavedRollsApi } from '@/services/saved-rolls-api';
 import { createDicePreferencesStore } from '@/stores/dice-preferences-store';
 import { RealtimeTableSessionApi } from '@/services/table-session-api';
 import { RealtimeSceneActivation } from '@/services/scene-activation';
 import { createOpenTablesStore } from '@/stores/open-tables-store';
-import { createPixiBoardRenderer } from '@/renderer/pixi-board-renderer';
 import { createRailStore } from '@/stores/rail-store';
 import { createDrawingStyleStore } from '@/stores/drawing-style-store';
 import { createEffectAreaStyleStore } from '@/stores/effect-area-style-store';
@@ -79,6 +79,15 @@ const perfProbe =
     : null;
 // One "Animar auras" for the toolbar and the board renderer.
 const auraMotion = createAuraMotionStore(browserStorage);
+// Its own chunk: login and home never download PixiJS; the first board fetches it once.
+const loadPixiBoard = chunkLoaderOf(() => import('@/renderer/pixi-board-renderer'));
+const loadTextureCache = chunkLoaderOf(() => import('@/renderer/pixi-texture-cache'));
+// The snapshot names the background before the renderer mounts: its download starts right away.
+const prefetchBoardImage = (url: string): void =>
+  void loadTextureCache().then(
+    ({ PixiTextureCache }) => PixiTextureCache.prefetch(url),
+    () => undefined,
+  );
 const transport = new FetchHttpTransport();
 const imagePresentationApi = new HttpImagePresentationApi(transport);
 const documentsApi = new HttpDocumentsApi(transport);
@@ -99,7 +108,7 @@ const signedInUserId = (): string | null => {
 };
 // One socket for every open table: the session, the board sync and the board commands.
 const realtime = new SocketIoRealtimeTransport();
-const tableSessionApi = new RealtimeTableSessionApi(realtime, newActionId);
+const tableSessionApi = new RealtimeTableSessionApi(realtime, newActionId, prefetchBoardImage);
 const boardCommands = new RealtimeTableBoardCommands(realtime, newActionId);
 // Read before any lazy route adds its own `/assets/` links to the document.
 const appUpdate = createAppUpdateStore({
@@ -152,8 +161,8 @@ const router = createBrowserRouter(
     lightReach: createLightReachStore(browserStorage),
     lightColor: createLightColorStore(browserStorage),
     auraMotion,
-    createBoardRenderer: (onIntent) =>
-      createPixiBoardRenderer(
+    createBoardRenderer: async (onIntent) =>
+      (await loadPixiBoard()).createPixiBoardRenderer(
         onIntent,
         perfProbe ?? NO_PERF_PROBE,
         () => auraMotion.getState().animated,

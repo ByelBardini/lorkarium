@@ -26,7 +26,7 @@ const SENDS_PER_MINUTE = 20;
 
 // Public text only: the internal message cites ids and sizes and stays in the log.
 const ASSET_REPLY: Readonly<Partial<Record<AssetError['code'], Readonly<[number, string]>>>> = {
-  UNSUPPORTED_IMAGE: [422, 'The file is not a PNG, JPEG or WebP image'],
+  UNSUPPORTED_IMAGE: [422, 'The file is not a PNG, JPEG, WebP or GIF image'],
   ASSET_TOO_LARGE: [413, 'The image is larger than 20 MB'],
   RATE_LIMITED: [429, 'Too many images sent'],
 };
@@ -121,7 +121,7 @@ function bodyReplyOf(error: FastifyError): Readonly<{ status: number; body: ApiE
       body: { code: 'ASSET_TOO_LARGE', message: 'The image is larger than 20 MB' },
     };
   if (error.code === 'FST_ERR_CTP_INVALID_MEDIA_TYPE') {
-    const message = 'The file is not a PNG, JPEG or WebP image';
+    const message = 'The file is not a PNG, JPEG, WebP or GIF image';
     return { status: 415, body: { code: 'UNSUPPORTED_IMAGE', message } };
   }
   return null;

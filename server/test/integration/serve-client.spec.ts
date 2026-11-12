@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { brotliCompressSync, brotliDecompressSync, gunzipSync, gzipSync } from 'node:zlib';
 import { apiErrorDto } from '@lorkarium/contracts';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -78,6 +79,82 @@ describe('the server serves the client build (CLIENT_DIST_DIR)', () => {
     const response = await app.inject({ method: 'GET', url: '/assets/sumiu.js' });
     expect(response.statusCode).toBe(404);
     expect(response.body).not.toContain('<div id="root">');
+  });
+});
+
+const BIG_SCRIPT = 'console.log("lorkarium");\n'.repeat(200);
+
+/** A build after `client/scripts/precompress.mjs`: each text file next to its `.br` and `.gz`. */
+async function precompressedClientBuild(): Promise<string> {
+  const dir = await mkdtemp(path.join(tmpdir(), 'lorkarium-client-dist-br-'));
+  await mkdir(path.join(dir, 'assets'));
+  const files: readonly (readonly [string, string])[] = [
+    ['index.html', INDEX_HTML],
+    [path.join('assets', 'app-3f2a.js'), BIG_SCRIPT],
+  ];
+  for (const [name, text] of files) {
+    await writeFile(path.join(dir, name), text);
+    await writeFile(path.join(dir, `${name}.br`), brotliCompressSync(text));
+    await writeFile(path.join(dir, `${name}.gz`), gzipSync(text));
+  }
+  return dir;
+}
+
+describe('the server serves the pre-compressed build by Accept-Encoding', () => {
+  const env: Env = { ...readEnv(process.env), adminSeed: null };
+  let connection: DatabaseConnection;
+  let clientDist: string;
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    connection = await openTestDatabase();
+    clientDist = await precompressedClientBuild();
+    app = await buildApp({ env: { ...env, clientDistDir: clientDist }, db: connection.db });
+  });
+
+  afterAll(async () => {
+    await app.close();
+    await connection.close();
+    await rm(clientDist, { recursive: true, force: true });
+  });
+
+  function scriptWith(acceptEncoding: string | undefined) {
+    const headers = acceptEncoding === undefined ? {} : { 'accept-encoding': acceptEncoding };
+    return app.inject({ method: 'GET', url: '/assets/app-3f2a.js', headers });
+  }
+
+  it('serves the .br when brotli is accepted, immutable and varying by the encoding', async () => {
+    const response = await scriptWith('gzip, deflate, br');
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-encoding']).toBe('br');
+    expect(response.headers['vary']).toMatch(/accept-encoding/i);
+    expect(response.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    expect(brotliDecompressSync(response.rawPayload).toString()).toBe(BIG_SCRIPT);
+  });
+
+  it('serves the .gz when only gzip is accepted', async () => {
+    const response = await scriptWith('gzip');
+
+    expect(response.headers['content-encoding']).toBe('gzip');
+    expect(gunzipSync(response.rawPayload).toString()).toBe(BIG_SCRIPT);
+  });
+
+  it('serves the raw file when no encoding is accepted', async () => {
+    const response = await scriptWith(undefined);
+
+    expect(response.headers['content-encoding']).toBeUndefined();
+    expect(response.body).toBe(BIG_SCRIPT);
+  });
+
+  it('a deep link answers the compressed index.html, revalidated on every load', async () => {
+    const headers = { 'accept-encoding': 'br' };
+    const response = await app.inject({ method: 'GET', url: '/campaigns/abc', headers });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-encoding']).toBe('br');
+    expect(response.headers['cache-control']).toBe('no-cache');
+    expect(brotliDecompressSync(response.rawPayload).toString()).toBe(INDEX_HTML);
   });
 });
 

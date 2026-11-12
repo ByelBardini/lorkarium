@@ -92,7 +92,7 @@ Personalizações da conta (plano **da pessoa**, não do dono da mesa): o `Profi
 
 ## Banco
 
-- Migração `0101_user_plans`: enum `user_plan` (`free`, `apoiador`, `narrador`, `lenda`, `amigo_do_dono`) e `users.plan` (`notNull`, padrão `free`); não há coluna de Apoiador; o `UPDATE` à mão põe todo não admin em `amigo_do_dono` (o admin fica `free`, sem efeito: o admin não tem limite de plano). Conta nova nasce `free`. Provado em `server/test/integration/user-plans-migration.spec.ts`.
+- Migração `0104_user_plans`: enum `user_plan` (`free`, `apoiador`, `narrador`, `lenda`, `amigo_do_dono`) e `users.plan` (`notNull`, padrão `free`); não há coluna de Apoiador; o `UPDATE` à mão põe todo não admin em `amigo_do_dono` (o admin fica `free`, sem efeito: o admin não tem limite de plano). Conta nova nasce `free`. Provado em `server/test/integration/user-plans-migration.spec.ts`.
 
 ## Na mesa: selos e limites do dono
 

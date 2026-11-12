@@ -1,8 +1,9 @@
-import type { BoardStateDto, CampaignMemberDto, CharacterDto } from '@lorkarium/contracts';
+import type { CampaignMemberDto, CharacterDto, TokenDto } from '@lorkarium/contracts';
+import { useTokensBesidesPose } from '@/features/board/use-board-tokens';
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { SheetHolderNames } from '@/features/sheets/sheet-messages';
-import type { BoardStore } from '@/stores/board-store';
+import { createBoardStore } from '@/stores/board-store';
 import type { CharactersStore } from '@/stores/characters-store';
 import type { OpenTable } from '@/stores/open-tables-store';
 import type { TablePresenceStore } from '@/stores/table-presence-store';
@@ -26,10 +27,10 @@ export function useSheetHolderNames(
   table: OpenTable | null,
 ): SheetHolderDirectory {
   const live = useLiveMembersOf(table?.presence ?? null);
-  const grid = useBoardOf(table?.board ?? null);
+  const tokens = useTokensBesidesPose(table?.board ?? NO_BOARD);
   const characters = useCharactersOf(table?.characters ?? null);
   const roster = live ?? members;
-  return useMemo(() => directoryOf(roster, characters, grid), [roster, characters, grid]);
+  return useMemo(() => directoryOf(roster, characters, tokens), [roster, characters, tokens]);
 }
 
 // `null` until the first snapshot: before it the presence store has no members at all.
@@ -48,6 +49,9 @@ function useLiveMembersOf(
 
 const NO_CHARACTERS: readonly CharacterDto[] = [];
 
+// No table open: an empty board keeps the hook's call unconditional.
+const NO_BOARD = createBoardStore('', () => undefined);
+
 function useCharactersOf(store: StoreApi<CharactersStore> | null): readonly CharacterDto[] {
   const subscribe = useCallback(
     (onChange: () => void) => store?.subscribe(onChange) ?? (() => undefined),
@@ -56,20 +60,11 @@ function useCharactersOf(store: StoreApi<CharactersStore> | null): readonly Char
   return useSyncExternalStore(subscribe, () => store?.getState().characters ?? NO_CHARACTERS);
 }
 
-function useBoardOf(store: StoreApi<BoardStore> | null): BoardStateDto | null {
-  const subscribe = useCallback(
-    (onChange: () => void) => store?.subscribe(onChange) ?? (() => undefined),
-    [store],
-  );
-  return useSyncExternalStore(subscribe, () => store?.getState().board ?? null);
-}
-
 function directoryOf(
   members: readonly SheetHolderMember[],
   characters: readonly CharacterDto[],
-  grid: BoardStateDto | null,
+  tokens: readonly TokenDto[],
 ): SheetHolderDirectory {
-  const tokens = grid?.tokens ?? [];
   const names: SheetHolderNames = {
     memberName: (userId) => members.find((member) => member.userId === userId)?.name ?? null,
     characterName: (userId) =>

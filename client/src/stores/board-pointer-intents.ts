@@ -1,3 +1,4 @@
+import type { Cell } from '@lorkarium/game-core';
 import type { BoardIntent, BoardPointerIntent } from '@/renderer/board-renderer';
 import type { BoardInteractionState } from './board-interaction-store';
 
@@ -9,6 +10,29 @@ export const NO_SELECTION = {
   selectedWallIds: [],
   selectedLightIds: [],
 } as const;
+
+/** No preview waiting for the server: the very same empty values each time, so dropping the
+ *  previews twice changes nothing. */
+export const NO_PREVIEWS = {
+  preview: [],
+  drawingPreview: [],
+  facingPreview: {},
+  resizePreview: {},
+  effectAreaPreview: {},
+  lightPreview: {},
+  lightAimPreview: {},
+} as const;
+
+/** The cell under the pointer, kept beside the state and not in it: the pointer crosses cells
+ *  many times a second and nothing draws it (only the paste reads it, when it lands). */
+export type HoverCellRef = { current: Cell | null };
+
+/** A fresh ref, off the board.
+ *
+ *  Example: `const state = { ..., hover: hoverCellRef() }` */
+export function hoverCellRef(): HoverCellRef {
+  return { current: null };
+}
 
 /** The ids picked, added to the current ones (`additive`) or in their place, without repeats. */
 export function joined(
@@ -80,8 +104,8 @@ function isPointerIntent(intent: BoardIntent): intent is BoardPointerIntent {
   );
 }
 
-/** What the local board state becomes after one intent of the canvas: the camera, the hovered
- *  cell, the selection, and the ruler of the ruler tool.
+/** What the local board state becomes after one intent of the canvas: the camera, the selection,
+ *  and the ruler of the ruler tool. The hovered cell only moves the `hover` ref (no change).
  *
  *  Example: `set(afterIntent(get(), intent))` */
 export function afterIntent(
@@ -89,7 +113,7 @@ export function afterIntent(
   intent: BoardIntent,
 ): Partial<BoardInteractionState> {
   if (intent.kind === 'cameraChanged') return { zoom: intent.zoom };
-  if (intent.kind === 'pointerHovered') return { hoverCell: intent.cell };
+  if (intent.kind === 'pointerHovered') return hovered(state.hover, intent.cell);
   const selection = selectionAfter(state, intent);
   if (selection) return selection;
   if (!isPointerIntent(intent)) return {};
@@ -107,4 +131,9 @@ export function afterIntent(
 // Selecionar mode (the other draw mode starts a stroke there).
 function picksOnPress(state: BoardInteractionState): boolean {
   return state.tool === 'select' || (state.tool === 'draw' && state.drawMode === 'select');
+}
+
+function hovered(hover: HoverCellRef, cell: Cell | null): Partial<BoardInteractionState> {
+  hover.current = cell;
+  return {};
 }

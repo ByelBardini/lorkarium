@@ -1,7 +1,8 @@
-import type { CombatDto } from '@lorkarium/contracts';
-import { useMemo, useState } from 'react';
+import type { CombatDto, TokenDto } from '@lorkarium/contracts';
+import { useCallback, useMemo, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
-import { useBoardSight } from '@/features/board/use-board-sight';
+import { useBoardSeen } from '@/features/board/use-board-sight';
+import { useTokensBesidesPose } from '@/features/board/use-board-tokens';
 import { seenTokensOf } from '@/lib/board-sight';
 import { trackerRowsOf } from '@/lib/combat-rows';
 import {
@@ -30,19 +31,22 @@ type Folding = Readonly<{ open: boolean; turn: string }>;
  *
  *  Example: `<CombatantList board={board} presence={presence} interaction={interaction} isMaster />` */
 export function CombatantList(props: CombatantListProps): React.JSX.Element | null {
-  const state = useBoard(props.board, (current) => current.board);
-  const sight = useBoardSight(props.board, props.interaction);
+  const combat = useBoard(props.board, (current) => current.board?.combat ?? null);
+  const tokens = useTokensBesidesPose(props.board);
+  const sight = useBoardSeen(props.board, props.interaction);
   const members = useTablePresence(props.presence, (current) => current.members);
   const selected = useBoardInteraction(props.interaction, (current) =>
     singleSelectedOf(current.selectedTokenIds),
   );
-  const folding = useGroupFolding(state?.combat ?? null);
+  const folding = useGroupFolding(combat);
   const rows = useMemo(
-    () => (state ? trackerRowsOf(state, seenTokensOf(state, sight), props.isMaster) : []),
-    [state, sight, props.isMaster],
+    () =>
+      combat
+        ? trackerRowsOf({ combat, tokens }, seenTokensOf({ tokens }, sight), props.isMaster)
+        : [],
+    [combat, tokens, sight, props.isMaster],
   );
-  const combat = state?.combat;
-  if (!state || !combat) return null;
+  if (!combat) return null;
   return (
     <div className="flex flex-col gap-3">
       <SelectionConditions
@@ -57,8 +61,8 @@ export function CombatantList(props: CombatantListProps): React.JSX.Element | nu
             {...row}
             current={row.combatant.id === combat.currentCombatantId}
             open={folding.openOf(row.combatant.id)}
-            onToggle={() => folding.toggle(row.combatant.id)}
-            selectedTokenId={selected}
+            onToggle={folding.toggle}
+            selectedTokenId={selectedOf(row.tokens, selected)}
             members={members}
             interaction={props.interaction}
             isMaster={props.isMaster}
@@ -69,7 +73,15 @@ export function CombatantList(props: CombatantListProps): React.JSX.Element | nu
   );
 }
 
-type GroupFolding = Readonly<{ openOf: (id: string) => boolean; toggle: (id: string) => void }>;
+// Only the row holding the selected token hears of it: the others stay as they are (`memo`).
+function selectedOf(tokens: readonly TokenDto[], selected: string | null): string | null {
+  return tokens.some(({ id }) => id === selected) ? selected : null;
+}
+
+type GroupFolding = Readonly<{
+  openOf: (id: string) => boolean;
+  toggle: (id: string, open: boolean) => void;
+}>;
 
 function useGroupFolding(combat: CombatDto | null): GroupFolding {
   const [byHand, setByHand] = useState<Readonly<Record<string, Folding>>>({});
@@ -78,7 +90,11 @@ function useGroupFolding(combat: CombatDto | null): GroupFolding {
     const folded = byHand[id];
     return folded?.turn === turn ? folded.open : id === combat?.currentCombatantId;
   };
-  const toggle = (id: string): void => setByHand({ ...byHand, [id]: { open: !openOf(id), turn } });
+  const toggle = useCallback(
+    (id: string, open: boolean): void =>
+      setByHand((before) => ({ ...before, [id]: { open: !open, turn } })),
+    [turn],
+  );
   return { openOf, toggle };
 }
 

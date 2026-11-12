@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { assetUrlOf } from '@/services/assets-api';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { documentLinkDto, type DocumentContentDto } from '@lorkarium/contracts';
@@ -29,6 +29,8 @@ export default function DocumentEditor(props: DocumentEditorProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const assetUrl = props.assetUrl ?? assetUrlOf;
   const extensions = useMemo(() => documentExtensions(assetUrl), [assetUrl]);
+  // What this editor last emitted: when it comes back as `content`, the editor already shows it.
+  const lastEmitted = useRef<DocumentContentDto | null>(null);
   const editor = useEditor({
     extensions,
     content: props.content,
@@ -44,7 +46,9 @@ export default function DocumentEditor(props: DocumentEditorProps) {
     },
     onUpdate: ({ editor: changedEditor }) => {
       try {
-        props.onChange?.(documentContentFromEditor(changedEditor.getJSON()));
+        const content = documentContentFromEditor(changedEditor.getJSON());
+        lastEmitted.current = content;
+        props.onChange?.(content);
         setNotice(null);
       } catch {
         setNotice(
@@ -121,6 +125,7 @@ export default function DocumentEditor(props: DocumentEditorProps) {
     });
   }, [editor, props.editable]);
   useEffect(() => {
+    if (props.content === lastEmitted.current) return;
     if (
       !editor ||
       !editor.isInitialized ||

@@ -36,7 +36,7 @@ describe('document image authorization and references', () => {
     );
     const readable = await readAsset(live.caio, asset.id);
     expect(readable.statusCode).toBe(200);
-    expect(readable.headers['cache-control']).toBe('private, no-store');
+    expect(readable.headers['cache-control']).toBe('private, no-cache');
     await documents.administer(document, { visibility: 'private' });
     expect((await readAsset(live.caio, asset.id)).statusCode).toBe(404);
   });
@@ -120,17 +120,19 @@ describe('document image authorization and references', () => {
       ).statusCode,
     ).toBe(403);
   });
-  it('refuses GIF and HTML disguised as a static image', async () => {
+  it('keeps a GIF as its first frame and refuses HTML disguised as an image', async () => {
     const document = await documents.create();
-    for (const bytes of [await animatedGifOf(2, 10), Buffer.from('<html>not an image</html>')]) {
-      const response = await live.http(live.ana, {
+    const send = (bytes: Uint8Array) =>
+      live.http(live.ana, {
         method: 'POST',
         url: documents.imagesUrl(document),
         headers: { 'content-type': 'image/png' },
-        payload: bytes,
+        payload: Buffer.from(bytes),
       });
-      expect(response.statusCode).toBe(422);
-    }
+    const gif = await send(await animatedGifOf(2, 10));
+    expect(gif.statusCode, gif.body).toBe(201);
+    expect(gif.json()).toMatchObject({ asset: { mimeType: 'image/png', width: 10, height: 10 } });
+    expect((await send(Buffer.from('<html>not an image</html>'))).statusCode).toBe(422);
   });
   it('preserves linked library pixels after removing their original library item', async () => {
     const upload = await live.http(live.ana, {

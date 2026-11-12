@@ -36,7 +36,7 @@ desktop/                 # @lorkarium/desktop: casca Tauri 2 (Windows); splash e
 Dockerfile, .dockerignore # Imagem de produção (multi-estágio, node:26.13.0-bookworm-slim): migra e sobe o server, que serve o client (ver docs/context/deploy.md)
 e2e/                     # @lorkarium/e2e: Playwright (playwright.config.ts sobe server + client), specs em e2e/test/
 .github/                 # CI: workflows/ci.yml, actions/setup (composite), dependabot.yml
-infra/docker/smoke.sh    # Smoke da imagem (healthy, /api/health, SPA, ordem do log), usado pelo job docker-image do CI
+infra/docker/smoke.sh    # Smoke da imagem (healthy, /api/health, SPA, pasta do cache gravável, ordem do log), usado pelo job docker-image do CI
 infra/compose/compose.yaml # Postgres 17 (5432, usuário/senha/db lorkarium), SeaweedFS/S3 (8333, identidade em seaweedfs/s3.json) e Mailpit (SMTP 1025, caixa 8025) de desenvolvimento (pnpm db:up)
 docs/spec.md             # Planejamento e arquitetura do produto (escopo, modelo, API, eventos, segurança, fases)
 docs/context/            # Memória do projeto para agentes de IA: <area>.md é o índice, <area>/ o detalhe
@@ -59,7 +59,7 @@ Comandos da raiz (`package.json`):
 - `pnpm bench` — os `*.bench.ts` (cena de estresse do tabuleiro, visão do game-core, física dos dados do server), fora do `pnpm test` e do CI (ver `docs/context/client/performance.md` e `docs/context/dice/fisica.md`)
 - `pnpm lint` · `pnpm format` · `pnpm format:check`
 - `pnpm mail:preview` — um exemplar de cada e-mail do sistema no Mailpit (ver `docs/context/mail.md`)
-- `pnpm db:up` / `pnpm db:down` — Postgres e SeaweedFS (S3) de desenvolvimento · `pnpm db:generate` — SQL de migração a partir dos PO · `pnpm db:migrate` — aplica as migrações no `DATABASE_URL` · `pnpm db:seed-dev` — jogadores de teste Bia e Caio (senha `lorkarium-dev`; recusa em produção) · `pnpm db:seed-stress` — a "Mesa de estresse" da Bia no tamanho-alvo do bench (depois do `db:seed-dev`; recusa em produção)
+- `pnpm db:up` / `pnpm db:down` — Postgres e SeaweedFS (S3) de desenvolvimento · `pnpm db:generate` — SQL de migração a partir dos PO · `pnpm db:migrate` — aplica as migrações no `DATABASE_URL` · `pnpm db:recompress-images [--dry-run] [--yes]` — regrava em WebP os PNG opacos de fundo, mapa e biblioteca (uma vez depois do deploy; ver `docs/context/server/scripts.md`) · `pnpm db:seed-dev` — jogadores de teste Bia e Caio (senha `lorkarium-dev`; recusa em produção) · `pnpm db:seed-stress` — a "Mesa de estresse" da Bia no tamanho-alvo do bench (depois do `db:seed-dev`; recusa em produção)
 
 ## Camadas do server
 
@@ -111,7 +111,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | chat             | Chat da mesa (efêmero): Mesa, sussurro, privado, grupo, falar como token, salas      | [`docs/context/chat.md`](docs/context/chat.md)                         |
 | sessions         | Sessão ao vivo da mesa (Socket.IO): presença, ausência, snapshot, versão             | [`docs/context/sessions.md`](docs/context/sessions.md)                 |
 | account-security | Conta: senha, sessões ativas, troca de e-mail, 2FA da conta, avisos por e-mail       | [`docs/context/account-security.md`](docs/context/account-security.md) |
-| assets           | Imagens da mesa: S3, envio, link seguro, leitura pela origem                         | [`docs/context/assets.md`](docs/context/assets.md)                     |
+| assets           | Imagens da mesa: S3, cache em disco, envio, link seguro, leitura pela origem         | [`docs/context/assets.md`](docs/context/assets.md)                     |
 | mail             | E-mails do sistema: molde HTML/texto, catálogo de templates, PNGs, prévia            | [`docs/context/mail.md`](docs/context/mail.md)                         |
 | user-admin       | Backoffice das contas: lista, papel, suspensão, exclusão, teste de e-mail            | [`docs/context/user-admin.md`](docs/context/user-admin.md)             |
 | account-links    | Links de uso único: convite (escolhe @ e senha) e nova senha pelo admin              | [`docs/context/account-links.md`](docs/context/account-links.md)       |
@@ -124,6 +124,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | deploy           | Runbook: imagem, Coolify, AWS S3 e IAM, envs, DNS, primeiro deploy, voltar           | [`docs/context/deploy.md`](docs/context/deploy.md)                     |
 | health           | `GET /api/health` (ping no Postgres, 200/503, pública)                               | [`docs/context/health.md`](docs/context/health.md)                     |
 | access-log       | Registro de acesso (Marco Civil art. 15): IP, hora e conta no S3 por 6 meses         | [`docs/context/access-log.md`](docs/context/access-log.md)             |
+| housekeeping     | Limpeza de hora em hora: recibos de 24 h, sessões e desafios 2FA vencidos, em lotes  | [`docs/context/housekeeping.md`](docs/context/housekeeping.md)         |
 
 Área sem linha aqui ainda não tem doc: o `/atualizar-contexto` cria o hub junto com o primeiro código da área. Até lá, a referência é o `docs/spec.md`.
 

@@ -90,6 +90,7 @@ import {
   type TokensMovedDto,
 } from '@lorkarium/contracts';
 import type { z } from 'zod';
+import { namesTable } from './table-event-scope';
 
 /** A board event of the open table, already validated by its DTO. */
 export type BoardEvent =
@@ -220,7 +221,7 @@ export function parseBoardEvent(
   if (!spec) {
     throw new Error(`no board event named ${name}; known: ${Object.keys(BOARD_EVENT_SPECS)}`);
   }
-  if (campaignIdOf(payload) !== campaignId) return { kind: 'other-table' };
+  if (!namesTable(payload, campaignId)) return { kind: 'other-table' };
   const event = spec.build(payload);
   return event ? { kind: 'event', event } : { kind: 'invalid' };
 }
@@ -234,11 +235,7 @@ export function parseVeiledLights(
   payload: unknown,
   campaignId: string,
 ): VeiledLightsChangedDto | null {
+  if (!namesTable(payload, campaignId)) return null;
   const parsed = veiledLightsChangedDto.safeParse(payload);
-  return parsed.success && parsed.data.campaignId === campaignId ? parsed.data : null;
-}
-
-function campaignIdOf(payload: unknown): unknown {
-  if (typeof payload !== 'object' || payload === null || !('campaignId' in payload)) return null;
-  return payload.campaignId;
+  return parsed.success ? parsed.data : null;
 }
