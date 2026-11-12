@@ -4,7 +4,7 @@ import {
   type UpdateConditionDefinitionCommandDto,
 } from '@lorkarium/contracts';
 import {
-  boardFailureOf,
+  ackFailureOf,
   type BoardCommandFailure,
   type BoardCommandResult,
   type BoardCommandSender,
@@ -66,7 +66,7 @@ export class RealtimeConditionCatalogCommands implements ConditionCatalogCommand
     if (!answer.answered) return { ok: false, failure: 'offline' };
     const parsed = conditionUsageAckDto.safeParse(answer.ack);
     if (!parsed.success) return { ok: false, failure: 'unexpected' };
-    if (!parsed.data.ok) return { ok: false, failure: boardFailureOf(parsed.data.error.code) };
+    if (!parsed.data.ok) return { ok: false, failure: ackFailureOf(parsed.data.error) };
     return { ok: true, tokens: parsed.data.tokens };
   }
 }

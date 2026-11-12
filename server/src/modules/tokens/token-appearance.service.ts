@@ -32,6 +32,8 @@ import { pausePatrolsOf, pausedRowsOf, posedNowOf, withPatrolPauses } from './to
 import {
   requireAssetsOf,
   tokenAccessOf,
+  tokenPlanHoldOf,
+  tokenPlanOf,
   tokensIn,
   type TokenTransactionRunner,
   type TokenWriteDaos,
@@ -91,7 +93,7 @@ export class TokenAppearanceService {
   /** The look is the controllers' to choose, on any layer (like the bars). On a linked token
    *  the image, frame, defeat mark and aura are its character's (one `character:changed`); the
    *  flips and the light switch stay its own in the grid. Every image (the token's, the aura's) must be an
-   *  asset of the table. */
+   *  asset of the table, and an aura of a kind a token lacks must be one the table's plan has. */
   async restyleMany(userId: string, campaignId: string, command: RestyleTokens): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     const address = { campaignId, sceneId: command.sceneId, access };
@@ -101,6 +103,7 @@ export class TokenAppearanceService {
       async (locked) => {
         const rows = await tokensIn(locked.daos, locked.scene, campaignId, command.tokenIds);
         for (const row of rows) tokenAccessOf(access, row).requireControl('restyle');
+        tokenPlanOf(locked.scene).requireAuraOnEach(rows.map(tokenPlanHoldOf), command.style.aura);
         await requireAssetsOf(locked.daos, campaignId, lookAssetIdsOf(command.style));
         const restyled = await restyleIn(locked, rows, command.style);
         const veiled = await litWriteOf(locked.daos, locked.scene.id, rows, command.style);

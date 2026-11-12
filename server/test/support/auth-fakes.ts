@@ -59,6 +59,7 @@ export class UsersDaoFake implements UsersDaoSlice {
     const row: UserPo = {
       id: `user-${this.rows.length + 1}`,
       role: 'user',
+      plan: 'free',
       color: null,
       bio: null,
       avatarId: null,

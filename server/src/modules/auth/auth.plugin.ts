@@ -22,7 +22,7 @@ import { UsersDao } from './users.dao';
 
 export type AuthModuleOptions = Readonly<{
   db: Database;
-  env: Pick<Env, 'nodeEnv' | 'adminSeed'>;
+  env: Pick<Env, 'nodeEnv' | 'adminSeed' | 'ownerUsername'>;
   hasher: PasswordHasherPort;
   tokens: SessionTokenPort;
   clock: ClockPort;
@@ -81,6 +81,7 @@ async function createAuthService(
     cipher: options.cipher,
     decoyHash: await options.hasher.hash(options.tokens.generate()),
     sessionEnded: options.sessionEnded,
+    ownerUsername: options.env.ownerUsername,
     twoFactor: parts.twoFactorCheck,
     challenges: parts.challenges,
   });

@@ -66,6 +66,21 @@ describe('backoffice users (/admin/users)', () => {
       );
     });
 
+    it('the @ carries the one seal; the "Plano" column names the plan in words', async () => {
+      deps.userAdminApi.users = deps.userAdminApi.users.map((user) =>
+        user.username === 'biaflor' ? { ...user, plan: 'narrador' } : user,
+      );
+      renderAt('/admin/users');
+      await table();
+
+      const biaRow = rowOf('@biaflor');
+      const seal = within(biaRow).getByRole('img', { name: 'Plano Narrador' });
+      expect(within(biaRow).getByText('@biaflor').nextElementSibling).toBe(seal);
+      expect(biaRow).toHaveTextContent('Narrador');
+      expect(rowOf('@pedrinho')).toHaveTextContent(/Usuário.*Grátis.*Suspenso/);
+      expect(screen.getByRole('columnheader', { name: 'Plano' })).toBeInTheDocument();
+    });
+
     it('the own row says "você" and has no actions', async () => {
       renderAt('/admin/users');
       await table();

@@ -13,6 +13,8 @@ import {
   type SavedInCharacters,
   type TableEventBase,
 } from '../characters/locked-characters';
+import { CustomColorPlanBo } from '../plans/custom-color-plan.bo';
+import { effectiveLimitsOf } from '../plans/plan-limits.bo';
 import { requireAssetsOf } from '../tokens/token-transaction';
 import { ConditionRulesBo } from './condition-rules.bo';
 import type { ConditionsDao } from './conditions.dao';
@@ -49,7 +51,8 @@ export class ConditionCatalogService {
   constructor(private readonly deps: ConditionCatalogServiceDeps) {}
 
   /** Renaming into another condition's name (any case) refuses with CONDITION_NAME_TAKEN.
-   *  Lowering or taking away `maxStacks` clamps the tokens holding it in the same transaction. */
+   *  Lowering or taking away `maxStacks` clamps the tokens holding it in the same transaction.
+   *  A new image needs `conditionImage` in the owner's plan; the one it has stays on any plan. */
   async update(
     userId: string,
     campaignId: string,
@@ -57,8 +60,12 @@ export class ConditionCatalogService {
   ): Promise<number> {
     await this.requireMaster(userId, campaignId, 'edit a condition');
     const { conditionId } = command;
-    const saved = await inLockedCharacters(this.deps.transaction, campaignId, async ({ daos }) => {
-      await knownDefinition(daos, campaignId, conditionId);
+    const saved = await inLockedCharacters(this.deps.transaction, campaignId, async (locked) => {
+      const { daos } = locked;
+      const known = await knownDefinition(daos, campaignId, conditionId);
+      const limits = effectiveLimitsOf(locked.owner);
+      RULES.requireImageInPlan(command.imageAssetId, known.imageAssetId, limits);
+      CustomColorPlanBo.requirePaletteUnlessHeld([command.color], [known.color], limits);
       await requireAssetsOf(daos, campaignId, [command.imageAssetId]);
       const sameName = await daos.conditions.findDefinitionByName(campaignId, command.name);
       RULES.requireNameFree(conditionId, sameName);

@@ -18,6 +18,7 @@ import { AssetError, AssetRateLimitedError } from '../assets/assets.error';
 import { CampaignError, CampaignNotFoundError } from '../campaigns/campaigns.error';
 import type { LibraryRequester } from '../library/library.service';
 import type { SheetTemplateAssetsService } from './sheet-template-assets.service';
+import { withPlanLimitReply } from '../plans/plan-limit-response';
 
 const ASSETS_URL = '/campaigns/:campaignId/sheet-template-assets';
 // Spec §8.4: each send may decode an image; the same budget as the other asset routes.
@@ -43,7 +44,7 @@ export function sheetTemplateAssetsRoutes(
   templateAssets: SheetTemplateAssetsService,
 ): (app: FastifyInstance) => Promise<void> {
   return async (app) => {
-    app.setErrorHandler(templateAssetErrorReply);
+    app.setErrorHandler(withPlanLimitReply(templateAssetErrorReply));
     app.addHook('onSend', async (_request, reply, payload) => {
       reply.header('cache-control', 'private, no-store');
       return payload;

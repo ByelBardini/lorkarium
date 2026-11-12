@@ -1,15 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createSessionStore } from '@/stores/session-store';
-
-const ANA = {
-  id: '7d0f8c39-2b8e-4f4e-9d1a-5c6b7a8e9f01',
-  username: 'ana',
-  name: 'Ana',
-  email: 'ana@mesa.com',
-  role: 'user' as const,
-  color: 'teal' as const,
-  avatarId: null,
-};
+import { PLAN_LIMITS } from '@lorkarium/contracts';
+import { createSessionStore, selectAccountLimits } from '@/stores/session-store';
+import { ANA } from '../support/auth-api-fake';
 
 describe('session store', () => {
   it('starts unknown and not reconnecting, before the first "who am I"', () => {
@@ -50,5 +42,26 @@ describe('session store', () => {
     store.getState().signedIn(ANA);
     store.getState().signedOut();
     expect(store.getState().session).toEqual({ status: 'anonymous' });
+  });
+
+  describe('selectAccountLimits', () => {
+    it('reads the plan, Apoiador, limits and customization the /me gave', () => {
+      const store = createSessionStore();
+      const free = { ...ANA, plan: 'free', limits: PLAN_LIMITS.free } as const;
+      store.getState().signedIn({ ...free, customization: true });
+      expect(selectAccountLimits(store.getState())).toMatchObject({
+        plan: 'free',
+        limits: PLAN_LIMITS.free,
+        customization: true,
+      });
+    });
+
+    it('is null before the boot answers and once signed out', () => {
+      const store = createSessionStore();
+      expect(selectAccountLimits(store.getState())).toBeNull();
+      store.getState().signedIn(ANA);
+      store.getState().signedOut();
+      expect(selectAccountLimits(store.getState())).toBeNull();
+    });
   });
 });

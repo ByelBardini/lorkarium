@@ -12,6 +12,10 @@ import { lyraPo, lyraRow } from '../../support/tokens-factories';
 import { AssetsDaoFake } from '../../support/assets-fakes';
 import { lyraPortraitPo, LYRA_PORTRAIT_ID } from '../../support/assets-factories';
 import { VHARN_ID, QUELM_ID } from '../../support/campaigns-factories';
+import { planAccount } from '../../support/plan-account-fakes';
+
+const FRIEND_SCENE = { id: VHARN_SCENE_ID, owner: planAccount() };
+const FREE_SCENE = { id: VHARN_SCENE_ID, owner: planAccount({ plan: 'free' }) };
 describe('board asset references', () => {
   it('refuses a dedicated library image even when it belongs to the campaign', async () => {
     const assets = new AssetsDaoFake([], [lyraPortraitPo({ purpose: 'library_image' })]);
@@ -85,7 +89,7 @@ describe('a token that blocks sight in a transaction', () => {
   it('nothing turning on neither reads the count nor refuses', async () => {
     const tokens = new TokensDaoFake([], [lyraRow({ token: lyraPo({ blocksSight: true }) })]);
 
-    await admitBlockersOf({ tokens }, VHARN_SCENE_ID, rules, 0);
+    await admitBlockersOf({ tokens }, FREE_SCENE, rules, 0);
 
     expect(tokens.blockerCounts).toEqual([]);
   });
@@ -93,9 +97,21 @@ describe('a token that blocks sight in a transaction', () => {
   it('one turning on past the limit is refused by the count of that scene', async () => {
     const tokens = new TokensDaoFake([], [lyraRow({ token: lyraPo({ blocksSight: true }) })]);
 
-    const admitting = admitBlockersOf({ tokens }, VHARN_SCENE_ID, rules, 1);
+    const admitting = admitBlockersOf({ tokens }, FRIEND_SCENE, rules, 1);
 
     await expect(admitting).rejects.toMatchObject({ code: 'TOKEN_BLOCKER_LIMIT', stored: 1 });
     expect(tokens.blockerCounts).toEqual([VHARN_SCENE_ID]);
+  });
+
+  it('the first one on a free table is PLAN_LIMIT sightBlockers before the technical ceiling', async () => {
+    const tokens = new TokensDaoFake([], []);
+
+    const admitting = admitBlockersOf({ tokens }, FREE_SCENE, rules, 1);
+
+    await expect(admitting).rejects.toMatchObject({
+      code: 'PLAN_LIMIT',
+      resource: 'sightBlockers',
+      limit: 0,
+    });
   });
 });

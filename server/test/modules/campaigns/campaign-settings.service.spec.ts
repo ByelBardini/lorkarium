@@ -1,13 +1,19 @@
-import { updateCampaignRequestDto, type UpdateCampaignRequestInput } from '@lorkarium/contracts';
+import {
+  PLAN_LIMITS,
+  updateCampaignRequestDto,
+  type UpdateCampaignRequestInput,
+} from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { CampaignSettingsService } from '../../../src/modules/campaigns/campaign-settings.service';
 import { CampaignsService } from '../../../src/modules/campaigns/campaigns.service';
 import { lyraPortraitPo } from '../../support/assets-factories';
+import { FlakyRemovalStorageFake, RemovalLogFake } from '../../support/asset-quota-fakes';
 import { ClockFake, PasswordHasherFake } from '../../support/auth-fakes';
 import { ANA_ID } from '../../support/auth-factories';
 import {
   CampaignAssetsFake,
   CampaignChangedFake,
+  CampaignRemovalFake,
   ForgottenCampaignsFake,
   PresenceReaderFake,
 } from '../../support/campaign-settings-fakes';
@@ -39,6 +45,8 @@ describe('CampaignSettingsService', () => {
   let codes: CampaignCodeFake;
   let assets: CampaignAssetsFake;
   let presence: PresenceReaderFake;
+  let objects: FlakyRemovalStorageFake;
+  let log: RemovalLogFake;
   let service: CampaignSettingsService;
 
   function build(): void {
@@ -51,9 +59,10 @@ describe('CampaignSettingsService', () => {
       ...{ campaigns, members, scenes, memberships: members, presence: new PresenceReaderFake() },
       ...{ transaction: runner.run, codes, hasher, clock },
     });
+    const removal = new CampaignRemovalFake(campaigns, assets).run;
     service = new CampaignSettingsService({
       ...{ campaigns, members, assets, detail, memberships: forgotten, changed, presence },
-      ...{ codes, hasher, clock },
+      ...{ codes, hasher, clock, removal, objects, log },
     });
   }
 
@@ -78,6 +87,8 @@ describe('CampaignSettingsService', () => {
       lyraPortraitPo({ id: COVER_ID, campaignId: VHARN_ID, purpose: 'cover' }),
     ]);
     presence = new PresenceReaderFake({ [VHARN_ID]: [ANA_ID, BIA_ID], [QUELM_ID]: [CAIO_ID] });
+    objects = new FlakyRemovalStorageFake();
+    log = new RemovalLogFake();
     build();
   });
 
@@ -208,13 +219,74 @@ describe('CampaignSettingsService', () => {
     });
   });
 
+  describe('ownerLimitsChanged', () => {
+    function caioOwnsQuelm(): void {
+      const quelm = campaigns.rows[1];
+      if (quelm) campaigns.rows[1] = { ...quelm, ownerId: CAIO_ID };
+    }
+
+    it("each live table of the owner hears itself read again with the owner's limits", async () => {
+      caioOwnsQuelm();
+
+      await service.ownerLimitsChanged(CAIO_ID);
+
+      expect(changed.updated.map(({ campaign }) => campaign.id)).toEqual([QUELM_ID]);
+      expect(changed.updated[0]?.campaign).toMatchObject({
+        ownerId: CAIO_ID,
+        limits: PLAN_LIMITS.free,
+      });
+      expect(changed.updated[0]?.campaign).not.toHaveProperty('myRole');
+    });
+
+    it('a table Ana only plays or does not own stays silent; Bia, who owns none, tells nobody', async () => {
+      caioOwnsQuelm();
+
+      await service.ownerLimitsChanged(ANA_ID);
+      await service.ownerLimitsChanged(BIA_ID);
+
+      expect(changed.updated.map(({ campaign }) => campaign.id)).toEqual([VHARN_ID]);
+    });
+  });
+
   describe('delete', () => {
     it('the master deletes the table, forgets its memberships and then tells the live table', async () => {
       await service.delete(ANA_ID, VHARN_ID);
       expect(campaigns.rows.map(({ id }) => id)).toEqual([QUELM_ID]);
       expect(forgotten.forgotten).toEqual([VHARN_ID]);
       expect(changed.deleted).toEqual([
-        { campaignId: VHARN_ID, writesBefore: [`delete:${VHARN_ID}`] },
+        {
+          campaignId: VHARN_ID,
+          writesBefore: [`lock:${VHARN_ID}`, `delete:${VHARN_ID}`, 'commit'],
+        },
+      ]);
+    });
+
+    it("the objects of the table's files are removed after the commit, the other table's stay", async () => {
+      const ownFile = lyraPortraitPo({
+        id: '0f1e2d3c-4b5a-4968-8776-655443322110',
+        storageKey: 'assets/own',
+      });
+      const quelmFile = lyraPortraitPo({ campaignId: QUELM_ID, storageKey: 'assets/quelm' });
+      assets = new CampaignAssetsFake([ownFile, quelmFile]);
+      build();
+
+      await service.delete(ANA_ID, VHARN_ID);
+
+      expect(objects.removed).toEqual(['assets/own']);
+      expect(changed.deleted[0]?.writesBefore.at(-1)).toBe('commit');
+    });
+
+    it('a failed removal still deletes the table and goes to the log', async () => {
+      objects = new FlakyRemovalStorageFake(new Set([lyraPortraitPo().storageKey]));
+      build();
+
+      await service.delete(ANA_ID, VHARN_ID);
+
+      expect(campaigns.rows.map(({ id }) => id)).toEqual([QUELM_ID]);
+      expect(log.warnings).toEqual([
+        expect.objectContaining({
+          fields: expect.objectContaining({ storageKey: lyraPortraitPo().storageKey }),
+        }),
       ]);
     });
 
@@ -223,6 +295,7 @@ describe('CampaignSettingsService', () => {
       expect(campaigns.rows).toHaveLength(2);
       expect(forgotten.forgotten).toEqual([]);
       expect(changed.deleted).toEqual([]);
+      expect(objects.removed).toEqual([]);
     });
 
     it('the master without the table open is refused with CAMPAIGN_NOT_OPEN and the table stays', async () => {

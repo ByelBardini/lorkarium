@@ -9,7 +9,8 @@ import type {
   CampaignMemberPo,
   NewCampaignMemberPo,
 } from '../../src/modules/campaigns/campaign-members.po';
-import type { CampaignsDao } from '../../src/modules/campaigns/campaigns.dao';
+import type { CampaignsDao, CampaignWithOwnerPo } from '../../src/modules/campaigns/campaigns.dao';
+import type { UserPlanPo } from '../../src/modules/auth/users.po';
 import type { CampaignPo, NewCampaignPo } from '../../src/modules/campaigns/campaigns.po';
 import type {
   ConditionDefinitionPo,
@@ -19,9 +20,15 @@ import type {
   CampaignTransactionRunner,
   CampaignWriteDaos,
 } from '../../src/modules/campaigns/campaigns.service';
-import { campaignPo } from './campaigns-factories';
+import { FREE_ACCOUNT, campaignPo } from './campaigns-factories';
+import { PlanAccountsFake } from './plan-account-fakes';
 
 const FAKE_DATE = new Date('2026-10-01T12:00:00Z');
+const FRIEND_OF_THE_OWNER: UserPlanPo = {
+  role: 'user',
+  plan: 'amigo_do_dono',
+  lorkariumOwner: false,
+};
 
 /** A random-index source that answers a fixed sequence and records each bound it was asked for.
  *
@@ -70,10 +77,39 @@ export class CampaignsDaoFake implements Pick<
   | 'update'
   | 'replaceJoinCode'
   | 'delete'
+  | 'lockWithOwner'
+  | 'lockById'
+  | 'countOwnedBy'
+  | 'idsOwnedBy'
 > {
   readonly writes: string[] = [];
+  /** The plan of each owner (by `ownerId`) that `lockWithOwner` joins; absent = amigo_do_dono. */
+  readonly ownerPlans = new Map<string, UserPlanPo>();
 
   constructor(readonly rows: CampaignPo[] = []) {}
+
+  /** Writes `lock:<id>` to `writes` and joins the owner's plan from `ownerPlans`. */
+  async lockWithOwner(campaignId: string): Promise<CampaignWithOwnerPo | undefined> {
+    this.writes.push(`lock:${campaignId}`);
+    const row = this.rows.find((candidate) => candidate.id === campaignId);
+    if (!row) return undefined;
+    const owner = this.ownerPlans.get(row.ownerId) ?? FRIEND_OF_THE_OWNER;
+    return { ...row, owner };
+  }
+
+  /** Writes `lock:<id>` to `writes`, like `lockWithOwner`. */
+  async lockById(campaignId: string): Promise<CampaignPo | undefined> {
+    this.writes.push(`lock:${campaignId}`);
+    return this.rows.find((candidate) => candidate.id === campaignId);
+  }
+
+  async idsOwnedBy(ownerId: string): Promise<string[]> {
+    return this.rows.filter((row) => row.ownerId === ownerId).map((row) => row.id);
+  }
+
+  async countOwnedBy(ownerId: string): Promise<number> {
+    return this.rows.filter((row) => row.ownerId === ownerId).length;
+  }
 
   async insert(campaign: NewCampaignPo): Promise<CampaignPo> {
     if (this.rows.some((row) => row.joinCode === campaign.joinCode)) {
@@ -136,6 +172,7 @@ export class CampaignMembersDaoFake implements Pick<
   | 'campaignIdsOfUser'
   | 'lastAccessAtOf'
   | 'updateRole'
+  | 'countByRole'
 > {
   readonly listedFor: string[] = [];
   /** `updateRole:<campaignId>:<userId>:<role>`, in order; other fakes may write here too. */
@@ -220,6 +257,17 @@ export class CampaignMembersDaoFake implements Pick<
     return updated;
   }
 
+  // As the real one: neither the owner nor a juggernaut takes a seat of the plan.
+  async countByRole(campaignId: string, role: CampaignMemberPo['role']): Promise<number> {
+    return this.rows.filter(
+      (row) =>
+        row.campaignId === campaignId &&
+        row.role === role &&
+        row.juggernautSince === null &&
+        !this.isOwner(row),
+    ).length;
+  }
+
   async lastAccessAtOf(campaignId: string): Promise<Date | null> {
     const entries = this.rows
       .filter((row) => row.campaignId === campaignId)
@@ -239,6 +287,7 @@ export class CampaignMembersDaoFake implements Pick<
       lastEnteredAt: row.lastEnteredAt,
       masterName: this.nameOf(campaign.ownerId),
       memberCount: members.length,
+      owner: FREE_ACCOUNT,
     };
   }
 
@@ -258,13 +307,25 @@ export class CampaignMembersDaoFake implements Pick<
 export class TransactionRunnerFake {
   readonly writesInside: string[] = [];
   runs = 0;
+  private readonly daos: CampaignWriteDaos;
 
-  constructor(private readonly daos: CampaignWriteDaos) {}
+  /** `owners` absent: every owner is on `amigo_do_dono` (no ceiling of tables). */
+  constructor(
+    daos: Omit<CampaignWriteDaos, 'owners'> & Partial<Pick<CampaignWriteDaos, 'owners'>>,
+  ) {
+    this.daos = { owners: new PlanAccountsFake(), ...daos };
+  }
 
   readonly run: CampaignTransactionRunner = async (work) => {
     this.runs += 1;
     return work({
+      owners: {
+        lockForPlan: (userId) =>
+          this.record('owners.lockForPlan', () => this.daos.owners.lockForPlan(userId)),
+      },
       campaigns: {
+        countOwnedBy: (ownerId) =>
+          this.record('campaigns.countOwnedBy', () => this.daos.campaigns.countOwnedBy(ownerId)),
         insert: (row) => this.record('campaigns.insert', () => this.daos.campaigns.insert(row)),
         setActiveScene: (campaignId, sceneId) =>
           this.record('campaigns.setActiveScene', () =>
@@ -353,5 +414,6 @@ function memberRowOf(row: CampaignMemberPo, name: string, owner: boolean): Campa
     role: row.role,
     owner,
     juggernaut: row.juggernautSince !== null,
+    account: FREE_ACCOUNT,
   };
 }

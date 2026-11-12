@@ -247,7 +247,7 @@ describe('MapRegionForm: link', () => {
 });
 
 describe('MapRegionForm: refusals', () => {
-  it.each<[LibraryMapsFailureKind, string]>([
+  it.each<[Exclude<LibraryMapsFailureKind, 'plan_limit'>, string]>([
     ['regions_full', 'Esse mapa já chegou a 300 lugares. Exclua um antes de criar outro.'],
     ['link_self', 'Um lugar não pode levar ao mapa em que está.'],
     ['link_target_not_found', 'O item escolhido não existe mais. Escolha outro.'],

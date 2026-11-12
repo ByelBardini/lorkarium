@@ -53,6 +53,7 @@ describe('creating a campaign on Postgres', () => {
     const transaction: CampaignTransactionRunner = (work) =>
       runInTransaction(db, (tx) =>
         work({
+          owners: new UsersDao(tx),
           campaigns: new CampaignsDao(tx),
           members: new CampaignMembersDao(tx),
           scenes: new FailingScenesDao(),

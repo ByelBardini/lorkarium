@@ -7,13 +7,17 @@ import {
   savedRollsResponseDto,
   type SavedRollDto,
 } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { SavedRollsDao } from '../../src/modules/saved-rolls/saved-rolls.dao';
 import type { SignedInUser } from '../support/sign-in';
 import type { Table } from '../support/tables';
 import { useTokenTable } from '../support/token-table';
+import { setAccountPlan } from '../support/account-plans';
 
 const live = useTokenTable();
+// The technical ceilings (50 rolls, 50 folders) are of a table without plan limit; the plan's
+// own ceilings are in dice-plan-limit.spec.ts.
+beforeEach(() => setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono'));
 const ATTACK = [{ label: null, expression: '1d20+5' }];
 
 function rollsUrl(table: Table = live.vharn): string {
@@ -164,7 +168,10 @@ describe('the saved rolls over HTTP', () => {
     const response = await post(live.bia, { name: 'Mais uma', parts: ATTACK });
 
     expect(response.statusCode).toBe(422);
-    expect(errorOf(response).code).toBe('SAVED_ROLLS_LIMIT');
+    expect(errorOf(response)).toMatchObject({
+      code: 'SAVED_ROLLS_LIMIT',
+      message: 'You already keep 50 saved rolls at this table',
+    });
   });
 
   it('"2d" is 400 INVALID_DICE_EXPRESSION citing piece 2 and the reason', async () => {

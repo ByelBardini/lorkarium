@@ -1,3 +1,4 @@
+import { PLAN_LIMITS, type PlanLimits } from '@lorkarium/contracts';
 import { lightRange, sceneLight } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
 import { LightRulesBo } from '../../../src/modules/lights/light-rules.bo';
@@ -5,8 +6,8 @@ import { LightRulesBo } from '../../../src/modules/lights/light-rules.bo';
 const SCENE_20_BY_12 = { widthCells: 20, heightCells: 12 };
 const TORCH_ID = 'torch-1';
 
-function rules(): LightRulesBo {
-  return new LightRulesBo({ scene: SCENE_20_BY_12, limit: 100 });
+function rules(plan: PlanLimits = PLAN_LIMITS.amigo_do_dono): LightRulesBo {
+  return new LightRulesBo({ scene: SCENE_20_BY_12, limit: 100, plan });
 }
 
 function torchAt(x: number, y: number) {
@@ -41,6 +42,30 @@ describe('LightRulesBo', () => {
           message: 'the scene would have 101 lights; expected at most 100',
         }),
       );
+    });
+
+    it('on a free table the 16th light is PLAN_LIMIT lights, limit 15; the 15th passes', () => {
+      expect(() => rules(PLAN_LIMITS.free).admit(14, 1)).not.toThrow();
+      expect(() => rules(PLAN_LIMITS.free).admit(15, 1)).toThrow(
+        expect.objectContaining({
+          code: 'PLAN_LIMIT',
+          resource: 'lights',
+          limit: 15,
+          plan: 'free',
+        }),
+      );
+    });
+
+    it('a free scene with 40 lights from before the downgrade adds none and passes', () => {
+      expect(() => rules(PLAN_LIMITS.free).admit(40, 0)).not.toThrow();
+    });
+
+    it('amigo_do_dono keeps LIGHT_LIMIT at the 101st, not the plan error', () => {
+      expect(() => rules().admit(100, 1)).toThrow(expect.objectContaining({ code: 'LIGHT_LIMIT' }));
+    });
+
+    it('exposes the limits it was built with', () => {
+      expect(rules(PLAN_LIMITS.narrador).plan).toBe(PLAN_LIMITS.narrador);
     });
   });
 

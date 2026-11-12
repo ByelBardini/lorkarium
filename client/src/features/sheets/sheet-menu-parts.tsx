@@ -2,6 +2,8 @@ import type { SheetHolderDto, SheetSummaryDto } from '@lorkarium/contracts';
 import { sheetVisibilityDto } from '@lorkarium/contracts';
 import { ScrollTextIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { OPEN_GATE, countGate } from '@/features/plans/plan-gate';
+import { usePlanLimits } from '@/features/plans/use-plan-limits';
 import {
   DropdownMenuItem,
   DropdownMenuRadioGroup,
@@ -50,7 +52,13 @@ export function OpenSheetItems({ room, sheets }: SheetsProps): React.JSX.Element
   );
 }
 
-type NewSheetProps = Readonly<{ room: SheetRoom; holder: SheetHolderDto; holderName: string }>;
+type NewSheetProps = Readonly<{
+  room: SheetRoom;
+  holder: SheetHolderDto;
+  holderName: string;
+  /** The sheet would be an NPC's (a token with no character): the table's plan counts it. */
+  npc?: boolean;
+}>;
 
 /** The master's "Nova ficha ▸ <template>": a sheet named "<template> · <holder>" for `holder`.
  *
@@ -67,11 +75,19 @@ export function NewSheetItems(props: NewSheetProps): React.JSX.Element {
 }
 
 // Mounted only while the submenu is open: the library is read then, not on every right click.
-function TemplateItems({ room, holder, holderName }: NewSheetProps): React.JSX.Element {
+function TemplateItems({ room, holder, holderName, npc }: NewSheetProps): React.JSX.Element {
   const library = useSheetLibrary(room);
+  const { table } = usePlanLimits();
   if (library === null) return <DropdownMenuItem disabled>Carregando modelos…</DropdownMenuItem>;
   if (library.templates.length === 0)
     return <DropdownMenuItem disabled>{NO_SHEET_TEMPLATES}</DropdownMenuItem>;
+  const gate = npc ? countGate(table, 'npcSheets', library.npcSheetCount) : OPEN_GATE;
+  if (!gate.open)
+    return (
+      <DropdownMenuItem disabled className="max-w-64 text-xs">
+        {gate.hint}
+      </DropdownMenuItem>
+    );
   return (
     <>
       {library.templates.map((template) => (

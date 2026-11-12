@@ -37,6 +37,18 @@ describe('DocumentsService', () => {
       'publish',
     ]);
   });
+  it('a free table creates a new document: its single "Geral" tab fits the plan', async () => {
+    const harness = new DocumentsHarness();
+    harness.campaigns.owner = {
+      role: 'user',
+      plan: 'free',
+      lorkariumOwner: false,
+    };
+    const result = await new DocumentsService(harness.deps).create(harness.requester, {
+      actionId: ACTION_ID,
+    });
+    expect(result.document.tabs.map(({ name }) => name)).toEqual(['Geral']);
+  });
   it('same action replays its receipt without applying or publishing twice', async () => {
     const harness = new DocumentsHarness();
     const service = new DocumentsService(harness.deps);

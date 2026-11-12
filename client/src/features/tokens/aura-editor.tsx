@@ -1,4 +1,9 @@
-import type { AuraEffectDto, AuraImageShapeDto, DrawingPaletteDto } from '@lorkarium/contracts';
+import type {
+  AuraEffectDto,
+  AuraImageShapeDto,
+  DrawingPaletteDto,
+  PlanLimits,
+} from '@lorkarium/contracts';
 import {
   DropletsIcon,
   FlameIcon,
@@ -18,6 +23,8 @@ import { Slider } from '@/components/ui/slider';
 import { COLOR_TILES } from '@/features/drawings/color-tiles';
 import { PaletteColorField } from '@/features/drawings/palette-color-field';
 import { StyleTileGroup, type StyleTile } from '@/features/drawings/style-tile-group';
+import { OPEN_GATE, featureGate, type PlanGate } from '@/features/plans/plan-gate';
+import { usePlanLimits } from '@/features/plans/use-plan-limits';
 import { AURA_EFFECT_NAMES } from '@/lib/aura-effects';
 import type { SceneDistance } from '@/lib/range-form';
 import type { AssetsApi } from '@/services/assets-api';
@@ -89,12 +96,14 @@ const OPACITY_STEP = 5;
 export function AuraEditor(props: AuraEditorProps): React.JSX.Element {
   const { form, errors, distance, images, onChange } = props;
   const change: AuraChange = (changes) => onChange((current) => ({ ...current, ...changes }));
+  const kinds = useAuraKindOptions(form.kind);
   return (
     <div className="flex flex-col gap-5">
       <SegmentField
         legend="Aura"
         value={form.kind}
-        options={KIND_OPTIONS}
+        options={kinds.options}
+        hint={kinds.hint}
         fill
         onChange={(kind) => onChange((current) => auraKindChosen(current, kind))}
       />
@@ -113,6 +122,28 @@ export function AuraEditor(props: AuraEditorProps): React.JSX.Element {
       )}
     </div>
   );
+}
+
+// The kinds the table's plan has stay offered; the one the aura already has stays too (a plan
+// that came down keeps what it made).
+function useAuraKindOptions(current: AuraKindChoice): Readonly<{
+  options: readonly SegmentOption<AuraKindChoice>[];
+  hint: string | undefined;
+}> {
+  const { table } = usePlanLimits();
+  const gates = KIND_OPTIONS.map((option) => ({ option, gate: auraKindGate(table, option.value) }));
+  const closed = gates.find(({ option, gate }) => !gate.open && option.value !== current);
+  return {
+    options: gates.map(({ option, gate }) =>
+      gate.open || option.value === current ? option : { ...option, disabled: true },
+    ),
+    hint: closed ? `Efeito e Imagem: ${closed.gate.hint}` : undefined,
+  };
+}
+
+function auraKindGate(limits: PlanLimits | null, kind: AuraKindChoice): PlanGate {
+  if (kind === 'none') return OPEN_GATE;
+  return featureGate(limits, (offer) => offer.auraKinds.includes(kind));
 }
 
 type AuraLookProps = Readonly<{

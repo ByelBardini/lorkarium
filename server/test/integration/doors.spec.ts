@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { AssetsDao } from '../../src/modules/assets/assets.dao';
 import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
 import { TokensDao } from '../../src/modules/tokens/tokens.dao';
@@ -34,6 +35,11 @@ const DOOR = {
 
 describe('doors over Socket.IO', () => {
   const live = useTokenTable();
+  // Before the plans: the owners of Vharn and Quelm on amigo_do_dono (test accounts are born free).
+  beforeEach(async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+    await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+  });
 
   async function darkVharnWithDoor(): Promise<{ doorId: string; ana: EventRecorder }> {
     const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
@@ -161,6 +167,11 @@ describe('doors over Socket.IO', () => {
 
 describe('doors lit by a torch over Socket.IO', () => {
   const live = useTokenTable();
+  // Before the plans: the owners of Vharn and Quelm on amigo_do_dono (test accounts are born free).
+  beforeEach(async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+    await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+  });
   // One cell past the door (x = 5, y from 3 to 6), in front of the blind Lyra at (3, 4).
   const TORCH = { x: 6, y: 4.5, bright: 2, dim: 0 };
 
@@ -234,6 +245,11 @@ describe('doors lit by a torch over Socket.IO', () => {
 
 describe('doors and the cone of sight over Socket.IO', () => {
   const live = useTokenTable();
+  // Before the plans: the owners of Vharn and Quelm on amigo_do_dono (test accounts are born free).
+  beforeEach(async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+    await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+  });
   // Lyra stands at (5, 5), center (5.5, 5.5), looking right; a door runs down x = 3, behind her.
   const BEHIND = { ...DOOR, x: 3, y: 4 };
   const AT_HER_BACK = { ...DOOR, x: 4, y: 4 };
@@ -339,6 +355,11 @@ describe('doors and the cone of sight over Socket.IO', () => {
 
 describe('doors behind a token that blocks sight over Socket.IO', () => {
   const live = useTokenTable();
+  // Before the plans: the owners of Vharn and Quelm on amigo_do_dono (test accounts are born free).
+  beforeEach(async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+    await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+  });
   // Lyra at (3, 4), center (3.5, 4.5), sees 4 cells; the door runs down x = 5, from y 3 to 6. The
   // statue stands across the way, x from 4 to 5 and y from 1 to 9.
   const STATUE = { name: 'Estátua', initials: 'ES', col: 4, row: 1, width: 1, height: 8 };

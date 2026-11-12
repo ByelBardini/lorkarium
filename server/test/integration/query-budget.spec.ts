@@ -1,5 +1,6 @@
+import { setAccountPlan } from '../support/account-plans';
 import { combatStartedDto, tokenCreatedDto, tokensCreatedDto } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { AssetsDao } from '../../src/modules/assets/assets.dao';
 import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
 import { WallsDao } from '../../src/modules/walls/walls.dao';
@@ -28,6 +29,11 @@ const READS_AN_ASSET = /from "assets"/;
 
 describe('the queries each hot board command costs', () => {
   const live = useTokenTable();
+  // Before the plans: the owners of Vharn and Quelm on amigo_do_dono (test accounts are born free).
+  beforeEach(async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+    await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+  });
 
   async function counted(work: () => Promise<unknown>): Promise<number> {
     live.queries.reset();

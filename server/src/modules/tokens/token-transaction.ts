@@ -10,11 +10,13 @@ import { toCombatDto, toCombatState } from '../combat/combat.mapper';
 import type { ConditionsDao } from '../conditions/conditions.dao';
 import { holderIdOf } from '../conditions/conditions.po';
 import { conditionsByHolder, holderOfToken } from '../conditions/conditions.mapper';
+import { effectiveLimitsOf } from '../plans/plan-limits.bo';
 import type { SceneTransaction } from '../scenes/locked-scene';
-import type { ScenesDao } from '../scenes/scenes.dao';
+import type { AddressedSceneRow, ScenesDao } from '../scenes/scenes.dao';
 import type { ScenePo } from '../scenes/scenes.po';
 import type { CharactersDao } from '../characters/characters.dao';
 import { TokenAccessBo } from './token-access.bo';
+import { TokenPlanBo, type TokenPlanHold, type TokenPlanSent } from './token-plan.bo';
 import type { TokenRulesBo } from './token-rules.bo';
 import type { TokenCharacterLinkDao } from './token-character-link.dao';
 import type { NewTokenRow, TokenRow, TokensDao } from './tokens.dao';
@@ -164,18 +166,49 @@ function newTokenLookOf(token: NewTokenInput): Partial<NewTokenPo> {
   };
 }
 
-/** The ceiling of sight-blocking tokens, counted under the grid lock; a command that turns none on
- *  reads nothing, so the tables that do not use them pay no query.
+/** The plan of the grid's table (its owner's, read with the grid lock) on its tokens. Its
+ *  `limits` are the table's effective ones, for any other check a token command runs.
  *
- *  Example: `await admitBlockersOf(daos, scene.id, rules, command.blocksSight ? 1 : 0)` */
+ *  Example: `tokenPlanOf(locked.scene).requireNew(tokenPlanSentOf(command))` */
+export function tokenPlanOf(scene: Pick<AddressedSceneRow, 'owner'>): TokenPlanBo {
+  return new TokenPlanBo(effectiveLimitsOf(scene.owner));
+}
+
+/** What a stored token holds that the plan counts (a linked one, its character's). */
+export function tokenPlanHoldOf(row: Pick<TokenRow, 'token' | 'bars' | 'forms'>): TokenPlanHold {
+  const { auraKind, auraColor, lightColor } = row.token;
+  const colors = [...row.bars.map(({ color }) => color), auraColor, lightColor];
+  return { bars: row.bars.length, forms: row.forms.length, auraKind, colors };
+}
+
+/** What a create, paste or edit sends that the plan counts; absent forms or aura keep them. */
+export function tokenPlanSentOf(
+  command: Readonly<{
+    bars: readonly Readonly<{ color: string }>[];
+    forms?: readonly unknown[] | undefined;
+    aura?: TokenPlanSent['aura'];
+    light?: Readonly<{ color: string | null }> | null | undefined;
+  }>,
+): TokenPlanSent {
+  const colors = [...command.bars.map(({ color }) => color), command.light?.color];
+  return { bars: command.bars.length, forms: command.forms?.length, aura: command.aura, colors };
+}
+
+/** The ceilings of sight-blocking tokens (the table's plan, then the technical one), counted
+ *  under the grid lock; a command that turns none on reads nothing, so the tables that do not use
+ *  them pay no query.
+ *
+ *  Example: `await admitBlockersOf(daos, scene, rules, command.blocksSight ? 1 : 0)` */
 export async function admitBlockersOf(
   daos: Readonly<{ tokens: Pick<TokensDao, 'countBlockersOfScene'> }>,
-  sceneId: string,
+  scene: Pick<AddressedSceneRow, 'id' | 'owner'>,
   rules: Pick<TokenRulesBo, 'admitBlockers'>,
   adding: number,
 ): Promise<void> {
   if (adding === 0) return;
-  rules.admitBlockers(await daos.tokens.countBlockersOfScene(sceneId), adding);
+  const stored = await daos.tokens.countBlockersOfScene(scene.id);
+  tokenPlanOf(scene).requireBlockers(stored, adding);
+  rules.admitBlockers(stored, adding);
 }
 
 /** Deleted tokens leave the combat in the same transaction: the entries they empty go and the turn

@@ -12,6 +12,7 @@ import { buildApp } from '../../src/app/build-app';
 import { readEnv, type Env } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
 import { S3AssetStorage } from '../../src/infrastructure/asset-storage/s3-asset-storage';
+import { setAccountPlan } from '../support/account-plans';
 import { pngOf } from '../support/images';
 import { signUpAndLogin, type SignedInUser } from '../support/sign-in';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
@@ -50,6 +51,9 @@ describe('profiles HTTP edge', () => {
     app = await buildApp({ env, db: connection.db });
     ana = await signUpAndLogin(app, connection.db, 'Ana');
     bia = await signUpAndLogin(app, connection.db, 'Bia');
+    // The edge as it was before the plans: the customizations open (the plan's own spec covers free).
+    await setAccountPlan(connection.db, ana.id, 'amigo_do_dono');
+    await setAccountPlan(connection.db, bia.id, 'amigo_do_dono');
   });
 
   afterEach(() => app.close());

@@ -164,6 +164,10 @@ export class LibraryMapsDaoFake implements MapDao {
     return row.map;
   }
 
+  async countOfCampaign(campaignId: string): Promise<number> {
+    return this.rows.filter((row) => row.map.campaignId === campaignId).length;
+  }
+
   async findInCampaign(campaignId: string, mapId: string): Promise<LibraryMapRow | undefined> {
     return this.rows.find((row) => row.map.campaignId === campaignId && row.map.id === mapId);
   }

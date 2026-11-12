@@ -9,28 +9,42 @@ import {
   type SheetTemplateDto,
   type UpdateSheetTemplateRequestDto,
 } from '@lorkarium/contracts';
-import { callApi, callUpload, errorCodeOf, parseOk, type ApiCall } from './api-call';
+import {
+  callApi,
+  callUpload,
+  errorCodeOf,
+  parseOk,
+  planLimitFailureOf,
+  type ApiCall,
+  type PlanLimitFailure,
+} from './api-call';
 import { assetUrlOf } from './assets-api';
 import type { HttpMethod, HttpResponse, HttpTransport } from './http-transport';
 import { fetchAssetBytes, type AssetBytesAnswer, type AssetBytesReader } from './sheets-api';
 
-export type SheetTemplatesFailure = Readonly<{
-  kind:
-    | 'conflict'
-    | 'in_use'
-    | 'folder_not_found'
-    | 'forbidden'
-    | 'not_found'
-    | 'unauthenticated'
-    | 'invalid'
-    | 'asset_not_found'
-    | 'assets_too_large'
-    | 'too_large'
-    | 'unsupported_asset'
-    | 'rate_limited'
-    | 'offline'
-    | 'unexpected';
-}>;
+export type SheetTemplatesFailure =
+  | Readonly<{
+      kind:
+        | 'conflict'
+        | 'in_use'
+        | 'folder_not_found'
+        | 'forbidden'
+        | 'not_found'
+        | 'unauthenticated'
+        | 'invalid'
+        | 'asset_not_found'
+        | 'assets_too_large'
+        | 'too_large'
+        | 'unsupported_asset'
+        | 'rate_limited'
+        | 'offline'
+        | 'unexpected';
+    }>
+  /** The table owner's plan ran out (templates per table, storage): 403 `PLAN_LIMIT`. */
+  | PlanLimitFailure;
+
+/** A refusal named by its code or status alone. */
+type TemplateRefusalKind = Exclude<SheetTemplatesFailure['kind'], 'plan_limit'>;
 
 /** The bytes of one template asset, for the frame (an opaque origin sends no cookie). */
 export type SheetTemplateAssetData = Readonly<{
@@ -70,14 +84,14 @@ export interface SheetTemplatesApi {
 /** What the frame's host needs to embed a template's assets. */
 export type SheetTemplateAssetReader = Pick<SheetTemplatesApi, 'asset'>;
 
-const REFUSAL_BY_CODE: Readonly<Record<string, SheetTemplatesFailure['kind']>> = {
+const REFUSAL_BY_CODE: Readonly<Record<string, TemplateRefusalKind>> = {
   SHEET_TEMPLATE_VERSION_CONFLICT: 'conflict',
   SHEET_TEMPLATE_IN_USE: 'in_use',
   FOLDER_NOT_FOUND: 'folder_not_found',
   SHEET_TEMPLATE_ASSET_NOT_FOUND: 'asset_not_found',
   SHEET_TEMPLATE_ASSETS_TOO_LARGE: 'assets_too_large',
 };
-const REFUSAL_BY_STATUS: Readonly<Record<number, SheetTemplatesFailure['kind']>> = {
+const REFUSAL_BY_STATUS: Readonly<Record<number, TemplateRefusalKind>> = {
   400: 'invalid',
   401: 'unauthenticated',
   403: 'forbidden',
@@ -85,7 +99,7 @@ const REFUSAL_BY_STATUS: Readonly<Record<number, SheetTemplatesFailure['kind']>>
   409: 'conflict',
 };
 // 415 is a type with no parser and 422 a file that does not decode: the same refusal to the user.
-const UPLOAD_REFUSAL_BY_STATUS: Readonly<Record<number, SheetTemplatesFailure['kind']>> = {
+const UPLOAD_REFUSAL_BY_STATUS: Readonly<Record<number, TemplateRefusalKind>> = {
   ...REFUSAL_BY_STATUS,
   413: 'too_large',
   415: 'unsupported_asset',
@@ -156,8 +170,11 @@ export class HttpSheetTemplatesApi implements SheetTemplatesApi {
 
 function uploadedOf(call: ApiCall): SheetTemplatesResult<SheetTemplateAssetDto> {
   if (call.kind === 'offline') return failed('offline');
-  if (call.kind === 'refused')
+  if (call.kind === 'refused') {
+    const planLimit = planLimitFailureOf(call.response);
+    if (planLimit) return { ok: false, failure: planLimit };
     return failed(UPLOAD_REFUSAL_BY_STATUS[call.response.status] ?? 'unexpected');
+  }
   return parseOk(sheetTemplateAssetResponseDto, call.body, ({ asset }) => asset);
 }
 
@@ -177,10 +194,12 @@ function templatePathOf(campaignId: string, templateId?: string): string {
   const base = `/campaigns/${encodeURIComponent(campaignId)}/sheet-templates`;
   return templateId === undefined ? base : `${base}/${encodeURIComponent(templateId)}`;
 }
-function failed(kind: SheetTemplatesFailure['kind']): SheetTemplatesResult<never> {
+function failed(kind: TemplateRefusalKind): SheetTemplatesResult<never> {
   return { ok: false, failure: { kind } };
 }
 function refused(response: HttpResponse): SheetTemplatesResult<never> {
+  const planLimit = planLimitFailureOf(response);
+  if (planLimit) return { ok: false, failure: planLimit };
   const code = errorCodeOf(response);
   const byCode = code === null ? undefined : REFUSAL_BY_CODE[code];
   return failed(byCode ?? REFUSAL_BY_STATUS[response.status] ?? 'unexpected');

@@ -4,6 +4,7 @@ import type { ProfileApi } from '@/services/profile-api';
 import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
 import type { SessionStore } from '@/stores/session-store';
 import type { AccountLoaderData } from './account-routes';
+import { PlanSection } from './plan-section';
 import { ProfileSection } from './profile-section';
 import { SecuritySection } from './security-section';
 
@@ -16,8 +17,9 @@ export type AccountPageProps = AccountLoaderData &
     dicePreferences: StoreApi<DicePreferencesStore>;
   }>;
 
-/** "Minha conta": how the person shows up to the table (Perfil) and how they look after the
- *  account (Conta e segurança), one page under the shell, scrolled rather than tabbed.
+/** "Minha conta": how the person shows up to the table (Perfil), how they look after the
+ *  account (Conta e segurança) and what their plan allows (Seu plano), one page under the shell,
+ *  scrolled rather than tabbed.
  *
  *  Example: `<AccountPage {...useLoaderData()} now={now} profileApi={profileApi} sessionStore={sessionStore} clipboard={clipboard} dicePreferences={dicePreferences} />` */
 export function AccountPage(props: AccountPageProps): React.JSX.Element {
@@ -37,14 +39,15 @@ export function AccountPage(props: AccountPageProps): React.JSX.Element {
         sessionStore={props.sessionStore}
         dicePreferences={props.dicePreferences}
       />
+      <SecuritySection
+        security={props.security}
+        sessions={props.sessions}
+        username={profile.username}
+        now={props.now}
+        clipboard={props.clipboard}
+      />
       <div className="pb-16">
-        <SecuritySection
-          security={props.security}
-          sessions={props.sessions}
-          username={profile.username}
-          now={props.now}
-          clipboard={props.clipboard}
-        />
+        <PlanSection plan={props.plan} account={profile} />
       </div>
     </div>
   );

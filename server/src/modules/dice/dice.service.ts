@@ -1,8 +1,4 @@
-import {
-  DICE_THROW_MODELS_MAX,
-  type DiceRollCommandDto,
-  type DiceRolledDto,
-} from '@lorkarium/contracts';
+import type { DiceRollCommandDto, DiceRolledDto } from '@lorkarium/contracts';
 import {
   continueDiceRoll,
   startDiceRoll,
@@ -11,7 +7,10 @@ import {
 } from '@lorkarium/game-core';
 import type { ClockPort } from '../auth/clock.port';
 import type { MembershipReader } from '../campaigns/cached-memberships';
+import type { CampaignsDao } from '../campaigns/campaigns.dao';
+import { CampaignNotFoundError } from '../campaigns/campaigns.error';
 import { memberAccessOf } from '../campaigns/member-access';
+import { effectiveLimitsOf } from '../plans/plan-limits.bo';
 import type { ProfilesDao } from '../profiles/profiles.dao';
 import type { DicePhysicsPort } from './dice-physics.port';
 import type { DicePublisherPort } from './dice-publisher.port';
@@ -27,6 +26,8 @@ import { toDiceAppearanceDto, toDiceRolledDto, toDiceRolledSecretlyDto } from '.
 
 export type DiceServiceDeps = Readonly<{
   members: MembershipReader;
+  /** The table owner's plan, read on every roll: it caps the modeled dice. */
+  tables: Pick<CampaignsDao, 'findOwnerPlan'>;
   profiles: Pick<ProfilesDao, 'findById'>;
   physics: DicePhysicsPort;
   random: DiceRandomPort;
@@ -46,8 +47,8 @@ export type DiceRollOutcome = Readonly<
 export class DiceService {
   constructor(private readonly deps: DiceServiceDeps) {}
 
-  /** Rolls for a member (never a spectator): the physics throws up to 20 modeled dice per roll,
-   *  crypto draws the rest, every explosion or reroll is a new wave 300 ms after the previous one
+  /** Rolls for a member (never a spectator): the physics throws up to the table plan's modeled
+   *  dice per roll (10 on free, 20 above; never refused), crypto draws the rest, every explosion or reroll is a new wave 300 ms after the previous one
    *  settles, and the event goes to the table or, masters-only, to the masters and the roller
    *  with a notice without the result to everyone else. The roller gets the result back too (a
    *  masters-only roll included: they see it anyway).
@@ -55,7 +56,7 @@ export class DiceService {
    *  Example: `const { rollId, total } = await diceService.roll(user.id, command)` */
   async roll(userId: string, command: DiceRollCommandDto): Promise<DiceRollOutcome> {
     const access = await memberAccessOf(this.deps.members, command.campaignId, userId);
-    const { result, waves } = this.throwAll(command);
+    const { result, waves } = this.throwAll(command, await this.maxModelsOf(command, userId));
     const profile = await this.deps.profiles.findById(userId);
     const event = toDiceRolledDto({
       rollId: this.deps.newId(),
@@ -73,10 +74,19 @@ export class DiceService {
     return { rollId, parts, total, settlesInMs };
   }
 
-  private throwAll(command: DiceRollCommandDto): ThrownRoll {
+  // Read from the database on every roll, never the socket's identity: a plan changed in the
+  // backoffice counts at once.
+  private async maxModelsOf(command: DiceRollCommandDto, userId: string): Promise<number> {
+    const { campaignId } = command;
+    const owner = await this.deps.tables.findOwnerPlan(campaignId);
+    if (!owner) throw new CampaignNotFoundError({ campaignId, userId });
+    return effectiveLimitsOf(owner).maxDiceModelsPerRoll;
+  }
+
+  private throwAll(command: DiceRollCommandDto, maxModels: number): ThrownRoll {
     const expressions = command.parts.map((part) => part.expression);
     requireReadableDice(expressions);
-    const waves = new DiceWavesBo(DICE_THROW_MODELS_MAX);
+    const waves = new DiceWavesBo(maxModels);
     let step = startDiceRoll(expressions);
     while (step.kind === 'pending') {
       step = continueDiceRoll(step.state, this.throwWave(waves, step.requests, command.aspect));

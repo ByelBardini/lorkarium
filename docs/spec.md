@@ -302,7 +302,40 @@ O estado deverá sobreviver à atualização da página, desconexão dos partici
 
 ---
 
-### 3.11. Documentos livres na biblioteca
+### 3.11. Planos
+
+Extensão aprovada em 11/11/2026. Cada conta tem **um plano só** — Grátis, Apoiador, Narrador, Lenda ou Amigo do Dono. Não há pagamento: a conta nova nasce no Grátis e o admin global troca o plano no backoffice (inclusive o próprio, que não lhe dá poder nenhum).
+
+- **Quem define o limite.** Os limites da mesa seguem o plano do **dono** da mesa e valem para todos os membros: o jogador de uma mesa Grátis sente o Grátis, qualquer que seja o plano dele. As personalizações da conta seguem o plano da **própria pessoa**: cor personalizada no perfil, no número do dado e nas cores salvas, textura própria do dado e foto de perfil em GIF animado. Apoiador, Narrador, Lenda, Amigo do Dono, o admin e o Dono do Lorkarium as têm; o Grátis fica com a paleta, o dado na cor do perfil e a foto parada (o primeiro quadro).
+- **Admin, Dono do Lorkarium e Amigo do Dono.** O admin global não tem limite de plano: vale para ele, e para as mesas de que é dono, a grade do Amigo do Dono, que não tem teto de plano e segue só os tetos técnicos de sempre (500 tokens por cena, 100 luzes etc.). O mesmo vale para o **Dono do Lorkarium**, que não é plano: é a conta cujo @ a configuração do servidor aponta (vazia, ninguém), com as personalizações liberadas.
+- **Apoiador.** É o plano de quem apoia a casa: as mesas dele seguem a grade do Grátis (inclusive a paleta no conteúdo da mesa), e só a conta se abre (as personalizações acima).
+- **A grade.** — = sem teto de plano. Os números da Lenda com † são uso justo (a tela diz "ilimitado"). A coluna Grátis vale também para o Apoiador.
+
+| Recurso                                                                                                                                 | Grátis         | Narrador       | Lenda                | Amigo do Dono e admin |
+| --------------------------------------------------------------------------------------------------------------------------------------- | -------------- | -------------- | -------------------- | --------------------- |
+| Mesas como dono                                                                                                                         | 1              | 5              | 10                   | —                     |
+| Armazenamento (soma das mesas do dono)                                                                                                  | 100 MB         | 2 GB           | 10 GB                | —                     |
+| Jogadores / co-mestres / espectadores por mesa                                                                                          | 6 / 1 / 2      | 10 / 2 / 10    | 20 / 5 / 50          | —                     |
+| Grids / mapas interativos / modelos de ficha por mesa                                                                                   | 5 / 1 / 1      | 20 / 5 / 5     | 500 † / 100 † / 50 † | —                     |
+| Fichas de NPC (de token) por mesa                                                                                                       | 10             | 50             | 1000 †               | —                     |
+| Abas por documento / luzes por cena                                                                                                     | 5 / 15         | 30 / 50        | 200 / 100            | 200 / 100 (técnico)   |
+| Barras / formas por token                                                                                                               | 2 / 2          | 8 / 8          | 8 / 8                | 8 / 8 (técnico)       |
+| Patrulhas ligadas por grid / tokens que bloqueiam visão por cena                                                                        | 0 / 0          | 5 / 10         | 30 / 50              | 30 / 50 (técnico)     |
+| Rolagens salvas / pastas por membro                                                                                                     | 5 / 0          | 20 / 50        | 50 / 50              | 50 / 50 (técnico)     |
+| Dados com física por rolagem                                                                                                            | 10             | 20             | 20                   | 20 (técnico)          |
+| Lado máximo do mapa / do fundo do grid                                                                                                  | 4096 / 2048 px | 8192 / 4096 px | idem                 | idem                  |
+| Aura com efeito ou imagem, condição com imagem, duplicar grid, janelas Chat e Imagens do desktop, cor personalizada no conteúdo da mesa | não            | sim            | sim                  | sim                   |
+
+- **Validação.** Toda checagem mora no servidor, que lê o plano do dono na mesma transação da escrita, travando a linha que já trava (sem cache: um plano trocado no backoffice vale na escrita seguinte). A recusa é uma só, com código `PLAN_LIMIT`, o recurso, o limite e o plano, no HTTP (403) e no ack do Socket.IO; o client monta a frase ("Esta mesa usa o plano Grátis, que permite até 5 grids. O Narrador libera 20.") e antecipa o limite desabilitando os botões de criar mais comuns. Dados acima do teto por rolagem não são recusados: sorteiam sem modelo 3D.
+- **Quem já passou do limite mantém o que tem.** Descer de plano não apaga nem desliga nada (desligar uma luz ou um bloqueador de visão abriria a névoa): só o crescimento novo é barrado, e o que já existe continua editável. A personalização já configurada também fica; só a troca por uma nova é barrada. As contas de antes dos planos entraram no Amigo do Dono.
+- **Armazenamento.** A cota soma os arquivos das mesas de que a pessoa é dona; o arquivo que nenhum conteúdo usa mais é liberado, e excluir a mesa apaga os dela.
+- **Selos.** Cada conta mostra um selo só, o mais alto: Dono do Lorkarium (a logo, marfim), Admin (espada erguida, brasa), Amigo do Dono (cálice, rosa), Lenda (brasão, dourado), Narrador (pena, azul) e Apoiador (chama, violeta). São ícones próprios no traço da logo, só o símbolo, colado ao @ da pessoa em todo lugar que mostra o @ (ou ao nome, onde a tela não mostra o @), com o nome em palavras para leitor de tela e no tooltip; chegam às mesas abertas sem recarregar, também quando o backoffice troca o papel. O Grátis não tem selo. A conta mostra "Seu plano", com os limites e o uso.
+
+Contratos, regra efetiva, onde cada limite é conferido e provas: [context/plans.md](context/plans.md). Fora desta entrega: pagamento, preços na tela, cadastro aberto, modo só leitura de mesa e transferência de posse da mesa.
+
+---
+
+### 3.12. Documentos livres na biblioteca
 
 Extensão aprovada em 29/10/2026: a biblioteca também organiza documentos de texto rico nas pastas da campanha. Mestres criam e administram; jogadores escolhidos como donos editam título e conteúdo, inclusive dos documentos ocultos. Outros jogadores e espectadores consultam apenas os públicos. A posse depende do papel atual de jogador e não concede administração.
 
@@ -314,7 +347,7 @@ Contratos, limites, persistência e rotas: [context/documents.md](context/docume
 
 ---
 
-### 3.12. Fichas personalizadas
+### 3.13. Fichas personalizadas
 
 Extensão aprovada em 31/10/2026. O mestre (co-mestre incluso) escreve na biblioteca um **modelo** de ficha como uma lista de arquivos HTML, CSS e JS (a página é o `index.html`, que inclui outras páginas por `<lk-include>`; o CSS e o JS rodam na ordem da lista), com fontes WOFF2 e imagens próprias do modelo; jogadores não veem nem escrevem modelos. Uma **ficha** liga um modelo a um dono: o personagem de um jogador (vale em todo grid em que ele tem token; a primeira dada vira a principal) ou um token solto. Corrigir o modelo atualiza todas as fichas dele, e excluir um modelo em uso é recusado.
 
@@ -328,7 +361,7 @@ Extensão aprovada em 31/10/2026. O mestre (co-mestre incluso) escreve na biblio
 
 Contratos, tabelas, rotas e provas: [context/sheets.md](context/sheets.md). Fora desta entrega: API de chat, condições, combate ou mover token, rede dentro da ficha, modelo escrito por jogador, importação de fichas de outros VTTs e histórico de versões do modelo.
 
-### 3.13. Mapas interativos na biblioteca
+### 3.14. Mapas interativos na biblioteca
 
 Extensão aprovada em 09/11/2026. O mestre (co-mestre incluso) cria na biblioteca mapas com imagem própria (até 8192 px e 20 MiB) e desenha sobre eles **lugares**: polígonos ou pinos com nome, descrição, cor e, no pino, um ícone. Cada lugar pode levar a um documento (inteiro ou a uma aba dele), grid, imagem ou outro mapa. Ciclos entre mapas valem. Coordenadas normalizadas (0 a 1) sobre a imagem, e cada lugar grava ao confirmar.
 
@@ -526,7 +559,7 @@ Redis, filas distribuídas e múltiplas instâncias deverão ser considerados so
 
 Representa um usuário registrado.
 
-Campos principais: id, name, email, passwordHash ou identidade externa, createdAt.
+Campos principais: id, name, email, passwordHash ou identidade externa, plan (o plano da conta: free, apoiador, narrador, lenda ou amigo_do_dono; a conta nova nasce free), createdAt. O Dono do Lorkarium não é campo: vem da configuração do servidor, pelo @. Ver §3.11.
 
 ### Campaign
 

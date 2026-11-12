@@ -27,6 +27,9 @@ export function profileRow(overrides: Partial<ProfileRow> = {}): ProfileRow {
     diceTextureId: null,
     diceNumberColor: null,
     createdAt: new Date('2026-10-01T12:00:00Z'),
+    role: 'user',
+    plan: 'amigo_do_dono',
+    lorkariumOwner: false,
     ...overrides,
   };
 }

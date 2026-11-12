@@ -17,6 +17,7 @@ import { createSessionStore } from '@/stores/session-store';
 import { createAppUpdateStore } from '@/stores/app-update-store';
 import { createDicePreferencesStore } from '@/stores/dice-preferences-store';
 import { AccountLinksApiFake } from './account-links-api-fake';
+import { AccountPlanApiFake } from './account-plan-api-fake';
 import { AccountSecurityApiFake } from './account-security-api-fake';
 import { UserAdminApiFake } from './user-admin-api-fake';
 import { AssetsApiFake } from './assets-api-fake';
@@ -55,6 +56,7 @@ export type TestDependencies = AppDependencies & {
   profileApi: ProfileApiFake;
   savedColorsApi: SavedColorsApiFake;
   accountSecurityApi: AccountSecurityApiFake;
+  accountPlanApi: AccountPlanApiFake;
   userAdminApi: UserAdminApiFake;
   accountLinksApi: AccountLinksApiFake;
   libraryApi: LibraryApiFake;
@@ -166,6 +168,7 @@ export function testDependencies(): TestDependencies {
     profileApi: new ProfileApiFake(),
     savedColorsApi: new SavedColorsApiFake(),
     accountSecurityApi: new AccountSecurityApiFake(TEST_NOW),
+    accountPlanApi: new AccountPlanApiFake(),
     userAdminApi: new UserAdminApiFake(TEST_NOW),
     accountLinksApi: new AccountLinksApiFake(),
     libraryApi: new LibraryApiFake(),

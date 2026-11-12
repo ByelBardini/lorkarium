@@ -1,5 +1,8 @@
 import { MailIcon } from 'lucide-react';
+import type { UserPlan } from '@lorkarium/contracts';
 import { UserAvatar } from '@/components/user-avatar';
+import { UserHandle } from '@/components/user-handle';
+import { PLAN_NAMES, sealHolderOfAccount } from '@/lib/plan-seal';
 import { lastAccessLabel, type DirectoryRow } from '@/lib/user-directory';
 import { ROLE_LABEL } from './admin-messages';
 import { UserStatusLabel } from './user-status-label';
@@ -27,11 +30,13 @@ export function UsersTable({ rows, now, selfId, actionsOf }: UsersTableProps): R
         <caption className="sr-only">Usuários</caption>
         <thead>
           <tr>
-            {['Usuário', 'E-mail', 'Papel', 'Status', 'Mesas', 'Último acesso'].map((title) => (
-              <th key={title} scope="col" className={HEAD}>
-                {title}
-              </th>
-            ))}
+            {['Usuário', 'E-mail', 'Papel', 'Plano', 'Status', 'Mesas', 'Último acesso'].map(
+              (title) => (
+                <th key={title} scope="col" className={HEAD}>
+                  {title}
+                </th>
+              ),
+            )}
             <th scope="col" className={HEAD}>
               <span className="sr-only">Ações</span>
             </th>
@@ -75,13 +80,20 @@ function UserCells({
                 <span className="ml-2 text-xs font-normal text-muted-foreground">você</span>
               )}
             </span>
-            <span className="text-xs text-muted-foreground">@{user.username}</span>
+            <UserHandle
+              username={user.username}
+              seal={sealHolderOfAccount(user)}
+              className="text-xs text-muted-foreground"
+            />
           </div>
         </div>
       </td>
       <td className={CELL}>{user.email}</td>
       <td className={CELL}>
         <RoleLabel role={user.role} />
+      </td>
+      <td className={CELL}>
+        <PlanCell plan={user.plan} />
       </td>
       <td className={CELL}>
         <UserStatusLabel status={row.status} />
@@ -111,6 +123,7 @@ function InvitationCells({
       <td className={CELL}>
         <RoleLabel role={row.invitation.role} />
       </td>
+      <td className={CELL}>—</td>
       <td className={CELL}>
         <UserStatusLabel status={row.status} />
       </td>
@@ -124,6 +137,16 @@ function RoleLabel({ role }: Readonly<{ role: 'admin' | 'user' }>): React.JSX.El
   return (
     <span className={`text-[11px] font-semibold tracking-[0.12em] uppercase ${tone}`}>
       {ROLE_LABEL[role]}
+    </span>
+  );
+}
+
+// The seal beside the @ shows the highest mark (an admin's hides the plan): the column names the
+// stored plan, which is what the backoffice manages.
+function PlanCell({ plan }: Readonly<{ plan: UserPlan }>): React.JSX.Element {
+  return (
+    <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+      {PLAN_NAMES[plan]}
     </span>
   );
 }

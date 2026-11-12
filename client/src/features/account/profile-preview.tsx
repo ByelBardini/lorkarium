@@ -1,9 +1,11 @@
 import { isHexColor, type MemberColorDto } from '@lorkarium/contracts';
 import { useId } from 'react';
 import { UserAvatar } from '@/components/user-avatar';
+import { UserHandle } from '@/components/user-handle';
 import { legibleInkOn } from '@/lib/color-contrast';
 import { memberColorCss } from '@/lib/member-color';
 import { memberSinceLabel } from '@/lib/member-since';
+import type { PlanSealHolder } from '@/lib/plan-seal';
 
 export type ProfilePreviewProps = Readonly<{
   name: string;
@@ -12,12 +14,13 @@ export type ProfilePreviewProps = Readonly<{
   avatarId: string | null;
   bio: string;
   memberSince: string;
+  seal: PlanSealHolder;
 }>;
 
 /** "Como a galera te vê": the draft as the others will see it, before it is saved, and the ping
- *  in the chosen color on a still mini grid (no animation: it is an illustration, not the board).
+ *  in the chosen color on a still mini grid, with the @ and the seal symbol the others see (no animation: it is an illustration, not the board).
  *
- *  Example: `<ProfilePreview {...draft.values} username={profile.username} avatarId={profile.avatarId} memberSince={profile.memberSince} />` */
+ *  Example: `<ProfilePreview {...draft.values} username={profile.username} avatarId={profile.avatarId} memberSince={profile.memberSince} seal={profile} />` */
 export function ProfilePreview(props: ProfilePreviewProps): React.JSX.Element {
   const titleId = useId();
   const shownName = props.name.trim() || 'Sem apelido';
@@ -34,7 +37,11 @@ export function ProfilePreview(props: ProfilePreviewProps): React.JSX.Element {
         <UserAvatar name={shownName} color={props.color} avatarId={props.avatarId} size="lg" />
         <div className="min-w-0">
           <p className="truncate font-display text-xl font-semibold">{shownName}</p>
-          <p className="text-sm text-muted-foreground">@{props.username}</p>
+          <UserHandle
+            username={props.username}
+            seal={props.seal}
+            className="text-sm text-muted-foreground"
+          />
         </div>
       </div>
       <p className="text-sm text-muted-foreground">{memberSinceLabel(props.memberSince)}</p>

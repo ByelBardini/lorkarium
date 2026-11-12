@@ -16,9 +16,12 @@ import { squarePo } from '../support/drawings-factories';
 import { corridorTorchPo } from '../support/lights-factories';
 import { bramRow, inspirationBar, lyraPo, pvBar } from '../support/tokens-factories';
 import { cellDoorPo, northWallPo } from '../support/walls-factories';
+import { setAccountPlan } from '../support/account-plans';
 import { useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Vharn as it was before the plans: its owner has no plan limit.
+beforeEach(() => setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono'));
 
 function libraryUrl(): string {
   return `/api/campaigns/${live.vharn.id}/scenes`;

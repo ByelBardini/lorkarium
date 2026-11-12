@@ -86,6 +86,8 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
   account: ['account'],
   // Invites, suspends and deletes accounts (Bia's table blocks her deletion): its own group too.
   backoffice: ['backoffice'],
+  // Moves Bia between plans in the backoffice (back to her seeded plan after each test).
+  plans: ['plans'],
 };
 
 assertEverySpecIsGrouped(SPEC_GROUPS);

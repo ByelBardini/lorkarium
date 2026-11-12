@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Database } from '../../database/database';
 import type { AssetStoragePort } from '../assets/asset-storage.port';
 import type { ImageFetcherPort } from '../assets/image-fetcher.port';
+import { UsersDao } from '../auth/users.dao';
 import type { AvatarProcessorPort } from './avatar-processor.port';
 import type { ProfileChangedPort } from './profile-changed.port';
 import { profileImageEdgesOf } from './profile-images.routes';
@@ -34,6 +35,7 @@ export function createProfilesModule(options: ProfilesModuleOptions): ProfilesMo
     storage: options.storage,
     processor: options.processor,
     profileChanged: options.profileChanged,
+    accounts: new UsersDao(options.db),
     fetcher: options.fetcher,
     newId: randomUUID,
   });

@@ -123,8 +123,9 @@ function fromLibrary(
   created: boolean,
 ): IntentAnswer {
   if (result.ok) return { ok: true, createdId: created ? (result.value?.id ?? null) : null };
-  const { kind } = result.failure;
-  return { ok: false, message: libraryFailureMessage(kind), signedOut: kind === 'unauthenticated' };
+  const { failure } = result;
+  const signedOut = failure.kind === 'unauthenticated';
+  return { ok: false, message: libraryFailureMessage(failure), signedOut };
 }
 
 function fromActivation(result: SceneActivationResult): IntentAnswer {

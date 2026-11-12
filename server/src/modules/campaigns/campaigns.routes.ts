@@ -31,6 +31,7 @@ import {
 import type { CampaignsService } from './campaigns.service';
 import type { JuggernautService } from './juggernaut.service';
 import type { MemberRoleService } from './member-role.service';
+import { withPlanLimitReply } from '../plans/plan-limit-response';
 
 // Spec §8.4: keyed by the signed-in user, so guessing codes costs one account per 10 tries a minute.
 const JOIN_ATTEMPTS_PER_MINUTE = 10;
@@ -80,7 +81,7 @@ export function campaignsRoutes(
 ): (app: FastifyInstance) => Promise<void> {
   return async (app: FastifyInstance): Promise<void> => {
     await app.register(rateLimit, { global: false, errorResponseBuilder: rateLimitedError });
-    app.setErrorHandler(replyWithApiError);
+    app.setErrorHandler(withPlanLimitReply(replyWithApiError));
     registerCampaignRoutes(app, services.campaigns);
     registerJoinRoutes(app, services.join);
     registerSettingsRoutes(app, services.settings);

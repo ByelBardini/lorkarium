@@ -30,6 +30,8 @@ export type AuthServiceDeps = Readonly<{
   /** Hash of a random secret, verified when the e-mail is unknown so both refusals cost the same time. */
   decoyHash: string;
   sessionEnded: SessionEndedPort;
+  /** The server's OWNER_USERNAME: the account of that @ is the Dono do Lorkarium (null: nobody). */
+  ownerUsername: string | null;
 }>;
 
 export type IssuedSession = Readonly<{
@@ -91,12 +93,12 @@ export class AuthService {
     const device = { userAgent: agent, lastSeenAt: now };
     await this.deps.sessions.insert({ id, userId: row.id, ...device, ...terms });
     await this.deps.users.touchLastSeen(row.id, now);
-    return { user: toAuthUserDto(row, this.deps.cipher), token, ...terms };
+    return { user: toAuthUserDto(row, this.deps.cipher, this.deps.ownerUsername), token, ...terms };
   }
 
   async resolveSession(token: string | undefined): Promise<ResolvedSession | null> {
     const resolved = await this.resolveRows(token);
-    return resolved && toResolvedSession(resolved, this.deps.cipher);
+    return resolved && toResolvedSession(resolved, this.deps);
   }
 
   /** The session of `token` when its account holds `required`; throws UNAUTHENTICATED or FORBIDDEN_ROLE. */
@@ -105,7 +107,7 @@ export class AuthService {
     if (!resolved)
       throw new UnauthenticatedError(token ? 'an unknown or expired session' : 'no session cookie');
     toUserAccessBo(resolved.user).requireRole(required);
-    return toResolvedSession(resolved, this.deps.cipher);
+    return toResolvedSession(resolved, this.deps);
   }
 
   async logout(token: string | undefined): Promise<void> {
@@ -173,10 +175,10 @@ type ResolvedRows = Readonly<{ user: UserPo; session: AuthSessionPo; expiresAt: 
 
 function toResolvedSession(
   { user, session, expiresAt }: ResolvedRows,
-  cipher: DataCipherPort,
+  { cipher, ownerUsername }: Pick<AuthServiceDeps, 'cipher' | 'ownerUsername'>,
 ): ResolvedSession {
   return {
-    user: toAuthUserDto(user, cipher),
+    user: toAuthUserDto(user, cipher, ownerUsername),
     sessionId: session.id,
     expiresAt,
     recheckAt: toAuthSessionBo({ ...session, expiresAt }).recheckAt(),

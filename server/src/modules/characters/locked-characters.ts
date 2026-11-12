@@ -1,4 +1,5 @@
 import type { ClockPort } from '../auth/clock.port';
+import type { UserPlanPo } from '../auth/users.po';
 import type { CharactersDao } from './characters.dao';
 
 /** What a transaction on the table's characters needs: their lock and their version. */
@@ -8,8 +9,14 @@ export type CharactersLockDaos = Readonly<{
 
 export type CharactersTransaction<Daos> = <T>(work: (daos: Daos) => Promise<T>) => Promise<T>;
 
-/** The table's characters, locked: the daos of the transaction and the version as it was. */
-export type LockedCharacters<Daos> = Readonly<{ daos: Daos; campaignId: string; version: number }>;
+/** The table's characters, locked: the daos of the transaction, the version as it was and the
+ *  plan of the table's owner, read in the lock (`effectiveLimitsOf(owner)` gives the limits). */
+export type LockedCharacters<Daos> = Readonly<{
+  daos: Daos;
+  campaignId: string;
+  version: number;
+  owner: UserPlanPo;
+}>;
 
 /** What a work on the characters saved and whether it changed them (a change gets a version). */
 export type CharactersChangeOf<T> = Readonly<{ value: T; changed: boolean }>;
@@ -44,11 +51,11 @@ export async function lockCharacters<Daos extends CharactersLockDaos>(
   daos: Daos,
   campaignId: string,
 ): Promise<LockedCharacters<Daos>> {
-  const version = await daos.characters.lockVersion(campaignId);
-  if (version === undefined) {
+  const row = await daos.characters.lockVersion(campaignId);
+  if (row === undefined) {
     throw new Error(`campaign ${campaignId} has no row to lock its characters; expected the table`);
   }
-  return { daos, campaignId, version };
+  return { daos, campaignId, version: row.version, owner: row.owner };
 }
 
 /** The version the characters end at: bumped once if the work changed them, as it was if not.

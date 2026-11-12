@@ -23,6 +23,7 @@ import type { AuthService, IssuedChallenge, IssuedSession, ResolvedSession } fro
 import { TWO_FACTOR_CHALLENGE_MS } from './two-factor-challenge.bo';
 import type { TwoFactorLoginService } from './two-factor-login.service';
 import type { UserRole } from './user-access.bo';
+import { withPlanLimitReply } from '../plans/plan-limit-response';
 
 export const SESSION_COOKIE = 'lk_session';
 
@@ -93,7 +94,7 @@ export function authRoutes(
 ): (app: FastifyInstance) => Promise<void> {
   return async (app: FastifyInstance): Promise<void> => {
     await app.register(rateLimit, { global: false, errorResponseBuilder: rateLimitedError });
-    app.setErrorHandler(replyWithApiError);
+    app.setErrorHandler(withPlanLimitReply(replyWithApiError));
     registerLoginRoutes(app, services, cookiePolicy);
     registerSessionRoutes(app, services.auth, cookiePolicy);
   };

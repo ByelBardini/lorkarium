@@ -32,6 +32,7 @@ import type { LibraryMapsService } from './library-maps.service';
 import type { MapAppearancesService } from './map-appearances.service';
 import type { MapRegionShowService } from './map-region-show.service';
 import type { MapRegionsService } from './map-regions.service';
+import { withPlanLimitReply } from '../plans/plan-limit-response';
 
 const MAPS_URL = '/campaigns/:campaignId/library-maps';
 const MAP_URL = `${MAPS_URL}/:mapId`;
@@ -82,7 +83,7 @@ export function libraryMapsRoutes(
   services: LibraryMapRouteServices,
 ): (app: FastifyInstance) => Promise<void> {
   return async (app: FastifyInstance): Promise<void> => {
-    app.setErrorHandler(replyWithMapError);
+    app.setErrorHandler(withPlanLimitReply(replyWithMapError));
     registerMapRoutes(app, services.maps);
     registerMainMapRoutes(app, services.maps);
     registerRegionRoutes(app, services.regions);

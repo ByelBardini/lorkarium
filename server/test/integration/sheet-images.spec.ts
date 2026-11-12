@@ -8,7 +8,8 @@ import {
 } from '@lorkarium/contracts';
 import { count } from 'drizzle-orm';
 import type { LightMyRequestResponse } from 'fastify';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { assets } from '../../src/modules/assets/assets.po';
 import { animatedGifOf, pngOf } from '../support/images';
 import { envelope, send } from '../support/live-table';
@@ -17,6 +18,8 @@ import type { Table } from '../support/tables';
 import { tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// These tables create several templates: Ana's plan sets no limit here.
+beforeEach(() => setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono'));
 const CODE = { files: [{ path: 'index.html', content: '<p></p>' }] };
 
 async function sheetOf(

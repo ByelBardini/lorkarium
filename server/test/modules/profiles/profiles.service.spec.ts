@@ -4,6 +4,7 @@ import { ProfilesService } from '../../../src/modules/profiles/profiles.service'
 import { AssetStorageFake, ImageFetcherFake } from '../../support/assets-fakes';
 import { ANA_ID } from '../../support/auth-factories';
 import { BIA_ID } from '../../support/campaigns-factories';
+import { PlanAccountsFake, planAccount } from '../../support/plan-account-fakes';
 import {
   AvatarProcessorFake,
   ProfileChangedFake,
@@ -22,6 +23,7 @@ describe('ProfilesService', () => {
   let processor: AvatarProcessorFake;
   let profileChanged: ProfileChangedFake;
   let fetcher: ImageFetcherFake;
+  let accounts: PlanAccountsFake;
   let service: ProfilesService;
 
   beforeEach(() => {
@@ -32,8 +34,10 @@ describe('ProfilesService', () => {
     processor = new AvatarProcessorFake(journal);
     profileChanged = new ProfileChangedFake(journal);
     fetcher = new ImageFetcherFake();
+    accounts = new PlanAccountsFake().set(BIA_ID, planAccount({ plan: 'free' }));
     service = new ProfilesService({
       profiles,
+      accounts,
       storage,
       processor,
       profileChanged,
@@ -55,6 +59,9 @@ describe('ProfilesService', () => {
         diceTextureId: null,
         diceNumberColor: null,
         memberSince: '2026-10-01T12:00:00.000Z',
+        plan: 'amigo_do_dono',
+        admin: false,
+        lorkariumOwner: false,
       });
     });
 
@@ -349,6 +356,107 @@ describe('ProfilesService', () => {
       await expect(service.openDiceTexture(OLD_AVATAR)).rejects.toMatchObject({
         code: 'DICE_TEXTURE_NOT_FOUND',
       });
+    });
+  });
+
+  describe('the customizations follow the plan of the person', () => {
+    const LINK = 'https://media.example.com/t.png';
+    const customColor = { code: 'PLAN_LIMIT', resource: 'customColor', limit: 0, plan: 'free' };
+    const diceTexture = { code: 'PLAN_LIMIT', resource: 'diceTexture', limit: 0, plan: 'free' };
+
+    it('Bia on free is refused a hex profile color, and nothing is written', async () => {
+      await expect(service.update(BIA_ID, { color: '#336699' })).rejects.toMatchObject(customColor);
+      expect(journal).toEqual([]);
+    });
+
+    it('Bia on free still picks a palette color or the automatic one', async () => {
+      await service.update(BIA_ID, { color: 'rose' });
+      await service.update(BIA_ID, { color: null, name: 'Bia B.' });
+
+      expect(profiles.updates).toEqual([{ color: 'rose' }, { color: null, name: 'Bia B.' }]);
+    });
+
+    it('Bia on free is refused a dice number color, but may go back to the automatic one', async () => {
+      const hex = service.update(BIA_ID, { diceNumberColor: '#ffffff' });
+      await expect(hex).rejects.toMatchObject(customColor);
+
+      await service.update(BIA_ID, { diceNumberColor: null });
+      expect(profiles.updates).toEqual([{ diceNumberColor: null }]);
+    });
+
+    it('an edit without a color does not read the plan', async () => {
+      await service.update(BIA_ID, { bio: 'Jogadora' });
+
+      expect(accounts.asked).toEqual([]);
+    });
+
+    it('the hex color Bia already had stays when the profile is read (who is past keeps it)', async () => {
+      profiles.rows[1] = profileRow({ id: BIA_ID, username: 'bia', color: '#336699' });
+
+      expect(await service.profileOf(BIA_ID)).toMatchObject({ colorChoice: '#336699' });
+    });
+
+    it('Bia on Apoiador takes a hex color', async () => {
+      accounts.set(BIA_ID, planAccount({ plan: 'apoiador' }));
+
+      const profile = await service.update(BIA_ID, { color: '#336699' });
+
+      expect(profile.colorChoice).toBe('#336699');
+    });
+
+    it('the admin on free takes a hex color (no plan limit)', async () => {
+      accounts.set(BIA_ID, planAccount({ role: 'admin', plan: 'free' }));
+
+      expect((await service.update(BIA_ID, { diceNumberColor: '#ffffff' })).diceNumberColor).toBe(
+        '#ffffff',
+      );
+    });
+
+    it('Bia on free is refused a dice texture before it is decoded', async () => {
+      await expect(service.replaceDiceTexture(BIA_ID, PHOTO)).rejects.toMatchObject(diceTexture);
+      expect(journal).toEqual([]);
+    });
+
+    it('Bia on free is refused a dice texture by link before it is downloaded', async () => {
+      const sent = service.replaceDiceTextureFromLink(BIA_ID, LINK);
+
+      await expect(sent).rejects.toMatchObject(diceTexture);
+      expect(fetcher.fetched).toEqual([]);
+    });
+
+    it('Bia on free still takes off the dice texture she already had', async () => {
+      profiles.rows[1] = profileRow({ id: BIA_ID, username: 'bia', diceTextureId: OLD_AVATAR });
+
+      expect((await service.removeDiceTexture(BIA_ID)).diceTextureId).toBeNull();
+    });
+
+    it('the photo of Bia on free is kept still (first frame), sent or by link', async () => {
+      await service.replaceAvatar(BIA_ID, PHOTO);
+      await service.replaceAvatarFromLink(BIA_ID, LINK);
+
+      expect(processor.shapes).toEqual([
+        { side: 256, animated: false },
+        { side: 256, animated: false },
+      ]);
+    });
+
+    it('the photo of Bia on Apoiador may move', async () => {
+      accounts.set(BIA_ID, planAccount({ plan: 'apoiador' }));
+
+      await service.replaceAvatar(BIA_ID, PHOTO);
+
+      expect(processor.shapes).toEqual([{ side: 256, animated: true }]);
+    });
+
+    it('Ana on amigo_do_dono keeps everything as today', async () => {
+      await service.update(ANA_ID, { color: '#336699', diceNumberColor: '#ffffff' });
+      await service.replaceDiceTexture(ANA_ID, PHOTO);
+      await service.replaceAvatar(ANA_ID, PHOTO);
+
+      expect(processor.shapes).toEqual([
+        { side: 512, animated: false },
+        { side: 256, animated: true },
+      ]);
     });
   });
 });

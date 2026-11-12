@@ -1,4 +1,9 @@
-import type { AuthUserDto, LoginRequestDto, TwoFactorLoginRequestDto } from '@lorkarium/contracts';
+import {
+  PLAN_LIMITS,
+  type AuthUserDto,
+  type LoginRequestDto,
+  type TwoFactorLoginRequestDto,
+} from '@lorkarium/contracts';
 import type {
   AuthApi,
   AuthFailure,
@@ -16,6 +21,10 @@ export const ANA: AuthUserDto = {
   role: 'user',
   color: 'teal',
   avatarId: null,
+  plan: 'amigo_do_dono',
+  lorkariumOwner: false,
+  limits: PLAN_LIMITS.amigo_do_dono,
+  customization: true,
 };
 
 export const ROOT_ADMIN: AuthUserDto = {
@@ -26,6 +35,11 @@ export const ROOT_ADMIN: AuthUserDto = {
   role: 'admin',
   color: 'bone',
   avatarId: null,
+  // The admin keeps the stored plan (free) and gets the limits of amigo_do_dono.
+  plan: 'free',
+  lorkariumOwner: false,
+  limits: PLAN_LIMITS.amigo_do_dono,
+  customization: true,
 };
 
 type Pending<T> = { promise: Promise<T>; resolve: (value: T) => void };

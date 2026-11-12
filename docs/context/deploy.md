@@ -68,6 +68,7 @@ Lidas por `server/src/config/env.ts`; a regra completa de cada uma está em [`se
 | `SITE_PUBLIC_URL`                 | **obrig.**     | não     | `https://example.com`, sem barra final: a landing; Termos e Privacidade do app redirecionam para lá (ver `legal.md`)    |
 | `ADMIN_EMAIL`                     | opcional       | não     | e-mail do primeiro admin, criado no boot se não existir (nunca troca senha nem papel depois)                            |
 | `ADMIN_PASSWORD`                  | opcional       | **sim** | 12+ caracteres em produção (`openssl rand -base64 18`); só junto com `ADMIN_EMAIL`                                      |
+| `OWNER_USERNAME`                  | opcional       | não     | o @ (sem o `@`) da conta **Dono do Lorkarium**: sem limite de plano e o selo Dono. Vazio = ninguém                      |
 | `S3_ENDPOINT`                     | **obrig.**     | não     | `https://s3.sa-east-1.amazonaws.com`                                                                                    |
 | `S3_REGION`                       | **na prática** | não     | `sa-east-1` (o padrão `us-east-1` assina para a região errada)                                                          |
 | `S3_BUCKET`                       | **obrig.**     | não     | o bucket dos assets, já criado                                                                                          |

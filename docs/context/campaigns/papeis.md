@@ -89,6 +89,15 @@ O que fica: a linha em `campaign_members` (F5, queda e reinício não derrubam o
 - Entrada: unit `campaign-join.bo.spec.ts` (`join-as-spectator`) e `campaign-join.service.spec.ts` (grava `spectator`, fora do `memberCount`; membro de qualquer papel mantém o papel); integração `campaigns.spec.ts` ("join by code and enter the table": entra espectador, entra de novo igual, promovido e entrando de novo continua jogador).
 - Suporte: `DUDA_ID` (a espectadora) em `campaigns-factories.ts`. Em `server/test/support/tables.ts`: o `Table` traz `master` (o `SignedInUser` de `createTable`); `joinAsSpectator(app, user, table)` só entra pelo código; `joinByCode(app, user, table)` entra e o `table.master` promove pela rota (`PATCH …/members/:userId`, 200 exigido). `TokenTableHarness.joinAsSpectator(user, table)`, `signUp(nome)` e `connect(usuário)` (conexão sem mesa) em `token-table.ts`. Um `Table` montado à mão precisa do `master`; `atTable`/`synced` de `live-table.ts` pedem só `Pick<Table, 'id'>`. E2E: `joinByCodeAndEnter(player, código, mestre)` e `joinAsSpectatorAndEnter` (ver [`../ci/e2e.md`](../ci/e2e.md)).
 
+## Tetos do plano (espectadores, jogadores, co-mestres)
+
+Seguem o plano do **dono** ([`../plans.md`](../plans.md)): o Grátis aceita 2 espectadores, 6 jogadores e 1 co-mestre. O dono e o juggernaut não ocupam assento (`CampaignMembersDao.countByRole` os deixa de fora). Recusa = 403 `PLAN_LIMIT` com `planLimit.resource` `spectators` | `players` | `masters`; nada é gravado nem avisado.
+
+- **Entrada** (código e Explorar): toda entrada é como espectador, então "mesa cheia" é o teto de espectadores. O `CampaignJoinService` conta e insere na transação do assento, com a mesa travada por `lockWithOwner` (duas entradas ao mesmo tempo não passam as duas). Quem já é membro entra de novo sem contar nem travar. A mesa sumida antes da trava → `CAMPAIGN_NOT_FOUND`.
+- **Troca de papel**: o `MemberRoleService.write` trava a mesa (`lockWithOwner`) no começo da transação do papel e conta o papel de **destino** (`player` → `players`, `master` → `masters`). Ir para espectador não conta: a pessoa já estava na mesa.
+- O juggernaut entra pela rota dele, fora desses tetos, numa mesa cheia.
+- Provado em `server/test/modules/campaigns/campaign-join.service.spec.ts` e `member-role.service.spec.ts` (os `describe` do plano do dono) e na integração `server/test/integration/members-plan-limit.spec.ts` (rotas, juggernaut, isolamento e o `countByRole`).
+
 ## Assento obtido só pelo papel de admin
 
 O admin que entra pelo Explorar numa mesa privada ou com senha ganha o assento de espectador sem código nem senha. `CampaignJoinBo.bypassesGate()` decide e o `CampaignJoinService` grava `admin_bypass_since`. Mesa pública sem senha não marca: qualquer pessoa entraria igual. Perder o admin apaga o assento marcado (`revokeAdminSeatsOf`), inclusive o de quem estava em juggernaut sobre ele; mudar o papel pelo mestre (`updateRole`) limpa a marca, porque aí o assento passou a ser escolha da mesa. Assentos anteriores à migração `0090` não têm marca e ficam.

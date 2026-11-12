@@ -1,9 +1,14 @@
-import { MAX_BARS_PER_TOKEN, type SheetManifestBarDto } from '@lorkarium/contracts';
+import {
+  MAX_BARS_PER_TOKEN,
+  type PlanLimits,
+  type SheetManifestBarDto,
+} from '@lorkarium/contracts';
 import { missingManifestBars } from '@lorkarium/game-core';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CharactersDao } from '../characters/characters.dao';
 import { lockCharacters, savedVersionOf } from '../characters/locked-characters';
 import type { ConditionsDao } from '../conditions/conditions.dao';
+import { effectiveLimitsOf } from '../plans/plan-limits.bo';
 import { reachedGridOf } from '../scenes/locked-scene';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import type { TokenHangingDao } from '../tokens/token-hanging.dao';
@@ -45,16 +50,19 @@ export type GivenManifestBars = Readonly<{
 }>;
 
 /** The master who gives the sheet, its new holder, its template and the main sheets the same
- *  transaction already changed. */
+ *  transaction already changed. `limits` are the table's (its owner's, read under the table
+ *  lock): a character's bars stop at its plan's cap; without them, at the technical one. A loose
+ *  token's stop at the plan read with its grid's lock either way. */
 export type ManifestBarsGift = Readonly<{
   access: CampaignAccessBo;
   place: SheetHolderPlacePo | null;
   template: Pick<SheetTemplatePo, 'manifest'>;
   mainSheets: SavedMainSheets | null;
+  limits?: PlanLimits | undefined;
 }>;
 
 /** Adds the template's bars the holder lacks (by label, `missingManifestBars`), up to the bar
- *  cap, inside the sheet's transaction: a character's in the characters' version (one bump with
+ *  cap of the table's plan, inside the sheet's transaction: a character's in the characters' version (one bump with
  *  the main sheets), a loose token's in its grid's. Existing bars keep their values; nobody, an
  *  empty manifest or nothing missing writes nothing.
  *
@@ -80,7 +88,8 @@ async function giveToCharacter(
   const locked = await lockCharacters(daos, campaignId);
   const [row] = await daos.characters.findManyInCampaign(campaignId, [place.characterId]);
   if (!row) throw new Error(`character ${place.characterId} vanished under the lock`);
-  const plan = missingManifestBars(row.bars, bars, MAX_BARS_PER_TOKEN);
+  const cap = gift.limits?.maxBarsPerToken ?? MAX_BARS_PER_TOKEN;
+  const plan = missingManifestBars(row.bars, bars, cap);
   const unchanged = { skippedBars: plan.skipped, characters: gift.mainSheets, token: null };
   if (plan.added.length === 0) return unchanged;
   await daos.characters.replaceBars(place.characterId, toManifestBarInputsPo(row.bars, plan.added));
@@ -101,7 +110,8 @@ async function giveToToken(
   const address = { campaignId, sceneId: place.sceneId, access: gift.access };
   const scene = reachedGridOf(address, await daos.scenes.lockInCampaign(campaignId, place.sceneId));
   const found = await tokenOf(daos, scene.id, place.tokenId);
-  const plan = missingManifestBars(found.bars, manifestBars, MAX_BARS_PER_TOKEN);
+  const cap = effectiveLimitsOf(scene.owner).maxBarsPerToken;
+  const plan = missingManifestBars(found.bars, manifestBars, cap);
   const unchanged = { skippedBars: plan.skipped, characters: gift.mainSheets, token: null };
   if (plan.added.length === 0) return unchanged;
   const bars = toManifestBarInputsPo(found.bars, plan.added);

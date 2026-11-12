@@ -33,6 +33,8 @@ import { charactersEventBase, inLockedCharacters } from '../characters/locked-ch
 import { gridEventBase, type SavedVersion } from '../scenes/locked-scene';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import type { ScenePo } from '../scenes/scenes.po';
+import { CustomColorPlanBo } from '../plans/custom-color-plan.bo';
+import { effectiveLimitsOf } from '../plans/plan-limits.bo';
 import { publishCharactersChange } from '../tokens/character-writes';
 import { charactersIn } from '../tokens/linked-token';
 import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
@@ -137,7 +139,10 @@ export class ConditionsService {
     const outcome = await inLockedCharacters(
       this.deps.transaction,
       campaignId,
-      async ({ daos }) => {
+      async ({ daos, owner }) => {
+        const limits = effectiveLimitsOf(owner);
+        RULES.requireImageInPlan(command.imageAssetId, null, limits);
+        CustomColorPlanBo.requirePaletteUnlessAllowed(command.color, limits);
         await requireAssetsOf(daos, campaignId, [command.imageAssetId]);
         const existing = await daos.conditions.findDefinitionByName(campaignId, command.name);
         if (RULES.defineOrReuse(existing).kind === 'reuse') return { value: null, changed: false };

@@ -15,6 +15,7 @@ import {
   SavedRollsTransactionRunnerFake,
   savedRollFolderPo,
 } from '../../support/saved-rolls-fakes';
+import { planAccount } from '../../support/plan-account-fakes';
 
 const BIA = { campaignId: VHARN_ID, userId: BIA_ID };
 const CAIO = { campaignId: VHARN_ID, userId: CAIO_ID };
@@ -31,7 +32,7 @@ function setup(maxFolders = 50) {
   const folders = new SavedRollFoldersDaoFake(journal, [savedRollFolderPo()]);
   const transaction = new SavedRollsTransactionRunnerFake(journal, { rolls, folders }).run;
   const service = new SavedRollFoldersService({ members, folders, transaction, maxFolders });
-  return { service, journal, folders };
+  return { service, journal, folders, rolls };
 }
 
 describe('SavedRollFoldersService', () => {
@@ -66,6 +67,35 @@ describe('SavedRollFoldersService', () => {
       code: 'SAVED_ROLL_FOLDERS_LIMIT',
     });
     expect(journal).not.toContain('folder:insert:Ataques');
+  });
+
+  it('at a free table the first folder is PLAN_LIMIT savedRollFolders and nothing is inserted', async () => {
+    const { service, journal, rolls } = setup();
+    rolls.tablePlans.set(VHARN_ID, planAccount({ plan: 'free' }));
+
+    await expect(service.create(BIA, 'Ataques')).rejects.toMatchObject({
+      code: 'PLAN_LIMIT',
+      resource: 'savedRollFolders',
+      limit: 0,
+      plan: 'free',
+    });
+    expect(journal).toEqual(['lock', 'folder:count']);
+  });
+
+  it('at a narrador table Bia creates a folder', async () => {
+    const { service, journal, rolls } = setup();
+    rolls.tablePlans.set(VHARN_ID, planAccount({ plan: 'narrador' }));
+
+    await service.create(BIA, 'Ataques');
+
+    expect(journal).toContain('folder:insert:Ataques');
+  });
+
+  it('at a free table Bia still renames the folder she kept from before', async () => {
+    const { service, rolls } = setup();
+    rolls.tablePlans.set(VHARN_ID, planAccount({ plan: 'free' }));
+
+    expect(await service.rename(BIA, MAGIAS_ID, 'Feitiços')).toMatchObject({ name: 'Feitiços' });
   });
 
   it('renames her folder', async () => {

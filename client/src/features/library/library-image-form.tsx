@@ -32,7 +32,7 @@ export function LibraryImageForm(props: LibraryImageFormProps): React.JSX.Elemen
       bodyOf={(request) => createLibraryImageRequestDto.safeParse(request).data ?? null}
       register={async (body) => {
         const answer = await props.api.createImage(props.campaignId, body);
-        if (!answer.ok) return libraryFailureMessage(answer.failure.kind);
+        if (!answer.ok) return libraryFailureMessage(answer.failure);
         props.onSaved(answer.value);
         return null;
       }}

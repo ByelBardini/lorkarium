@@ -17,7 +17,7 @@ PK `(user_id, color)`: é ela que garante "sem repetição" e atende a leitura p
 ## Estrutura
 
 - `saved-colors.po.ts` — a tabela; `SavedColorPo`. A coluna é `` `#${string}` `` sem importar o DTO (seta proibida para o PO)
-- `saved-colors.dao.ts` — `SavedColorsDao(db | tx)`, toda consulta chaveada pela conta: `lockOwner(userId)`, `listOf(userId)` (mais recente primeiro; empate pela cor), `insertIfAbsent(userId, color)` → a linha ou `undefined` se já havia, `remove(userId, color)` (idempotente)
+- `saved-colors.dao.ts` — `SavedColorsDao(db | tx)`, toda consulta chaveada pela conta: `lockOwner(userId)` → `UserPlanPo | undefined` (`{ role, plan, lorkariumOwner }`, a trava já lê o plano), `listOf(userId)` (mais recente primeiro; empate pela cor), `insertIfAbsent(userId, color)` → a linha ou `undefined` se já havia, `remove(userId, color)` (idempotente)
 - `saved-colors.bo.ts` — `SavedColorAdmissionBo(maxSaved).mustInsert(salvas, cor)`: `false` se já guardada (mesmo com a lista cheia), `true` se há espaço, lança `SavedColorsLimitError` se não há
 - `saved-colors.mapper.ts` — `toSavedColorsResponse(rows)`
 - `saved-colors.service.ts` — `SavedColorsService`: `list`, `save`, `remove`; toda resposta é a lista inteira
@@ -28,11 +28,11 @@ PK `(user_id, color)`: é ela que garante "sem repetição" e atende a leitura p
 
 Resposta de sucesso das três: 200 `savedColorsResponseDto` `{ colors }`, mais recente primeiro.
 
-| Rota                                  | Entrada                                                  | Erros                                                                    |
-| ------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `GET /account/saved-colors`           | —                                                        | 401                                                                      |
-| `POST /account/saved-colors`          | `saveColorRequestDto` `{ color }` (estrito, normalizado) | 400 `INVALID_BODY` · 401 · 409 `SAVED_COLORS_LIMIT` · 429 `RATE_LIMITED` |
-| `DELETE /account/saved-colors/:color` | `savedColorParamsDto`: o hex **sem `#`** (`/aabbcc`)     | 400 `INVALID_BODY` · 401 · 429 `RATE_LIMITED`                            |
+| Rota                                  | Entrada                                                  | Erros                                                                                                       |
+| ------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `GET /account/saved-colors`           | —                                                        | 401                                                                                                         |
+| `POST /account/saved-colors`          | `saveColorRequestDto` `{ color }` (estrito, normalizado) | 400 `INVALID_BODY` · 401 · 403 `PLAN_LIMIT` (`customColor`) · 409 `SAVED_COLORS_LIMIT` · 429 `RATE_LIMITED` |
+| `DELETE /account/saved-colors/:color` | `savedColorParamsDto`: o hex **sem `#`** (`/aabbcc`)     | 400 `INVALID_BODY` · 401 · 429 `RATE_LIMITED`                                                               |
 
 - A conta é sempre a da sessão: um `userId` no corpo é 400 (DTO estrito).
 - Salvar o que já está na lista responde 200 com a lista igual, sem subir a cor para o topo. Excluir o que não está também responde 200.
@@ -42,6 +42,8 @@ Resposta de sucesso das três: 200 `savedColorsResponseDto` `{ colors }`, mais r
 ## A corrida do teto
 
 `save` abre a transação e trava a linha da conta em `users` com `FOR NO KEY UPDATE` **antes** de contar e inserir (`lock → list → insert → commit`): 30 `POST` paralelos deixam exatamente 24 linhas e seis 409. O modo não conflita com o `FOR KEY SHARE` que as FKs de outras tabelas tomam ao apontar para a conta, então salvar uma cor não segura nenhum comando de mesa. A resposta soma a linha nova à lista lida, sem reler.
+
+Toda cor salva é hex: sem personalização (`customizationAllowed` do plano lido na trava; ver [`plans.md`](plans.md)) o `save` é `PLAN_LIMIT` `customColor` logo depois do `lock` (`lock → rollback`). Listar e excluir passam em todo plano.
 
 `remove` não precisa da transação: é uma linha só, e a lista relida depois dele é a resposta.
 

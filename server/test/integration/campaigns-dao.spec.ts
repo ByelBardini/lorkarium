@@ -149,4 +149,28 @@ describe('CampaignsDao on Postgres', () => {
       expect(await campaignsDao.delete(UNKNOWN_ID)).toBe(false);
     });
   });
+
+  describe('countOwnedBy', () => {
+    it('counts only the tables the account owns, of any status, not the ones it plays in', async () => {
+      const users = new UsersDao(connection.db);
+      const caioId = (await users.insert(newUserPo({ name: 'Caio', email: 'caio@mesa.com' }))).id;
+      await campaignsDao.insert(newCampaignPo({ ownerId: anaId }));
+      await campaignsDao.insert(
+        newCampaignPo({ ownerId: anaId, joinCode: 'PNTN2345', status: 'finished' }),
+      );
+      const quelm = await campaignsDao.insert(
+        newCampaignPo({ ownerId: caioId, joinCode: 'QLMR2345' }),
+      );
+      await new CampaignMembersDao(connection.db).insert(
+        newCampaignMemberPo({ campaignId: quelm.id, userId: anaId }),
+      );
+
+      expect(await campaignsDao.countOwnedBy(anaId)).toBe(2);
+      expect(await campaignsDao.countOwnedBy(caioId)).toBe(1);
+    });
+
+    it('an account that owns nothing counts 0', async () => {
+      expect(await campaignsDao.countOwnedBy(anaId)).toBe(0);
+    });
+  });
 });

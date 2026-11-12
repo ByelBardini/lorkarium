@@ -16,6 +16,7 @@ import type { DatabaseConnection } from '../../src/database/database';
 import { users } from '../../src/modules/auth/users.po';
 import { signUpAndLogin } from '../support/sign-in';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
+import { setAccountPlan } from '../support/account-plans';
 
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000';
 
@@ -36,7 +37,10 @@ describe('public campaigns HTTP edge ("Explorar mesas")', () => {
   beforeEach(async () => {
     await truncateAllTables(connection.db);
     app = await buildApp({ env, db: connection.db });
-    ana = (await signUpAndLogin(app, connection.db, 'Ana')).token;
+    const anaUser = await signUpAndLogin(app, connection.db, 'Ana');
+    // Owns more than one table: the plan without a ceiling of tables keeps this spec as before.
+    await setAccountPlan(connection.db, anaUser.id, 'amigo_do_dono');
+    ana = anaUser.token;
     bia = (await signUpAndLogin(app, connection.db, 'Bia')).token;
   });
 

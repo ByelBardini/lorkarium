@@ -7,6 +7,7 @@ import {
   type ConditionUsageAckDto,
 } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { gridAck, newGrid } from '../support/grids';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import { recordEventsOf, type RealtimeClient } from '../support/realtime-client';
@@ -127,6 +128,7 @@ describe('condition:updateDefinition', () => {
   });
 
   it('Ana painting Envenenado with a custom color reaches the table, the snapshot and the Kael, and not Quelm', async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
     const ana = await live.atTable(live.ana, live.vharn);
     const kaelId = await kaelHeldByEnvenenadoAndCego(ana);
     const biaEvents = recordEventsOf(await live.atTable(live.bia, live.vharn));

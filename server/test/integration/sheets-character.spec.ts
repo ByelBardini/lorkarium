@@ -5,7 +5,8 @@ import {
   tokenSheetsResponseDto,
   type CharacterChangedEventDto,
 } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { linkToCharacter } from '../support/characters';
 import { gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { envelope, eventPayload, send, silence } from '../support/live-table';
@@ -16,6 +17,8 @@ import { characterOfUser, giveBars, LYRA_BARS } from '../support/table-character
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// These tables create several templates: Ana's plan sets no limit here.
+beforeEach(() => setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono'));
 const CODE = { files: [{ path: 'index.html', content: '<p></p>' }] };
 
 async function templateOf(table: Table = live.vharn): Promise<string> {

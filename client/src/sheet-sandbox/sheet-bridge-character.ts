@@ -94,5 +94,7 @@ async function updated(
 ): Promise<SheetBridgeAnswer> {
   const scope = { campaignId: target.campaignId };
   const result = await target.commands.updateCharacter(scope, characterId, changes);
-  return result.ok ? SHEET_BRIDGE_DONE : refusedByKind(request, result.failure);
+  if (result.ok) return SHEET_BRIDGE_DONE;
+  const { failure } = result;
+  return refusedByKind(request, typeof failure === 'object' ? failure.kind : failure);
 }

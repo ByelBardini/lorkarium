@@ -45,7 +45,10 @@ export class DevPlayersSeedService {
   ): Promise<void> {
     const id = this.deps.newId();
     const sealed = toSealedEmail(this.deps.cipher, id, email);
-    await this.deps.users.insert({ id, ...player, ...sealed, passwordHash });
+    // As every account from before the plans: the stress table they master needs the technical
+    // ceilings (40 lights, blockers), not the free grid.
+    const plan = 'amigo_do_dono' as const;
+    await this.deps.users.insert({ id, ...player, ...sealed, passwordHash, plan });
   }
 
   private async existingEmails(): Promise<ReadonlySet<string>> {

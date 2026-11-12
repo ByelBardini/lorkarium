@@ -1,8 +1,9 @@
 import { isHexColor, type HexColorDto } from '@lorkarium/contracts';
 import { Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { useCustomColorLock, type CustomColorScope } from './custom-color-locks';
 import { CustomColorPanel } from './custom-color-panel';
 
 export type CustomColorTileProps = Readonly<{
@@ -15,6 +16,9 @@ export type CustomColorTileProps = Readonly<{
   legibleOn?: HexColorDto;
   /** Another size, when the row around has larger or smaller swatches than `size-7`. */
   className?: string;
+  /** Whose plan offers the custom color here (`CustomColorLocksContext`); none = always offered
+   *  (a cover tone, a map place). */
+  scope?: CustomColorScope;
 }>;
 
 const TILE_NAME = 'Cor personalizada';
@@ -28,8 +32,11 @@ export function CustomColorTile({
   disabled,
   legibleOn,
   className,
+  scope,
 }: CustomColorTileProps): React.JSX.Element {
   const [open, setOpen] = useState(false);
+  const lock = useCustomColorLock(scope);
+  const hintId = useId();
   const custom = typeof value === 'string' && isHexColor(value) ? value : null;
   const name = custom === null ? TILE_NAME : `${TILE_NAME}: ${custom}`;
   const pick = (color: HexColorDto): void => {
@@ -39,14 +46,20 @@ export function CustomColorTile({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
-        disabled={disabled}
+        disabled={disabled === true || lock !== null}
         aria-label={name}
-        title={name}
+        aria-describedby={lock === null ? undefined : hintId}
+        title={lock ?? name}
         style={custom === null ? undefined : { background: custom }}
         className={cn(tileLookOf(custom !== null), className)}
       >
         {custom === null && <Plus aria-hidden="true" className="size-3.5" />}
       </PopoverTrigger>
+      {lock !== null && (
+        <span id={hintId} className="sr-only">
+          {lock}
+        </span>
+      )}
       <PopoverContent aria-label={TILE_NAME} align="start" className="w-72">
         <CustomColorPanel value={custom} onPick={pick} legibleOn={legibleOn} />
       </PopoverContent>

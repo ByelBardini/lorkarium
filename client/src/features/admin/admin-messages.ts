@@ -1,4 +1,6 @@
+import type { UserPlan } from '@lorkarium/contracts';
 import { OFFLINE_MESSAGE, UNEXPECTED_MESSAGE } from '@/features/campaigns/campaign-messages';
+import { PLAN_NAMES } from '@/lib/plan-seal';
 import type { UserAdminFailure } from '@/services/user-admin-api';
 
 type MessageKind = Exclude<UserAdminFailure['kind'], 'rate_limited'>;
@@ -36,4 +38,9 @@ export function deletionConsequence(username: string, soloCampaigns: number): st
   if (soloCampaigns === 0) return `A conta de @${username} some para sempre.`;
   if (soloCampaigns === 1) return `A conta de @${username} e a mesa só dela somem para sempre.`;
   return `A conta de @${username} e as ${soloCampaigns} mesas só dela somem para sempre.`;
+}
+
+/** Example: `planChangedNotice('bia', 'lenda') // '@bia agora está no plano Lenda.'` */
+export function planChangedNotice(username: string, plan: UserPlan): string {
+  return `@${username} agora está no plano ${PLAN_NAMES[plan]}.`;
 }

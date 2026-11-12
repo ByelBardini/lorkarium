@@ -172,6 +172,7 @@ jobs:
             player-tokens,
             account,
             backoffice,
+            plans,
           ]
     services:
       postgres:

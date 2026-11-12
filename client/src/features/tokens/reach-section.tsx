@@ -61,6 +61,8 @@ export type SwitchedSectionProps = Readonly<{
   hint: string;
   on: boolean;
   onSwitch: (on: boolean) => void;
+  /** The switch is off limits (the table's plan): the hint, then, says why. */
+  disabled?: boolean;
   /** Under the switch, only while on. */
   children?: React.ReactNode;
 }>;
@@ -86,9 +88,17 @@ export function SwitchedSection(props: SwitchedSectionProps): React.JSX.Element 
           <span id={`${id}-title`} className="text-[15px] font-semibold">
             {title}
           </span>
-          <span className="text-[13px] text-muted-foreground">{props.hint}</span>
+          <span id={`${id}-hint`} className="text-[13px] text-muted-foreground">
+            {props.hint}
+          </span>
         </div>
-        <Switch aria-labelledby={`${id}-title`} checked={on} onCheckedChange={props.onSwitch} />
+        <Switch
+          aria-labelledby={`${id}-title`}
+          aria-describedby={props.disabled ? `${id}-hint` : undefined}
+          disabled={props.disabled}
+          checked={on}
+          onCheckedChange={props.onSwitch}
+        />
       </div>
       {on && props.children && (
         <div className="flex flex-col gap-3 empty:hidden sm:pl-[54px]">{props.children}</div>

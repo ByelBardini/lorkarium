@@ -2,10 +2,13 @@ import type {
   CreateDrawingsCommandDto,
   DeleteDrawingsCommandDto,
   MoveDrawingsCommandDto,
+  PlanLimits,
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
+import { CustomColorPlanBo } from '../plans/custom-color-plan.bo';
+import { effectiveLimitsOf } from '../plans/plan-limits.bo';
 import { AuthoredAccessBo } from '../scenes/authored-access.bo';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import {
@@ -83,6 +86,7 @@ export class DrawingsService {
         const rules = this.rulesFor(scene);
         rules.admit(await daos.drawings.countOfScene(scene.id), command.drawings.length);
         for (const shape of command.drawings) rules.place(boxOfShape(shape));
+        requirePaletteOf(command.drawings, effectiveLimitsOf(scene.owner));
         const rows = command.drawings.map((shape) => toNewDrawingPo(scene.id, userId, shape));
         return (await daos.drawings.insertMany(rows)).map(toDrawingDto);
       },
@@ -151,6 +155,14 @@ export class DrawingsService {
   private rulesFor(scene: ScenePo): DrawingRulesBo {
     const sceneSize = { widthCells: scene.widthCells, heightCells: scene.heightCells };
     return new DrawingRulesBo({ scene: sceneSize, limit: this.deps.limit });
+  }
+}
+
+// A hex stroke or fill follows the table's plan; a move keeps the colors, so it never checks.
+function requirePaletteOf(shapes: CreateDrawings['drawings'], limits: PlanLimits): void {
+  for (const shape of shapes) {
+    CustomColorPlanBo.requirePaletteUnlessAllowed(shape.stroke, limits);
+    if ('fill' in shape) CustomColorPlanBo.requirePaletteUnlessAllowed(shape.fill, limits);
   }
 }
 

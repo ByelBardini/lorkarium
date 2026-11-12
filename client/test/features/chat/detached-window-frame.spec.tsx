@@ -14,6 +14,7 @@ describe('detached panel title bar', () => {
     const state: ChatWindow = {
       status: 'detached',
       closeError: null,
+      planHint: null,
       portalTarget: popup.document.body,
       desktopWindow: controls,
       canAlwaysOnTop: true,
@@ -59,6 +60,7 @@ describe('detached panel title bar', () => {
     const state: ChatWindow = {
       status: 'detached',
       closeError: null,
+      planHint: null,
       portalTarget: popup.document.body,
       desktopWindow: null,
       canAlwaysOnTop: true,

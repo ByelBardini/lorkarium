@@ -19,7 +19,9 @@ export function useRoomChatWindow(
       : {
           kind: 'docked',
           open: chatWindow.open,
-          notice: chatWindow.status === 'blocked' ? 'O navegador bloqueou a janela do chat.' : null,
+          notice:
+            chatWindow.planHint ??
+            (chatWindow.status === 'blocked' ? 'O navegador bloqueou a janela do chat.' : null),
         };
   const portal = chatWindow.portalTarget && (
     <ChatWindowPortal target={chatWindow.portalTarget}>

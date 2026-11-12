@@ -9,6 +9,7 @@ import {
   sessionMemberDto,
   sessionRemovedFromTableDto,
 } from '../../src/sessions/session.dto';
+import { PLAN_LIMITS } from '../../src/plans/plan-limits';
 
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
 const CAMPAIGN_ID = '3b9c1a7e-5d2f-4e8a-b6c4-1f0e9d8c7b6a';
@@ -122,11 +123,18 @@ describe('the campaign events', () => {
     tags: [],
     playersCreateTokens: false,
     playersDeleteTokens: false,
+    limits: PLAN_LIMITS.narrador,
   } as const;
 
   it('session:campaignUpdated carries the campaign without what depends on the reader', () => {
     const event = { campaignId: CAMPAIGN_ID, version: 3, campaign: CAMPAIGN, at: STATE.at };
     expect(sessionCampaignUpdatedDto.parse(event)).toEqual(event);
+  });
+
+  it("session:campaignUpdated refuses a campaign without the owner's limits", () => {
+    const campaign = { ...CAMPAIGN, limits: undefined };
+    const event = { campaignId: CAMPAIGN_ID, version: 3, campaign, at: STATE.at };
+    expect(sessionCampaignUpdatedDto.safeParse(event).success).toBe(false);
   });
 
   it('session:campaignUpdated refuses a campaign carrying myRole', () => {
@@ -161,12 +169,26 @@ describe('sessionMemberDto', () => {
     bio: null,
     role: 'master',
     juggernaut: true,
+    plan: 'amigo_do_dono',
+    admin: true,
+    lorkariumOwner: false,
     online: true,
     awaySince: null,
   } as const;
 
   it('carries whether the member is a juggernaut', () => {
     expect(sessionMemberDto.parse(ROOT)).toEqual(ROOT);
+  });
+
+  it('refuses a member without the plan seals or with a plan outside the grid', () => {
+    expect(sessionMemberDto.safeParse({ ...ROOT, plan: undefined }).success).toBe(false);
+    expect(sessionMemberDto.safeParse({ ...ROOT, plan: 'pro' }).success).toBe(false);
+  });
+
+  it('refuses a member that does not say whether they are a global admin', () => {
+    expect(sessionMemberDto.safeParse({ ...ROOT, admin: undefined }).success).toBe(false);
+    const withoutOwner = { ...ROOT, lorkariumOwner: undefined };
+    expect(sessionMemberDto.safeParse(withoutOwner).success).toBe(false);
   });
 
   it('refuses a member that does not say whether they are a juggernaut', () => {

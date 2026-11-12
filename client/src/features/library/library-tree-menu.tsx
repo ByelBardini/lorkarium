@@ -35,6 +35,8 @@ import type { SheetPlayer } from './use-sheet-holder-names';
 import { sceneIdOf, sceneKey } from './library-view';
 import { MoveFolderDialog } from './move-folder-dialog';
 import type { LibrarySubmit } from './use-library-submit';
+import { planHintIdOf } from '@/features/plans/plan-gate';
+import { useLibraryPlanGates } from './library-plan-gates';
 
 /** What the master can do in the tree; a player's tree has none of it. */
 export type TreeMaster = Readonly<{
@@ -194,6 +196,8 @@ function FolderItems(props: MenuActions & Readonly<{ folder: SceneFolderDto }>) 
 function SceneItems(props: MenuActions & Readonly<{ scene: LibrarySceneDto }>) {
   const { master, scene } = props;
   const reasonId = useId();
+  const copyHintId = useId();
+  const gates = useLibraryPlanGates();
   const isGroup = scene.id === master.library.activeSceneId;
   const off = !master.live;
   const duplicate = (): void => void master.submit({ intent: 'duplicateScene', sceneId: scene.id });
@@ -202,9 +206,18 @@ function SceneItems(props: MenuActions & Readonly<{ scene: LibrarySceneDto }>) {
       <ContextMenuItem disabled={off} onSelect={() => props.startRename(sceneKey(scene.id))}>
         Renomear
       </ContextMenuItem>
-      <ContextMenuItem disabled={off} onSelect={duplicate}>
+      <ContextMenuItem
+        disabled={off || !gates.duplicate.open}
+        aria-describedby={planHintIdOf(gates.duplicate, copyHintId)}
+        onSelect={duplicate}
+      >
         Duplicar
       </ContextMenuItem>
+      {!gates.duplicate.open && (
+        <ContextMenuLabel id={copyHintId} className="max-w-56 text-xs font-normal">
+          {gates.duplicate.hint}
+        </ContextMenuLabel>
+      )}
       <ContextMenuSeparator />
       <ContextMenuItem
         variant="destructive"

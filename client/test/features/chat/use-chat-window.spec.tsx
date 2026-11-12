@@ -1,14 +1,31 @@
+import { PLAN_LIMITS, type PlanLimits } from '@lorkarium/contracts';
 import { act, renderHook } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CHAT_WINDOW_POLL_MS, useChatWindow } from '@/features/chat/use-chat-window';
+import {
+  CHAT_WINDOW_POLL_MS,
+  useChatWindow,
+  type ChatWindowPanel,
+} from '@/features/chat/use-chat-window';
+import { TablePlanLimitsProvider } from '@/features/plans/plan-limits-providers';
 import { CHAT_WINDOW_FEATURES, CHAT_WINDOW_URL } from '@/services/chat-window-host';
+import { testDependencies } from '../../support/app-dependencies';
 import { ChatWindowFake, ChatWindowHostFake } from '../../support/chat-window-host-fake';
 
 const CAMPAIGN_ID = '0b9e7b54-3f0a-4c6e-9d51-6d2f4b0a1c11';
 
 function renderChatWindow(host: ChatWindowHostFake) {
   return renderHook(() => useChatWindow(CAMPAIGN_ID, host));
+}
+
+function renderOnTable(host: ChatWindowHostFake, limits: PlanLimits, panel: ChatWindowPanel) {
+  const { openTables } = testDependencies();
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <TablePlanLimitsProvider openTables={openTables} campaign={{ id: CAMPAIGN_ID, limits }}>
+      {children}
+    </TablePlanLimitsProvider>
+  );
+  return renderHook(() => useChatWindow(CAMPAIGN_ID, host, panel), { wrapper });
 }
 
 function tick(): void {
@@ -310,5 +327,35 @@ describe('useChatWindow', () => {
     tick();
 
     expect(result.current.portalTarget).toBe(reloadedBody);
+  });
+
+  describe('the table plan', () => {
+    it.each<ChatWindowPanel>(['chat', 'image'])(
+      'on a free table the %s window does not open and says where it is',
+      (panel) => {
+        const host = new ChatWindowHostFake();
+        const { result } = renderOnTable(host, PLAN_LIMITS.free, panel);
+        act(() => result.current.open());
+        expect(host.calls).toEqual([]);
+        expect(result.current.status).toBe('docked');
+        expect(result.current.planHint).toBe('Disponível no Narrador');
+      },
+    );
+
+    it('on a free table the dice window opens, as on every plan', () => {
+      const host = new ChatWindowHostFake();
+      const { result } = renderOnTable(host, PLAN_LIMITS.free, 'dice');
+      act(() => result.current.open());
+      expect(host.calls).toHaveLength(1);
+      expect(result.current.planHint).toBeNull();
+    });
+
+    it('on a Narrador table the chat window opens', () => {
+      const host = new ChatWindowHostFake();
+      const { result } = renderOnTable(host, PLAN_LIMITS.narrador, 'chat');
+      act(() => result.current.open());
+      expect(host.calls).toHaveLength(1);
+      expect(result.current.planHint).toBeNull();
+    });
   });
 });

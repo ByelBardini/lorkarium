@@ -43,7 +43,7 @@ describe('MemberRoleService.change', () => {
     service = new MemberRoleService({
       campaigns,
       members,
-      transaction: new MemberRoleTransactionRunnerFake(members, seat).run,
+      transaction: new MemberRoleTransactionRunnerFake(campaigns, members, seat).run,
       memberships: new ForgottenMembershipsFake(members.writes),
       changed,
       presence: new PresenceReaderFake({ [VHARN_ID]: [DUDA_ID] }),
@@ -99,6 +99,9 @@ describe('MemberRoleService.change', () => {
       role: 'player',
       color: expect.any(String),
       avatarId: null,
+      plan: 'free',
+      admin: false,
+      lorkariumOwner: false,
       online: true,
     });
   });
@@ -167,5 +170,78 @@ describe('MemberRoleService.change', () => {
 
     await expect(promotion).rejects.toMatchObject({ code: 'FORBIDDEN' });
     expect(members.writes).toEqual([]);
+  });
+
+  describe("the seats of the owner's plan", () => {
+    function freeOwner(): void {
+      campaigns.ownerPlans.set(ANA_ID, {
+        role: 'user',
+        plan: 'free',
+        lorkariumOwner: false,
+      });
+    }
+
+    function seated(role: 'master' | 'player' | 'spectator', count: number): void {
+      for (let index = 0; index < count; index += 1) {
+        const userId = `${role}-${index}`;
+        members.rows.push(campaignMemberPo({ campaignId: VHARN_ID, userId, role }));
+      }
+    }
+
+    const promoteDuda = (role: 'master' | 'player') =>
+      service.change(ANA_ID, { campaignId: VHARN_ID, targetId: DUDA_ID, role });
+
+    it('promoting to player at six players of a free table is PLAN_LIMIT players and writes nothing', async () => {
+      freeOwner();
+      seated('player', 5);
+      await expect(promoteDuda('player')).rejects.toMatchObject({
+        code: 'PLAN_LIMIT',
+        ...{ resource: 'players', stored: 6, adding: 1, limit: 6, plan: 'free' },
+      });
+      expect(members.writes).toEqual([]);
+    });
+
+    it('promoting to master with one co-master is PLAN_LIMIT masters: the owner takes no seat', async () => {
+      freeOwner();
+      seated('master', 1);
+      await expect(promoteDuda('master')).rejects.toMatchObject({
+        code: 'PLAN_LIMIT',
+        ...{ resource: 'masters', stored: 1, limit: 1 },
+      });
+      expect(members.writes).toEqual([]);
+    });
+
+    it('the first co-master of a free table is promoted: only the owner is a master yet', async () => {
+      freeOwner();
+      await expect(promoteDuda('master')).resolves.toMatchObject({ role: 'master' });
+    });
+
+    it('a juggernaut takes no co-master seat', async () => {
+      freeOwner();
+      const juggernaut = { campaignId: VHARN_ID, userId: 'root', role: 'master' as const };
+      members.rows.push(campaignMemberPo({ ...juggernaut, juggernautSince: new Date() }));
+      await expect(promoteDuda('master')).resolves.toMatchObject({ role: 'master' });
+    });
+
+    it('moving Bia to the spectators of a table with two of them passes: she was at the table', async () => {
+      freeOwner();
+      seated('spectator', 1);
+      const change = { campaignId: VHARN_ID, targetId: BIA_ID, role: 'spectator' } as const;
+      await expect(service.change(ANA_ID, change)).resolves.toMatchObject({ role: 'spectator' });
+    });
+
+    it('the players of Quelm do not count against Vharn', async () => {
+      freeOwner();
+      for (let index = 0; index < 6; index += 1) {
+        const userId = `quelm-player-${index}`;
+        members.rows.push(campaignMemberPo({ campaignId: QUELM_ID, userId, role: 'player' }));
+      }
+      await expect(promoteDuda('player')).resolves.toMatchObject({ role: 'player' });
+    });
+
+    it('the count runs under the lock of the table', async () => {
+      await promoteDuda('player');
+      expect(campaigns.writes).toEqual([`lock:${VHARN_ID}`]);
+    });
   });
 });

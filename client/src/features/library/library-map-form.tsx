@@ -6,7 +6,7 @@ import {
 import type { AssetsApi } from '@/services/assets-api';
 import type { LibraryMapsApi } from '@/services/library-maps-api';
 import { ImageItemForm } from './image-item-form';
-import { libraryMapFailureMessage } from './library-messages';
+import { libraryMapRefusalMessage } from './library-messages';
 
 export type LibraryMapFormProps = Readonly<{
   campaignId: string;
@@ -34,7 +34,7 @@ export function LibraryMapForm(props: LibraryMapFormProps): React.JSX.Element {
       bodyOf={(request) => createLibraryMapRequestDto.safeParse(request).data ?? null}
       register={async (body) => {
         const answer = await props.api.create(props.campaignId, body);
-        if (!answer.ok) return libraryMapFailureMessage(answer.failure.kind);
+        if (!answer.ok) return libraryMapRefusalMessage(answer.failure);
         props.onSaved(answer.value);
         return null;
       }}

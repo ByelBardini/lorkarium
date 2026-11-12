@@ -1,11 +1,13 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
+import { PLAN_LIMITS } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import { RoomContexts } from '@/features/board/room-contexts';
 import { SightBlockerSection } from '@/features/tokens/sight-blocker-section';
 import { createSightOutlineStore } from '@/stores/sight-outline-store';
 import { AssetOutlineApiFake } from '../../support/asset-outline-api-fake';
+import { onTablePlan } from '../../support/table-plan';
 
 const STATUE_IMAGE = '11112222-3333-4444-8555-666677778888';
 const OLD_IMAGE_NOTICE =
@@ -159,5 +161,37 @@ describe('SightBlockerSection, the refusal', () => {
     await renderSettled({ api: new AssetOutlineApiFake() });
 
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
+
+describe('SightBlockerSection on a free table (no blocker in the plan)', () => {
+  const blockerSwitch = () => screen.getByRole('switch', { name: 'Bloqueia a visão' });
+
+  it('the switch is off and says where the blocker is', async () => {
+    render(
+      onTablePlan(PLAN_LIMITS.free, <RoomSection api={new AssetOutlineApiFake()} on={false} />),
+    );
+    await act(() => Promise.resolve());
+
+    expect(blockerSwitch()).toBeDisabled();
+    expect(blockerSwitch()).toHaveAccessibleDescription('Disponível no Narrador');
+  });
+
+  it('a blocker kept from a paid plan can still be switched off', async () => {
+    render(onTablePlan(PLAN_LIMITS.free, <RoomSection api={new AssetOutlineApiFake()} on />));
+    await act(() => Promise.resolve());
+
+    expect(blockerSwitch()).toBeEnabled();
+    await userEvent.click(blockerSwitch());
+    expect(blockerSwitch()).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('a Narrador table offers the switch', async () => {
+    render(
+      onTablePlan(PLAN_LIMITS.narrador, <RoomSection api={new AssetOutlineApiFake()} on={false} />),
+    );
+    await act(() => Promise.resolve());
+
+    expect(blockerSwitch()).toBeEnabled();
   });
 });

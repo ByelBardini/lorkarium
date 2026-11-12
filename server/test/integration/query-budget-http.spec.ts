@@ -8,8 +8,9 @@ import {
   sheetWriteResponseDto,
   type CampaignLibraryDto,
 } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { SheetAssetsDao } from '../../src/modules/sheets/sheet-assets.dao';
+import { setAccountPlan } from '../support/account-plans';
 import { pngOf } from '../support/images';
 import type { SignedInUser } from '../support/sign-in';
 import { useTokenTable } from '../support/token-table';
@@ -31,6 +32,12 @@ const LISTS_LIBRARY_IMAGES = /from "library_images"(?![\s\S]*"library_images"\."
 
 describe('the queries each hot HTTP read costs', () => {
   const live = useTokenTable();
+
+  // The budget is of a table before the plans: several templates on Vharn need no plan limit.
+  beforeEach(async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+    await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+  });
 
   async function counted(work: () => Promise<unknown>): Promise<number> {
     live.queries.reset();

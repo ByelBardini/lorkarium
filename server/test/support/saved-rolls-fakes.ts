@@ -12,6 +12,8 @@ import type {
   SavedRollsTransactionRunner,
 } from '../../src/modules/saved-rolls/saved-rolls.service';
 import { BIA_ID, VHARN_ID } from './campaigns-factories';
+import type { UserPlanPo } from '../../src/modules/auth/users.po';
+import { planAccount } from './plan-account-fakes';
 
 export const ACERTO_ID = '7f3e2d1c-0b9a-4c8d-9e7f-6a5b4c3d2e1f';
 const FAKE_DATE = new Date('2026-10-25T12:00:00Z');
@@ -146,6 +148,8 @@ export class SavedRollsDaoFake implements Pick<
 > {
   /** Owners (`<campaign>:<user>`) still at the table; `lockOwner` answers from it. */
   readonly owners = new Set<string>([`${VHARN_ID}:${BIA_ID}`]);
+  /** The plan of each table's owner; a table not set answers `planAccount()` (everything open). */
+  readonly tablePlans = new Map<string, UserPlanPo>();
 
   constructor(
     private readonly journal: string[],
@@ -162,9 +166,10 @@ export class SavedRollsDaoFake implements Pick<
     return this.rows.filter((row) => row.campaignId === campaignId && row.userId === userId).length;
   }
 
-  async lockOwner(campaignId: string, userId: string): Promise<boolean> {
+  async lockOwner(campaignId: string, userId: string): Promise<UserPlanPo | undefined> {
     this.journal.push('lock');
-    return this.owners.has(`${campaignId}:${userId}`);
+    if (!this.owners.has(`${campaignId}:${userId}`)) return undefined;
+    return this.tablePlans.get(campaignId) ?? planAccount();
   }
 
   async insert(row: NewSavedRollPo): Promise<SavedRollPo> {

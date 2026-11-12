@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { DocumentTabsService } from '../../../src/modules/documents/document-tabs.service';
 import { documentText } from '../../support/document-http';
@@ -9,6 +10,7 @@ import {
   ITENS_TAB_ID,
   SEGREDOS_TAB_ID,
   documentAssetPo,
+  documentTabPo,
 } from '../../support/documents-fakes';
 import { BIA_ID } from '../../support/campaigns-factories';
 
@@ -283,5 +285,51 @@ describe('DocumentTabsService tab content', () => {
       schemaVersion: 1,
       content: { type: 'doc', content: [{ type: 'paragraph' }] },
     });
+  });
+});
+
+describe("DocumentTabsService against the owner's plan", () => {
+  // The Diário of a free table (5 tabs per document) with `count` tabs.
+  function freeDiaryWith(count: number): DocumentsHarness {
+    const harness = diary();
+    harness.campaigns.owner = {
+      role: 'user',
+      plan: 'free',
+      lorkariumOwner: false,
+    };
+    for (let position = 2; position < count; position += 1)
+      harness.tabs.rows.push(
+        documentTabPo({ id: randomUUID(), name: `Aba ${position}`, position }),
+      );
+    return harness;
+  }
+  it('the owner creating the 6th tab is PLAN_LIMIT documentTabs, and nothing is written nor published', async () => {
+    const harness = freeDiaryWith(5);
+    const create = serviceWith(harness).create(bia(harness), DOCUMENT_ID, versioned);
+    await expect(create).rejects.toMatchObject({
+      code: 'PLAN_LIMIT',
+      resource: 'documentTabs',
+      limit: 5,
+      plan: 'free',
+    });
+    expect(harness.tabs.rows).toHaveLength(5);
+    expect(harness.documents.rows[0]?.version).toBe(3);
+    expect(harness.journal).not.toContain('publish');
+  });
+  it('the 5th tab of the free table is created', async () => {
+    const harness = freeDiaryWith(4);
+    const result = await serviceWith(harness).create(bia(harness), DOCUMENT_ID, versioned);
+    expect(result.receipt).toMatchObject({ operation: 'tab-create', version: 4 });
+  });
+  it('renaming and deleting past the ceiling still apply (who is past keeps what it has)', async () => {
+    const harness = freeDiaryWith(7);
+    const service = serviceWith(harness);
+    await service.update(harness.requester, DOCUMENT_ID, GERAL_TAB_ID, {
+      ...versioned,
+      name: 'Mundo',
+    });
+    const next = { actionId: randomUUID(), expectedVersion: 4 };
+    await service.delete(harness.requester, DOCUMENT_ID, GERAL_TAB_ID, next);
+    expect(harness.tabs.rows).toHaveLength(6);
   });
 });

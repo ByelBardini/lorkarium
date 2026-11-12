@@ -1,20 +1,25 @@
 import { eq, sql } from 'drizzle-orm';
+import { lorkariumOwnerSql } from '../../database/lorkarium-owner-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { users, type UserPo } from '../auth/users.po';
 
-/** The columns of an account the profile shows (never the e-mail nor the password hash). */
-export type ProfileRow = Pick<
-  UserPo,
-  | 'id'
-  | 'username'
-  | 'name'
-  | 'color'
-  | 'bio'
-  | 'avatarId'
-  | 'diceTextureId'
-  | 'diceNumberColor'
-  | 'createdAt'
->;
+/** The columns of an account the profile shows (never the e-mail nor the password hash); the plan,
+ *  the role and the Dono flag only for the seal (what they allow is read under a lock, never here). */
+export type ProfileRow = Readonly<{ lorkariumOwner: boolean }> &
+  Pick<
+    UserPo,
+    | 'id'
+    | 'username'
+    | 'name'
+    | 'color'
+    | 'bio'
+    | 'avatarId'
+    | 'diceTextureId'
+    | 'diceNumberColor'
+    | 'createdAt'
+    | 'role'
+    | 'plan'
+  >;
 
 /** What the person may change on their own row; the @ is not here on purpose (immutable). */
 export type ProfileChanges = Partial<Pick<UserPo, 'name' | 'color' | 'bio' | 'diceNumberColor'>>;
@@ -40,6 +45,9 @@ const profileColumns = {
   diceTextureId: users.diceTextureId,
   diceNumberColor: users.diceNumberColor,
   createdAt: users.createdAt,
+  role: users.role,
+  plan: users.plan,
+  lorkariumOwner: lorkariumOwnerSql(users.username),
 };
 
 /** Reads and writes the profile columns of `users` (the auth table, as `campaign-members.dao`

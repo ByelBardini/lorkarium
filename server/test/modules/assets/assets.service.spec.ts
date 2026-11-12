@@ -14,6 +14,7 @@ import {
   ImageProcessorFake,
 } from '../../support/assets-fakes';
 import { lyraPortraitPo, QUELM_MAP_ID } from '../../support/assets-factories';
+import { assetQuotaOver } from '../../support/asset-quota-fakes';
 import { CampaignMembersDaoFake, CampaignsDaoFake } from '../../support/campaigns-fakes';
 import {
   BIA_ID,
@@ -70,6 +71,7 @@ describe('AssetsService', () => {
       campaignMemberPo({ campaignId: QUELM_ID, userId: CAIO_ID, role: 'master' }),
     ]);
     service = new AssetsService({
+      ...assetQuotaOver(assets).deps,
       members,
       assets,
       storage,
@@ -387,6 +389,7 @@ describe('AssetsService', () => {
     assets.rows.push(lyraPortraitPo({ purpose: 'library_image' }));
     storage.objects.set(lyraPortraitPo().storageKey, { bytes: PNG, contentType: 'image/png' });
     const withoutPolicy = new AssetsService({
+      ...assetQuotaOver(assets).deps,
       members,
       assets,
       storage,

@@ -14,6 +14,7 @@ import {
   SheetsHarness,
 } from '../../support/sheets-fakes';
 import { BRAM_ID } from '../../support/tokens-factories';
+import { planAccount } from '../../support/plan-account-fakes';
 
 type CreateExtra = Partial<Omit<CreateSheetRequestDto, 'templateId'>>;
 
@@ -137,6 +138,27 @@ describe('giveManifestBars: a character', () => {
     expect(receipt.skippedBars).toEqual(['ES']);
   });
 
+  it('on a free table, creating the sheet for Bia leaves Lyra at the 2 bars of the plan', async () => {
+    const harness = new SheetsHarness().withManifestBars(manifestBars('MP', 'EF'));
+    harness.campaigns.owner = planAccount({ plan: 'free' });
+
+    const { receipt } = await create(harness, { holder: { memberId: BIA_ID } });
+
+    expect(labelsOf(harness, LYRA_CHARACTER_ID)).toEqual(['PV', 'Mana']);
+    expect(receipt.skippedBars).toEqual(['MP', 'EF']);
+  });
+
+  it('on a free table, giving the sheet to Bia skips every bar past the 2 of the plan', async () => {
+    const harness = new SheetsHarness().withManifestBars(manifestBars('MP'));
+    harness.campaigns.owner = planAccount({ plan: 'free' });
+    await create(harness);
+
+    const { receipt } = await give(harness, { memberId: BIA_ID });
+
+    expect(labelsOf(harness, LYRA_CHARACTER_ID)).toEqual(['PV', 'Mana']);
+    expect(receipt.skippedBars).toEqual(['MP']);
+  });
+
   it('taking the sheet from Lyra removes none of her bars', async () => {
     const harness = new SheetsHarness().withManifestBars(manifestBars('MP'));
     await create(harness, { holder: { memberId: BIA_ID } });
@@ -194,6 +216,16 @@ describe('giveManifestBars: a loose token', () => {
     expect(change?.privileged).toMatchObject({ version: 8, token: { id: BRAM_ID } });
     expect(change?.privileged.token.bars.map(({ label }) => label)).toEqual(['PV', 'MP']);
     expect(harness.characterPublisher.changes).toEqual([]);
+  });
+
+  it('on a free table, Bram stops at the 2 bars of the plan and the rest is skipped', async () => {
+    const harness = new SheetsHarness().withManifestBars(manifestBars('PV', 'MP', 'EF'));
+    harness.scenes.owners.set(VHARN_ID, planAccount({ plan: 'free' }));
+
+    const { receipt } = await create(harness, { holder: { tokenId: BRAM_ID } });
+
+    expect(harness.tokens.barsOf(BRAM_ID).map(({ label }) => label)).toEqual(['PV', 'MP']);
+    expect(receipt.skippedBars).toEqual(['EF']);
   });
 
   it('a template without bars leaves the grid of Bram unlocked', async () => {

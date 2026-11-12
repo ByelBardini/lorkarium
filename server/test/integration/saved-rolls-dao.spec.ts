@@ -1,9 +1,10 @@
 import { savedRollNameKey } from '@lorkarium/contracts';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DatabaseConnection } from '../../src/database/database';
 import { runInTransaction } from '../../src/database/transaction';
 import { UsersDao } from '../../src/modules/auth/users.dao';
+import { users as usersTable } from '../../src/modules/auth/users.po';
 import { CampaignMembersDao } from '../../src/modules/campaigns/campaign-members.dao';
 import { campaignMembers } from '../../src/modules/campaigns/campaign-members.po';
 import { CampaignsDao } from '../../src/modules/campaigns/campaigns.dao';
@@ -12,6 +13,7 @@ import { SavedRollsDao } from '../../src/modules/saved-rolls/saved-rolls.dao';
 import type { NewSavedRollPo } from '../../src/modules/saved-rolls/saved-rolls.po';
 import { newUserPo } from '../support/auth-factories';
 import { newCampaignPo } from '../support/campaigns-factories';
+import { setAccountPlan } from '../support/account-plans';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 const ATTACK = [{ label: null, expression: '1d20+5' }];
@@ -24,6 +26,7 @@ describe('SavedRollsDao on Postgres', () => {
   let quelmId: string;
   let biaId: string;
   let caioId: string;
+  let anaId: string;
 
   function rollOf(userId: string, name: string, campaignId = vharnId): NewSavedRollPo {
     return { campaignId, userId, name, nameKey: savedRollNameKey(name), parts: ATTACK };
@@ -37,7 +40,7 @@ describe('SavedRollsDao on Postgres', () => {
   beforeEach(async () => {
     await truncateAllTables(connection.db);
     const users = new UsersDao(connection.db);
-    const anaId = (await users.insert(newUserPo())).id;
+    anaId = (await users.insert(newUserPo())).id;
     biaId = (await users.insert(newUserPo({ email: 'bia@mesa.com', name: 'Bia' }))).id;
     caioId = (await users.insert(newUserPo({ email: 'caio@mesa.com', name: 'Caio' }))).id;
     const campaignsDao = new CampaignsDao(connection.db);
@@ -172,13 +175,55 @@ describe('SavedRollsDao on Postgres', () => {
     expect(await rolls.countOf(vharnId, caioId)).toBe(0);
   });
 
-  it('lockOwner answers true for Bia at Vharn and false for someone outside the table', async () => {
+  it("lockOwner answers the plan of Vharn's owner for Bia and nothing for someone outside the table", async () => {
     const stranger = '00000000-0000-4000-8000-000000000000';
-    const lockOf = (userId: string): Promise<boolean> =>
+    await setAccountPlan(connection.db, anaId, 'narrador');
+    const lockOf = (userId: string) =>
       runInTransaction(connection.db, (tx) => new SavedRollsDao(tx).lockOwner(vharnId, userId));
 
-    expect(await lockOf(biaId)).toBe(true);
-    expect(await lockOf(stranger)).toBe(false);
+    expect(await lockOf(biaId)).toEqual({
+      role: 'user',
+      plan: 'narrador',
+      lorkariumOwner: false,
+    });
+    expect(await lockOf(stranger)).toBeUndefined();
+  });
+
+  it("lockOwner of Bia at Quelm answers the plan of Caio, its owner, not Ana's", async () => {
+    await setAccountPlan(connection.db, anaId, 'narrador');
+    await setAccountPlan(connection.db, caioId, 'lenda');
+
+    const owner = await runInTransaction(connection.db, (tx) =>
+      new SavedRollsDao(tx).lockOwner(quelmId, biaId),
+    );
+
+    expect(owner?.plan).toBe('lenda');
+  });
+
+  it('lockOwner locks only the membership: the table and its owner stay free to update', async () => {
+    let release = (): void => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    let locked = false;
+    const first = runInTransaction(connection.db, async (tx) => {
+      await new SavedRollsDao(tx).lockOwner(vharnId, biaId);
+      locked = true;
+      await held;
+    });
+    while (!locked) await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const touched = runInTransaction(connection.db, async (tx) => {
+      await tx.execute(sql`SET LOCAL lock_timeout = '200ms'`);
+      await tx.update(campaigns).set({ name: 'Vharn' }).where(eq(campaigns.id, vharnId));
+      await tx.update(usersTable).set({ name: 'Ana B' }).where(eq(usersTable.id, anaId));
+    });
+
+    const outcome = await touched.then(
+      () => 'free',
+      () => 'waited',
+    );
+    release();
+    await first;
+    expect(outcome).toBe('free');
   });
 
   it('a second lockOwner of Bia waits for the first transaction to end', async () => {
