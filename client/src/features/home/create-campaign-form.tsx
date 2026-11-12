@@ -3,7 +3,7 @@ import { CampaignPreviewCard, type CampaignPreview } from '@/components/campaign
 import { CoverPicker } from '@/components/cover-picker';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { failureMessage } from '@/features/campaigns/campaign-messages';
+import { commandFailureMessage } from '@/features/campaigns/campaign-messages';
 import type { CampaignsFailure } from '@/services/campaigns-api';
 import {
   CampaignAboutField,
@@ -106,10 +106,7 @@ function previewOf(values: CreateValues): CampaignPreview {
 }
 
 function CreateFailure({ failure }: Readonly<{ failure: CampaignsFailure }>): React.JSX.Element {
-  const message =
-    failure.kind === 'invalid'
-      ? 'Confira os campos e tente de novo.'
-      : failureMessage(failure.kind);
+  const message = commandFailureMessage(failure);
   return (
     <Alert variant="destructive" className="px-3.5 py-3 text-sm">
       {message}

@@ -51,6 +51,13 @@ describe('HttpUserAdminApi', () => {
       '/admin/users/u-1',
       { role: 'admin' },
     ],
+    [
+      'changePlan',
+      () => api.changePlan('u-1', 'lenda'),
+      'PATCH',
+      '/admin/users/u-1/plan',
+      { plan: 'lenda' },
+    ],
     ['suspend', () => api.suspend('u-1'), 'POST', '/admin/users/u-1/suspend', undefined],
     ['reactivate', () => api.reactivate('u-1'), 'POST', '/admin/users/u-1/reactivate', undefined],
     [
@@ -71,6 +78,24 @@ describe('HttpUserAdminApi', () => {
     transport.respondWith(200, {});
     await send();
     expect(transport.requests[0]).toEqual({ method, path, body });
+  });
+
+  it('changePlan answers the account with the new plan from { user }', async () => {
+    transport.respondWith(200, { user: { ...BIA, plan: 'lenda' } });
+
+    expect(await api.changePlan(BIA.id, 'lenda')).toEqual({
+      ok: true,
+      value: { ...BIA, plan: 'lenda' },
+    });
+  });
+
+  it('changePlan of an account that is gone is not_found', async () => {
+    refuse(404, { code: 'USER_NOT_FOUND' });
+
+    expect(await api.changePlan(BIA.id, 'apoiador')).toEqual({
+      ok: false,
+      failure: { kind: 'not_found' },
+    });
   });
 
   it.each([

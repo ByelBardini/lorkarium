@@ -17,6 +17,8 @@ import {
   type ChatWindowHandle,
   type ChatWindowHost,
 } from '@/services/chat-window-host';
+import { OPEN_GATE, featureGate } from '@/features/plans/plan-gate';
+import { usePlanLimits } from '@/features/plans/use-plan-limits';
 import { useChatWindowTopmost, type ChatWindowTopmost } from './use-chat-window-topmost';
 import type { DesktopWindow } from '@/services/desktop-window';
 
@@ -41,6 +43,8 @@ export type ChatWindow = ChatWindowTopmost &
     canAlwaysOnTop: boolean;
     desktopWindow: DesktopWindow | null;
     closeError: string | null;
+    /** Why the last `open` did not open (the table's plan has no Chat and Imagens windows). */
+    planHint: string | null;
   }>;
 
 type ChatWindowState = Readonly<{
@@ -65,6 +69,9 @@ const WINDOW_OF_PANEL: Readonly<Record<ChatWindowPanel, { url: string; features:
   'sheet-preview': { url: SHEET_PREVIEW_WINDOW_URL, features: SHEET_PREVIEW_WINDOW_FEATURES },
 };
 
+// The Dados window is everyone's; the plan rules only these.
+const PLAN_WINDOWS: ReadonlySet<ChatWindowPanel> = new Set<ChatWindowPanel>(['chat', 'image']);
+
 const DOCKED: ChatWindowState = {
   status: 'docked',
   target: null,
@@ -84,6 +91,11 @@ export function useChatWindow(
   adoptedHandle: ChatWindowHandle | null = null,
 ): ChatWindow {
   const [state, setState] = useState<ChatWindowState>(DOCKED);
+  const [planHint, setPlanHint] = useState<string | null>(null);
+  const { table } = usePlanLimits();
+  const gate = PLAN_WINDOWS.has(panel)
+    ? featureGate(table, (limits) => limits.desktopWindows)
+    : OPEN_GATE;
   const handleRef = useRef<ChatWindowHandle | null>(null);
   const { resetAlwaysOnTop, ...topmost } = useChatWindowTopmost(handleRef);
   useEffect(() => {
@@ -101,6 +113,8 @@ export function useChatWindow(
   const open = useCallback(() => {
     const current = handleRef.current;
     if (current && !current.closed) return current.focus();
+    setPlanHint(gate.hint);
+    if (!gate.open) return;
     resetAlwaysOnTop();
     const { url, features } = WINDOW_OF_PANEL[panel];
     const name =
@@ -114,7 +128,7 @@ export function useChatWindow(
       desktopWindow: null,
       closeError: null,
     });
-  }, [campaignId, host, panel, resetAlwaysOnTop]);
+  }, [campaignId, host, panel, resetAlwaysOnTop, gate.open, gate.hint]);
   const bringBack = useCallback(() => {
     const handle = handleRef.current;
     const dock = (): void => {
@@ -143,6 +157,7 @@ export function useChatWindow(
     canAlwaysOnTop: state.canAlwaysOnTop,
     desktopWindow: state.desktopWindow,
     closeError: state.closeError,
+    planHint,
   };
 }
 

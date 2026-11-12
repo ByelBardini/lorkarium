@@ -5,6 +5,7 @@ import { useStore } from 'zustand';
 import type { AppDependencies } from '@/app/router';
 import { useLibraryTable } from '@/features/library/use-library-table';
 import type { LibraryIntent, LibraryOutcome } from '@/features/library/library-intents';
+import { TablePlanLimitsProvider } from '@/features/plans/plan-limits-providers';
 import { useOpenTable } from '@/features/sessions/use-open-table';
 import { useSession } from '@/stores/session-store';
 import type { DocumentWorkspaceEntry } from '@/stores/document-workspace-store';
@@ -154,35 +155,37 @@ function WorkspaceDocument({
       tabAlert={refused}
     >
       {(surface) => (
-        <DocumentPanel
-          campaign={{ ...entry.campaign, myRole: role }}
-          documentId={entry.document.id}
-          editorStore={entry.editor}
-          activeTabId={activeTabId}
-          onActivateTab={activateTab}
-          api={deps.documentsApi}
-          clock={deps.interactionClock}
-          clipboard={deps.clipboard}
-          library={library}
-          live={live}
-          revision={revision}
-          focusName={entry.focusName && surface.visible}
-          submit={submit}
-          onRegisterLeave={registerLeave}
-          onChanged={reloadLibrary}
-          onClose={surface.close}
-          onOpenWindow={surface.openWindow}
-          compact={surface.detached}
-          mapAppearances={
-            <DocumentMapAppearances
-              campaign={entry.campaign}
-              documentId={entry.document.id}
-              reader={deps.libraryMapsApi}
-              workspace={deps.documentWorkspace}
-              readVersion={`${revision}:${mapRevision}:${role}`}
-            />
-          }
-        />
+        <TablePlanLimitsProvider openTables={deps.openTables} campaign={entry.campaign}>
+          <DocumentPanel
+            campaign={{ ...entry.campaign, myRole: role }}
+            documentId={entry.document.id}
+            editorStore={entry.editor}
+            activeTabId={activeTabId}
+            onActivateTab={activateTab}
+            api={deps.documentsApi}
+            clock={deps.interactionClock}
+            clipboard={deps.clipboard}
+            library={library}
+            live={live}
+            revision={revision}
+            focusName={entry.focusName && surface.visible}
+            submit={submit}
+            onRegisterLeave={registerLeave}
+            onChanged={reloadLibrary}
+            onClose={surface.close}
+            onOpenWindow={surface.openWindow}
+            compact={surface.detached}
+            mapAppearances={
+              <DocumentMapAppearances
+                campaign={entry.campaign}
+                documentId={entry.document.id}
+                reader={deps.libraryMapsApi}
+                workspace={deps.documentWorkspace}
+                readVersion={`${revision}:${mapRevision}:${role}`}
+              />
+            }
+          />
+        </TablePlanLimitsProvider>
       )}
     </WorkspaceItemSurface>
   );

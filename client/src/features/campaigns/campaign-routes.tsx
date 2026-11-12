@@ -29,6 +29,7 @@ import { CAMPAIGN_SETTINGS_PATH, campaignSettingsRoute } from './campaign-settin
 import { CampaignTableErrorPage } from './campaign-table-page';
 import type { CampaignLoaderData } from './campaign-loader-data';
 import type { EnterCampaignResult } from './enter-campaign-button';
+import { TablePlanLimitsProvider } from '@/features/plans/plan-limits-providers';
 
 export type CampaignDetailPlace = Readonly<{ path: string; closeTo: string }>;
 
@@ -174,52 +175,54 @@ function tableRoute({
     const covered = settings !== null || conditions !== null;
     // Another table is another screen: its own pending presence, not the previous one's.
     return (
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <div className={cn('flex min-h-0 flex-1 flex-col', covered && 'invisible')}>
-          <MainMapReaderContext value={libraryMapsApi}>
-            <MemberRoleProvider changer={campaignsApi}>
-              <SheetRoomProvider campaign={campaign} services={sheetServices}>
-                <PlayRoomPage
-                  key={campaign.id}
-                  campaign={campaign}
-                  openTables={openTables}
-                  roomLayout={roomLayout}
-                  drawingStyle={drawingStyle}
-                  effectAreaStyle={effectAreaStyle}
-                  wallStyle={wallStyle}
-                  lightReach={lightReach}
-                  lightColor={lightColor}
-                  auraMotion={auraMotion}
-                  clipboard={clipboard}
-                  createBoardRenderer={createBoardRenderer}
-                  boardCommands={boardCommands}
-                  pings={pings}
-                  sessionStore={sessionStore}
-                  assets={assets}
-                  interactionClock={interactionClock}
-                  dicePreferences={dicePreferences}
-                  createDiceRenderer={createDiceRenderer}
-                  createDiceSound={createDiceSound}
-                  dice={dice}
-                  savedRolls={savedRolls}
-                  diceClock={diceClock}
-                  chat={chat}
-                  chatWindowHost={chatWindowHost}
-                  documentWorkspace={documentWorkspace}
-                  covered={covered}
-                />
-              </SheetRoomProvider>
-            </MemberRoleProvider>
-          </MainMapReaderContext>
-          <RoomMapFocus
-            campaign={campaign}
-            openTables={openTables}
-            workspace={documentWorkspace}
-            covered={covered}
-          />
+      <TablePlanLimitsProvider openTables={openTables} campaign={campaign}>
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <div className={cn('flex min-h-0 flex-1 flex-col', covered && 'invisible')}>
+            <MainMapReaderContext value={libraryMapsApi}>
+              <MemberRoleProvider changer={campaignsApi}>
+                <SheetRoomProvider campaign={campaign} services={sheetServices}>
+                  <PlayRoomPage
+                    key={campaign.id}
+                    campaign={campaign}
+                    openTables={openTables}
+                    roomLayout={roomLayout}
+                    drawingStyle={drawingStyle}
+                    effectAreaStyle={effectAreaStyle}
+                    wallStyle={wallStyle}
+                    lightReach={lightReach}
+                    lightColor={lightColor}
+                    auraMotion={auraMotion}
+                    clipboard={clipboard}
+                    createBoardRenderer={createBoardRenderer}
+                    boardCommands={boardCommands}
+                    pings={pings}
+                    sessionStore={sessionStore}
+                    assets={assets}
+                    interactionClock={interactionClock}
+                    dicePreferences={dicePreferences}
+                    createDiceRenderer={createDiceRenderer}
+                    createDiceSound={createDiceSound}
+                    dice={dice}
+                    savedRolls={savedRolls}
+                    diceClock={diceClock}
+                    chat={chat}
+                    chatWindowHost={chatWindowHost}
+                    documentWorkspace={documentWorkspace}
+                    covered={covered}
+                  />
+                </SheetRoomProvider>
+              </MemberRoleProvider>
+            </MainMapReaderContext>
+            <RoomMapFocus
+              campaign={campaign}
+              openTables={openTables}
+              workspace={documentWorkspace}
+              covered={covered}
+            />
+          </div>
+          <Outlet />
         </div>
-        <Outlet />
-      </div>
+      </TablePlanLimitsProvider>
     );
   };
 }

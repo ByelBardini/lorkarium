@@ -2,6 +2,7 @@ import type { CampaignDetailDto, CampaignMemberDto } from '@lorkarium/contracts'
 import { useId } from 'react';
 import { CopyCodeButton } from '@/components/copy-code-button';
 import { Button } from '@/components/ui/button';
+import { PlanSeal } from '@/components/plan-seal';
 import { UserAvatar } from '@/components/user-avatar';
 import { formatCampaignCode } from '@/lib/campaign-code';
 import { ROLE_LABEL } from '@/lib/campaign-meta';
@@ -126,7 +127,10 @@ function MemberRow({ member }: Readonly<{ member: CampaignMemberDto }>): React.J
         )}
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm">{member.name}</span>
+        <span className="flex min-w-0 items-center gap-1 text-sm">
+          <span className="truncate">{member.name}</span>
+          <PlanSeal holder={member} />
+        </span>
         {member.online && <span className="text-xs text-muted-foreground">online agora</span>}
       </span>
       <span className="text-xs tracking-[0.12em] text-muted-foreground uppercase">

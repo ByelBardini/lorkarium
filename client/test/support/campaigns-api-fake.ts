@@ -1,4 +1,4 @@
-import { campaignInfoDto, type CampaignInfoDto } from '@lorkarium/contracts';
+import { PLAN_LIMITS, campaignInfoDto, type CampaignInfoDto } from '@lorkarium/contracts';
 import { z } from 'zod';
 import type {
   CampaignMemberDto,
@@ -33,6 +33,8 @@ export const VHARN: CampaignSummaryDto = {
   tags: ['Investigação', 'Masmorra'],
   playersCreateTokens: false,
   playersDeleteTokens: false,
+  // No plan limit: the specs of the plan set a smaller grid themselves.
+  limits: PLAN_LIMITS.amigo_do_dono,
 };
 
 export const QUELM: CampaignSummaryDto = {
@@ -53,6 +55,8 @@ export const QUELM: CampaignSummaryDto = {
   tags: [],
   playersCreateTokens: false,
   playersDeleteTokens: false,
+  // No plan limit: the specs of the plan set a smaller grid themselves.
+  limits: PLAN_LIMITS.amigo_do_dono,
 };
 
 /** A public campaign of Bia that the reader is not in yet, without a password. */
@@ -68,9 +72,10 @@ export const PUBLIC_VHARN: PublicCampaignDto = {
   playersOnline: 0,
 };
 
-// The summary without what depends on the reader: the plain object drops the keys it does not know.
-function withoutReaderFields(summary: CampaignSummaryDto): CampaignInfoDto {
-  return z.object(campaignInfoDto.shape).parse(summary);
+// The summary without what depends on the reader nor the limits (no explore card carries them): the
+// plain object drops the keys it does not know.
+function withoutReaderFields(summary: CampaignSummaryDto): Omit<CampaignInfoDto, 'limits'> {
+  return z.object(campaignInfoDto.omit({ limits: true }).shape).parse(summary);
 }
 
 // The same ids as the roster fixtures (`table-session-fixtures.ts`), so a member of the detail and
@@ -87,7 +92,16 @@ const UNKNOWN_MEMBER_ID = '00000000-0000-4000-8000-0000000000ff';
 
 function detailMemberOf(name: string, role: CampaignRoleDto): CampaignMemberDto {
   const userId = MEMBER_IDS[name] ?? UNKNOWN_MEMBER_ID;
-  return { userId, name, role, color: memberColorOf(userId, null), avatarId: null, online: false };
+  const seals = { plan: 'free', admin: false, lorkariumOwner: false } as const;
+  return {
+    userId,
+    name,
+    role,
+    color: memberColorOf(userId, null),
+    avatarId: null,
+    ...seals,
+    online: false,
+  };
 }
 
 /** A detail built on a summary: master first, the code only for the master, nobody online, the

@@ -14,23 +14,33 @@ import {
   type UpdateMapRegionRequestDto,
 } from '@lorkarium/contracts';
 import type { z } from 'zod';
-import { callApi, errorCodeOf, parseOk, type ApiCall } from './api-call';
+import {
+  callApi,
+  errorCodeOf,
+  parseOk,
+  planLimitFailureOf,
+  type ApiCall,
+  type PlanLimitFailure,
+} from './api-call';
 import type { HttpMethod, HttpResponse, HttpTransport } from './http-transport';
 
-export type LibraryMapsFailure = Readonly<{
-  kind:
-    | 'map_is_main'
-    | 'regions_full'
-    | 'link_self'
-    | 'link_target_not_found'
-    | 'region_not_showable'
-    | 'not_found'
-    | 'forbidden'
-    | 'invalid'
-    | 'unauthenticated'
-    | 'offline'
-    | 'unexpected';
-}>;
+export type LibraryMapsFailure =
+  | Readonly<{
+      kind:
+        | 'map_is_main'
+        | 'regions_full'
+        | 'link_self'
+        | 'link_target_not_found'
+        | 'region_not_showable'
+        | 'not_found'
+        | 'forbidden'
+        | 'invalid'
+        | 'unauthenticated'
+        | 'offline'
+        | 'unexpected';
+    }>
+  /** The table owner's plan ran out (interactive maps): 403 `PLAN_LIMIT`. */
+  | PlanLimitFailure;
 
 export type LibraryMapsFailureKind = LibraryMapsFailure['kind'];
 
@@ -234,6 +244,8 @@ function failed(call: Exclude<ApiCall, { kind: 'ok' }>): LibraryMapsResult<never
 }
 
 function failureOf(response: HttpResponse): LibraryMapsFailure {
+  const planLimit = planLimitFailureOf(response);
+  if (planLimit) return planLimit;
   const byCode = FAILURE_BY_CODE[errorCodeOf(response) ?? ''];
   if (byCode) return byCode;
   return FAILURE_BY_STATUS[response.status] ?? { kind: 'unexpected' };

@@ -126,6 +126,16 @@ describe('SessionPresencePanel', () => {
     expect(within(bia!).getByRole('img', { name: 'online' })).toBeInTheDocument();
   });
 
+  it('the nick line glues the seal symbol to the nickname (the row shows no @); the crown stays', () => {
+    renderPanel([{ ...ANA_AT_TABLE, plan: 'lenda', admin: true }, BIA_ONLINE, CAIO_AT_TABLE]);
+
+    const masters = section('Mestre');
+    const nick = within(masters).getByTestId('nick-line');
+    const seal = within(nick).getByRole('img', { name: 'Administrador' });
+    expect(within(nick).getByRole('button', { name: 'Ana' }).nextElementSibling).toBe(seal);
+    expect(within(masters).getByText('Dono', { selector: '[data-seal]' })).toBeInTheDocument();
+  });
+
   it('two masters read "Mestres"', () => {
     renderPanel([ANA_AT_TABLE, BIA_ONLINE, { ...CAIO_AT_TABLE, role: 'master' }]);
 

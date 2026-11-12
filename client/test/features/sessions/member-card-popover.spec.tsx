@@ -38,6 +38,27 @@ describe('MemberCardPopover', () => {
     expect(card.querySelector('p')).toBeNull();
   });
 
+  it('the card shows the seal symbol of the member glued to the @, named in words', async () => {
+    const card = await openCardOf({ ...BIA_WITH_BIO, plan: 'narrador' });
+
+    const seal = within(card).getByRole('img', { name: 'Plano Narrador' });
+    expect(seal).toHaveAttribute('title', 'Plano Narrador');
+    expect(within(card).getByText(`@${BIA_WITH_BIO.username}`).nextElementSibling).toBe(seal);
+    expect(within(card).queryByRole('img', { name: 'Apoiador' })).toBeNull();
+  });
+
+  it('an admin member shows the Admin seal on the card', async () => {
+    const card = await openCardOf({ ...BIA_WITH_BIO, plan: 'lenda', admin: true });
+
+    expect(within(card).getByRole('img', { name: 'Administrador' })).toBeInTheDocument();
+  });
+
+  it('the card of a free member has no seal', async () => {
+    const card = await openCardOf({ ...BIA_WITH_BIO, plan: 'free' });
+
+    expect(card.querySelector('[data-seal]')).toBeNull();
+  });
+
   it('the card is closed until the nickname is clicked', () => {
     render(<MemberCardPopover member={BIA_WITH_BIO} />);
 

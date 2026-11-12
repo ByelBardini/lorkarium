@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { PLAN_LIMITS } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   NEW_CONDITION_VALUES,
@@ -9,6 +10,7 @@ import { ConditionDefinitionForm } from '@/features/conditions/condition-definit
 import type { BoardCommandResult } from '@/services/table-board-commands';
 import { AssetsApiFake, LYRA_PORTRAIT } from '../../support/assets-api-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
+import { onTablePlan } from '../../support/table-plan';
 
 const ENVENENADO: ConditionFormValues = {
   name: 'Envenenado',
@@ -425,6 +427,36 @@ describe('ConditionDefinitionForm image', () => {
     });
     expect(await screen.findByRole('alert')).toHaveTextContent('Use PNG, JPEG ou WebP.');
     expect(nameField()).toHaveValue('Envenenado forte');
+    expect(preview().querySelector('img')).toBeNull();
+  });
+});
+
+describe('ConditionDefinitionForm image on a free table (no condition image in the plan)', () => {
+  function renderOnFree(initial: ConditionFormValues): void {
+    render(
+      onTablePlan(
+        PLAN_LIMITS.free,
+        <ConditionDefinitionForm
+          mode="edit"
+          label="Envenenado"
+          initial={initial}
+          onSubmit={parent.submit}
+          images={images()}
+        />,
+      ),
+    );
+  }
+
+  it('"Imagem" is off, with "Disponível no Narrador"', () => {
+    renderOnFree(ENVENENADO);
+    expect(screen.getByRole('group', { name: 'Imagem' })).toBeDisabled();
+    expect(screen.getByText('Disponível no Narrador', { selector: 'p' })).toBeInTheDocument();
+  });
+
+  it('a condition that kept its image may still go back to the icon', async () => {
+    renderOnFree({ ...ENVENENADO, imageAssetId: LYRA_PORTRAIT.id });
+    expect(screen.getByRole('group', { name: 'Imagem' })).toBeEnabled();
+    await userEvent.click(button('Voltar ao ícone'));
     expect(preview().querySelector('img')).toBeNull();
   });
 });

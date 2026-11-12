@@ -38,7 +38,7 @@ export function RoomImagePresentation({
   if (!image)
     return state.failure ? (
       <div className="absolute top-16 right-4 z-40 rounded-md bg-card p-3 text-sm">
-        <p role="status">{libraryFailureMessage(state.failure.kind)}</p>
+        <p role="status">{libraryFailureMessage(state.failure)}</p>
         <Button variant="outline" onClick={() => void state.sync()}>
           Tentar apresentação de novo
         </Button>

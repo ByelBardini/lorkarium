@@ -1,5 +1,6 @@
 import {
   createInvitationRequestDto,
+  userPlanDto,
   userRoleDto,
   type AdminInvitationDto,
   type AdminUserDto,
@@ -18,6 +19,7 @@ const usersIntentDto = z.discriminatedUnion('intent', [
   z.strictObject({ intent: z.literal('invitation-resend'), ...invitationTarget }),
   z.strictObject({ intent: z.literal('invitation-cancel'), ...invitationTarget }),
   z.strictObject({ intent: z.literal('role'), ...target, role: userRoleDto }),
+  z.strictObject({ intent: z.literal('plan'), ...target, plan: userPlanDto }),
   z.strictObject({ intent: z.literal('suspend'), ...target }),
   z.strictObject({ intent: z.literal('reactivate'), ...target }),
   z.strictObject({ intent: z.literal('password-reset'), ...target }),
@@ -27,6 +29,7 @@ const usersIntentDto = z.discriminatedUnion('intent', [
 
 export type UsersIntent = z.input<typeof usersIntentDto>;
 export type UsersIntentName = UsersIntent['intent'];
+type UserIntentName = 'role' | 'plan' | 'suspend' | 'reactivate';
 
 export type UsersActionResult =
   | Readonly<{
@@ -35,7 +38,7 @@ export type UsersActionResult =
       link: string;
     }>
   | Readonly<{ intent: 'invitation-cancel' | 'delete'; done: true }>
-  | Readonly<{ intent: 'role' | 'suspend' | 'reactivate'; user: AdminUserDto }>
+  | Readonly<{ intent: UserIntentName; user: AdminUserDto }>
   | Readonly<{ intent: 'password-reset'; link: string }>
   | Readonly<{ intent: 'deletion-check'; check: UserDeletionCheckDto }>
   | Readonly<{ intent: UsersIntentName | null; failure: UserAdminFailure }>;
@@ -100,6 +103,8 @@ async function run(
       return doneResult(input.intent, await api.cancelInvitation(input.invitationId));
     case 'role':
       return userResult(input.intent, await api.changeRole(input.userId, input.role));
+    case 'plan':
+      return userResult(input.intent, await api.changePlan(input.userId, input.plan));
     case 'suspend':
       return userResult(input.intent, await api.suspend(input.userId));
     case 'reactivate':
@@ -128,7 +133,7 @@ function doneResult(
 }
 
 function userResult(
-  intent: 'role' | 'suspend' | 'reactivate',
+  intent: UserIntentName,
   result: UserAdminResult<AdminUserDto>,
 ): UsersActionResult {
   return result.ok ? { intent, user: result.value } : failed(intent, result.failure);

@@ -202,6 +202,21 @@ describe('campaign detail dialog', () => {
   });
 
   describe('overview', () => {
+    it('a participant row shows the one seal of the person; a free one shows none', async () => {
+      const [ana, ...others] = detailOf(VHARN).members;
+      if (!ana) throw new Error('VHARN has no members');
+      const dialog = await openDetailOf(VHARN, {
+        members: [{ ...ana, plan: 'lenda' }, ...others],
+      });
+
+      const list = within(dialog).getByRole('list', { name: 'Participantes (3)' });
+      const [master, ...rest] = within(list).getAllByRole('listitem');
+      if (!master) throw new Error('the participants did not render');
+      expect(within(master).getByRole('img', { name: 'Plano Lenda' })).toBeInTheDocument();
+      expect(within(master).queryByRole('img', { name: 'Apoiador' })).toBeNull();
+      for (const row of rest) expect(row.querySelector('[data-seal]')).toBeNull();
+    });
+
     it('a participant online reads "online agora" in their row', async () => {
       const dialog = await openDetailOf(VHARN, { members: membersOnline(VHARN, 'Caio') });
       const list = within(dialog).getByRole('list', { name: 'Participantes (3)' });

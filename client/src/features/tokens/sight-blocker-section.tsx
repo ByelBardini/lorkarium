@@ -3,6 +3,8 @@ import type { SightOutline } from '@lorkarium/game-core';
 import { EyeOffIcon } from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
 import { useAssetOutline } from '@/features/board/table-sight-outlines';
+import { featureGate } from '@/features/plans/plan-gate';
+import { usePlanLimits } from '@/features/plans/use-plan-limits';
 import { SwitchedSection } from './reach-section';
 import {
   BLOCKS_SIGHT_HINT,
@@ -25,11 +27,15 @@ export type SightBlockerSectionProps = Readonly<{
  *
  *  Example: `<SightBlockerSection on={on} onSwitch={setOn} imageAssetId={id} frame="square" refusal={null} />` */
 export function SightBlockerSection(props: SightBlockerSectionProps): React.JSX.Element {
+  // A blocker already on stays switchable: turning it off must not wait on the plan.
+  const gate = featureGate(usePlanLimits().table, (limits) => limits.maxSightBlockers > 0);
+  const locked = !gate.open && !props.on;
   return (
     <SwitchedSection
       icon={<EyeOffIcon aria-hidden="true" className="size-5 text-chart-2" />}
       title="Bloqueia a visão"
-      hint={BLOCKS_SIGHT_HINT}
+      hint={locked ? gate.hint : BLOCKS_SIGHT_HINT}
+      disabled={locked}
       on={props.on}
       onSwitch={props.onSwitch}
     >

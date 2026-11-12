@@ -1,7 +1,7 @@
 import type { SheetSummaryDto, SheetTemplateSummaryDto, TokenDto } from '@lorkarium/contracts';
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import type { SheetRoom } from './sheet-room-context';
-import { isSpareSheet } from '@/lib/sheet-holder';
+import { isNpcSheet, isSpareSheet } from '@/lib/sheet-holder';
 import type { OpenTable } from '@/stores/open-tables-store';
 
 /** The sheets of one holder this reader may read, in order of creation (the server leaves out
@@ -88,9 +88,11 @@ function useSheetChangesOf(room: SheetRoom | null): unknown {
 export type SheetLibrary = Readonly<{
   templates: readonly SheetTemplateSummaryDto[];
   spareSheets: readonly SheetSummaryDto[];
+  /** How many sheets tokens hold: the NPC sheets the table's plan counts. */
+  npcSheetCount: number;
 }>;
 
-const EMPTY_LIBRARY: SheetLibrary = { templates: [], spareSheets: [] };
+const EMPTY_LIBRARY: SheetLibrary = { templates: [], spareSheets: [], npcSheetCount: 0 };
 
 /** The master's templates and spare sheets, read from the library when asked (a submenu
  *  opening); `null` while reading.
@@ -104,8 +106,12 @@ export function useSheetLibrary(room: SheetRoom | null): SheetLibrary | null {
     void room.libraryApi.list(room.campaign.id).then((result) => {
       if (!current) return;
       if (!result.ok) return setLibrary(EMPTY_LIBRARY);
-      const spareSheets = (result.value.sheets ?? []).filter(isSpareSheet);
-      setLibrary({ templates: result.value.sheetTemplates ?? [], spareSheets });
+      const sheets = result.value.sheets ?? [];
+      setLibrary({
+        templates: result.value.sheetTemplates ?? [],
+        spareSheets: sheets.filter(isSpareSheet),
+        npcSheetCount: sheets.filter(isNpcSheet).length,
+      });
     });
     return () => {
       current = false;
