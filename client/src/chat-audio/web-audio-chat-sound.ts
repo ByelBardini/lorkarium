@@ -30,9 +30,9 @@ export interface ChatAudioContext extends UnlockableAudioContext {
   createBufferSource(): ChatAudioSource;
 }
 
-/** Below the dice (their master is 0.8): a bell at full scale over a call is too much. */
+/** Below the dice (their master is 0.8): a beep at full scale over a call is too much. */
 export const CHAT_SOUND_GAIN = 0.5;
-/** A call that waited longer than this for a suspended context is dropped: a ding long after the
+/** A call that waited longer than this for a suspended context is dropped: a beep long after the
  *  message points at nothing. */
 export const CHAT_SOUND_STALE_MS = 1000;
 /** Scheduling a hair ahead keeps the start from being clipped by the audio thread. */
@@ -122,7 +122,7 @@ function ring({ context, notice, output }: Voice): void {
   source.start(context.currentTime + LEAD_SECONDS);
 }
 
-/** The bell of a mention or a whisper (`chat-notice.wav`, 0.65 s), once per `play`. The context
+/** The beep of a mention or a whisper (`chat-notice.wav`, 0.62 s), once per `play`. The context
  *  is created and the sound fetched on `prepare` (or the first `play`), and resumed on the
  *  user's gestures; without Web Audio it stays silent.
  *
