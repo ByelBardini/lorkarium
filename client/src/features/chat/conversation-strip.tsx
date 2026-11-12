@@ -32,8 +32,8 @@ export type ConversationStripProps = Readonly<{
  *  Example: `<ConversationStrip conversations={stripOrderOf(all)} selectedKey="table" onSelect={select} nameOf={nameOf} onNewConversation={null} />` */
 export function ConversationStrip(props: ConversationStripProps): React.JSX.Element {
   return (
-    <nav aria-label="Conversas" className="flex shrink-0 items-center gap-1 border-b border-border">
-      <ul className="flex min-w-0 flex-1 gap-1 overflow-x-auto py-2">
+    <nav aria-label="Conversas" className="flex min-w-0 flex-1 items-center gap-1">
+      <ul className="flex min-w-0 gap-1 overflow-x-auto py-1.5">
         {props.conversations.map((conversation) => (
           <li key={conversation.key} className="shrink-0">
             <ConversationButton

@@ -27,7 +27,12 @@ import { ChatFeed } from './chat-feed';
 import { ChatShortcutsButton } from './chat-shortcuts-button';
 import { TABLE_CONVERSATION_NAME } from './chat-messages';
 import { ConversationStrip } from './conversation-strip';
-import { DetachedChat, OpenWindowButton, type ChatWindowSlot } from './chat-window-slot';
+import {
+  DetachedChat,
+  OpenWindowButton,
+  WindowNotice,
+  type ChatWindowSlot,
+} from './chat-window-slot';
 import { NewConversationDialog } from './new-conversation-dialog';
 import { useChatPeople, useOpenTableOf, type ChatPeople } from './use-chat-people';
 
@@ -53,6 +58,8 @@ export type ChatPanelProps = Readonly<{
   window?: ChatWindowSlot | null;
   /** The conversation shown first (the Table when absent); only read when the panel mounts. */
   initialConversation?: ChatConversationKey;
+  /** At the end of the header line, after the tools (the drawer's "Recolher chat"). */
+  headerEnd?: React.ReactNode;
 }>;
 
 /** The chat of a table, in the room's drawer and in the detached window: the strip of
@@ -87,19 +94,24 @@ function OpenChat(props: OpenChatProps): React.JSX.Element {
   };
   return (
     <section aria-label="Chat" className="flex min-h-0 flex-1 flex-col">
-      <ConversationStrip
-        conversations={stripOrderOf(conversations)}
-        selectedKey={shown.conversation.key}
-        onSelect={shown.select}
-        onClose={shown.close}
-        nameOf={nameOf}
-        onNewConversation={() => setStarting(true)}
-      />
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+      <div
+        data-testid="chat-header"
+        className="flex shrink-0 items-center gap-1 border-b border-border"
+      >
+        <ConversationStrip
+          conversations={stripOrderOf(conversations)}
+          selectedKey={shown.conversation.key}
+          onSelect={shown.select}
+          onClose={shown.close}
+          nameOf={nameOf}
+          onNewConversation={() => setStarting(true)}
+        />
         {atTable && <FeedFilter filter={filter} onFilter={setFilter} />}
         <ChatShortcutsButton atTable={atTable} canRoll={!watchesOnly(props.role)} />
         {props.window?.kind === 'docked' && <OpenWindowButton slot={props.window} />}
+        {props.headerEnd}
       </div>
+      <WindowNotice slot={props.window} />
       <ConversationFeed
         {...props}
         shown={shown}
@@ -212,7 +224,7 @@ function FeedFilter(
       value={props.filter}
       options={FILTERS}
       onChange={props.onFilter}
-      className="mr-auto"
+      className="shrink-0"
     />
   );
 }

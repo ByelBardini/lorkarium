@@ -9,25 +9,22 @@ export type ChatShortcutsButtonProps = Readonly<{
 }>;
 
 /** "Atalhos" and its popover (Enter, Shift+Enter, @nome and the commands the conversation and the
- *  role allow), on the line above the feed so it takes no line of its own.
+ *  role allow), an icon of the chat's header line so it takes no line of its own.
  *
  *  Example: `<ChatShortcutsButton atTable canRoll={!watchesOnly(role)} />` */
 export function ChatShortcutsButton({ atTable, canRoll }: ChatShortcutsButtonProps) {
   return (
-    <div
-      data-testid="composer-hint"
-      className="ml-auto flex items-center text-[11px] text-muted-foreground"
-    >
+    <div data-testid="composer-hint" className="flex items-center">
       <Popover>
         <PopoverTrigger asChild>
           <Button
             variant="ghost"
-            size="sm"
+            size="icon-sm"
             aria-label="Atalhos do chat"
+            title="Atalhos"
             className="text-muted-foreground"
           >
             <KeyboardIcon aria-hidden="true" />
-            Atalhos
           </Button>
         </PopoverTrigger>
         <PopoverContent
