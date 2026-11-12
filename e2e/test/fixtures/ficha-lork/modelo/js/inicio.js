@@ -37,6 +37,9 @@ function signature() {
     ids('contas'),
     MULTI.map((k) => ids('perlist.' + k)),
     ids('hab').map((id) => ids(`hab.${id}.custos`)),
+    skillOwners().map((base) =>
+      ids(`${base}.skills`).map((id) => [id, ids(`${base}.skills.${id}.custos`)]),
+    ),
     sortedBars().map((b) => [b.id, b.label, b.color]),
   ]);
 }
@@ -46,6 +49,8 @@ function renderStructure() {
   renderBars();
   renderContas();
   Object.keys(LISTS).forEach(renderList);
+  // depois das listas: as skills dos itens moram dentro dos cards que elas acabaram de montar
+  document.querySelectorAll('[data-skills]').forEach(renderSkills);
   renderPericias();
   renderBag();
 }

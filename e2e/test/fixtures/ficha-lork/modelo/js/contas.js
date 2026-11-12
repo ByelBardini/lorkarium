@@ -1,5 +1,5 @@
 /* ---------- contas extras ---------- */
-/* HP, MP, EN e ES têm conta fixa (Atributos). Qualquer outra barra da mesa pode ganhar uma:
+/* HP, MP, EN e Essência têm conta fixa (Atributos). Qualquer outra barra da mesa pode ganhar uma:
    contas.<id> = { ordem, bar: rótulo da barra, f: fórmula }. A fórmula aceita números,
    + − × ÷ (ou * e /), parênteses, os atributos pelo nome ou pela sigla (FOR, DES, CON, INT,
    CAR, SAB), Nível e Treino; o resultado arredonda para baixo. Sem eval: o CSP da ficha não o
