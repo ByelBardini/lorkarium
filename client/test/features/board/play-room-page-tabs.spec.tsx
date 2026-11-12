@@ -466,10 +466,10 @@ describe('play room: the chat at the foot of the board', () => {
   });
 });
 
-describe('play room on a phone: the chat counter on "Painel"', () => {
+describe('play room on a phone: the "Chat" button', () => {
   emulateViewport('mobile');
 
-  it('a message is counted on "Painel" while the sheet is closed, with no chat bar', async () => {
+  it('focus mode (F) hides "Painel" and keeps "Chat" with its count, with no chat bar', async () => {
     const deps = testDependencies();
     deps.authApi.answerMeWith(ANA);
     const router = createMemoryRouter(buildRoutes(deps), {
@@ -479,7 +479,9 @@ describe('play room on a phone: the chat counter on "Painel"', () => {
     await screen.findByRole('heading', { level: 1 });
     deps.tableSessionApi.emit({ kind: 'state', state: vharnState() });
     deps.tableSessionApi.emit({ kind: 'chatSent', event: chatSent() });
-    expect(screen.getByRole('button', { name: 'Painel' })).toHaveAccessibleDescription(
+    fireEvent.keyDown(window, { key: 'f' });
+    expect(screen.queryByRole('button', { name: 'Painel' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Chat' })).toHaveAccessibleDescription(
       '1 mensagem não lida',
     );
     expect(screen.queryByRole('region', { name: 'Chat da mesa' })).toBeNull();

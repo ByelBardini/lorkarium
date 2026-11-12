@@ -10,6 +10,7 @@ import type { ChatPreferencesStore } from '@/stores/chat-preferences-store';
 import type { RoomLayoutStore } from '@/stores/room-layout-store';
 import { useSession } from '@/stores/session-store';
 import { ChatDock } from './chat-dock';
+import { ChatPhoneButton } from './chat-phone-button';
 import type { ChatPanelProps } from './chat-panel';
 import { useChatSound } from './use-chat-sound';
 import { useOpenTableOf } from './use-chat-people';
@@ -40,7 +41,7 @@ const NOTHING_UNREAD: ChatUnreadSummary = { count: 0, important: false };
 /** The chat of the play room, mounted by the room inside the board's box whatever is shown
  *  (focus mode included): the detached window's portal, the browser tab's title with the unread
  *  count, the sound of mentions and whispers and, beside the board (`md+`), the `ChatDock` at its
- *  foot. Below `md` nothing is drawn here yet.
+ *  foot; below `md`, the "Chat" button beside "Painel".
  *
  *  Example: `<RoomChat tableName={campaign.name} panel={chatPanelProps} roomLayout={roomLayout} services={deps} />` */
 export function RoomChat(props: RoomChatProps): React.JSX.Element {
@@ -57,13 +58,15 @@ export function RoomChat(props: RoomChatProps): React.JSX.Element {
       ) : (
         <UnreadTitle chat={chat} tableName={props.tableName} />
       )}
-      {desktop && (
+      {desktop ? (
         <ChatDock
           {...panel}
           window={chatWindow.slot}
           roomLayout={roomLayout}
           clock={services.interactionClock}
         />
+      ) : (
+        <ChatPhoneButton panel={{ ...panel, window: chatWindow.slot }} roomLayout={roomLayout} />
       )}
     </>
   );

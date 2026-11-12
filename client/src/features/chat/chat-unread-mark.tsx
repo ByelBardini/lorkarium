@@ -29,7 +29,7 @@ const NO_CHAT = createChatHistoryStore({
 
 /** The unread messages of one table's chat (gold when one is for the viewer).
  *
- *  Example: `const unread = useChatUnreadMark(openTables, campaignId); <button aria-describedby={unread.describedBy}>Painel{unread.mark}</button>` */
+ *  Example: `const unread = useChatUnreadMark(openTables, campaignId); <button aria-describedby={unread.describedBy}>Chat{unread.mark}</button>` */
 export function useChatUnreadMark(
   openTables: StoreApi<OpenTablesStore>,
   campaignId: string,
