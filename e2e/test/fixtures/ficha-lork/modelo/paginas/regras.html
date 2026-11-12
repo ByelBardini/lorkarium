@@ -7,7 +7,7 @@
   <!-- data-every: o nível que ganha a regra é múltiplo deste número; data-odd/data-even só ímpar/par -->
   <ul class="rules" id="level-rules">
     <li style="--c: var(--moss-l)" data-every="1">
-      <b>Todo nível</b><span>sua Essência máxima sobe em 2.</span>
+      <b>Todo nível</b><span>sua barra máxima de Estresse (ES) sobe em 2.</span>
     </li>
     <li style="--c: var(--gold-l)" data-odd>
       <b>Todo nível ímpar</b
@@ -71,50 +71,39 @@
   </ul>
 </section>
 <section class="blk">
-  <h2 class="h2">Essência</h2>
-  <ul class="rules">
-    <li style="--c: #ffffff">
-      <b>Começo do seu turno</b
-      ><span>a Essência regenera <b>20%</b> do máximo, arredondado para baixo.</span>
-    </li>
-    <li style="--c: #ffffff">
-      <b>Ação bônus</b
-      ><span
-        >gaste uma ação bônus para regenerar mais <b>10%</b> do máximo, arredondado para
-        baixo.</span
-      >
-    </li>
-    <li style="--c: #ffffff">
-      <b>Combate</b><span>a Essência zera no começo e no fim de cada combate.</span>
-    </li>
-  </ul>
-</section>
-<section class="blk">
   <h2 class="h2">Descanso</h2>
-  <!-- data-bars: quanto do máximo cada barra recupera -->
+  <!-- data-bars: quanto do máximo cada barra recupera; data-stress: quanto do máximo o estresse (ES) desce -->
   <div class="rest-grid">
     <div class="rest">
       <h3>Descanso curto</h3>
       <p>Um descanso curto é feito quando você tem <b>um dia</b> inteiro de descanso.</p>
       <div class="rest-opt" style="--c: var(--ember-l)">
-        <p><b>Lugar ruim:</b> regenera <b>20%</b> de todas as barras.</p>
+        <p>
+          <b>Lugar ruim:</b> regenera <b>20%</b> de todas as barras e seu estresse desce
+          <b>10%</b> do máximo.
+        </p>
         <button
           type="button"
           class="btn-rest"
           data-rest="Descanso curto em lugar ruim"
           data-bars="0.2"
+          data-stress="0.1"
           aria-label="Descansar: curto em lugar ruim"
         >
           Descansar
         </button>
       </div>
       <div class="rest-opt" style="--c: var(--moss-l)">
-        <p><b>Lugar confortável:</b> regenera <b>50%</b> de todas as barras.</p>
+        <p>
+          <b>Lugar confortável:</b> regenera <b>50%</b> de todas as barras e seu estresse desce
+          <b>20%</b> do máximo.
+        </p>
         <button
           type="button"
           class="btn-rest"
           data-rest="Descanso curto em lugar confortável"
           data-bars="0.5"
+          data-stress="0.2"
           aria-label="Descansar: curto em lugar confortável"
         >
           Descansar
@@ -128,24 +117,32 @@
       <h3>Descanso longo</h3>
       <p>Um descanso longo é feito quando você tem <b>uma semana</b> inteira de descanso.</p>
       <div class="rest-opt" style="--c: var(--ember-l)">
-        <p><b>Lugar ruim:</b> regenera <b>100%</b> de todas as barras.</p>
+        <p>
+          <b>Lugar ruim:</b> regenera <b>100%</b> de todas as barras e seu estresse desce
+          <b>25%</b> do máximo.
+        </p>
         <button
           type="button"
           class="btn-rest"
           data-rest="Descanso longo em lugar ruim"
           data-bars="1"
+          data-stress="0.25"
           aria-label="Descansar: longo em lugar ruim"
         >
           Descansar
         </button>
       </div>
       <div class="rest-opt" style="--c: var(--moss-l)">
-        <p><b>Lugar confortável:</b> regenera <b>100%</b> de todas as barras.</p>
+        <p>
+          <b>Lugar confortável:</b> regenera <b>100%</b> de todas as barras e seu estresse desce
+          <b>50%</b> do máximo.
+        </p>
         <button
           type="button"
           class="btn-rest"
           data-rest="Descanso longo em lugar confortável"
           data-bars="1"
+          data-stress="0.5"
           aria-label="Descansar: longo em lugar confortável"
         >
           Descansar
