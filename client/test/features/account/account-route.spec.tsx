@@ -432,6 +432,20 @@ describe('account route (/account)', () => {
       expect(screen.queryByRole('region', { name: 'Alterações do perfil' })).toBeNull();
     });
 
+    it('"Som do chat" sits right below "Som dos dados" and turns off at once, outside the bar', async () => {
+      await openAccount();
+      const form = screen.getByRole('form', { name: 'Perfil' });
+      const named = ['Dados 3D', 'Som dos dados', 'Som do chat'].map((name) =>
+        within(form).getByRole('switch', { name }),
+      );
+      expect(within(form).getAllByRole('switch')).toEqual(named);
+
+      await userEvent.click(screen.getByRole('switch', { name: 'Som do chat' }));
+
+      expect(deps.chatPreferences.getState().sound).toBe(false);
+      expect(screen.queryByRole('region', { name: 'Alterações do perfil' })).toBeNull();
+    });
+
     it('the preview is a d20 in the profile color, with the number in automatic contrast', async () => {
       await openAccount();
       expect(diceBase()).toHaveAttribute('fill', '#5cc8c0');

@@ -61,6 +61,8 @@ import type { SavedRollsApi } from '@/services/saved-rolls-api';
 import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
 import type { DiceRendererFactory } from '@lorkarium/dice-renderer';
 import type { DiceSoundFactory } from '@/dice-audio/dice-sound';
+import type { ChatSoundFactory } from '@/chat-audio/chat-sound';
+import type { ChatPreferencesStore } from '@/stores/chat-preferences-store';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import type { AppUpdateStore } from '@/stores/app-update-store';
 import type { CreateBoardRenderer } from '@/renderer/board-renderer';
@@ -161,6 +163,10 @@ export type AppDependencies = Readonly<{
   createDiceRenderer: DiceRendererFactory;
   /** The knocks of the rolls; Web Audio in the app, a fake in tests. */
   createDiceSound: DiceSoundFactory;
+  /** "Som do chat" on this device, remembered in the browser (on by default). */
+  chatPreferences: StoreApi<ChatPreferencesStore>;
+  /** The short sound of a mention or a whisper; Web Audio in the app, a fake in tests. */
+  createChatSound: ChatSoundFactory;
   /** The board's own time (the hover card's delay); the browser's in the app. */
   interactionClock: InteractionClock;
   /** The instant of the overline date; a parameter so tests fix the day. */

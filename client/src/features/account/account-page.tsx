@@ -3,6 +3,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Clipboard } from '@/services/clipboard';
 import type { ProfileApi } from '@/services/profile-api';
+import type { ChatPreferencesStore } from '@/stores/chat-preferences-store';
 import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
 import type { SessionStore } from '@/stores/session-store';
 import type { AccountLoaderData } from './account-routes';
@@ -26,13 +27,14 @@ export type AccountPageProps = AccountLoaderData &
     sessionStore: StoreApi<SessionStore>;
     clipboard: Clipboard;
     dicePreferences: StoreApi<DicePreferencesStore>;
+    chatPreferences: StoreApi<ChatPreferencesStore>;
   }>;
 
 /** "Minha conta" in tabs: how the person shows up to the table and rolls the dice (Perfil), how
  *  they look after the account (Segurança) and what their plan allows (Plano). The open tab is in
  *  `?aba=`; the profile draft is the page's, so an edit survives a switch of tab.
  *
- *  Example: `<AccountPage {...useLoaderData()} now={now} profileApi={profileApi} sessionStore={sessionStore} clipboard={clipboard} dicePreferences={dicePreferences} />` */
+ *  Example: `<AccountPage {...useLoaderData()} now={now} profileApi={profileApi} sessionStore={sessionStore} clipboard={clipboard} dicePreferences={dicePreferences} chatPreferences={chatPreferences} />` */
 export function AccountPage(props: AccountPageProps): React.JSX.Element {
   const editor = useProfileEditor(props.profile);
   const [tab, openTab] = useAccountTab();
@@ -99,6 +101,7 @@ function AccountTabPanels(
           profileApi={props.profileApi}
           sessionStore={props.sessionStore}
           dicePreferences={props.dicePreferences}
+          chatPreferences={props.chatPreferences}
         />
       </TabsContent>
       <TabsContent value="seguranca">
