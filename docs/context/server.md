@@ -44,6 +44,7 @@ API Fastify 5 em `server/` (Node 26, ESM, `tsx`). Este hub cobre o **encanamento
 | `DATABASE_LOCK_TIMEOUT_MS`      | 100 a 600000, padrão `2000`: esperar trava (a da cena) além disso falha com `55P03`           |
 | `ADMIN_EMAIL`                   | opcional; só junto com `ADMIN_PASSWORD`; normalizado                                          |
 | `ADMIN_PASSWORD`                | opcional; só junto com `ADMIN_EMAIL`; mínimo 12 caracteres só com `NODE_ENV=production`       |
+| `OWNER_USERNAME`                | opcional; o @ do Dono do Lorkarium (formato do `usernameDto`); vai em toda conexão do pool    |
 | `S3_ENDPOINT`                   | obrigatório; URL do S3 (`http://localhost:8333`, o SeaweedFS do `pnpm db:up`)                 |
 | `S3_REGION`                     | padrão `us-east-1`                                                                            |
 | `S3_BUCKET`                     | obrigatório; criado no boot se faltar (ver `assets.md`)                                       |

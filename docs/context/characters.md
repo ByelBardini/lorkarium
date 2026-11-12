@@ -30,7 +30,7 @@ O `Character` do spec §6 (o Actor do Foundry): a entidade da mesa por trás dos
 
 - Leituras: `listOfCampaign(mesa)` (todos, guardados inclusive, mais antigo primeiro), `findManyInCampaign(mesa, ids)` (em lote: id de outra mesa fica de fora; **é a leitura da Fase 6** para os personagens dos tokens ligados de um grid), `findInCampaign(mesa, id)`, `findOfUser(mesa, usuário)`, `versionOf(mesa)` (sem trava, para o sync).
 - Escritas (as de várias tabelas no DAO do `tx`): `insert(NewCharacterRow)` (personagem + barras + controladores, relido), `update(id, CharacterChangesPo)` (patch: ausente mantém, `null` limpa), `setBarValues(barra, { current, max, temp })`, `replaceBars(id, barras)`, `replaceControllers(id, usuários)` (repetido entra uma vez), `setUser(id, usuário | null)`.
-- Versão: `lockVersion(mesa)` (`SELECT characters_version … FOR NO KEY UPDATE`; mesa inexistente → `undefined`) e `bumpVersion(mesa)` (+1, devolve).
+- Versão: `lockVersion(mesa)` → `CharactersLockPo` `{ version, owner }` (`SELECT characters_version` com `innerJoin(users)` no dono, `FOR NO KEY UPDATE OF campaigns`: trava só a mesa, nunca a linha do dono; mesa inexistente → `undefined`) e `bumpVersion(mesa)` (+1, devolve). O `lockCharacters` põe o `owner` (`UserPlanPo`) em `LockedCharacters`: toda obra no fluxo da mesa tem os limites do plano por `effectiveLimitsOf(locked.owner)` ([`plans.md`](plans.md)).
 - PO auxiliares em `characters.po.ts`: `CharacterBarInputPo`, `CharacterChangesPo`.
 
 ## Regra (`character.bo.ts`) e redação

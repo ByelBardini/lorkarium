@@ -15,6 +15,7 @@ Os tokens da cena (spec §3.4, §3.6, §3.9): quem pode o quê, as N barras de c
 | [`tokens/testes.md`](tokens/testes.md)                       | Testes do módulo: unit × integração, specs por service e por grid                                      |
 | [`tokens/bloqueio-de-visao.md`](tokens/bloqueio-de-visao.md) | Token que bloqueia a visão: `blocks_sight`, só o mestre, teto de 50 (`TOKEN_BLOCKER_LIMIT`)            |
 | [`tokens/patrulha.md`](tokens/patrulha.md)                   | Patrulha: `token_patrols`, linha do tempo, ligar/desligar, teto de 30, o que pausa, luz que anda       |
+| [`tokens/plano.md`](tokens/plano.md)                         | Plano do dono: `owner` na trava do grid, `TokenPlanBo` (barras, formas, aura, bloqueio), patrulha, SDK |
 | [`tokens/movimento-livre.md`](tokens/movimento-livre.md)     | Passo de 1/64, `CHECK tokens_box_steps` e por que o modo não é conferido no server                     |
 | [`tokens/armadilhas.md`](tokens/armadilhas.md)               | Armadilhas do módulo: migração, enum, `as const`, `CHECK`, nomes no Drizzle, SQL cru da patrulha       |
 

@@ -32,7 +32,7 @@ Dados também abre em janela própria: `useRoomDiceWindow` usa o mesmo host, por
 
 `use-room-chat-window.tsx` liga o ciclo da janela ao `PlayRoomPage`, que recebe `chatWindowHost` pela rota da campanha. O hook monta `ChatPanel` no `ChatWindowPortal` e fornece o slot docked/detached ao `RoomSidePanel`. Assim a janela continua viva ao trocar a aba do painel, recolhê-lo ou ativar o modo foco. A conversa mostrada na janela fica ativa na mesma store: mensagens vistas ali não aumentam o contador da sala; as outras conversas continuam contando normalmente.
 
-O painel na sala mostra "Chat aberto em outra janela · Trazer de volta"; ao trazer de volta, a janela fecha e a aba monta o chat com o mesmo histórico. Bloqueio do navegador mantém o chat na aba com aviso. A janela fecha ao sair da sala ou no `pagehide` da principal.
+O painel na sala mostra "Chat aberto em outra janela · Trazer de volta"; ao trazer de volta, a janela fecha e a aba monta o chat com o mesmo histórico. Bloqueio do navegador mantém o chat na aba com aviso. Na mesa sem `desktopWindows` (Grátis), `open` dos painéis `chat` e `image` não chama o host e devolve `planHint` ("Disponível no Narrador"), que o slot do chat mostra como aviso; Dados abre em todo plano ([`../plans/client-controles.md`](../plans/client-controles.md)). A janela fecha ao sair da sala ou no `pagehide` da principal.
 
 O caso integrado em `test/features/board/play-room-page-tabs.spec.tsx` prova envio e recebimento pelo portal, troca para a aba Dados sem fechar a janela, não lidas e retorno à aba. O hook precisa morar na sala, pois montá-lo na aba ou no painel recolhível fecharia a janela ao ocultar esses componentes.
 

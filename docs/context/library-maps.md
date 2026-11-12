@@ -56,6 +56,7 @@ Recebem `db` ou `tx` pelo construtor. **Toda consulta filtra por `campaign_id`**
 
 - `insert(NewLibraryMapPo)` → `LibraryMapPo`
 - `listOfCampaign(campaignId)` → `LibraryMapRow[]` (ordem de criação)
+- `countOfCampaign(campaignId)` → `number` (o que o plano do dono conta em `libraryMaps`)
 - `findInCampaign(campaignId, mapId)` e `findMainOfCampaign(campaignId)` → `LibraryMapRow | undefined`
 - `findByAsset(campaignId, assetId)` → `LibraryMapPo | undefined`
 - `update(campaignId, mapId, LibraryMapChangesPo)` → `LibraryMapPo | undefined` (só as chaves recebidas de `name`/`folderId`/`visibility`, e o `updated_at`)
@@ -93,15 +94,15 @@ Recebem `db` ou `tx` pelo construtor. **Toda consulta filtra por `campaign_id`**
 
 Todas sob `/api`, exigem sessão (401 sem cookie), aninhadas na mesa (§2.6). DTOs em `library-map.dto.ts`. Id malformado na URL = não achado (404), como id de outra mesa. Corpo com campo a mais (`userId`, `isMain`) → 400 `INVALID_BODY`.
 
-| Rota                                                     | Quem   | Entrada                      | Saída                      | Erros                                                        |
-| -------------------------------------------------------- | ------ | ---------------------------- | -------------------------- | ------------------------------------------------------------ |
-| `POST /campaigns/:campaignId/library-maps`               | mestre | `createLibraryMapRequestDto` | 201 `libraryMapSummaryDto` | 400 · 403 · 404 `ASSET_NOT_FOUND` / `FOLDER_NOT_FOUND`       |
-| `GET /campaigns/:campaignId/library-maps/main`           | membro | —                            | 200 `mainMapResponseDto`   | 404 `CAMPAIGN_NOT_FOUND`                                     |
-| `GET /campaigns/:campaignId/library-maps/:mapId`         | membro | —                            | 200 `libraryMapDetailDto`  | 404 `LIBRARY_MAP_NOT_FOUND`                                  |
-| `PATCH /campaigns/:campaignId/library-maps/:mapId`       | mestre | `updateLibraryMapRequestDto` | 200 `libraryMapSummaryDto` | 400 · 403 · 404 `LIBRARY_MAP_NOT_FOUND` / `FOLDER_NOT_FOUND` |
-| `DELETE /campaigns/:campaignId/library-maps/:mapId`      | mestre | —                            | 204 (regiões na cascata)   | 403 · 404 · 409 `MAP_IS_MAIN`                                |
-| `PUT /campaigns/:campaignId/library-maps/:mapId/main`    | mestre | —                            | 200 `libraryMapSummaryDto` | 403 · 404 `LIBRARY_MAP_NOT_FOUND`                            |
-| `DELETE /campaigns/:campaignId/library-maps/:mapId/main` | mestre | —                            | 200 `libraryMapSummaryDto` | 403 · 404 `LIBRARY_MAP_NOT_FOUND`                            |
+| Rota                                                     | Quem   | Entrada                      | Saída                      | Erros                                                                               |
+| -------------------------------------------------------- | ------ | ---------------------------- | -------------------------- | ----------------------------------------------------------------------------------- |
+| `POST /campaigns/:campaignId/library-maps`               | mestre | `createLibraryMapRequestDto` | 201 `libraryMapSummaryDto` | 400 · 403 (`PLAN_LIMIT` `libraryMaps`) · 404 `ASSET_NOT_FOUND` / `FOLDER_NOT_FOUND` |
+| `GET /campaigns/:campaignId/library-maps/main`           | membro | —                            | 200 `mainMapResponseDto`   | 404 `CAMPAIGN_NOT_FOUND`                                                            |
+| `GET /campaigns/:campaignId/library-maps/:mapId`         | membro | —                            | 200 `libraryMapDetailDto`  | 404 `LIBRARY_MAP_NOT_FOUND`                                                         |
+| `PATCH /campaigns/:campaignId/library-maps/:mapId`       | mestre | `updateLibraryMapRequestDto` | 200 `libraryMapSummaryDto` | 400 · 403 · 404 `LIBRARY_MAP_NOT_FOUND` / `FOLDER_NOT_FOUND`                        |
+| `DELETE /campaigns/:campaignId/library-maps/:mapId`      | mestre | —                            | 204 (regiões na cascata)   | 403 · 404 · 409 `MAP_IS_MAIN`                                                       |
+| `PUT /campaigns/:campaignId/library-maps/:mapId/main`    | mestre | —                            | 200 `libraryMapSummaryDto` | 403 · 404 `LIBRARY_MAP_NOT_FOUND`                                                   |
+| `DELETE /campaigns/:campaignId/library-maps/:mapId/main` | mestre | —                            | 200 `libraryMapSummaryDto` | 403 · 404 `LIBRARY_MAP_NOT_FOUND`                                                   |
 
 - Jogador ou espectador em rota de mestre → 403 `FORBIDDEN`; quem não é membro → 404 `CAMPAIGN_NOT_FOUND`, antes de qualquer trava. O espectador lê como jogador.
 - Mapa privado que não é o Principal, para quem não é mestre → 404 `LIBRARY_MAP_NOT_FOUND`.
@@ -111,7 +112,7 @@ Todas sob `/api`, exigem sessão (401 sem cookie), aninhadas na mesa (§2.6). DT
 
 ## Service e plugin
 
-- `LibraryMapsService` (`library-maps.service.ts`): `create`, `detail`, `main`, `update`, `delete`, `setMain`, `unsetMain`. O requerente é `LibraryRequester { userId, campaignId }` (sessão + URL). Toda edição passa por `editAsMaster` (exportada, também é a das regiões): `requireMaster` → transação que trava a mesa (`lockById`) → trabalho → commit → publicação. O `detail` lê em snapshot. `requireMapRow` acha o mapa pelo endereço ou recusa com `LIBRARY_MAP_NOT_FOUND`.
+- `LibraryMapsService` (`library-maps.service.ts`): `create`, `detail`, `main`, `update`, `delete`, `setMain`, `unsetMain`. O requerente é `LibraryRequester { userId, campaignId }` (sessão + URL). Toda edição passa por `editAsMaster` (exportada, também é a das regiões): `requireMaster` → transação que trava a mesa com o plano do dono (`lockWithOwner`) → trabalho (recebe `daos`, `access` e a linha travada `CampaignWithOwnerPo`) → commit → publicação. O `create` conta `countOfCampaign` contra o plano do dono (`requireRoom('libraryMaps', …)`) antes de conferir a imagem. O `detail` lê em snapshot. `requireMapRow` acha o mapa pelo endereço ou recusa com `LIBRARY_MAP_NOT_FOUND`.
 - `createLibraryMapsModule({ db, publisher, clock })` (`library-maps.plugin.ts`, registrado no `build-app` depois da biblioteca, com o `SocketIoLibraryPublisher`); `libraryMapDaos(executor)` monta os DAOs num executor só. `libraryMapsRoutes` recebe os quatro services (`maps`, `regions`, `shows`, `appearances`).
 - **Erros** (`library-maps.error.ts`, base `LibraryMapError` com `LibraryMapErrorCode`): `LIBRARY_MAP_NOT_FOUND` (404), `MAP_IS_MAIN` (409), `MAP_REGION_NOT_FOUND` (404), `MAP_REGION_GEOMETRY_INVALID` (400), `MAP_REGIONS_FULL` (422), `MAP_LINK_SELF` (422), `MAP_LINK_TARGET_NOT_FOUND` (404), `MAP_REGION_NOT_SHOWABLE` (409). Código novo entra em `LibraryMapErrorCode` e nas duas tabelas da borda (`STATUS_BY_CODE`, `PUBLIC_MESSAGE`, em `library-maps.routes.ts`). A borda traduz também `DocumentError` (404) das aparições.
 - O agregado `GET …/library` e a exclusão de pasta moram na biblioteca; ver [`library.md`](library.md) (Mapas).

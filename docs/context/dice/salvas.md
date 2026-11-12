@@ -23,7 +23,7 @@ Detalhe de [`../dice.md`](../dice.md). A combinação de peças da bandeja que a
 | `PATCH /campaigns/:campaignId/saved-roll-folders/:id`  | 200 `savedRollFolderDto` · 404 · 409 |
 | `DELETE /campaigns/:campaignId/saved-roll-folders/:id` | 204 · 404                            |
 
-Códigos: `SAVED_ROLL_FOLDER_NOT_FOUND` (404), `SAVED_ROLL_FOLDER_NAME_TAKEN` (409), `SAVED_ROLL_FOLDERS_LIMIT` (422). Testes: `saved-roll-folders.service.spec.ts`, o `describe` de pastas em `saved-rolls.service.spec.ts` e na integração `saved-rolls.spec.ts`; fake `SavedRollFoldersDaoFake`.
+Códigos: `SAVED_ROLL_FOLDER_NOT_FOUND` (404), `SAVED_ROLL_FOLDER_NAME_TAKEN` (409), `PLAN_LIMIT` (403, `savedRollFolders`), `SAVED_ROLL_FOLDERS_LIMIT` (422, "You already keep <`limit`> folders at this table"). Testes: `saved-roll-folders.service.spec.ts`, o `describe` de pastas em `saved-rolls.service.spec.ts` e na integração `saved-rolls.spec.ts`; fake `SavedRollFoldersDaoFake`.
 
 ## DAO (`saved-rolls.dao.ts`)
 
@@ -31,15 +31,15 @@ Códigos: `SAVED_ROLL_FOLDER_NOT_FOUND` (404), `SAVED_ROLL_FOLDER_NAME_TAKEN` (4
 
 - `listOf(campaignId, userId)` → `SavedRollPo[]` na ordem de criação (`created_at`, `id`)
 - `countOf(campaignId, userId)` → número
-- `lockOwner(campaignId, userId)` → `boolean`: `SELECT … FROM campaign_members … FOR NO KEY UPDATE` na linha do membro (no `tx`); `false` se ele saiu. Por quê: duas criações simultâneas do mesmo membro contam uma depois da outra e nunca passam de 50 juntas. `NO KEY UPDATE` não bloqueia o `KEY SHARE` das FKs que apontam para o membro (ficha, salvas).
+- `lockOwner(campaignId, userId)` → `UserPlanPo | undefined`: `SELECT` do `role`/`plan`/`lorkariumOwner` do **dono da mesa** (`campaign_members` → `campaigns` → `users`) `FOR NO KEY UPDATE OF campaign_members` na linha do membro (no `tx`); `undefined` se ele saiu. Por quê: duas criações simultâneas do mesmo membro contam uma depois da outra e nunca passam do teto juntas, e o teto é o plano do dono lido na mesma consulta. `NO KEY UPDATE` não bloqueia o `KEY SHARE` das FKs que apontam para o membro (ficha, salvas), e a mesa e o dono ficam livres (provado em `saved-rolls-dao.spec.ts`).
 - `insert(row)` → a linha; `update(campaignId, userId, id, changes)` → a linha ou `undefined` (não é do dono), soma `updated_at`; `remove(campaignId, userId, id)` → `boolean`
 
 ## Regra (`saved-roll.bo.ts`)
 
-`SavedRollRulesBo(maxSaved)` (o `SAVED_ROLLS_MAX` entra pelo plugin):
+`SavedRollRulesBo(maxSaved)` (o `SAVED_ROLLS_MAX`, teto técnico, entra pelo plugin):
 
 - `requireReadable(expressions)` delega ao `requireReadableDice` de `server/src/modules/dice/dice-roll.bo.ts` (a mesma leitura da rolagem; o erro é o `InvalidDiceExpressionError` de `dice/dice.error.ts`, e as rotas o traduzem em 400 antes do `SavedRollsError`): cada peça pelo `parseDiceExpression` do game-core (o motivo é o do game-core, sem o prefixo 0-based dele) e a composição pelo `parseDiceParts` (1 a 10 peças, até 1000 dados somados). Peça ilegível → `INVALID_DICE_EXPRESSION` com `part` contado **a partir de 1** e a expressão: `part 2 ("2d") cannot be read: Expected the number of sides at position 2; got the end of the expression.`; composição recusada → `part: null`, `the roll cannot be read: Dice roll has 11 parts: …`.
-- `requireRoomFor(guardadas)`: a 51ª → `SAVED_ROLLS_LIMIT` "saving would keep 51 of 50 saved rolls …".
+- `requireRoomFor(guardadas, limits)`: primeiro o plano do dono (`PlanLimitsBo.requireRoom('savedRolls', guardadas, 1, limits)`: Grátis 5, Narrador 20 → `PLAN_LIMIT` 403 com `planLimit`), depois o técnico: a 51ª → `SAVED_ROLLS_LIMIT` "saving would keep 51 of 50 saved rolls …" (Lenda, Amigo do Dono e admin). `requireFolderRoom(guardadas, maxFolders, limits)` faz o mesmo com `savedRollFolders` (Grátis 0: nenhuma pasta; os outros 50 = técnico). Só a criação conta: renomear, mover e apagar passam com o membro acima do teto (quem desceu de plano mantém o que tem).
 
 ## Service (`saved-rolls.service.ts`)
 
@@ -67,17 +67,18 @@ Códigos: `SAVED_ROLL_FOLDER_NOT_FOUND` (404), `SAVED_ROLL_FOLDER_NAME_TAKEN` (4
 | `PATCH /campaigns/:campaignId/saved-rolls/:savedRollId`  | 200 `savedRollDto`                          |
 | `DELETE /campaigns/:campaignId/saved-rolls/:savedRollId` | 204                                         |
 
-| Código                    | Status | Mensagem pública                                        |
-| ------------------------- | ------ | ------------------------------------------------------- |
-| `INVALID_BODY`            | 400    | caminho e regra do Zod                                  |
-| `INVALID_DICE_EXPRESSION` | 400    | **a do domínio** (a peça e o motivo do game-core)       |
-| sem sessão                | 401    | a do `requireAuth`                                      |
-| `FORBIDDEN`               | 403    | Your role at this table does not allow it               |
-| `CAMPAIGN_NOT_FOUND`      | 404    | Campaign not found (id malformado também)               |
-| `SAVED_ROLL_NOT_FOUND`    | 404    | Saved roll not found (de outro, outra mesa, malformado) |
-| `SAVED_ROLL_NAME_TAKEN`   | 409    | You already have a saved roll with this name            |
-| `SAVED_ROLLS_LIMIT`       | 422    | You already keep 50 saved rolls at this table           |
-| `RATE_LIMITED`            | 429    | Too many changes in a row + `retryAfterSeconds`         |
+| Código                    | Status | Mensagem pública                                             |
+| ------------------------- | ------ | ------------------------------------------------------------ |
+| `INVALID_BODY`            | 400    | caminho e regra do Zod                                       |
+| `INVALID_DICE_EXPRESSION` | 400    | **a do domínio** (a peça e o motivo do game-core)            |
+| sem sessão                | 401    | a do `requireAuth`                                           |
+| `FORBIDDEN`               | 403    | Your role at this table does not allow it                    |
+| `CAMPAIGN_NOT_FOUND`      | 404    | Campaign not found (id malformado também)                    |
+| `SAVED_ROLL_NOT_FOUND`    | 404    | Saved roll not found (de outro, outra mesa, malformado)      |
+| `SAVED_ROLL_NAME_TAKEN`   | 409    | You already have a saved roll with this name                 |
+| `PLAN_LIMIT`              | 403    | a do `PlanLimitError` + `planLimit` (`withPlanLimitReply`)   |
+| `SAVED_ROLLS_LIMIT`       | 422    | You already keep <`limit` do erro> saved rolls at this table |
+| `RATE_LIMITED`            | 429    | Too many changes in a row + `retryAfterSeconds`              |
 
 - O "50" do `SAVED_ROLLS_LIMIT` está **escrito** no texto (`saved-rolls.routes.ts`), não lido do `SAVED_ROLLS_MAX`: mudar o máximo é mudar a mensagem junto.
 - `INVALID_DICE_EXPRESSION` é a exceção à regra "texto público fixo": a mensagem só tem a expressão da própria pessoa e diz qual peça corrigir.
