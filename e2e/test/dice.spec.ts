@@ -126,7 +126,7 @@ test('with "Dados 3D" off in Minha conta, the next roll makes no canvas and the 
   const { admin, bia } = await openDiceTable(newPlayerPage, false);
 
   // "Dados 3D" lives in Minha conta, kept on the device: the room picks it up on the way back.
-  await openAccount(admin);
+  await openAccount(admin, 'dados');
   await admin.getByRole('switch', { name: 'Dados 3D' }).click();
   await expect(admin.getByRole('switch', { name: 'Dados 3D' })).not.toBeChecked();
   await admin.goBack();

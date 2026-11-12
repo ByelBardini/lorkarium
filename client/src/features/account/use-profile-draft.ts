@@ -16,6 +16,9 @@ export type ProfileDraftValues = Readonly<{
   diceNumberColor: string | null;
 }>;
 
+/** A field of the draft, as `changed` names it. */
+export type ProfileDraftField = keyof ProfileDraftValues;
+
 export type ProfileDraftErrors = Partial<Record<'name' | 'bio', string>>;
 
 export type ProfileDraft = Readonly<{
@@ -23,6 +26,8 @@ export type ProfileDraft = Readonly<{
   errors: ProfileDraftErrors;
   /** Some field differs from the confirmed profile. */
   dirty: boolean;
+  /** The fields that differ from the confirmed profile, valid or not. */
+  changed: readonly ProfileDraftField[];
   /** The PATCH body, only with what changed; `null` while a field is invalid or nothing changed. */
   update: UpdateProfileRequestDto | null;
   change: (patch: Partial<ProfileDraftValues>) => void;
@@ -38,12 +43,14 @@ export function useProfileDraft(profile: ProfileDto): ProfileDraft {
   const confirmed = confirmedValues(profile);
   const values = { ...confirmed, ...edits };
   const changes = changesOf(values, confirmed);
-  const dirty = Object.keys(changes).length > 0;
+  const changed = changedFieldsOf(changes);
+  const dirty = changed.length > 0;
   const checked = dirty ? checkChanges(changes) : { update: null, errors: {} };
   return {
     values,
     errors: checked.errors,
     dirty,
+    changed,
     update: checked.update,
     change: (patch) => setEdits((current) => ({ ...current, ...patch })),
     discard: () => setEdits({}),
@@ -71,6 +78,11 @@ function changesOf(
       ? {}
       : { diceNumberColor: values.diceNumberColor }),
   };
+}
+
+function changedFieldsOf(changes: Partial<ProfileDraftValues>): ProfileDraftField[] {
+  const fields: readonly ProfileDraftField[] = ['name', 'color', 'bio', 'diceNumberColor'];
+  return fields.filter((field) => field in changes);
 }
 
 function checkChanges(changes: Partial<ProfileDraftValues>): {

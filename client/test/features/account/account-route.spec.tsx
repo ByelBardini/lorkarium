@@ -26,8 +26,8 @@ describe('account route (/account)', () => {
     return router;
   }
 
-  async function openAccount(): Promise<ReturnType<typeof createMemoryRouter>> {
-    const router = renderAt();
+  async function openAccount(path = '/account'): Promise<ReturnType<typeof createMemoryRouter>> {
+    const router = renderAt(path);
     await screen.findByRole('heading', { name: 'Minha conta', level: 1 });
     return router;
   }
@@ -208,6 +208,68 @@ describe('account route (/account)', () => {
     expect(router.state.location.search).toBe('?next=%2Faccount');
   });
 
+  describe('abas', () => {
+    function tabs(): HTMLElement[] {
+      return within(screen.getByRole('tablist', { name: 'Seções da conta' })).getAllByRole('tab');
+    }
+
+    it('opens on Perfil, with Dados, Segurança and Plano beside it', async () => {
+      await openAccount();
+      expect(tabs().map((tab) => tab.textContent)).toEqual([
+        'Perfil',
+        'Dados',
+        'Segurança',
+        'Plano',
+      ]);
+      expect(screen.getByRole('tab', { name: 'Perfil' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('form', { name: 'Perfil' })).toBeVisible();
+      expect(screen.queryByRole('group', { name: 'Seus dados' })).toBeNull();
+      expect(screen.queryByRole('region', { name: 'Conta e segurança' })).toBeNull();
+    });
+
+    it('a tab goes into ?aba= and shows its section without loading the account again', async () => {
+      const router = await openAccount();
+      const loads = deps.profileApi.answers.callsOf('get').length;
+
+      await userEvent.click(screen.getByRole('tab', { name: 'Segurança' }));
+
+      expect(await screen.findByRole('region', { name: 'Conta e segurança' })).toBeVisible();
+      expect(router.state.location.search).toBe('?aba=seguranca');
+      expect(screen.queryByRole('form', { name: 'Perfil' })).toBeNull();
+      expect(deps.profileApi.answers.callsOf('get')).toHaveLength(loads);
+    });
+
+    it('Perfil again leaves /account without a query', async () => {
+      const router = await openAccount('/account?aba=plano');
+      await userEvent.click(screen.getByRole('tab', { name: 'Perfil' }));
+      expect(await screen.findByLabelText('Apelido')).toBeVisible();
+      expect(router.state.location.search).toBe('');
+    });
+
+    it('an unknown ?aba= opens Perfil', async () => {
+      await openAccount('/account?aba=senha');
+      expect(screen.getByRole('tab', { name: 'Perfil' })).toHaveAttribute('aria-selected', 'true');
+      expect(nickname()).toHaveValue('Ana');
+    });
+
+    it('a nickname edited in Perfil survives Dados, marks its tab, and the bar of Dados saves it', async () => {
+      await openAccount();
+      await userEvent.clear(nickname());
+      await userEvent.type(nickname(), 'Bia');
+
+      await userEvent.click(screen.getByRole('tab', { name: 'Dados' }));
+      await screen.findByRole('group', { name: 'Seus dados' });
+
+      expect(screen.getByRole('tab', { name: 'Perfil (alterações não salvas)' })).toBeVisible();
+      expect(screen.getByRole('tab', { name: 'Dados' })).toBeVisible();
+      const bar = screen.getByRole('region', { name: 'Alterações do perfil' });
+      await userEvent.click(within(bar).getByRole('button', { name: 'Salvar alterações' }));
+      expect(await screen.findByText('Tudo salvo.')).toBeInTheDocument();
+      expect(deps.profileApi.answers.callsOf('update')).toEqual([{ name: 'Bia' }]);
+      expect(screen.getByRole('tab', { name: 'Perfil' })).toBeVisible();
+    });
+  });
+
   describe('foto', () => {
     function png(bytes = 4): File {
       return new File([new Uint8Array(bytes)], 'eu.png', { type: 'image/png' });
@@ -361,7 +423,7 @@ describe('account route (/account)', () => {
     }
 
     it('"Dados 3D" sits in Minha conta and turns off at once, outside the bar of changes', async () => {
-      await openAccount();
+      await openAccount('/account?aba=dados');
       const toggle = screen.getByRole('switch', { name: 'Dados 3D' });
       expect(toggle).toBeChecked();
 
@@ -373,22 +435,24 @@ describe('account route (/account)', () => {
     });
 
     it('the preview is a d20 in the profile color, with the number in automatic contrast', async () => {
-      await openAccount();
+      await openAccount('/account?aba=dados');
       expect(diceBase()).toHaveAttribute('fill', '#5cc8c0');
       expect(within(dicePreview()).getByTestId('dice-number')).toHaveAttribute('fill', '#1a1a1a');
       expect(within(dicePreview()).queryByTestId('dice-texture')).toBeNull();
       expect(within(diceField()).queryByLabelText('Cor do número')).toBeNull();
     });
 
-    it('the preview follows the color picked before it is saved', async () => {
+    it('the preview follows the color picked in Perfil before it is saved', async () => {
       await openAccount();
       const colors = screen.getByRole('radiogroup', { name: 'Sua cor no mapa' });
       await userEvent.click(within(colors).getByRole('radio', { name: 'Ouro' }));
+      await userEvent.click(screen.getByRole('tab', { name: /^Dados/ }));
+      await screen.findByRole('group', { name: 'Seus dados' });
       expect(diceBase()).toHaveAttribute('fill', '#e0b25c');
     });
 
     it('choosing a file shows "Enviando…", then the texture in the preview and "Cor do número"', async () => {
-      await openAccount();
+      await openAccount('/account?aba=dados');
       const release = deps.profileApi.answers.hold('uploadDiceTexture');
       const file = png();
       await userEvent.upload(within(diceField()).getByLabelText('Arquivo de imagem'), file);
@@ -411,7 +475,7 @@ describe('account route (/account)', () => {
 
     it('"Cor do número" enters the bar of changes and is saved by the PATCH alone', async () => {
       withTexture();
-      await openAccount();
+      await openAccount('/account?aba=dados');
       await pickCustomColor(numberColorTile(), '#ff3366');
       expect(within(dicePreview()).getByTestId('dice-number')).toHaveAttribute('fill', '#ff3366');
       const bar = screen.getByRole('region', { name: 'Alterações do perfil' });
@@ -423,13 +487,13 @@ describe('account route (/account)', () => {
 
     it('"Cor do número" has no native color input left', async () => {
       withTexture();
-      await openAccount();
+      await openAccount('/account?aba=dados');
       expect(diceField().querySelector('input[type="color"]')).toBeNull();
     });
 
     it('"Tirar textura" goes back to the color, without "Cor do número" nor the bar', async () => {
       withTexture();
-      await openAccount();
+      await openAccount('/account?aba=dados');
       await userEvent.click(within(diceField()).getByRole('button', { name: 'Tirar textura' }));
       await waitFor(() => expect(within(dicePreview()).queryByTestId('dice-texture')).toBeNull());
       expect(deps.profileApi.answers.callsOf('removeDiceTexture')).toHaveLength(1);
@@ -441,7 +505,7 @@ describe('account route (/account)', () => {
     });
 
     it('a file of 6 MB says "A imagem passa de 5 MB." without sending', async () => {
-      await openAccount();
+      await openAccount('/account?aba=dados');
       const input = within(diceField()).getByLabelText('Arquivo de imagem');
       await userEvent.upload(input, png(6 * 1024 * 1024));
       expect(within(diceField()).getByRole('alert')).toHaveTextContent('A imagem passa de 5 MB.');
@@ -453,7 +517,7 @@ describe('account route (/account)', () => {
         ok: false,
         failure: { kind: 'link_not_image' },
       });
-      await openAccount();
+      await openAccount('/account?aba=dados');
       await userEvent.click(
         within(diceField()).getByRole('button', { name: 'Usar link de imagem' }),
       );
@@ -469,7 +533,7 @@ describe('account route (/account)', () => {
     });
 
     it('a link kept shows the texture and closes the link field', async () => {
-      await openAccount();
+      await openAccount('/account?aba=dados');
       await userEvent.click(
         within(diceField()).getByRole('button', { name: 'Usar link de imagem' }),
       );

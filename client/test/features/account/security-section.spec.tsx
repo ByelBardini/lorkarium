@@ -20,7 +20,9 @@ describe('security section (/account)', () => {
   async function openAccount(): Promise<void> {
     render(
       <RouterProvider
-        router={createMemoryRouter(buildRoutes(deps), { initialEntries: ['/account'] })}
+        router={createMemoryRouter(buildRoutes(deps), {
+          initialEntries: ['/account?aba=seguranca'],
+        })}
       />,
     );
     await screen.findByRole('heading', { name: 'Conta e segurança' });

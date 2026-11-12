@@ -24,7 +24,7 @@ export type PlanSectionProps = Readonly<{
 export function PlanSection({ plan, account }: PlanSectionProps): React.JSX.Element {
   const titleId = useId();
   return (
-    <section aria-labelledby={titleId} className="flex flex-col gap-6 border-t border-divider pt-8">
+    <section aria-labelledby={titleId} className="flex flex-col gap-6">
       <SectionHeading id={titleId} title="Seu plano">
         O que você pode criar como dono de mesa e quanto já usa.
       </SectionHeading>

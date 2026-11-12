@@ -108,7 +108,7 @@ test('changing the password signs the other device out on its next navigation', 
   await signInThroughTheForm(other, CAIO);
   let changed = false;
   try {
-    await openAccount(here);
+    await openAccount(here, 'seguranca');
     await here.getByRole('button', { name: 'Trocar senha' }).click();
     const dialog = here.getByRole('dialog', { name: 'Trocar senha' });
     await dialog.getByLabel('Senha atual', { exact: true }).fill(CAIO.password);
@@ -147,7 +147,7 @@ test('with 2FA on, the login asks for the app code, and a recovery code also get
   await signInThroughTheForm(bia, BIA);
   let recoveryCodes: string[] = [];
   try {
-    await openAccount(bia);
+    await openAccount(bia, 'seguranca');
     await bia.getByRole('button', { name: 'Ligar 2FA' }).click();
     const setup = bia.getByRole('dialog', { name: 'Ligar 2FA' });
     await setup.getByLabel('Senha atual', { exact: true }).fill(BIA.password);
@@ -181,7 +181,7 @@ test('with 2FA on, the login asks for the app code, and a recovery code also get
     await secondStep.getByRole('button', { name: 'Entrar', exact: true }).click();
     await expect(shellOf(bia)).toBeVisible();
 
-    await openAccount(bia);
+    await openAccount(bia, 'seguranca');
     await expect(bia.getByText('Ligado · 9 códigos de recuperação')).toBeVisible();
     await bia.getByRole('button', { name: 'Desligar', exact: true }).click();
     const off = bia.getByRole('dialog', { name: 'Desligar 2FA' });
