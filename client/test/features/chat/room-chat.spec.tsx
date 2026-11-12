@@ -18,7 +18,7 @@ function openAsBia(deps: TestDependencies): void {
   });
 }
 
-function renderRoomChat(deps: TestDependencies): void {
+function renderRoomChat(deps: TestDependencies, onScreen = true): void {
   const table = deps.openTables.getState().tables.find((open) => open.campaignId === VHARN.id);
   render(
     <RoomChat
@@ -34,6 +34,7 @@ function renderRoomChat(deps: TestDependencies): void {
       }}
       roomLayout={deps.roomLayout}
       services={deps}
+      onScreen={onScreen}
     />,
   );
 }

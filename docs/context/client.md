@@ -53,6 +53,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Chat da mesa: rodapé (barra, gaveta, prévia, aviso), store de conversas, campo, feed, destino  | [`chat.md`](client/chat.md)                                     |
 | Janelas de Chat, Dados e Imagens: host, portal, controles e portais Radix                      | [`chat-janela.md`](client/chat-janela.md)                       |
 | Som do chat: menção e sussurro, asset CC0, intervalo, chave "Som do chat"                      | [`chat-som.md`](client/chat-som.md)                             |
+| Brilho do ícone na barra de tarefas (desktop): pendente por mesa, foco, porta Tauri            | [`chat-atencao.md`](client/chat-atencao.md)                     |
 | Rotas: tabela, guardas, `restoreOpenTables`, árvore, `next` do login                           | [`rotas.md`](client/rotas.md)                                   |
 | Links de conta: `/invite` (escolher @ e senha) e `/reset-password`                             | [`account-links.md`](client/account-links.md)                   |
 | Barra de título do app desktop: `WindowTitleBar`, controles, lugar por rota, slot da sala      | [`title-bar.md`](client/title-bar.md)                           |

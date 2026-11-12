@@ -1,4 +1,6 @@
 import { HttpImagePresentationApi } from '@/services/image-presentation-api';
+import { ChatAttentionWatch } from '@/features/chat/chat-attention-watch';
+import { TauriTaskbarAttention } from '@/services/taskbar-attention';
 import { HttpLibraryMapsApi } from '@/services/library-maps-api';
 import { HttpDocumentsApi } from '@/services/documents-api';
 import { createDocumentWorkspaceStore } from '@/stores/document-workspace-store';
@@ -185,6 +187,9 @@ const router = createBrowserRouter(
     createDiceSound: () => createWebAudioDiceSound(),
     chatPreferences: createChatPreferencesStore(browserStorage),
     createChatSound: () => createWebAudioChatSound(),
+    chatAttention: desktopShellOf(navigator.userAgent)?.titleBar
+      ? new ChatAttentionWatch(new TauriTaskbarAttention(), window)
+      : null,
     interactionClock: browserClock,
     now: () => new Date(),
     random: Math.random,
