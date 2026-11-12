@@ -12,7 +12,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import { useOpenTable, type OpenTableView } from '@/features/sessions/use-open-table';
 import { useOpenTableOf } from '@/features/chat/use-chat-people';
 import { useSpeechBalloons } from '@/features/chat/use-speech-balloons';
-import { useRoomChatWindow } from '@/features/chat/use-room-chat-window';
+import { RoomChat } from '@/features/chat/room-chat';
 import { useRoomDiceWindow } from '@/features/dice/use-room-dice-window';
 import { ApplyConditionDialog } from '@/features/combat/apply-condition-dialog';
 import { ConditionToolPanel } from '@/features/combat/condition-tool-panel';
@@ -39,6 +39,8 @@ import { LightMenu, type LightMenuRequest } from '@/features/lights/light-menu';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { DiceRendererFactory } from '@lorkarium/dice-renderer';
 import type { DiceSoundFactory } from '@/dice-audio/dice-sound';
+import type { ChatSoundFactory } from '@/chat-audio/chat-sound';
+import type { ChatPreferencesStore } from '@/stores/chat-preferences-store';
 import { useDiceOverlay } from '@/features/dice/use-dice-overlay';
 import { useDiceSound } from '@/features/dice/use-dice-sound';
 import { DiceRollNotice } from '@/features/dice/dice-roll-notice';
@@ -128,9 +130,12 @@ export type PlayRoomPageProps = Readonly<{
   dice: DiceCommands;
   savedRolls: SavedRollsApi;
   diceClock: InteractionClock;
-  /** The "Chat" tab: `chat:send` (the rest it shares with "Dados"). */
+  /** The chat at the foot of the board: `chat:send` (the rest it shares with "Dados"). */
   chat: ChatCommands;
   chatWindowHost: ChatWindowHost;
+  /** "Som do chat": a mention or a whisper to the viewer rings. */
+  chatPreferences: StoreApi<ChatPreferencesStore>;
+  createChatSound: ChatSoundFactory;
   documentWorkspace?: StoreApi<DocumentWorkspaceStore>;
   /** A page (settings, conditions) covers the room: the desktop title bar gets its place back. */
   covered?: boolean;
@@ -220,29 +225,16 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const openTable = useOpenTableOf(openTables, campaign.id);
   const chat = openTable?.chat ?? null;
   useSpeechBalloons({ renderer, chat, sceneIdOf: speechSceneOf });
-  const chatWindow = useRoomChatWindow(
-    {
-      campaignId: campaign.id,
-      role,
-      sessionStore: props.sessionStore,
-      openTables,
-      presence: table?.presence ?? null,
-      board: table?.board ?? null,
-      services: props,
-    },
-    props.chatWindowHost,
-  );
-  const diceWindow = useRoomDiceWindow(
-    {
-      campaignId: campaign.id,
-      role,
-      sessionStore: props.sessionStore,
-      openTables,
-      presence: table?.presence ?? null,
-      services: props,
-    },
-    props.chatWindowHost,
-  );
+  const tablePanels = {
+    campaignId: campaign.id,
+    role,
+    sessionStore: props.sessionStore,
+    openTables,
+    presence: table?.presence ?? null,
+    board: table?.board ?? null,
+    services: props,
+  };
+  const diceWindow = useRoomDiceWindow(tablePanels, props.chatWindowHost);
   return (
     <RoomContexts players={players} tokenKeys={tokenKeys} sightOutlines={sightOutlines}>
       {openTable?.imagePresentation && (
@@ -252,10 +244,8 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
           isDesktop={isDesktopShell(navigator.userAgent)}
         />
       )}
-      {chatWindow.portal}
       {diceWindow.portal}
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-panel">
-        <title>{`Lorkarium · ${campaign.name}`}</title>
         {(!focus || !!activeDocument) && (
           <RoomHeader
             campaign={campaign}
@@ -427,6 +417,12 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
               roomLayout={roomLayout}
               clock={props.diceClock}
             />
+            <RoomChat
+              tableName={campaign.name}
+              panel={tablePanels}
+              roomLayout={roomLayout}
+              services={props}
+            />
             <FocusToggle roomLayout={roomLayout} />
             {focus && table && (
               <TurnLine
@@ -489,8 +485,6 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
                     diceClock: props.diceClock,
                   },
                 }}
-                chat={props.chat}
-                chatWindow={chatWindow.slot}
                 diceWindow={diceWindow.slot}
               />
             )}

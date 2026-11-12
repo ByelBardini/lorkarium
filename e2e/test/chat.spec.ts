@@ -1,8 +1,11 @@
 import { expect, type Page } from '@playwright/test';
 import {
+  chatBarOf,
+  chatDrawerOf,
   chatFeedOf,
+  collapseChat,
+  openChatDrawer,
   openChatTable,
-  openChatTab,
   selectConversation,
   sendChat,
 } from './support/chat';
@@ -99,7 +102,7 @@ test('slash rolls: /r and a saved /ataque produce matching totals in both chat f
   await dice.getByLabel('Nome da rolagem').fill('Ataque');
   await dice.getByRole('button', { name: 'Salvar', exact: true }).click();
   await expect(dice.getByRole('button', { name: 'Rolar Ataque', exact: true })).toBeVisible();
-  await openChatTab(bia);
+  await openChatDrawer(bia);
   await sendChat(bia, '/r 1d20');
   await expectMatchingRoll(admin, bia, 1, 20);
   await sendChat(bia, '/ataque');
@@ -117,26 +120,28 @@ test('character speech: Bia speaks as Lyra and the other browser paints a tempor
   const { admin, bia } = await openChatTable(newPlayerPage);
   await admin.getByRole('tab', { name: 'Combate', exact: true }).click();
   await createTokenFor(admin, 'Lyra', 'Bia');
-  await openChatTab(admin);
+  // The open drawer covers the centre cell, where the token and its balloon are.
+  await collapseChat(admin);
   await bia.getByRole('button', { name: 'Falar como: Você', exact: true }).click();
   await bia.getByRole('menuitemradio', { name: 'Lyra', exact: true }).click();
   await expect(bia.getByRole('button', { name: 'Falar como: Lyra' })).toBeVisible();
   const before = await brightBoardPixels(admin);
   await sendChat(bia, 'Sigam minha voz!');
+  await expect.poll(() => brightBoardPixels(admin)).toBeGreaterThan(before + 500);
+  await expect.poll(() => brightBoardPixels(admin), { timeout: 10_000 }).toBeLessThan(before + 100);
+  await openChatDrawer(admin);
   const message = chatFeedOf(admin).getByRole('listitem').filter({ hasText: 'Sigam minha voz!' });
   await expect(message).toContainText('Lyra');
   await expect(message).toContainText('Bia');
-  await expect.poll(() => brightBoardPixels(admin)).toBeGreaterThan(before + 500);
-  await expect.poll(() => brightBoardPixels(admin), { timeout: 10_000 }).toBeLessThan(before + 100);
 });
 
-test('detached window: popup menus and sending work, changing the room tab keeps it open, closing restores Chat', async ({
+test('detached window: popup menus and sending work, changing the room tab keeps it open, closing brings the chat back to the bar', async ({
   newPlayerPage,
 }) => {
   test.setTimeout(120_000);
   const { admin, bia } = await openChatTable(newPlayerPage);
   const popupOpened = admin.waitForEvent('popup');
-  await admin.getByRole('button', { name: 'Abrir em outra janela' }).click();
+  await chatDrawerOf(admin).getByRole('button', { name: 'Abrir em outra janela' }).click();
   const popup = await popupOpened;
   await expect(popup).toHaveURL(/\/chat-window\.html$/);
   const pin = popup.getByRole('button', { name: 'Sempre por cima' });
@@ -145,7 +150,10 @@ test('detached window: popup menus and sending work, changing the room tab keeps
     'title',
     'Sempre por cima: disponível no aplicativo para Windows.',
   );
-  await expect(admin.getByText('Chat aberto em outra janela', { exact: true })).toBeVisible();
+  await expect(
+    chatBarOf(admin).getByText('Chat aberto em outra janela', { exact: true }),
+  ).toBeVisible();
+  await expect(chatDrawerOf(admin)).toHaveCount(0);
   await sendChat(popup, 'Voz da outra janela.');
   await expect(chatFeedOf(bia)).toContainText('Voz da outra janela.');
   await popup.getByRole('button', { name: 'Nova conversa' }).click();
@@ -162,8 +170,10 @@ test('detached window: popup menus and sending work, changing the room tab keeps
   await admin.getByRole('tab', { name: 'Dados', exact: true }).click();
   await expect(popup.getByRole('combobox', { name: 'Mensagem' })).toBeVisible();
   await popup.close();
-  await openChatTab(admin);
-  await expect(admin.getByRole('button', { name: 'Abrir em outra janela' })).toBeVisible();
+  await openChatDrawer(admin);
+  await expect(
+    chatDrawerOf(admin).getByRole('button', { name: 'Abrir em outra janela' }),
+  ).toBeVisible();
   await expect(admin.getByText('Chat aberto em outra janela', { exact: true })).toHaveCount(0);
 });
 
@@ -181,9 +191,12 @@ async function expectMatchingRoll(
   await expect(chatFeedOf(bia).getByTestId('roll-total').last()).toHaveText(value);
 }
 
-// Count the balloon's light surface on the actual Pixi canvas, excluding the DOM chat feed.
+// Count the balloon's light surface on the actual Pixi canvas, above its bottom 40%: the chat bar
+// and the previews of new messages float there, over the canvas, and their text is light too.
 async function brightBoardPixels(page: Page): Promise<number> {
-  const png = await boardOf(page).locator('canvas').first().screenshot();
+  const box = await boardOf(page).locator('canvas').first().boundingBox();
+  if (box === null) throw new Error('The board canvas has no box: expected it on screen.');
+  const png = await page.screenshot({ clip: { ...box, height: box.height * 0.6 } });
   return page.evaluate<number>(`(async () => {
     const image = new Image();
     image.src = 'data:image/png;base64,${png.toString('base64')}';
