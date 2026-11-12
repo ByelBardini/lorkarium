@@ -18,7 +18,7 @@ function habCard(id, i) {
     id,
     i,
     'Nome da habilidade',
-    costBlock(id) +
+    costBlock(p) +
       optImg(p + '.img') +
       rich('Descrição', p + '.desc', 'Descreva sua habilidade aqui') +
       bare(p + '.frase', '“Frase de efeito”', 'quote', 'aria-label="Frase de efeito"') +
@@ -36,21 +36,49 @@ function barOptions(stored) {
   if (filled(stored) && !labels.some((l) => barKey(l) === barKey(stored))) labels.push(stored);
   return labels.map((l) => `<option value="${esc(l)}">${esc(l)}</option>`).join('');
 }
-function costRow(habId, costId) {
-  const p = `hab.${habId}.custos.${costId}`;
+/* o custo mora em <dono>.custos, e o dono é uma habilidade ou uma skill: o caminho inteiro vai
+   nos atributos, e o id da mensagem troca os pontos por hífens */
+const useMsgId = (base) => 'use-' + base.replace(/\./g, '-');
+function costRow(base, costId) {
+  const p = `${base}.custos.${costId}`;
   return `<div class="cost"><select class="cost-bar" data-lk="${p}.bar" aria-label="Barra que paga o custo">${barOptions(getP(p + '.bar'))}</select>
     ${bare(p + '.v', '0', 'cost-v', 'inputmode="numeric" aria-label="Quanto sai da barra"')}
-    <button type="button" class="sk-x" data-rmcost="${habId}:${costId}" data-edit-only aria-label="Desvincular barra">${ic('x', 12)}</button></div>`;
+    <button type="button" class="sk-x" data-rmcost="${base}|${costId}" data-edit-only aria-label="Desvincular barra">${ic('x', 12)}</button></div>`;
 }
 /* fora da faixa da ficha técnica: com várias barras vinculadas ele cresce sem esticar as outras células */
-function costBlock(habId) {
-  const rows = itemsOf(`hab.${habId}.custos`)
-    .map(([costId]) => costRow(habId, costId))
+function costBlock(base, useLabel = 'Usar habilidade') {
+  const rows = itemsOf(`${base}.custos`)
+    .map(([costId]) => costRow(base, costId))
     .join('');
   return `<div class="cost-block"><span class="lbl">Custo</span>
-    <div class="costs">${rows}<button type="button" class="sk-add" data-addcost="${habId}" data-edit-only>${ic('plus', 12)}Vincular barra</button></div>
-    ${rows ? `<button type="button" class="btn-use" data-use="${habId}">Usar habilidade</button>` : ''}
-    <p class="use-msg" id="use-${habId}" role="status"></p></div>`;
+    <div class="costs">${rows}<button type="button" class="sk-add" data-addcost="${base}" data-edit-only>${ic('plus', 12)}Vincular barra</button></div>
+    ${rows ? `<button type="button" class="btn-use" data-use="${base}">${useLabel}</button>` : ''}
+    <p class="use-msg" id="${useMsgId(base)}" role="status"></p></div>`;
+}
+
+/* skills dentro do efeito (raça, original, classe e itens): nome, descrição e o mesmo custo das
+   habilidades, que desconta das barras de uma vez */
+const SKILL_OWNER_LISTS = ['armas', 'armaduras', 'equip'];
+const ORIGIN_SKILL_OWNERS = ['origem.raca', 'origem.original', 'origem.classe'];
+const skillOwners = () => [
+  ...ORIGIN_SKILL_OWNERS,
+  ...SKILL_OWNER_LISTS.flatMap((l) => itemsOf(l).map(([id]) => `${l}.${id}`)),
+];
+const skillBox = (base) =>
+  `<div class="skills-blk"><span class="lbl">Skills</span><div class="skills" data-skills="${base}"></div></div>`;
+function skillCard(base, id) {
+  const p = `${base}.skills.${id}`;
+  return `<div class="skill"><div class="skill-hd">${bare(p + '.nome', 'Nome da skill', 'skill-name', 'aria-label="Nome da skill"')}
+    <button type="button" class="mini-btn danger" data-rm="${base}.skills:${id}" data-edit-only data-confirm="Remover?" title="Remover skill" aria-label="Remover skill">${ic('trash', 14)}</button></div>
+    ${rich('Descrição', p + '.desc', 'O que a skill faz')}${costBlock(p, 'Usar skill')}</div>`;
+}
+function renderSkills(box) {
+  const base = box.dataset.skills;
+  box.innerHTML =
+    itemsOf(`${base}.skills`)
+      .map(([id]) => skillCard(base, id))
+      .join('') +
+    `<button type="button" class="sk-add" data-add="${base}.skills" data-edit-only>${ic('plus', 12)}Adicionar skill</button>`;
 }
 function extraCard(id, i) {
   const p = 'extras.' + id;
@@ -76,7 +104,8 @@ function itemCard(list, id, i, namePh, withQty) {
     (list === 'armaduras' ? caBlock(p) : '') +
       optImg(p + '.img') +
       rich('Descrição', p + '.desc', 'Aparência, história, de onde veio…') +
-      rich('Efeito', p + '.efeito', 'Dano, durabilidade, propriedades…', 'tall'),
+      rich('Efeito', p + '.efeito', 'Dano, durabilidade, propriedades…', 'tall') +
+      skillBox(p),
     specIn('Qualidade', p + '.qual') +
       specIn('Material', p + '.mat') +
       specIn('Peso', p + '.peso') +

@@ -32,7 +32,7 @@ function assetsOf(template: SheetTemplateFileContent): ReadonlyMap<string, Sheet
 }
 
 describe('the Lork sheet fixture as a .lksheet', () => {
-  it('reads as a template asking for the four permissions and the bars HP, MP, EN and ES', () => {
+  it('reads as a template asking for the four permissions and the bars HP, MP, EN and Essência', () => {
     const template = lorkTemplate();
     expect(template.name).toBe('Ficha de Lork');
     expect(template.manifest.permissions).toEqual([
@@ -45,7 +45,7 @@ describe('the Lork sheet fixture as a .lksheet', () => {
       ['HP', 12],
       ['MP', 10],
       ['EN', 10],
-      ['ES', 15],
+      ['Essência', 15],
     ]);
     expect(template.assets?.map(({ path, type }) => [path, type])).toEqual([
       ['fontes/hanken-grotesk.woff2', 'font/woff2'],
@@ -89,7 +89,7 @@ function tableBars(current: Readonly<Record<string, number>>, withFolego = false
     ['HP', 12, 'ember'],
     ['MP', 10, 'steel'],
     ['EN', 10, 'moss'],
-    ['ES', 15, 'ash'],
+    ['Essência', 15, '#ffffff'],
   ];
   if (withFolego) bars.push(['Fôlego', 8, 'gold']);
   return bars.map(([label, max, color], position) => ({
@@ -195,7 +195,7 @@ describe('the Lork sheet running on a page', () => {
   it('"Usar habilidade" spends MP and EN in one bars.spend', async () => {
     deliverState(SKILL);
     await settled();
-    click('[data-use="k1"]');
+    click('[data-use="hab.k1"]');
     expect(sent('bars.spend').map(({ costs }) => costs)).toEqual([
       [
         { bar: 'MP', amount: 6 },
@@ -207,7 +207,7 @@ describe('the Lork sheet running on a page', () => {
   it('a refused spend says which bar is short, from the bars of the table', async () => {
     deliverState(SKILL, { bars: tableBars({ MP: 4 }) });
     await settled();
-    click('[data-use="k1"]');
+    click('[data-use="hab.k1"]');
     const [spend] = sent('bars.spend');
     port.deliver({
       type: 'error',
@@ -216,8 +216,8 @@ describe('the Lork sheet running on a page', () => {
       message: 'MP',
     });
     await settled();
-    expect(element('#use-k1').textContent).toBe('MP insuficiente: tem 4, precisa de 6.');
-    expect(element('#use-k1').classList.contains('bad')).toBe(true);
+    expect(element('#use-hab-k1').textContent).toBe('MP insuficiente: tem 4, precisa de 6.');
+    expect(element('#use-hab-k1').classList.contains('bad')).toBe(true);
   });
 
   it('the comfortable long rest fills MP and EN back by bars.adjust', async () => {
@@ -227,7 +227,6 @@ describe('the Lork sheet running on a page', () => {
     expect(sent('bars.adjust').map(({ bar, change }) => [bar, change])).toEqual([
       [BAR_IDS[1], { op: 'set', value: 10 }],
       [BAR_IDS[2], { op: 'set', value: 10 }],
-      [BAR_IDS[3], { op: 'set', value: 7 }],
     ]);
   });
 
@@ -257,7 +256,7 @@ describe('the Lork sheet running on a page', () => {
     await settled();
     expect(element<HTMLInputElement>('[data-lk="f.nome"]').value).toBe('Lyra Vandel');
     expect(element<HTMLInputElement>('[data-lk="f.nome"]').disabled).toBe(true);
-    expect(element<HTMLButtonElement>('[data-use="k1"]').disabled).toBe(true);
+    expect(element<HTMLButtonElement>('[data-use="hab.k1"]').disabled).toBe(true);
     expect(element('[data-rt="f.mental"]').getAttribute('contenteditable')).toBe('false');
     expect(element<HTMLButtonElement>('[data-page="regras"]').disabled).toBe(false);
   });
@@ -290,14 +289,14 @@ describe('the bar formulas of the Lork sheet', () => {
     element(selector).dispatchEvent(new frame.view.Event('input', { bubbles: true }));
   };
 
-  it('shows the fixed formula of each of HP, MP, EN and ES, none undefined', () => {
+  it('shows the fixed formula of each of HP, MP, EN and Essência, none undefined', () => {
     deliverState({});
     const rows = [...frame.document.querySelectorAll('table.res tbody tr')];
     expect(rows.map((row) => row.querySelector('.rn')?.textContent)).toEqual([
       'HP',
       'MP',
       'EN',
-      'ES',
+      'Essência',
     ]);
     expect(rows[2]?.querySelector('.rf')?.textContent).toContain('10 + (Dex×2 +');
     expect(element('table.res').textContent).not.toContain('undefined');
@@ -439,5 +438,63 @@ describe('the zoom of the Lork sheet', () => {
     const typed = press('=', {});
     expect(typed.defaultPrevented).toBe(false);
     expect(zoom()).toBe('1.1');
+  });
+});
+
+describe('the Essência bar and the skills of the Lork sheet', () => {
+  it('asks for Essência in white, sums it up as ESS, and writes its rules', () => {
+    expect(lorkTemplate().manifest.bars.at(-1)).toEqual({
+      label: 'Essência',
+      color: '#ffffff',
+      max: 15,
+    });
+    deliverState({});
+    expect([...frame.document.querySelectorAll('#mini b')].map((b) => b.textContent)).toEqual([
+      'HP',
+      'MP',
+      'EN',
+      'ESS',
+    ]);
+    const rules = element('#pg-regras').textContent ?? '';
+    expect(rules).toContain('a Essência regenera 20% do máximo, arredondado para baixo');
+    expect(rules).toContain('regenerar mais 10% do máximo');
+    expect(rules).toContain('zera no começo e no fim de cada combate');
+    expect(rules.toLowerCase()).not.toContain('estresse');
+  });
+
+  it.each([
+    ['the race', 'origem.raca', 'origem-raca'],
+    ['a weapon', 'armas.a1', 'armas-a1'],
+  ])('a skill of %s spends its cost from the bars in one bars.spend', async (_, base, slug) => {
+    const skills = {
+      s1: { ordem: 1, nome: 'Sopro', custos: { c1: { ordem: 1, bar: 'MP', v: '3' } } },
+    };
+    const [root, key] = base.split('.') as [string, string];
+    const values =
+      root === 'origem'
+        ? { origem: { [key]: { skills } } }
+        : { armas: { [key]: { ordem: 1, nome: 'Lança', skills } } };
+    deliverState(values);
+    await settled();
+    expect(element(`[data-lk="${base}.skills.s1.nome"]`)).toBeTruthy();
+    click(`[data-use="${base}.skills.s1"]`);
+    expect(sent('bars.spend').map(({ costs }) => costs)).toEqual([[{ bar: 'MP', amount: 3 }]]);
+    const [spend] = sent('bars.spend');
+    port.deliver({ type: 'result', requestId: spend?.requestId });
+    await settled();
+    expect(element(`#use-${slug}-skills-s1`).textContent).toBe('Gastou 3 de MP.');
+  });
+
+  it('"Adicionar skill" adds one under the origin by lists', async () => {
+    deliverState({});
+    await settled();
+    click('[data-add="origem.classe.skills"]');
+    await settled();
+    expect(sent('values.patch').at(-1)?.patches).toEqual([
+      {
+        path: ['origem', 'classe', 'skills', expect.stringMatching(/^[a-z0-9]{8}$/)],
+        value: { ordem: expect.any(Number) },
+      },
+    ]);
   });
 });

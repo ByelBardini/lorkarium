@@ -1,12 +1,12 @@
 /* ---------- barras ---------- */
-/* As barras são as do personagem na mesa (o manifesto cria HP, MP, EN e ES ao dar a ficha).
-   A ficha calcula o máximo de HP/MP/EN/ES pelas regras e o grava por bars.adjust; o atual
+/* As barras são as do personagem na mesa (o manifesto cria HP, MP, EN e Essência ao dar a ficha).
+   A ficha calcula o máximo de cada uma pelas regras e o grava por bars.adjust; o atual
    muda por bars.adjust (editar), bars.spend (Usar habilidade) e os descansos. */
 const RES = [
   ['hp', 'HP', '#c9705a'],
   ['mp', 'MP', '#7f9fd6'],
   ['en', 'EN', '#8fb39a'],
-  ['es', 'ES', '#b29ad6'],
+  ['es', 'Essência', '#ffffff', 'ESS'],
 ];
 const PALETTE = {
   gold: '#c5a46d',
@@ -24,10 +24,12 @@ const barKey = (l) =>
 const tableBar = (label) => VIEW.bars.find((b) => barKey(b.label) === barKey(label)) || null;
 const resOf = (b) => RES.find((r) => barKey(r[1]) === barKey(b.label)) || null;
 const colorOfBar = (b) => (resOf(b) ? resOf(b)[2] : PALETTE[b.color] || PALETTE.gold);
+/* o resumo cabe quatro letras: a barra da ficha usa a sigla dela */
+const barSigla = (b) => (resOf(b) && resOf(b)[3]) || b.label.slice(0, 4).toUpperCase();
 const sortedBars = () => [...VIEW.bars].sort((a, b) => a.position - b.position);
 
 const level = () => Math.max(1, filled(getP('f.nivel')) ? num(getP('f.nivel')) : 1);
-/* regras de nível: ES máximo +2 por nível; bônus de treino +1 a cada nível múltiplo de 4 */
+/* regras de nível: Essência máxima +2 por nível; bônus de treino +1 a cada nível múltiplo de 4 */
 const autoTrainBonus = () => 2 + Math.floor(level() / 4);
 const trainBonus = () => (filled(getP('f.treino')) ? num(getP('f.treino')) : autoTrainBonus());
 function autoMax(t) {
@@ -95,7 +97,7 @@ function calcBars(t) {
     if (reset) reset.hidden = !filled(getP(`res.${k}.max`));
   }
   document.getElementById('mini').innerHTML = sortedBars()
-    .map((b) => miniRow(b.label.slice(0, 4).toUpperCase(), colorOfBar(b), b.current, b.max))
+    .map((b) => miniRow(barSigla(b), colorOfBar(b), b.current, b.max))
     .join('');
 }
 
@@ -118,9 +120,9 @@ function syncBarMaxes() {
 }
 
 /* custo nas barras: hab.<id>.custos.<id> = { bar: rótulo da barra, v }; tudo ou nada (bars.spend) */
-function costsOf(habId) {
+function costsOf(base) {
   const sums = {};
-  for (const [, c] of itemsOf(`hab.${habId}.custos`)) {
+  for (const [, c] of itemsOf(`${base}.custos`)) {
     if (filled(c.bar) && num(c.v) > 0) sums[c.bar] = (sums[c.bar] || 0) + num(c.v);
   }
   return Object.entries(sums);
@@ -132,9 +134,9 @@ function shortOf(costs) {
   }
   return null;
 }
-function useSkill(habId) {
-  const msg = document.getElementById('use-' + habId);
-  const costs = costsOf(habId);
+function useSkill(base) {
+  const msg = document.getElementById(useMsgId(base));
+  const costs = costsOf(base);
   msg.classList.remove('bad');
   if (!costs.length) {
     msg.textContent = 'Escolha uma barra e um valor maior que zero.';
@@ -153,18 +155,16 @@ function useSkill(habId) {
   );
 }
 
-/* ES é estresse: desce no descanso; as outras barras sobem até o máximo */
-function restTarget(b, share, stress) {
-  if (barKey(b.label) === 'es') return Math.max(0, b.current - Math.round(stress * b.max));
+/* no descanso toda barra sobe, até o máximo */
+function restTarget(b, share) {
   return Math.max(b.current, Math.min(b.max, b.current + Math.round(share * b.max)));
 }
 function takeRest(button) {
   const share = Number(button.dataset.bars);
-  const stress = Number(button.dataset.stress);
   const changes = [];
   const sent = [];
   for (const b of sortedBars()) {
-    const next = b.max > 0 ? restTarget(b, share, stress) : b.current;
+    const next = b.max > 0 ? restTarget(b, share) : b.current;
     if (next === b.current) continue;
     changes.push(`${b.label} ${b.current} → ${next}`);
     sent.push(adjustBar(b.id, { op: 'set', value: next }));

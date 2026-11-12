@@ -38,7 +38,7 @@ async function importLorkTemplate(admin: Page): Promise<void> {
     'Criar barras no personagem',
   ]);
   await expect(confirm).toContainText(
-    'Barras esperadas: HP (até 12), MP (até 10), EN (até 10), ES (até 15)',
+    'Barras esperadas: HP (até 12), MP (até 10), EN (até 10), Essência (até 15)',
   );
   await expect(confirm).toContainText('4 fontes e imagens vão junto.');
   await confirm.getByRole('button', { name: 'Importar', exact: true }).click();
@@ -114,7 +114,7 @@ test('Ana imports the Lork sheet and gives it to Lyra; the armor Bia wears is th
     HP: '12 / 12',
     MP: '10 / 10',
     EN: '10 / 10',
-    ES: '15 / 15',
+    Essência: '15 / 15',
   });
 
   const sheet = await openSheetFromCard(bia, 'Lyra', SHEET);
@@ -170,9 +170,9 @@ test('"Usar habilidade" spends MP and EN at once, refuses without balance, and t
   await showSheetPage(sheet, 'Regras');
   await sheet.getByRole('button', { name: 'Descansar: longo em lugar confortável' }).click();
   await expect(sheet.locator('#rest-msg')).toHaveText(
-    'Descanso longo em lugar confortável: MP 4 → 10, EN 4 → 10, ES 15 → 7.',
+    'Descanso longo em lugar confortável: MP 4 → 10, EN 4 → 10.',
   );
-  await expectLyraBars(admin, { MP: '10 / 10', EN: '10 / 10', ES: '7 / 15' });
+  await expectLyraBars(admin, { MP: '10 / 10', EN: '10 / 10', Essência: '15 / 15' });
 });
 
 test('the image Bia puts on a skill is seen by Caio on a table sheet, which he cannot edit', async ({
