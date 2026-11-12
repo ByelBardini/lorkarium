@@ -39,6 +39,7 @@ import {
 import type { DocumentsService } from './documents.service';
 import type { DocumentTabsService } from './document-tabs.service';
 import type { DocumentImagesService, DocumentTabTarget } from './document-images.service';
+import { withPlanLimitReply } from '../plans/plan-limit-response';
 
 const DOCUMENTS = '/campaigns/:campaignId/documents';
 const DOCUMENT = `${DOCUMENTS}/:documentId`;
@@ -62,7 +63,7 @@ export function documentsRoutes(
   services: DocumentServices,
 ): (app: FastifyInstance) => Promise<void> {
   return async (app) => {
-    app.setErrorHandler(documentErrorReply);
+    app.setErrorHandler(withPlanLimitReply(documentErrorReply));
     app.addHook('onSend', async (_request, reply, payload) => {
       reply.header('cache-control', 'private, no-store');
       return payload;

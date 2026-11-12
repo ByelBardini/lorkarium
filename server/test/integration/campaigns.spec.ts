@@ -145,7 +145,13 @@ describe('campaigns HTTP edge', () => {
       expect(campaignResponseDto.parse(response.json()).campaign.members).toEqual([
         {
           ...{ userId: expect.any(String), name: 'Ana', role: 'master', color: 'rose' },
-          ...{ avatarId: null, online: false },
+          ...{
+            avatarId: null,
+            plan: 'free',
+            admin: false,
+            lorkariumOwner: false,
+          },
+          online: false,
         },
       ]);
     });

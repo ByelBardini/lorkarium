@@ -1,5 +1,6 @@
 import { SAVED_ROLL_FOLDERS_MAX, SAVED_ROLLS_MAX } from '@lorkarium/contracts';
 import type { DiceRollFailure } from '@/services/dice-commands';
+import { planLimitMessage } from '@/lib/plan-limit-message';
 import type { SavedRollsFailure } from '@/services/saved-rolls-api';
 import type { AdvantageMode } from '@lorkarium/game-core';
 import type { DiceRollMode, TrayAdvantageBlock } from '@/lib/dice-tray';
@@ -70,7 +71,7 @@ export function rollFailureMessage(failure: DiceRollFailure): string {
 }
 
 const SAVED_ROLL_FAILURES: Readonly<
-  Record<Exclude<SavedRollsFailure['kind'], 'rate_limited'>, string>
+  Record<Exclude<SavedRollsFailure['kind'], 'rate_limited' | 'plan_limit'>, string>
 > = {
   ...COMMON_FAILURES,
   name_taken: 'Já existe uma rolagem com esse nome.',
@@ -86,6 +87,7 @@ const SAVED_ROLL_FAILURES: Readonly<
  *
  *  Example: `savedRollFailureMessage({ kind: 'name_taken' }) // 'Já existe uma rolagem com esse nome.'` */
 export function savedRollFailureMessage(failure: SavedRollsFailure): string {
+  if (failure.kind === 'plan_limit') return planLimitMessage(failure.planLimit);
   if (failure.kind === 'rate_limited') {
     return `Muitas ações seguidas. Espere ${failure.retryAfterSeconds} s.`;
   }

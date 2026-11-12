@@ -16,6 +16,7 @@ import {
   type SendMailSampleResponseDto,
   type PasswordResetLinkResponseDto,
   type UserDeletionCheckDto,
+  type UserPlan,
   type UserRoleDto,
 } from '@lorkarium/contracts';
 import type { z } from 'zod';
@@ -48,6 +49,7 @@ export interface UserAdminApi {
   resendInvitation(invitationId: string): Promise<UserAdminResult<InvitationLinkResponseDto>>;
   cancelInvitation(invitationId: string): Promise<UserAdminResult<null>>;
   changeRole(userId: string, role: UserRoleDto): Promise<UserAdminResult<AdminUserDto>>;
+  changePlan(userId: string, plan: UserPlan): Promise<UserAdminResult<AdminUserDto>>;
   suspend(userId: string): Promise<UserAdminResult<AdminUserDto>>;
   reactivate(userId: string): Promise<UserAdminResult<AdminUserDto>>;
   sendPasswordLink(userId: string): Promise<UserAdminResult<PasswordResetLinkResponseDto>>;
@@ -100,6 +102,11 @@ export class HttpUserAdminApi implements UserAdminApi {
 
   async changeRole(userId: string, role: UserRoleDto): Promise<UserAdminResult<AdminUserDto>> {
     const call = await callApi(this.transport, 'PATCH', userPath(userId), { role });
+    return answerOf(call, adminUserResponseDto, (body) => body.user);
+  }
+
+  async changePlan(userId: string, plan: UserPlan): Promise<UserAdminResult<AdminUserDto>> {
+    const call = await callApi(this.transport, 'PATCH', `${userPath(userId)}/plan`, { plan });
     return answerOf(call, adminUserResponseDto, (body) => body.user);
   }
 

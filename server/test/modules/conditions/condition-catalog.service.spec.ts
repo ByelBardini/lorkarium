@@ -19,6 +19,7 @@ import { CombatDaoFake } from '../../support/combat-fakes';
 import { ConditionTransactionRunnerFake, ConditionsDaoFake } from '../../support/conditions-fakes';
 import { BoardPublisherFake, ScenesDaoFake } from '../../support/scenes-fakes';
 import { CharactersDaoFake } from '../../support/characters-fakes';
+import { planAccount } from '../../support/plan-account-fakes';
 import { VHARN_SCENE_ID, scenePo } from '../../support/scenes-factories';
 import { TokensDaoFake } from '../../support/tokens-fakes';
 import { BRAM_ID, LYRA_ID, bramRow, lyraRow } from '../../support/tokens-factories';
@@ -37,6 +38,7 @@ describe('ConditionCatalogService', () => {
   let publisher: BoardPublisherFake;
   let service: ConditionCatalogService;
   let deps: ConditionCatalogServiceDeps;
+  let characters: CharactersDaoFake;
   let envenenado: string;
   let cego: string;
 
@@ -63,13 +65,14 @@ describe('ConditionCatalogService', () => {
       ],
     );
     const combat = new CombatDaoFake();
+    characters = new CharactersDaoFake(scenes.journal, [], { [VHARN_ID]: 2 });
     const transaction = new ConditionTransactionRunnerFake(
       scenes,
       tokens,
       conditions,
       combat,
       assets,
-      new CharactersDaoFake(scenes.journal, [], { [VHARN_ID]: 2 }),
+      characters,
     );
     deps = {
       members,
@@ -247,6 +250,57 @@ describe('ConditionCatalogService', () => {
       await expect(update).rejects.toMatchObject({ code: 'FORBIDDEN' });
       expect(scenes.journal).toEqual([]);
       expect(assets.lookups).toEqual([]);
+    });
+
+    it('at a free table putting an image is PLAN_LIMIT conditionImage: nothing saved nor published', async () => {
+      characters.owners.set(VHARN_ID, planAccount({ plan: 'free' }));
+
+      const update = service.update(
+        ANA_ID,
+        VHARN_ID,
+        envenenadoEdit({ imageAssetId: VENENO_ART_ID }),
+      );
+
+      await expect(update).rejects.toMatchObject({
+        code: 'PLAN_LIMIT',
+        resource: 'conditionImage',
+        plan: 'free',
+      });
+      expect(scenes.journal).toEqual(['lock characters']);
+      expect(conditions.definitions.find(({ id }) => id === envenenado)?.imageAssetId).toBeNull();
+      expect(publisher.published).toBe(0);
+    });
+
+    it('at a free table an image kept from before stays while the rest is edited', async () => {
+      await service.update(ANA_ID, VHARN_ID, envenenadoEdit({ imageAssetId: VENENO_ART_ID }));
+      characters.owners.set(VHARN_ID, planAccount({ plan: 'free' }));
+
+      const edit = envenenadoEdit({ imageAssetId: VENENO_ART_ID, description: 'Desvantagem.' });
+      await service.update(ANA_ID, VHARN_ID, edit);
+
+      expect(conditions.definitions.find(({ id }) => id === envenenado)).toMatchObject({
+        imageAssetId: VENENO_ART_ID,
+        description: 'Desvantagem.',
+      });
+    });
+
+    it('at a free table taking the image away passes', async () => {
+      await service.update(ANA_ID, VHARN_ID, envenenadoEdit({ imageAssetId: VENENO_ART_ID }));
+      characters.owners.set(VHARN_ID, planAccount({ plan: 'free' }));
+
+      await service.update(ANA_ID, VHARN_ID, envenenadoEdit({ imageAssetId: null }));
+
+      expect(conditions.definitions.find(({ id }) => id === envenenado)?.imageAssetId).toBeNull();
+    });
+
+    it('at a narrador table putting an image is saved', async () => {
+      characters.owners.set(VHARN_ID, planAccount({ plan: 'narrador' }));
+
+      await service.update(ANA_ID, VHARN_ID, envenenadoEdit({ imageAssetId: VENENO_ART_ID }));
+
+      expect(conditions.definitions.find(({ id }) => id === envenenado)?.imageAssetId).toBe(
+        VENENO_ART_ID,
+      );
     });
   });
 

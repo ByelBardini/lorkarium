@@ -5,7 +5,16 @@ import {
   type AssetPurposeDto,
   type SightOutlineDto,
 } from '@lorkarium/contracts';
-import { callApi, callUpload, errorCodeOf, parseOk, retryAfterOf, type ApiCall } from './api-call';
+import {
+  callApi,
+  callUpload,
+  errorCodeOf,
+  parseOk,
+  planLimitFailureOf,
+  retryAfterOf,
+  type ApiCall,
+  type PlanLimitFailure,
+} from './api-call';
 import type { HttpResponse, HttpTransport } from './http-transport';
 
 export type AssetsFailure =
@@ -19,7 +28,9 @@ export type AssetsFailure =
   | Readonly<{ kind: 'link_unreachable' }>
   | Readonly<{ kind: 'rate_limited'; retryAfterSeconds: number }>
   | Readonly<{ kind: 'offline' }>
-  | Readonly<{ kind: 'unexpected' }>;
+  | Readonly<{ kind: 'unexpected' }>
+  /** The table owner's plan ran out (storage): 403 `PLAN_LIMIT`. */
+  | PlanLimitFailure;
 
 export type AssetsFailureKind = AssetsFailure['kind'];
 
@@ -107,6 +118,8 @@ function failureOf(response: HttpResponse): AssetsFailure {
   if (response.status === 429) {
     return { kind: 'rate_limited', retryAfterSeconds: retryAfterOf(response) };
   }
+  const planLimit = planLimitFailureOf(response);
+  if (planLimit) return planLimit;
   const byCode = FAILURE_BY_CODE[errorCodeOf(response) ?? ''];
   return byCode ?? FAILURE_BY_STATUS[response.status] ?? { kind: 'unexpected' };
 }

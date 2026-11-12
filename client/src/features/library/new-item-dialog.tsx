@@ -22,14 +22,17 @@ import {
   ScrollTextIcon,
   type LucideIcon,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { cn } from 'cn';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import type { AssetsApi } from '@/services/assets-api';
 import type { LibraryApi } from '@/services/library-api';
 import type { LibraryMapsApi } from '@/services/library-maps-api';
+import { OPEN_GATE, type PlanGate, planHintIdOf } from '@/features/plans/plan-gate';
+import { PlanGateHint } from '@/features/plans/plan-gate-hint';
 import { LibraryImageForm } from './library-image-form';
+import { useLibraryPlanGates } from './library-plan-gates';
 import { LibraryMapForm } from './library-map-form';
 import { NamedItemForm, NewFolderForm, NewItemFooter } from './new-item-fields';
 import { NewSheetForm } from './new-sheet-form';
@@ -116,33 +119,53 @@ type KindCardsProps = Readonly<{
 }>;
 
 function KindCards({ picked, disabled, onPick }: KindCardsProps): React.JSX.Element {
+  const gateOf = useKindGates();
+  const hintBase = useId();
+  const closed = KINDS.filter(({ kind }) => !gateOf(kind).open);
   return (
-    <div role="group" aria-label="Tipo do item" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      {KINDS.map(({ kind, label, icon: Icon }) => (
-        <button
-          key={kind}
-          type="button"
-          aria-pressed={picked === kind}
-          disabled={disabled}
-          onClick={() => onPick(kind)}
-          className={cn(
-            'relative flex items-center justify-center gap-2 rounded-lg border px-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
-            kind === 'folder' ? 'col-span-full h-12 flex-row' : 'h-24 flex-col',
-            picked === kind ? 'border-primary' : 'border-border hover:border-muted-foreground',
-          )}
-        >
-          <Icon aria-hidden="true" className="size-6" />
-          {label}
-          {picked === kind && (
-            <CheckCircle2Icon
-              aria-hidden="true"
-              className="absolute top-2 right-2 size-4 text-primary"
-            />
-          )}
-        </button>
+    <>
+      <div role="group" aria-label="Tipo do item" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {KINDS.map(({ kind, label, icon: Icon }) => (
+          <button
+            key={kind}
+            type="button"
+            aria-pressed={picked === kind}
+            disabled={disabled || !gateOf(kind).open}
+            aria-describedby={planHintIdOf(gateOf(kind), `${hintBase}-${kind}`)}
+            onClick={() => onPick(kind)}
+            className={cn(
+              'relative flex items-center justify-center gap-2 rounded-lg border px-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
+              kind === 'folder' ? 'col-span-full h-12 flex-row' : 'h-24 flex-col',
+              picked === kind ? 'border-primary' : 'border-border hover:border-muted-foreground',
+            )}
+          >
+            <Icon aria-hidden="true" className="size-6" />
+            {label}
+            {picked === kind && (
+              <CheckCircle2Icon
+                aria-hidden="true"
+                className="absolute top-2 right-2 size-4 text-primary"
+              />
+            )}
+          </button>
+        ))}
+      </div>
+      {closed.map(({ kind }) => (
+        <PlanGateHint key={kind} id={`${hintBase}-${kind}`} gate={gateOf(kind)} />
       ))}
-    </div>
+    </>
   );
+}
+
+// The types the table's plan counts: grids, maps and sheet templates.
+function useKindGates(): (kind: NewItemKind) => PlanGate {
+  const gates = useLibraryPlanGates();
+  return (kind) => {
+    if (kind === 'grid') return gates.grid;
+    if (kind === 'map') return gates.map;
+    if (kind === 'sheetTemplate') return gates.sheetTemplate;
+    return OPEN_GATE;
+  };
 }
 
 type KindFormProps = NewItemDialogProps &

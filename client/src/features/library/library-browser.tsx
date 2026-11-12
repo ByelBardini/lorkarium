@@ -22,6 +22,7 @@ import type { LibraryMapsApi } from '@/services/library-maps-api';
 import { useMemo, useState } from 'react';
 import { filteredTreeOf, isFiltering, type LibraryFilter } from '@/lib/folder-tree';
 import { FolderTreeNav, type LibraryTree } from './folder-tree-nav';
+import { LibraryPlanGatesContext, useLibraryPlanGatesOf } from './library-plan-gates';
 import { NewItemDialog } from './new-item-dialog';
 import { useNewItem, type NewItem } from './use-new-item';
 import {
@@ -87,8 +88,9 @@ export function LibraryBrowser(props: LibraryBrowserProps): React.JSX.Element {
   const { library, view, isMaster, live, newItem } = model;
   const templateId = isMaster ? sheetTemplateIdOf(model.pickedKey) : null;
   const editingTemplate = templateId !== null && props.sheetTemplatesApi !== undefined;
+  const planGates = useLibraryPlanGatesOf(library);
   return (
-    <>
+    <LibraryPlanGatesContext value={planGates}>
       <LibraryHeader
         subtitle={`${props.campaign.name} · ${gridCountLabel(library.scenes.length)} · ${library.images?.length ?? 0} imagens · ${library.documents?.length ?? 0} documentos`}
         onClose={props.onClose}
@@ -149,7 +151,7 @@ export function LibraryBrowser(props: LibraryBrowserProps): React.JSX.Element {
         problem={model.refusal ?? model.templateFiles.exportProblem}
         notice={model.notice}
       />
-    </>
+    </LibraryPlanGatesContext>
   );
 }
 

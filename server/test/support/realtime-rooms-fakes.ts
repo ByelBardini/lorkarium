@@ -1,5 +1,6 @@
 import type { RealtimeSocketData } from '../../src/realtime/realtime-server';
 import { VHARN_ID } from './campaigns-factories';
+import { authPlanFieldsOf } from './auth-factories';
 
 /** One connection as an adapter sees it: its rooms, its data and what it was told. Each join and
  *  leave is also written to `journal` (`join:<room>`, `leave:<room>`), shared with the rooms fake
@@ -19,6 +20,7 @@ export class TableSocketFake {
     const user = {
       ...{ id: userId, username: userId, email: `${userId}@vharn.test`, name: userId },
       ...{ role: 'user' as const, color: 'gold' as const, avatarId: null },
+      ...authPlanFieldsOf(),
     };
     const watchedSceneIds = new Map([[VHARN_ID, new Set(watched)]]);
     this.data = { user, watchedSceneIds, campaignIds: new Set([VHARN_ID]) };

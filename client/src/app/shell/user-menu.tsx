@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router';
 import { LegalDocumentLink } from '@/components/legal-document-link';
+import { UserHandle } from '@/components/user-handle';
 import { Button } from '@/components/ui/button';
 import { UserAvatar } from '@/components/user-avatar';
 import {
@@ -21,6 +22,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { LEGAL_DOCUMENT_TITLES } from '@/lib/legal-documents';
 import { cn } from '@/lib/utils';
+import { sealHolderOfAccount } from '@/lib/plan-seal';
 
 export type UserMenuProps = Readonly<{
   user: AuthUserDto;
@@ -35,7 +37,8 @@ const LEGAL_ICONS: Readonly<Record<LegalDocument, LucideIcon>> = {
 
 const ITEM_LINK_CLASS = 'text-foreground no-underline hover:no-underline';
 
-/** The account menu at the foot of the rail, behind the avatar: "Minha conta", Backoffice for
+/** The account menu at the foot of the rail, behind the avatar: the e-mail with the stored plan
+ *  seals, "Minha conta", Backoffice for
  *  admins, the Terms of use and the Privacy policy (new tab), and "Sair".
  *
  *  Example: `<UserMenu user={user} expanded onSignOut={signOut} />` */
@@ -52,8 +55,9 @@ export function UserMenu({ user, expanded, onSignOut }: UserMenuProps): React.JS
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="top" align="start" className="w-52">
-        <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
-          {user.email}
+        <DropdownMenuLabel className="flex flex-col gap-1.5 font-normal text-muted-foreground">
+          <UserHandle username={user.username} seal={sealHolderOfAccount(user)} />
+          <span className="truncate">{user.email}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>

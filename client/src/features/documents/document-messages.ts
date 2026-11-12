@@ -1,4 +1,5 @@
 import { DOCUMENT_TABS_MAX } from '@lorkarium/contracts';
+import { planLimitMessage } from '@/lib/plan-limit-message';
 import type { DocumentsFailure } from '@/services/documents-api';
 import type { DocumentSaveStatus } from '@/stores/document-editor-store';
 
@@ -15,6 +16,7 @@ export const DOCUMENT_SAVE_LABEL: Readonly<Record<DocumentSaveStatus, string>> =
 };
 /** Explains a refused document command. Example: `documentFailureMessage(failure)`. */
 export function documentFailureMessage(failure: DocumentsFailure): string {
+  if (failure.kind === 'plan_limit') return planLimitMessage(failure.planLimit);
   if (failure.kind === 'conflict' || failure.kind === 'action_reused')
     return DOCUMENT_SAVE_LABEL.conflict;
   if (failure.kind === 'forbidden') return 'Você não tem permissão para esta alteração.';

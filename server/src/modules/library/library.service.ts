@@ -8,6 +8,7 @@ import {
   SCENE_NAME_MAX_LENGTH,
   UNNAMED_SCENE_NAME,
   type CreateLibrarySceneRequestDto,
+  type PlanLimits,
   type CreateSceneFolderRequestDto,
   type LibraryDto,
   type LibrarySceneDto,
@@ -25,6 +26,7 @@ import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import type { CampaignsDao } from '../campaigns/campaigns.dao';
 import { CampaignNotFoundError } from '../campaigns/campaigns.error';
 import { memberAccessOf, viewerAccessOf } from '../campaigns/member-access';
+import { PlanLimitsBo, effectiveLimitsOf } from '../plans/plan-limits.bo';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { SceneAccessBo } from '../scenes/scene-access.bo';
 import type { GridEviction, SceneAudiencePort } from '../scenes/scene-audience.port';
@@ -52,7 +54,7 @@ export type LibraryWriteDaos = Readonly<{
   sheets?: Pick<SheetsDao, 'moveFromFolder'>;
   images?: Pick<LibraryImagesDao, 'moveFromFolder'>;
   maps?: Pick<LibraryMapsDao, 'moveFromFolder'>;
-  campaigns: Pick<CampaignsDao, 'lockById'>;
+  campaigns: Pick<CampaignsDao, 'lockWithOwner'>;
   folders: Pick<
     SceneFoldersDao,
     'listOfCampaign' | 'insert' | 'update' | 'moveChildren' | 'delete'
@@ -105,6 +107,8 @@ type LibraryEdit = Readonly<{
   daos: LibraryWriteDaos;
   library: LibraryOfTable;
   groupSceneId: string | null;
+  /** The limits of the owner's plan, read with the lock (a plan changed meanwhile counts). */
+  limits: PlanLimits;
 }>;
 
 // Who loses a grid by an edit, taken out of its rooms once the edit is committed.
@@ -137,9 +141,10 @@ export class LibraryService {
     requester: LibraryRequester,
     input: CreateLibrarySceneRequestDto,
   ): Promise<LibrarySceneDto> {
-    return this.edit(requester, 'create a grid', async ({ daos, library }) => {
+    return this.edit(requester, 'create a grid', async ({ daos, library, limits }) => {
       const folderId = input.folderId ?? null;
       library.requireKnown(folderId);
+      PlanLimitsBo.requireRoom('scenes', library.gridCount, 1, limits);
       const { campaignId } = requester;
       const name = input.name ?? UNNAMED_SCENE_NAME;
       const created = await daos.scenes.insert({ campaignId, name, folderId });
@@ -203,9 +208,11 @@ export class LibraryService {
    *  control, look, sight, light, conditions), walls, lights, drawings and areas. The combat and
    *  the main token choices stay behind. */
   async duplicate(requester: LibraryRequester, sceneId: string): Promise<LibrarySceneDto> {
-    return this.edit(requester, `duplicate grid ${sceneId}`, async ({ daos }) => {
+    return this.edit(requester, `duplicate grid ${sceneId}`, async ({ daos, library, limits }) => {
       const source = await daos.scenes.findInCampaign(requester.campaignId, sceneId);
       if (!source) throw this.sceneNotFound(requester, sceneId);
+      PlanLimitsBo.requireFeature('sceneCopy', limits.sceneCopy, limits);
+      PlanLimitsBo.requireRoom('scenes', library.gridCount, 1, limits);
       const name = sceneCopyName(source.name, SCENE_COPY_SUFFIX, SCENE_NAME_MAX_LENGTH);
       const copy = await daos.scenes.insert(toSceneCopyPo(source, name));
       await copySceneContent(daos, source.id, copy.id);
@@ -289,11 +296,11 @@ export class LibraryService {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     access.requireMaster(action);
     const { value, evictions } = await this.deps.transaction(async (daos) => {
-      const campaign = await daos.campaigns.lockById(campaignId);
+      const campaign = await daos.campaigns.lockWithOwner(campaignId);
       if (!campaign) throw new CampaignNotFoundError({ campaignId, userId });
       const groupSceneId = campaign.activeSceneId;
       const library = await this.libraryOf(daos, campaignId, groupSceneId);
-      return work({ daos, library, groupSceneId });
+      return work({ daos, library, groupSceneId, limits: effectiveLimitsOf(campaign.owner) });
     });
     const at = this.deps.clock.now().toISOString();
     for (const eviction of evictions)

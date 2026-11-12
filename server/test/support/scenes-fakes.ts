@@ -6,13 +6,16 @@ import type {
 } from '../../src/modules/scenes/scenes.dao';
 import type { SceneTransactionRunner } from '../../src/modules/scenes/scenes.service';
 import type { NewScenePo, SceneConfigPo, ScenePo } from '../../src/modules/scenes/scenes.po';
+import type { UserPlanPo } from '../../src/modules/auth/users.po';
 import { AssetsDaoFake } from './assets-fakes';
+import { planAccount } from './plan-account-fakes';
 import { scenePo } from './scenes-factories';
 
 /** In-memory scenes table. `activeOf` maps a campaign to its active scene (the
  *  `campaigns.active_scene_id` of the real query); `journal` records lock, update and bump in order
  *  (`lockInCampaign` of an addressed grid writes `lockInCampaign:<id>`; of the group grid, `lock`).
- *  `backgrounds` holds the pixels of each background asset id (the join of the real query). */
+ *  `backgrounds` holds the pixels of each background asset id (the join of the real query).
+ *  `owners` holds the plan of each campaign's owner (the users join); unset = `planAccount()`. */
 export class ScenesDaoFake implements Pick<
   ScenesDao,
   | 'insert'
@@ -28,6 +31,7 @@ export class ScenesDaoFake implements Pick<
   readonly journal: string[] = [];
   readonly activeOf = new Map<string, string>();
   readonly backgrounds = new Map<string, { width: number; height: number }>();
+  readonly owners = new Map<string, UserPlanPo>();
 
   constructor(readonly rows: ScenePo[] = []) {}
 
@@ -100,7 +104,8 @@ export class ScenesDaoFake implements Pick<
     const activeId = this.activeOf.get(campaignId);
     const wanted = sceneId ?? activeId;
     const row = this.rows.find((each) => each.id === wanted && each.campaignId === campaignId);
-    return row && { ...this.withBackground(row), isActive: row.id === activeId };
+    const owner = this.owners.get(campaignId) ?? planAccount();
+    return row && { ...this.withBackground(row), isActive: row.id === activeId, owner };
   }
 
   private withBackground(row: ScenePo): SceneRow {

@@ -1,9 +1,10 @@
 import type { LibrarySceneDto } from '@lorkarium/contracts';
 import { editedLabel } from '@/lib/edited-label';
-import type { LibraryFailureKind } from '@/services/library-api';
-import type { LibraryMapsFailureKind } from '@/services/library-maps-api';
+import { PLAN_LIMIT_FALLBACK, planLimitMessage } from '@/lib/plan-limit-message';
+import type { LibraryFailure, LibraryFailureKind } from '@/services/library-api';
+import type { LibraryMapsFailure, LibraryMapsFailureKind } from '@/services/library-maps-api';
 
-const FAILURE_MESSAGES: Readonly<Record<LibraryFailureKind, string>> = {
+const FAILURE_MESSAGES: Readonly<Record<Exclude<LibraryFailureKind, 'plan_limit'>, string>> = {
   scene_is_active: 'O grupo está nesse grid. Leva o grupo pra outro antes.',
   folder_cycle: 'Uma pasta não entra nela mesma nem numa pasta de dentro dela.',
   folder_too_deep: 'Pastas vão até 5 níveis.',
@@ -16,11 +17,12 @@ const FAILURE_MESSAGES: Readonly<Record<LibraryFailureKind, string>> = {
   unexpected: 'Algo deu errado. Tenta de novo.',
 };
 
-/** What the status line says for a refusal of the library.
+/** What the status line says for a refusal of the library (a plan refusal names the ceiling).
  *
- *  Example: `libraryFailureMessage('folder_cycle')` */
-export function libraryFailureMessage(kind: LibraryFailureKind): string {
-  return FAILURE_MESSAGES[kind];
+ *  Example: `libraryFailureMessage({ kind: 'folder_cycle' })` */
+export function libraryFailureMessage(failure: LibraryFailure): string {
+  if (failure.kind === 'plan_limit') return planLimitMessage(failure.planLimit);
+  return FAILURE_MESSAGES[failure.kind];
 }
 
 const MAP_FAILURE_MESSAGES: Readonly<Record<LibraryMapsFailureKind, string>> = {
@@ -35,6 +37,7 @@ const MAP_FAILURE_MESSAGES: Readonly<Record<LibraryMapsFailureKind, string>> = {
   unauthenticated: FAILURE_MESSAGES.unauthenticated,
   offline: FAILURE_MESSAGES.offline,
   unexpected: FAILURE_MESSAGES.unexpected,
+  plan_limit: PLAN_LIMIT_FALLBACK,
 };
 
 /** What the status line says for a refusal about a map.
@@ -42,6 +45,14 @@ const MAP_FAILURE_MESSAGES: Readonly<Record<LibraryMapsFailureKind, string>> = {
  *  Example: `libraryMapFailureMessage('map_is_main')` */
 export function libraryMapFailureMessage(kind: LibraryMapsFailureKind): string {
   return MAP_FAILURE_MESSAGES[kind];
+}
+
+/** `libraryMapFailureMessage` with the plan refusal's own sentence (creating a map).
+ *
+ *  Example: `libraryMapRefusalMessage(answer.failure)` */
+export function libraryMapRefusalMessage(failure: LibraryMapsFailure): string {
+  if (failure.kind === 'plan_limit') return planLimitMessage(failure.planLimit);
+  return libraryMapFailureMessage(failure.kind);
 }
 
 /** "1 grid", "3 grids".

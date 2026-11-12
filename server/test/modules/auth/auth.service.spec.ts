@@ -11,7 +11,7 @@ import {
   SessionTokenFake,
   UsersDaoFake,
 } from '../../support/auth-fakes';
-import { ANA_ID, authSessionPo, userPo } from '../../support/auth-factories';
+import { ANA_ID, authPlanFieldsOf, authSessionPo, userPo } from '../../support/auth-factories';
 import {
   RecoveryCodesDaoFake,
   TotpFake,
@@ -29,6 +29,7 @@ const ANA_DTO = {
   role: 'user',
   color: 'teal',
   avatarId: null,
+  ...authPlanFieldsOf(),
 };
 
 describe('AuthService', () => {
@@ -63,6 +64,7 @@ describe('AuthService', () => {
       sessionEnded,
       twoFactor: check,
       challenges,
+      ownerUsername: null,
     });
   });
 
@@ -417,7 +419,15 @@ describe('AuthService', () => {
       users.rows[0] = userPo({ role: 'admin' });
       storeSession('2026-11-10T12:00:00Z', true);
       const resolved = await service.authorize('cookie', 'admin');
-      expect(resolved.user).toEqual({ ...ANA_DTO, role: 'admin' });
+      expect(resolved.user).toEqual({
+        ...ANA_DTO,
+        role: 'admin',
+        ...authPlanFieldsOf({
+          role: 'admin',
+          plan: 'free',
+          lorkariumOwner: false,
+        }),
+      });
     });
   });
 });

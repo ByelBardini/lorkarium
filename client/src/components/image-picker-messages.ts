@@ -4,9 +4,12 @@ import {
   UNEXPECTED_MESSAGE,
 } from '@/features/campaigns/campaign-messages';
 import { IMAGE_SIZE_PROBLEM, IMAGE_TYPE_PROBLEM } from '@/lib/image-file';
+import { planLimitMessage } from '@/lib/plan-limit-message';
 import type { AssetsFailure } from '@/services/assets-api';
 
-const MESSAGE: Readonly<Record<Exclude<AssetsFailure['kind'], 'rate_limited'>, string>> = {
+const MESSAGE: Readonly<
+  Record<Exclude<AssetsFailure['kind'], 'rate_limited' | 'plan_limit'>, string>
+> = {
   too_large: IMAGE_SIZE_PROBLEM,
   unsupported: IMAGE_TYPE_PROBLEM,
   link_not_image: 'Esse link não é de uma imagem. Abra a imagem e copie o endereço dela.',
@@ -23,6 +26,7 @@ const MESSAGE: Readonly<Record<Exclude<AssetsFailure['kind'], 'rate_limited'>, s
  *
  *  Example: `imageFailureMessage({ kind: 'rate_limited', retryAfterSeconds: 12 }) // 'Muitos envios seguidos. Espere 12 s.'` */
 export function imageFailureMessage(failure: AssetsFailure): string {
+  if (failure.kind === 'plan_limit') return planLimitMessage(failure.planLimit);
   if (failure.kind === 'rate_limited') {
     return `Muitos envios seguidos. Espere ${failure.retryAfterSeconds} s.`;
   }

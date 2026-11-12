@@ -6,7 +6,7 @@ import { PasswordField } from '@/components/password-field';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { failureMessage } from '@/features/campaigns/campaign-messages';
+import { commandFailureMessage } from '@/features/campaigns/campaign-messages';
 import { maskCampaignCode } from '@/lib/campaign-code';
 import type { CampaignsFailure } from '@/services/campaigns-api';
 
@@ -132,10 +132,7 @@ function serverErrors(failure: CampaignsFailure | null): JoinErrors {
 
 function JoinFailure({ failure }: Readonly<{ failure: CampaignsFailure | null }>) {
   if (!failure || failure.kind === 'not_found' || PASSWORD_FAILURES.has(failure.kind)) return null;
-  const message =
-    failure.kind === 'rate_limited'
-      ? `Muitas tentativas. Tente de novo em ${failure.retryAfterSeconds} s.`
-      : failureMessage(failure.kind);
+  const message = commandFailureMessage(failure);
   return (
     <Alert variant="destructive" className="px-3.5 py-3 text-sm">
       {message}

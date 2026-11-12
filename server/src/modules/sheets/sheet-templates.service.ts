@@ -3,6 +3,7 @@ import {
   SHEET_TEMPLATE_ASSETS_MAX_BYTES,
   UNNAMED_SHEET_TEMPLATE_NAME,
   type CreateSheetTemplateRequestDto,
+  type PlanLimits,
   type SheetTemplateDto,
   type SheetTemplateManifestDto,
   type UpdateSheetTemplateRequestDto,
@@ -16,6 +17,7 @@ import { memberAccessOf, viewerAccessOf } from '../campaigns/member-access';
 import type { SceneFoldersDao } from '../library/scene-folders.dao';
 import type { LibraryPublisherPort } from '../library/library-publisher.port';
 import type { LibraryRequester } from '../library/library.service';
+import { effectiveLimitsOf, PlanLimitsBo } from '../plans/plan-limits.bo';
 import { SheetTemplateAssetBo } from './sheet-template-asset.bo';
 import { SheetTemplateBo } from './sheet-template.bo';
 import type { SheetTemplatesDao } from './sheet-templates.dao';
@@ -29,9 +31,12 @@ export type TemplateUseCounter = Readonly<{
 }>;
 
 export type SheetTemplateDaos = Readonly<{
-  campaigns: Pick<CampaignsDao, 'lockById'>;
+  campaigns: Pick<CampaignsDao, 'lockWithOwner'>;
   folders: Pick<SceneFoldersDao, 'listOfCampaign'>;
-  templates: Pick<SheetTemplatesDao, 'findInCampaign' | 'insert' | 'update' | 'delete'>;
+  templates: Pick<
+    SheetTemplatesDao,
+    'findInCampaign' | 'countOfCampaign' | 'insert' | 'update' | 'delete'
+  >;
   uses: TemplateUseCounter;
   assets: Pick<AssetsDao, 'findManyInCampaign'>;
 }>;
@@ -44,10 +49,17 @@ export type SheetTemplatesServiceDeps = Readonly<{
   publisher: Pick<LibraryPublisherPort, 'libraryChanged'>;
 }>;
 
-type TemplateEdit = Readonly<{ daos: SheetTemplateDaos; rules: SheetTemplateBo }>;
+/** What a write works with: the DAOs of its transaction, the author's rules and the limits of the
+ *  owner's plan, read under the table's lock. */
+type TemplateEdit = Readonly<{
+  daos: SheetTemplateDaos;
+  rules: SheetTemplateBo;
+  limits: PlanLimits;
+}>;
 
 /** The sheet templates of the library: only masters read or write them. Every write locks the
- *  table (like the library), commits, and only then tells it `library:changed`.
+ *  table (like the library), commits, and only then tells it `library:changed`. Creating one (the
+ *  import of a `.lksheet` too) counts against the owner's plan (`sheetTemplates`).
  *
  *  Example: `await templates.create({ userId, campaignId }, { name: 'Ficha Tormenta', files })` */
 export class SheetTemplatesService {
@@ -63,7 +75,9 @@ export class SheetTemplatesService {
     requester: LibraryRequester,
     input: CreateSheetTemplateRequestDto,
   ): Promise<SheetTemplateDto> {
-    return this.edit(requester, 'create a sheet template', async ({ daos, rules }) => {
+    return this.edit(requester, 'create a sheet template', async ({ daos, rules, limits }) => {
+      const stored = await daos.templates.countOfCampaign(requester.campaignId);
+      PlanLimitsBo.requireRoom('sheetTemplates', stored, 1, limits);
       const folderId = input.folderId ?? null;
       await this.requireFolder(daos, rules, requester, folderId);
       const { files } = input;
@@ -117,8 +131,9 @@ export class SheetTemplatesService {
     const rules = new SheetTemplateBo(await memberAccessOf(this.deps.members, campaignId, userId));
     rules.requireAuthor(action);
     const value = await this.deps.transaction(async (daos) => {
-      if (!(await daos.campaigns.lockById(campaignId))) throw new CampaignNotFoundError(requester);
-      return work({ daos, rules });
+      const table = await daos.campaigns.lockWithOwner(campaignId);
+      if (!table) throw new CampaignNotFoundError(requester);
+      return work({ daos, rules, limits: effectiveLimitsOf(table.owner) });
     });
     this.deps.publisher.libraryChanged({ campaignId, at: this.deps.clock.now().toISOString() });
     return value;

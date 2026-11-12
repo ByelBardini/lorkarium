@@ -95,7 +95,7 @@ A chave leva o **id do asset**, não os vértices: o contorno de um asset nunca 
 
 Na aba "Visão e luz" do diálogo do token, só para o mestre, porque o jogador não vê a aba. O diálogo está em [`token-dialog.md`](token-dialog.md).
 
-- `features/tokens/sight-blocker-section.tsx`, `SightBlockerSection({ on, onSwitch, imageAssetId, frame, refusal })`: o `SwitchedSection` "Bloqueia a visão" (grupo com ícone, título, dica e `Switch`, a mesma moldura da `ReachSection`) e, ligado, o aviso e a recusa.
+- `features/tokens/sight-blocker-section.tsx`, `SightBlockerSection({ on, onSwitch, imageAssetId, frame, refusal })`: o `SwitchedSection` "Bloqueia a visão" (grupo com ícone, título, dica e `Switch`, a mesma moldura da `ReachSection`) e, ligado, o aviso e a recusa. Mesa sem bloqueio no plano (`maxSightBlockers` 0): o interruptor desligado fica desabilitado (`SwitchedSection.disabled`) e a dica vira "Disponível no Narrador"; ligado, ainda desliga ([`../plans/client-controles.md`](../plans/client-controles.md)).
 - O aviso olha a imagem **do formulário** e a borda que o token salvaria (`blockerFrameOf`):
 
 | Caso                                             | Aviso                                                                                             |

@@ -8,6 +8,7 @@ import type {
   SendMailSampleResponseDto,
   PasswordResetLinkResponseDto,
   UserDeletionCheckDto,
+  UserPlan,
   UserRoleDto,
 } from '@lorkarium/contracts';
 import type { UserAdminApi, UserAdminResult } from '@/services/user-admin-api';
@@ -29,6 +30,8 @@ export function lucasAdmin(now: Date): AdminUserDto {
     name: 'Lucas',
     email: 'lucas@exemplo.com',
     role: 'admin',
+    plan: 'free',
+    lorkariumOwner: false,
     status: 'active',
     color: 'bone',
     avatarId: null,
@@ -45,6 +48,8 @@ export function bia(now: Date): AdminUserDto {
     name: 'Bia',
     email: 'bia@exemplo.com',
     role: 'user',
+    plan: 'free',
+    lorkariumOwner: false,
     status: 'active',
     color: 'rose',
     avatarId: null,
@@ -61,6 +66,8 @@ export function pedroSuspended(now: Date): AdminUserDto {
     name: 'Pedro',
     email: 'pedro@exemplo.com',
     role: 'user',
+    plan: 'free',
+    lorkariumOwner: false,
     status: 'suspended',
     color: 'steel',
     avatarId: null,
@@ -98,6 +105,7 @@ type Answers = {
   resendInvitation: UserAdminResult<InvitationLinkResponseDto>;
   cancelInvitation: UserAdminResult<null>;
   changeRole: UserAdminResult<AdminUserDto>;
+  changePlan: UserAdminResult<AdminUserDto>;
   suspend: UserAdminResult<AdminUserDto>;
   reactivate: UserAdminResult<AdminUserDto>;
   sendPasswordLink: UserAdminResult<PasswordResetLinkResponseDto>;
@@ -181,6 +189,10 @@ export class UserAdminApiFake implements UserAdminApi {
 
   changeRole(userId: string, role: UserRoleDto): Promise<Answers['changeRole']> {
     return this.answers.reply('changeRole', { userId, role }, () => this.patch(userId, { role }));
+  }
+
+  changePlan(userId: string, plan: UserPlan): Promise<Answers['changePlan']> {
+    return this.answers.reply('changePlan', { userId, plan }, () => this.patch(userId, { plan }));
   }
 
   suspend(userId: string): Promise<Answers['suspend']> {

@@ -1,6 +1,7 @@
 import type { AuthUserDto, CampaignSummaryDto } from '@lorkarium/contracts';
 import { useState } from 'react';
 import { Outlet } from 'react-router';
+import { countGate } from '@/features/plans/plan-gate';
 import { continueCandidate } from '@/lib/campaign-list';
 import type { Clipboard } from '@/services/clipboard';
 import { CampaignList } from './campaign-list';
@@ -28,12 +29,16 @@ export function HomePage(props: HomePageProps): React.JSX.Element {
   const candidate = continueCandidate(campaigns);
   const openCreate = (): void => setDialog('create');
   const openJoin = (): void => setDialog('join');
+  const owned = campaigns.filter(({ ownerId }) => ownerId === user.id).length;
+  const createGate = countGate(user.limits, 'campaigns', owned);
   return (
     <div className="flex w-full flex-col gap-10 px-4 py-8 sm:px-8 sm:py-10 lg:px-12">
       <title>Lorkarium · Mesas</title>
       <header className="flex flex-wrap items-end justify-between gap-6">
         <GreetingHeader name={user.name} now={now} draw={greetingDraw} />
-        {campaigns.length > 0 && <HomeActions onCreate={openCreate} onJoin={openJoin} />}
+        {campaigns.length > 0 && (
+          <HomeActions onCreate={openCreate} onJoin={openJoin} createGate={createGate} />
+        )}
       </header>
       {candidate && <ContinueBand campaign={candidate} readerId={user.id} />}
       <CampaignList

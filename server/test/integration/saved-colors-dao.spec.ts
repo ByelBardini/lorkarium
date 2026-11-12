@@ -8,6 +8,8 @@ import { SavedColorsDao } from '../../src/modules/saved-colors/saved-colors.dao'
 import { newUserPo } from '../support/auth-factories';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
+const UNKNOWN_ACCOUNT = '00000000-0000-4000-8000-000000000000';
+
 describe('SavedColorsDao on Postgres', () => {
   let connection: DatabaseConnection;
   let colors: SavedColorsDao;
@@ -120,6 +122,15 @@ describe('SavedColorsDao on Postgres', () => {
     await expect(connection.db.execute(lockedSql)).resolves.toMatchObject({
       rows: [{ id: biaId }],
     });
+  });
+
+  it('lockOwner answers the plan of the account, and nothing for an unknown one', async () => {
+    const answers = await runInTransaction(connection.db, async (tx) => {
+      const dao = new SavedColorsDao(tx);
+      return [await dao.lockOwner(biaId), await dao.lockOwner(UNKNOWN_ACCOUNT)];
+    });
+
+    expect(answers).toEqual([{ role: 'user', plan: 'free', lorkariumOwner: false }, undefined]);
   });
 
   it('lockOwner does not stop a row of another table from pointing at the account', async () => {

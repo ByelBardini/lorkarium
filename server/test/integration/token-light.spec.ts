@@ -1,5 +1,6 @@
 import { tokensCreatedDto, tokensRestyledDto, tokenUpdatedDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import { recordEventsOf, type RealtimeClient } from '../support/realtime-client';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
@@ -66,6 +67,7 @@ describe('token light over Socket.IO', () => {
   });
 
   it('Ana giving Lyra a #336699 light reaches Bia, the sync keeps it and Quelm has nothing', async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
     const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
     const lyraId = await lyraOfBia(ana.client, null);
     const bia = recordEventsOf(await live.atTable(live.bia, live.vharn));

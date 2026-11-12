@@ -1,6 +1,7 @@
 import { render } from '@testing-library/react';
 import type { CampaignDetailDto, SheetSummaryDto } from '@lorkarium/contracts';
 import { SceneTabs } from '@/features/board/scene-tabs';
+import { TablePlanLimitsProvider } from '@/features/plans/plan-limits-providers';
 import { SheetRoomProvider } from '@/features/sheets/sheet-room';
 import { testDependencies } from './app-dependencies';
 import { ANA } from './auth-api-fake';
@@ -37,10 +38,12 @@ export function sheetRoom(campaign: CampaignDetailDto = detailOf(VHARN)) {
   };
   const renderItems = (items: React.ReactNode) =>
     render(
-      <SheetRoomProvider campaign={campaign} services={services}>
-        {items}
-        <SceneTabs tabs={table.tabs} documents={deps.documentWorkspace} campaignId={VHARN.id} />
-      </SheetRoomProvider>,
+      <TablePlanLimitsProvider openTables={deps.openTables} campaign={campaign}>
+        <SheetRoomProvider campaign={campaign} services={services}>
+          {items}
+          <SceneTabs tabs={table.tabs} documents={deps.documentWorkspace} campaignId={VHARN.id} />
+        </SheetRoomProvider>
+      </TablePlanLimitsProvider>,
     );
   return { deps, table, renderItems };
 }

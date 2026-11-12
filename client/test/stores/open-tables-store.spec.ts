@@ -5,8 +5,10 @@ import type { StoreApi } from 'zustand/vanilla';
 import {
   OPEN_TABLES_STORAGE_KEY,
   createOpenTablesStore,
+  selectTableLimits,
   type OpenTablesStore,
 } from '@/stores/open-tables-store';
+import { PLAN_LIMITS } from '@lorkarium/contracts';
 import { ANA } from '../support/auth-api-fake';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
 import { StorageFake } from '../support/storage-fake';
@@ -298,6 +300,36 @@ describe('open tables store', () => {
         userId: ANA.id,
         tables: [{ ...VHARN_TABLE, ...renamed }, QUELM_TABLE],
       });
+    });
+
+    it('the limits of a table are the route campaign ones until a campaignUpdated comes', () => {
+      const route = { id: VHARN.id, limits: PLAN_LIMITS.free };
+      expect(selectTableLimits(store.getState(), route)).toBe(PLAN_LIMITS.free);
+    });
+
+    it('campaignUpdated with new limits (the owner changed plan) updates that table only', () => {
+      const event = vharnRenamed({ version: 2 });
+      const narrador = { ...event, campaign: { ...event.campaign, limits: PLAN_LIMITS.narrador } };
+      api.emitTo(VHARN.id, { kind: 'campaignUpdated', event: narrador });
+
+      const state = store.getState();
+      expect(selectTableLimits(state, { id: VHARN.id, limits: PLAN_LIMITS.free })).toEqual(
+        PLAN_LIMITS.narrador,
+      );
+      expect(selectTableLimits(state, { id: QUELM.id, limits: PLAN_LIMITS.free })).toBe(
+        PLAN_LIMITS.free,
+      );
+    });
+
+    it('campaignUpdated that changes only the limits (a plan changed) still updates the table', () => {
+      api.emitTo(VHARN.id, { kind: 'campaignUpdated', event: vharnRenamed({ version: 2 }) });
+      const event = vharnRenamed({ version: 3 });
+      const lenda = { ...event, campaign: { ...event.campaign, limits: PLAN_LIMITS.lenda } };
+
+      api.emitTo(VHARN.id, { kind: 'campaignUpdated', event: lenda });
+
+      const route = { id: VHARN.id, limits: PLAN_LIMITS.free };
+      expect(selectTableLimits(store.getState(), route)).toEqual(PLAN_LIMITS.lenda);
     });
 
     it('campaignUpdated that changes nothing shown keeps the very same tables', () => {

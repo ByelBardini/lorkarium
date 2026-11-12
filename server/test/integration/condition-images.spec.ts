@@ -5,7 +5,8 @@ import {
   type AssetDto,
   type BoardStateDto,
 } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { pngOf } from '../support/images';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import { recordEventsOf, type RealtimeClient } from '../support/realtime-client';
@@ -14,6 +15,8 @@ import type { Table } from '../support/tables';
 import { tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// The image of a condition is of a paid plan; the plan's refusal is in conditions-plan-limit.spec.ts.
+beforeEach(() => setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono'));
 
 // A 600×300 PNG sent as the image of a condition: the server keeps it square, 256 px.
 async function conditionImageOf(user: SignedInUser, table: Table): Promise<AssetDto> {

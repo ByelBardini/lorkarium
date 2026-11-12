@@ -1,16 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { HttpAuthApi } from '@/services/auth-api';
+import { ANA } from '../support/auth-api-fake';
 import { HttpTransportFake } from '../support/http-transport-fake';
-
-const ANA = {
-  id: '7d0f8c39-2b8e-4f4e-9d1a-5c6b7a8e9f01',
-  username: 'ana',
-  name: 'Ana',
-  email: 'ana@mesa.com',
-  role: 'user',
-  color: 'teal',
-  avatarId: null,
-};
 const CREDENTIALS = { identifier: 'ana@mesa.com', password: 'segredo', rememberMe: true };
 
 describe('HttpAuthApi', () => {

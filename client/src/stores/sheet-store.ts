@@ -322,6 +322,6 @@ function settle(batch: Batch, outcome: SheetValuesOutcome): void {
   for (const waiter of batch.waiters.splice(0)) waiter(outcome);
 }
 
-function refusal(kind: SheetsFailure['kind']): Promise<SheetValuesOutcome> {
+function refusal(kind: 'not_found' | 'forbidden'): Promise<SheetValuesOutcome> {
   return Promise.resolve({ ok: false, failure: { kind } });
 }

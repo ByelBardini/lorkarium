@@ -37,6 +37,7 @@ function memberUpdated(userId: string, role: TableAudience): SessionMemberUpdate
   const member = {
     ...{ userId, name: userId, username: userId, color: 'gold' as const, avatarId: null },
     ...{ bio: null, role, juggernaut: false, online: true, awaySince: null },
+    ...{ plan: 'free' as const, admin: false, lorkariumOwner: false },
   };
   return { campaignId: VHARN_ID, version: 4, member, at: AT };
 }

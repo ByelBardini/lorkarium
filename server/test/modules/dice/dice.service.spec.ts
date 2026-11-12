@@ -19,6 +19,7 @@ import {
 } from '../../support/campaigns-factories';
 import { DicePhysicsFake, DicePublisherFake, DiceRandomFake } from '../../support/dice-fakes';
 import { ProfilesDaoFake, profileRow } from '../../support/profiles-fakes';
+import { TableOwnerPlansFake, planAccount } from '../../support/plan-account-fakes';
 
 const NOW = new Date('2026-10-25T12:00:00Z');
 const ROLL_ID = '6a1d2c3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
@@ -30,6 +31,7 @@ type Harness = Readonly<{
   physics: DicePhysicsFake;
   random: DiceRandomFake;
   publisher: DicePublisherFake;
+  tables: TableOwnerPlansFake;
 }>;
 
 function harness(physicsValues: number[] = [], faces: number[] = []): Harness {
@@ -51,8 +53,10 @@ function harness(physicsValues: number[] = [], faces: number[] = []): Harness {
   const random = new DiceRandomFake(faces);
   const publisher = new DicePublisherFake();
   const clock = new ClockFake(NOW);
-  const deps = { members, profiles, physics, random, publisher, clock, newId: () => ROLL_ID };
-  return { service: new DiceService(deps), physics, random, publisher };
+  const tables = new TableOwnerPlansFake();
+  const newId = (): string => ROLL_ID;
+  const deps = { members, tables, profiles, physics, random, publisher, clock, newId };
+  return { service: new DiceService(deps), physics, random, publisher, tables };
 }
 
 function rollOf(
@@ -124,6 +128,48 @@ describe('DiceService.roll', () => {
 
     expect(physics.throws[0]?.kinds).toHaveLength(20);
     expect(random.asked).toEqual([6, 6, 6, 6, 6]);
+  });
+
+  it('12d6 at a free table: 10 dice go to the physics, 2 to crypto, and the total sums all 12', async () => {
+    const { service, physics, random, publisher, tables } = harness(Array(10).fill(3), [5, 6]);
+    tables.set(VHARN_ID, planAccount({ plan: 'free' }));
+
+    const answer = await service.roll(BIA_ID, rollOf(['12d6']));
+
+    expect(physics.throws[0]?.kinds).toHaveLength(10);
+    expect(random.asked).toEqual([6, 6]);
+    expect(answer.total).toBe(10 * 3 + 5 + 6);
+    expect(publisher.full[0]?.throw?.models).toHaveLength(10);
+    expect(tables.asked).toEqual([VHARN_ID]);
+  });
+
+  it('20d6 at a narrador table: all 20 dice go to the physics', async () => {
+    const { service, physics, random, tables } = harness();
+    tables.set(VHARN_ID, planAccount({ plan: 'narrador' }));
+
+    await service.roll(BIA_ID, rollOf(['20d6']));
+
+    expect(physics.throws[0]?.kinds).toHaveLength(20);
+    expect(random.asked).toEqual([]);
+  });
+
+  it('a free table owned by an admin throws 20 models: the admin has no plan limit', async () => {
+    const { service, physics, tables } = harness();
+    tables.set(VHARN_ID, planAccount({ role: 'admin', plan: 'free' }));
+
+    await service.roll(BIA_ID, rollOf(['20d6']));
+
+    expect(physics.throws[0]?.kinds).toHaveLength(20);
+  });
+
+  it('a table whose row is gone after the membership read is CAMPAIGN_NOT_FOUND, nothing thrown', async () => {
+    const { service, physics, publisher, tables } = harness();
+    tables.missing.add(VHARN_ID);
+
+    const roll = service.roll(BIA_ID, rollOf(['1d20']));
+
+    await expect(roll).rejects.toBeInstanceOf(CampaignNotFoundError);
+    expect([physics.throws, publisher.journal]).toEqual([[], []]);
   });
 
   it('1d7 never calls the physics: crypto draws it and the "…" lasts 800 ms', async () => {

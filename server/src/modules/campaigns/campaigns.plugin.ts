@@ -4,14 +4,19 @@ import { runInTransaction, type Transaction } from '../../database/transaction';
 import type { ClockPort } from '../auth/clock.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
 import { UsersDao } from '../auth/users.dao';
+import type { AssetRemovalLog } from '../assets/asset-object-removal';
+import type { AssetStoragePort } from '../assets/asset-storage.port';
 import { AssetsDao } from '../assets/assets.dao';
 import { ConditionsDao } from '../conditions/conditions.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
 import { CachedMemberships } from './cached-memberships';
 import type { CampaignChangedPort } from './campaign-changed.port';
 import type { CampaignCodePort } from './campaign-code.port';
-import { CampaignJoinService } from './campaign-join.service';
-import { CampaignSettingsService } from './campaign-settings.service';
+import { CampaignJoinService, type CampaignJoinTransactionRunner } from './campaign-join.service';
+import {
+  CampaignSettingsService,
+  type CampaignRemovalTransactionRunner,
+} from './campaign-settings.service';
 import { CampaignMembersDao } from './campaign-members.dao';
 import { CampaignsDao } from './campaigns.dao';
 import { campaignsRoutes } from './campaigns.routes';
@@ -38,6 +43,9 @@ export type CampaignOutlets = Readonly<{
   removed: MemberRemovedPort;
   /** The seat (character) of a member, bound to the role's transaction. */
   seatIn: (tx: Transaction) => MemberSeatPort;
+  /** Where the objects of a deleted table's files are removed (the asset bucket). */
+  objects: Pick<AssetStoragePort, 'remove'>;
+  log: AssetRemovalLog;
 }>;
 
 export type CampaignsModule = Readonly<{
@@ -47,6 +55,8 @@ export type CampaignsModule = Readonly<{
   pluginWith: (outlets: CampaignOutlets) => (app: FastifyInstance) => Promise<void>;
   /** Built with the edge: the backoffice tells the tables about the seats it revoked. */
   juggernaut: () => JuggernautService;
+  /** Built with the edge: the backoffice tells the tables of an owner about their new limits. */
+  settings: () => CampaignSettingsService;
   /** For other modules: the live session asks it who the members of a table are. */
   service: CampaignsService;
   /** For the board modules: who is a member of a table, remembered (see `CachedMemberships`). */
@@ -64,13 +74,25 @@ export function createCampaignsModule(options: CampaignsModuleOptions): Campaign
   const memberships = new CachedMemberships(members);
   const readDeps = { campaigns, members, memberships, presence };
   const service = new CampaignsService({ ...readDeps, transaction, codes, hasher, clock });
-  const join = new CampaignJoinService({ campaigns, members, hasher, clock });
+  const joinDeps = { campaigns, members, hasher, clock };
+  const join = new CampaignJoinService({
+    ...joinDeps,
+    transaction: campaignJoinTransactionOver(options.db),
+  });
   const assets = new AssetsDao(options.db);
   let juggernaut: JuggernautService | null = null;
+  let settings: CampaignSettingsService | null = null;
   const pluginWith = (outlets: CampaignOutlets): ((app: FastifyInstance) => Promise<void>) => {
-    const { changed, roleChanged, removed, seatIn } = outlets;
+    const { changed, roleChanged, removed, seatIn, objects, log } = outlets;
     const settingsDeps = { campaigns, members, assets, memberships, changed, codes, hasher, clock };
-    const settings = new CampaignSettingsService({ ...settingsDeps, presence, detail: service });
+    const removal = removalTransactionOver(options.db);
+    const deletion = { removal, objects, log };
+    settings = new CampaignSettingsService({
+      ...settingsDeps,
+      ...deletion,
+      presence,
+      detail: service,
+    });
     const roleDeps = { campaigns, members, memberships, presence };
     const transaction = memberRoleTransactionOver(options.db, seatIn);
     const roles = new MemberRoleService({ ...roleDeps, transaction, changed: roleChanged });
@@ -87,18 +109,30 @@ export function createCampaignsModule(options: CampaignsModuleOptions): Campaign
     if (juggernaut) return juggernaut;
     throw new Error('the juggernaut service exists once pluginWith(outlets) ran; got none yet');
   };
-  return { pluginWith, juggernaut: juggernautOf, service, memberships };
+  const settingsOf = (): CampaignSettingsService => {
+    if (settings) return settings;
+    throw new Error('the settings service exists once pluginWith(outlets) ran; got none yet');
+  };
+  return { pluginWith, juggernaut: juggernautOf, settings: settingsOf, service, memberships };
 }
 
 function transactionOver(db: Database): CampaignTransactionRunner {
   return (work) =>
     runInTransaction(db, (tx) =>
       work({
+        owners: new UsersDao(tx),
         campaigns: new CampaignsDao(tx),
         members: new CampaignMembersDao(tx),
         scenes: new ScenesDao(tx),
         conditions: new ConditionsDao(tx),
       }),
+    );
+}
+
+function removalTransactionOver(db: Database): CampaignRemovalTransactionRunner {
+  return (work) =>
+    runInTransaction(db, (tx) =>
+      work({ campaigns: new CampaignsDao(tx), assets: new AssetsDao(tx) }),
     );
 }
 
@@ -117,5 +151,21 @@ export function memberRoleTransactionOver(
   seatIn: (tx: Transaction) => MemberSeatPort,
 ): MemberRoleTransactionRunner {
   return (work) =>
-    runInTransaction(db, (tx) => work({ members: new CampaignMembersDao(tx), seat: seatIn(tx) }));
+    runInTransaction(db, (tx) =>
+      work({
+        campaigns: new CampaignsDao(tx),
+        members: new CampaignMembersDao(tx),
+        seat: seatIn(tx),
+      }),
+    );
+}
+
+/** A newcomer's seat: the table locked with its owner's plan, counted and inserted on one `tx`.
+ *
+ *  Example: `new CampaignJoinService({ …, transaction: campaignJoinTransactionOver(db) })` */
+export function campaignJoinTransactionOver(db: Database): CampaignJoinTransactionRunner {
+  return (work) =>
+    runInTransaction(db, (tx) =>
+      work({ campaigns: new CampaignsDao(tx), members: new CampaignMembersDao(tx) }),
+    );
 }

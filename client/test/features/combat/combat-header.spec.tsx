@@ -39,7 +39,8 @@ describe('CombatHeader', () => {
     interaction = createBoardInteractionStore({
       scopeOf: () => VHARN_GRID,
       commands,
-      describeRefusal: (failure) => (failure === 'turn_changed' ? 'A vez já passou.' : failure),
+      describeRefusal: (failure) =>
+        failure === 'turn_changed' ? 'A vez já passou.' : String(failure),
     });
   });
 

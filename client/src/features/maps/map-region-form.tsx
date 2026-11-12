@@ -70,6 +70,7 @@ function RegionFields(props: MapRegionFormProps): React.JSX.Element {
         value={paletteChoiceOf(region.color)}
         tiles={COLOR_TILES}
         disabled={off}
+        customScope={null}
         onChange={(choice) => commands.saveChoiceOfColor(choice)}
       />
       {region.geometry.shape === 'pin' && (

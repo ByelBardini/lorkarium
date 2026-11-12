@@ -1,3 +1,5 @@
+import type { PlanLimits } from '@lorkarium/contracts';
+import { PlanLimitsBo } from '../plans/plan-limits.bo';
 import { ConditionNameTakenError, ConditionStacksError } from './conditions.error';
 import type { NewConditionDefinition } from './conditions.po';
 
@@ -55,6 +57,16 @@ export class ConditionRulesBo {
   requireNameFree(conditionId: string, sameName: NamedDefinition | undefined): void {
     if (!sameName || sameName.id === conditionId) return;
     throw new ConditionNameTakenError(sameName.campaignId, sameName.name, sameName.id);
+  }
+
+  /** A definition's own image needs `conditionImage` in the table owner's plan. `before` is the
+   *  image it has now (`null` on a new one): keeping it, or taking it away, passes on any plan
+   *  (who went down keeps what it has); a new or another image is refused without it.
+   *
+   *  Example: `RULES.requireImageInPlan(command.imageAssetId, known.imageAssetId, limits)` */
+  requireImageInPlan(image: string | null, before: string | null, limits: PlanLimits): void {
+    if (image === null || image === before) return;
+    PlanLimitsBo.requireFeature('conditionImage', limits.conditionImage, limits);
   }
 
   /** `current` is the stacks the token already has of it (`null` = it does not have it yet):

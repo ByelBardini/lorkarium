@@ -1,4 +1,5 @@
 import type { HexColorDto, SavedColorsResponseDto } from '@lorkarium/contracts';
+import { PlanLimitsBo, customizationAllowed, effectiveLimitsOf } from '../plans/plan-limits.bo';
 import { SavedColorAdmissionBo } from './saved-colors.bo';
 import type { SavedColorsDao } from './saved-colors.dao';
 import { toSavedColorsResponse } from './saved-colors.mapper';
@@ -32,11 +33,15 @@ export class SavedColorsService {
   }
 
   /** Counts and inserts under the account's lock, so parallel saves never pass the limit together.
+   *  A saved color is a hex: only a plan with the customizations (the Apoiador included) saves one.
    *
    *  Example: `await service.save(userId, '#aabbcc') // the same list when already kept` */
   async save(userId: string, color: HexColorDto): Promise<SavedColorsResponseDto> {
     return this.deps.transaction(async (colors) => {
-      await colors.lockOwner(userId);
+      const account = await colors.lockOwner(userId);
+      if (!account) throw new Error(`account ${userId} passed the auth guard but has no users row`);
+      const allowed = customizationAllowed(account);
+      PlanLimitsBo.requireFeature('customColor', allowed, effectiveLimitsOf(account));
       const saved = await colors.listOf(userId);
       const keptColors = saved.map((row) => row.color);
       if (!this.rules.mustInsert(keptColors, color)) return toSavedColorsResponse(saved);

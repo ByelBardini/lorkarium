@@ -2,6 +2,11 @@ import type { HexColorDto } from '@lorkarium/contracts';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import {
+  CustomColorLocksContext,
+  type CustomColorLocks,
+  type CustomColorScope,
+} from '@/components/color-picker/custom-color-locks';
 import { CustomColorTile } from '@/components/color-picker/custom-color-tile';
 import { SavedColorsProvider } from '@/components/color-picker/saved-colors-context';
 import { fullSavedColors, SavedColorsApiFake } from '../../support/saved-colors-api-fake';
@@ -299,5 +304,47 @@ describe('CustomColorTile', () => {
     await user.click(button('Usar cor'));
 
     expect(onPick.mock.calls).toEqual([['#336699']]);
+  });
+
+  describe('the plan', () => {
+    const HINT = 'Disponível no Narrador';
+
+    function renderLocked(locks: CustomColorLocks, scope?: CustomColorScope): void {
+      render(
+        <CustomColorLocksContext value={locks}>
+          <SavedColorsProvider api={api} userId="bia">
+            <CustomColorTile value={null} onPick={onPick} scope={scope} />
+          </SavedColorsProvider>
+        </CustomColorLocksContext>,
+      );
+    }
+
+    it('the table content of a free table: the tile is off and says where it is', () => {
+      renderLocked({ account: null, table: HINT }, 'table');
+      expect(button('Cor personalizada')).toBeDisabled();
+      expect(button('Cor personalizada')).toHaveAccessibleDescription(HINT);
+    });
+
+    it('the profile of an account that may not customize: off by the account', () => {
+      renderLocked({ account: HINT, table: null }, 'account');
+      expect(button('Cor personalizada')).toBeDisabled();
+    });
+
+    it('each scope reads only its own lock', () => {
+      renderLocked({ account: null, table: HINT }, 'account');
+      expect(button('Cor personalizada')).toBeEnabled();
+    });
+
+    it('a field with no scope (a cover tone) is always offered', () => {
+      renderLocked({ account: HINT, table: HINT });
+      expect(button('Cor personalizada')).toBeEnabled();
+    });
+
+    it('on a paid table, an account that may not customize still uses the color but cannot save it', async () => {
+      renderLocked({ account: HINT, table: null }, 'table');
+      await openPanel();
+      expect(button('Salvar')).toBeDisabled();
+      expect(button('Usar cor')).toBeEnabled();
+    });
   });
 });

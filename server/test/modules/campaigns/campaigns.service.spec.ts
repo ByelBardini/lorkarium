@@ -71,6 +71,8 @@ describe('CampaignsService', () => {
   it('create writes the campaign, the master, the active scene and the initial conditions, all in the transaction', async () => {
     const detail = await service.create(ANA_ID, NEW_CAMPAIGN);
     expect(runner.writesInside).toEqual([
+      'owners.lockForPlan',
+      'campaigns.countOwnedBy',
       'campaigns.insert',
       'members.insert',
       'scenes.insert',

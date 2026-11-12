@@ -1,6 +1,9 @@
 import { and, asc, count, eq, sql, type SQL } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
+import { PLAN_ACCOUNT_COLUMNS } from '../auth/users.dao';
+import { users, type UserPlanPo } from '../auth/users.po';
 import { campaignMembers } from '../campaigns/campaign-members.po';
+import { campaigns } from '../campaigns/campaigns.po';
 import {
   savedRolls,
   type NewSavedRollPo,
@@ -36,17 +39,21 @@ export class SavedRollsDao {
   }
 
   /** Locks the owner's membership until the transaction ends, so two saves of the same member
-   *  count one after the other; `false` when the member is gone. `NO KEY UPDATE`: rows that only
-   *  point at the membership are still inserted meanwhile. Call it on a DAO built with the `tx`.
+   *  count one after the other, and reads the plan of the table's owner (the ceiling) in the same
+   *  statement; `undefined` when the member is gone. `NO KEY UPDATE` and only on the membership:
+   *  rows that only point at it are still inserted meanwhile, and the table and its owner stay
+   *  free. Call it on a DAO built with the `tx`.
    *
-   *  Example: `if (!(await rolls.lockOwner(vharnId, biaId))) throw new CampaignNotFoundError(…)` */
-  async lockOwner(campaignId: string, userId: string): Promise<boolean> {
-    const rows = await this.db
-      .select({ userId: campaignMembers.userId })
+   *  Example: `const tableOwner = await rolls.lockOwner(vharnId, biaId) // { role, plan, lorkariumOwner }` */
+  async lockOwner(campaignId: string, userId: string): Promise<UserPlanPo | undefined> {
+    const [row] = await this.db
+      .select(PLAN_ACCOUNT_COLUMNS)
       .from(campaignMembers)
+      .innerJoin(campaigns, eq(campaigns.id, campaignMembers.campaignId))
+      .innerJoin(users, eq(users.id, campaigns.ownerId))
       .where(and(eq(campaignMembers.campaignId, campaignId), eq(campaignMembers.userId, userId)))
-      .for('no key update');
-    return rows.length > 0;
+      .for('no key update', { of: campaignMembers });
+    return row;
   }
 
   async insert(row: NewSavedRollPo): Promise<SavedRollPo> {

@@ -146,6 +146,9 @@ describe('HttpCampaignsApi', () => {
       role: 'player',
       color: 'teal',
       avatarId: null,
+      plan: 'free',
+      admin: false,
+      lorkariumOwner: false,
       online: true,
     } as const;
 
@@ -297,6 +300,15 @@ describe('HttpCampaignsApi', () => {
     expect(await api.update(VHARN.id, RENAME)).toEqual({
       ok: false,
       failure: { kind: 'unexpected' },
+    });
+  });
+
+  it('a 403 PLAN_LIMIT on create carries the ceiling and the plan', async () => {
+    const planLimit = { resource: 'campaigns', limit: 1, plan: 'free' } as const;
+    transport.respondWith(403, { code: 'PLAN_LIMIT', message: 'x', planLimit });
+    expect(await api.create(CREATE)).toEqual({
+      ok: false,
+      failure: { kind: 'plan_limit', planLimit },
     });
   });
 

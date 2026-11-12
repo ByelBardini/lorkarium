@@ -6,6 +6,7 @@ import { UsersDao } from '../modules/auth/users.dao';
 import { CampaignJoinService } from '../modules/campaigns/campaign-join.service';
 import { CampaignMembersDao } from '../modules/campaigns/campaign-members.dao';
 import {
+  campaignJoinTransactionOver,
   createCampaignsModule,
   memberRoleTransactionOver,
 } from '../modules/campaigns/campaigns.plugin';
@@ -62,7 +63,10 @@ export function buildStressSceneSeed(db: Database): StressSceneSeedService {
   return createDevSeedModule({
     users: new UsersDao(db),
     campaigns: campaignsModule.service,
-    join: new CampaignJoinService({ campaigns, members, hasher, clock }),
+    join: new CampaignJoinService({
+      ...{ campaigns, members, hasher, clock },
+      transaction: campaignJoinTransactionOver(db),
+    }),
     roles: new MemberRoleService({
       ...{ campaigns, members, memberships, transaction },
       ...{ changed: NO_LIVE_TABLE, presence: NOBODY_ONLINE },

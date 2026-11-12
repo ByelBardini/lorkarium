@@ -3,9 +3,9 @@ import {
   type ProfileDto,
   type UpdateProfileRequestDto,
 } from '@lorkarium/contracts';
-import { callApi, callUpload, parseOk, type ApiCall } from './api-call';
+import { callApi, callUpload, parseOk, type ApiCall, type PlanLimitFailure } from './api-call';
 import {
-  commandFailureOf,
+  planAwareFailureOf,
   loadFailureOf,
   type AccountCommonFailure,
   type AccountLoadFailure,
@@ -22,7 +22,9 @@ export type ProfileFailure =
   | Readonly<{ kind: 'unsupported_image' }>
   | Readonly<{ kind: 'link_blocked' }>
   | Readonly<{ kind: 'link_unreachable' }>
-  | Readonly<{ kind: 'link_not_image' }>;
+  | Readonly<{ kind: 'link_not_image' }>
+  /** The person's plan has no customization (hex color, dice texture): 403 `PLAN_LIMIT`. */
+  | PlanLimitFailure;
 
 /** What the "Minha conta" screen needs from `/api/account/profile` and `/api/account/avatar`;
  *  failures come back as values, never thrown. */
@@ -125,7 +127,7 @@ function profileFailureOf(
   failureByStatus: FailureByStatus,
 ): ProfileFailure {
   const byStatus = call.kind === 'refused' ? failureByStatus[call.response.status] : null;
-  const failure = commandFailureOf<ProfileFailure>(call, PROFILE_FAILURE_BY_CODE);
+  const failure = planAwareFailureOf<ProfileFailure>(call, PROFILE_FAILURE_BY_CODE);
   return failure.kind === 'unexpected' && byStatus ? byStatus : failure;
 }
 

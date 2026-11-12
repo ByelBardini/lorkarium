@@ -16,6 +16,7 @@ import {
   type SavedColorsErrorCode,
 } from './saved-colors.error';
 import type { SavedColorsService } from './saved-colors.service';
+import { withPlanLimitReply } from '../plans/plan-limit-response';
 
 const SAVED_COLORS_URL = '/account/saved-colors';
 // One count per user, summed over saving and deleting (spec §8.4).
@@ -39,7 +40,7 @@ export function savedColorsRoutes(
 ): (app: FastifyInstance) => Promise<void> {
   return async (app: FastifyInstance): Promise<void> => {
     await app.register(rateLimit, { global: false, errorResponseBuilder: rateLimitedError });
-    app.setErrorHandler(replyWithApiError);
+    app.setErrorHandler(withPlanLimitReply(replyWithApiError));
     registerSavedColorRoutes(app, service);
   };
 }

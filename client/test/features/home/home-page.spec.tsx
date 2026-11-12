@@ -1,4 +1,4 @@
-import type { CampaignSummaryDto } from '@lorkarium/contracts';
+import { PLAN_LIMITS, type AuthUserDto, type CampaignSummaryDto } from '@lorkarium/contracts';
 import { render, screen, within } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { describe, expect, it } from 'vitest';
@@ -8,10 +8,10 @@ import { TEST_NOW } from '../../support/app-dependencies';
 import { QUELM, VHARN } from '../../support/campaigns-api-fake';
 import { ClipboardFake } from '../../support/clipboard-fake';
 
-function renderHome(campaigns: CampaignSummaryDto[]): void {
+function renderHome(campaigns: CampaignSummaryDto[], user: AuthUserDto = ANA): void {
   const page = (): React.JSX.Element => (
     <HomePage
-      user={ANA}
+      user={user}
       campaigns={campaigns}
       now={TEST_NOW}
       greetingDraw={0}
@@ -52,5 +52,33 @@ describe('HomePage', () => {
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('E aí, Ana.');
     expect(screen.getByText('Você ainda não está em nenhuma mesa.')).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Continuar' })).not.toBeInTheDocument();
+  });
+
+  describe('"Nova mesa" and the plan', () => {
+    const FREE_ANA: AuthUserDto = { ...ANA, plan: 'free', limits: PLAN_LIMITS.free };
+
+    it('a free account owning 1 table gets "Nova mesa" off, with the plan sentence', async () => {
+      renderHome([{ ...VHARN, ownerId: ANA.id }], FREE_ANA);
+      const create = await screen.findByRole('button', { name: 'Nova mesa' });
+      expect(create).toBeDisabled();
+      expect(create).toHaveAccessibleDescription(
+        /^Seu plano Grátis permite até 1 mesa como dono\./,
+      );
+    });
+
+    it('a free account only playing at a table may still create one', async () => {
+      renderHome([{ ...VHARN, ownerId: QUELM.ownerId }], FREE_ANA);
+      const create = await screen.findByRole('button', { name: 'Nova mesa' });
+      expect(create).toBeEnabled();
+      expect(create).not.toHaveAccessibleDescription();
+    });
+
+    it('Amigo do Dono creates whatever it owns', async () => {
+      renderHome([
+        { ...VHARN, ownerId: ANA.id },
+        { ...QUELM, ownerId: ANA.id },
+      ]);
+      expect(await screen.findByRole('button', { name: 'Nova mesa' })).toBeEnabled();
+    });
   });
 });

@@ -7,7 +7,7 @@ const cipher = new DataCipherFake();
 
 describe('toAdminUserDto', () => {
   it('opens the e-mail with the id as context and says active', () => {
-    const user = toAdminUserDto({ ...userPo(), campaignCount: 2 }, cipher);
+    const user = toAdminUserDto({ ...userPo(), campaignCount: 2, lorkariumOwner: false }, cipher);
     expect(user).toMatchObject({
       id: ANA_ID,
       email: 'ana@mesa.com',
@@ -23,22 +23,44 @@ describe('toAdminUserDto', () => {
       suspendedAt: new Date('2026-10-20T00:00:00Z'),
       lastSeenAt: new Date('2026-10-19T09:30:00Z'),
     });
-    const user = toAdminUserDto({ ...row, campaignCount: 0 }, cipher);
+    const user = toAdminUserDto({ ...row, campaignCount: 0, lorkariumOwner: false }, cipher);
     expect(user.status).toBe('suspended');
     expect(user.lastSeenAt).toBe('2026-10-19T09:30:00.000Z');
   });
 
   it('an automatic color is drawn from the id, a chosen one is kept', () => {
-    expect(toAdminUserDto({ ...userPo({ color: 'rose' }), campaignCount: 0 }, cipher).color).toBe(
-      'rose',
-    );
-    expect(toAdminUserDto({ ...userPo({ color: null }), campaignCount: 0 }, cipher).color).toBe(
-      'teal',
-    );
+    expect(
+      toAdminUserDto(
+        { ...userPo({ color: 'rose' }), campaignCount: 0, lorkariumOwner: false },
+        cipher,
+      ).color,
+    ).toBe('rose');
+    expect(
+      toAdminUserDto(
+        { ...userPo({ color: null }), campaignCount: 0, lorkariumOwner: false },
+        cipher,
+      ).color,
+    ).toBe('teal');
+  });
+
+  it('carries the stored plan, an admin on free included', () => {
+    const lenda = userPo({ plan: 'lenda' });
+    const admin = userPo({ role: 'admin', plan: 'free' });
+    expect(
+      toAdminUserDto({ ...lenda, campaignCount: 0, lorkariumOwner: false }, cipher),
+    ).toMatchObject({
+      plan: 'lenda',
+    });
+    expect(
+      toAdminUserDto({ ...admin, campaignCount: 0, lorkariumOwner: false }, cipher),
+    ).toMatchObject({
+      role: 'admin',
+      plan: 'free',
+    });
   });
 
   it('never carries the hash nor the sealed columns', () => {
-    const user = toAdminUserDto({ ...userPo(), campaignCount: 0 }, cipher);
+    const user = toAdminUserDto({ ...userPo(), campaignCount: 0, lorkariumOwner: false }, cipher);
     expect(Object.keys(user)).not.toEqual(
       expect.arrayContaining(['passwordHash', 'emailCipher', 'emailIndex']),
     );

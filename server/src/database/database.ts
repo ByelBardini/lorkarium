@@ -1,5 +1,6 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool, type PoolConfig } from 'pg';
+import { ownerUsernameStartupOptions } from './lorkarium-owner-sql';
 import * as schema from './schema';
 
 export type Database = NodePgDatabase<typeof schema>;
@@ -13,12 +14,14 @@ export interface QueryLog {
 }
 
 /** Pool size and per-connection timeouts (`env.database`); one left out keeps the `pg` default
- *  (10 connections, no timeout). */
+ *  (10 connections, no timeout). `ownerUsername` (`env.ownerUsername`) is the @ of the Dono do
+ *  Lorkarium, set on every connection (`lorkariumOwnerSql`). */
 export type DatabaseOptions = Readonly<{
   queryLog?: QueryLog;
   poolMax?: number;
   statementTimeoutMs?: number;
   lockTimeoutMs?: number;
+  ownerUsername?: string | null;
 }>;
 
 /** The Drizzle client over a `pg` pool; whoever creates it closes it.
@@ -38,5 +41,7 @@ function poolSettingsOf(options: DatabaseOptions): PoolConfig {
     settings.statement_timeout = options.statementTimeoutMs;
   }
   if (options.lockTimeoutMs !== undefined) settings.lock_timeout = options.lockTimeoutMs;
+  const startup = ownerUsernameStartupOptions(options.ownerUsername ?? null);
+  if (startup !== undefined) settings.options = startup;
   return settings;
 }

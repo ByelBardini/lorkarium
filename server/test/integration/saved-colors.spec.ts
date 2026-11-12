@@ -1,10 +1,17 @@
 import { apiErrorDto, savedColorsResponseDto } from '@lorkarium/contracts';
 import { sql } from 'drizzle-orm';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import type { SignedInUser } from '../support/sign-in';
 import { useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+
+// A saved color is a customization: the accounts get a plan that has it (free: the plan's spec).
+beforeEach(async () => {
+  await setAccountPlan(live.connection.db, live.bia.id, 'amigo_do_dono');
+  await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+});
 const COLORS_URL = '/api/account/saved-colors';
 const LIMIT = 24;
 

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { callApi, errorCodeOf, parseOk, retryAfterOf } from '@/services/api-call';
+import {
+  callApi,
+  errorCodeOf,
+  parseOk,
+  planLimitFailureOf,
+  retryAfterOf,
+} from '@/services/api-call';
 import { HttpTransportFake } from '../support/http-transport-fake';
 
 const greetingDto = z.strictObject({ greeting: z.string() });
@@ -59,6 +65,27 @@ describe('errorCodeOf', () => {
 
   it('is null for a body outside the ApiErrorDto', async () => {
     expect(errorCodeOf(await refusedResponse(403, '<html>'))).toBeNull();
+  });
+});
+
+describe('planLimitFailureOf', () => {
+  const planLimit = { resource: 'scenes', limit: 5, plan: 'free' } as const;
+
+  it('reads the planLimit of a PLAN_LIMIT body', async () => {
+    const response = await refusedResponse(403, { code: 'PLAN_LIMIT', message: 'x', planLimit });
+    expect(planLimitFailureOf(response)).toEqual({ kind: 'plan_limit', planLimit });
+  });
+
+  it('is null for another refusal, even a 403', async () => {
+    expect(
+      planLimitFailureOf(await refusedResponse(403, { code: 'FORBIDDEN', message: 'x' })),
+    ).toBeNull();
+  });
+
+  it('is null for a PLAN_LIMIT body without its planLimit', async () => {
+    expect(
+      planLimitFailureOf(await refusedResponse(403, { code: 'PLAN_LIMIT', message: 'x' })),
+    ).toBeNull();
   });
 });
 

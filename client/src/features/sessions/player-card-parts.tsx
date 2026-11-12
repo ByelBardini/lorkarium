@@ -1,6 +1,7 @@
 import type { CharacterDto, SessionMemberDto, TokenBarDto, TokenDto } from '@lorkarium/contracts';
 import { CrosshairIcon, LockIcon } from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
+import { PlanSeal } from '@/components/plan-seal';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useBoardSeen } from '@/features/board/use-board-sight';
@@ -73,7 +74,7 @@ function PortraitTag() {
   );
 }
 
-/** The nick line: presence symbol (only when no picture carries the badge), the account name (a click opens the member's card), "· você"
+/** The nick line: presence symbol (only when no picture carries the badge), the account name (a click opens the member's card) with the seal symbol (the row shows no @), "· você"
  *  on one's own card, "· ausente há N min" or "· offline".
  *
  *  Example: `<NickLine member={bia} isViewer awayLabel="ausente há 4 min" />` */
@@ -99,6 +100,7 @@ export function NickLine({
     >
       {withMark && <PresenceMark presence={presenceOf(member)} />}
       <MemberCardPopover member={member} />
+      <PlanSeal holder={member} />
       {isViewer && (
         <span className="shrink-0 font-semibold whitespace-nowrap text-primary">· você</span>
       )}

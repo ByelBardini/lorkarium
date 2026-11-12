@@ -1,7 +1,9 @@
 import { and, desc, eq, getTableColumns, isNotNull, isNull, max, ne, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
+import { lorkariumOwnerSql } from '../../database/lorkarium-owner-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
-import { users, type UserPo } from '../auth/users.po';
+import { PLAN_ACCOUNT_COLUMNS } from '../auth/users.dao';
+import { users, type UserPlanPo, type UserPo } from '../auth/users.po';
 import { campaignMembers } from './campaign-members.po';
 import type { CampaignMemberPo, NewCampaignMemberPo } from './campaign-members.po';
 import { campaigns, type CampaignPo } from './campaigns.po';
@@ -15,6 +17,8 @@ export type CampaignListingRow = Readonly<{
   lastEnteredAt: Date | null;
   masterName: string;
   memberCount: number;
+  /** What decides the table's limits: the owner's role, plan and Dono flag. */
+  owner: UserPlanPo;
 }>;
 
 /** One public campaign for "Explorar mesas", with the reader's role there (`null` = not in it).
@@ -42,7 +46,8 @@ export const PUBLIC_CAMPAIGNS_MAX = 200;
 /** A member with what the table sees of their profile; `colorChoice` is null when the color is
  *  the automatic one (the mapper draws it with `memberColorOf`). `owner` = the creator of the
  *  campaign (`campaigns.owner_id`), the one master nobody demotes; `juggernaut` = an admin in
- *  juggernaut mode there. */
+ *  juggernaut mode there; `account` = the global role, plan and Dono flag (the seal, and the
+ *  owner's one gives the table's limits). */
 export type CampaignMemberRow = Readonly<{
   userId: string;
   name: string;
@@ -53,6 +58,7 @@ export type CampaignMemberRow = Readonly<{
   role: CampaignMemberPo['role'];
   owner: boolean;
   juggernaut: boolean;
+  account: UserPlanPo;
 }>;
 
 // The owner is the campaign's master in the listings: a co-master never duplicates the row.
@@ -110,6 +116,11 @@ export class CampaignMembersDao {
         lastEnteredAt: campaignMembers.lastEnteredAt,
         masterName: ownerUsers.name,
         memberCount: memberCountOfCampaign,
+        owner: {
+          role: ownerUsers.role,
+          plan: ownerUsers.plan,
+          lorkariumOwner: lorkariumOwnerSql(ownerUsers.username),
+        },
       })
       .from(campaignMembers)
       .innerJoin(campaigns, eq(campaigns.id, campaignMembers.campaignId))
@@ -166,6 +177,7 @@ export class CampaignMembersDao {
         role: campaignMembers.role,
         owner: sql<boolean>`${campaigns.ownerId} = ${campaignMembers.userId}`,
         juggernaut: sql<boolean>`${campaignMembers.juggernautSince} is not null`,
+        account: PLAN_ACCOUNT_COLUMNS,
       })
       .from(campaignMembers)
       .innerJoin(users, eq(users.id, campaignMembers.userId))
@@ -187,6 +199,26 @@ export class CampaignMembersDao {
         ),
       );
     return row?.at ?? null;
+  }
+
+  /** How many members of the campaign hold `role`, as the plan counts them: neither the owner
+   *  (the master every table has) nor a juggernaut takes a seat of the plan.
+   *
+   *  Example: `await dao.countByRole(vharnId, 'spectator') // 2` */
+  async countByRole(campaignId: string, role: CampaignMemberPo['role']): Promise<number> {
+    const [row] = await this.db
+      .select({ seats: sql<number>`count(*)::int` })
+      .from(campaignMembers)
+      .innerJoin(campaigns, eq(campaigns.id, campaignMembers.campaignId))
+      .where(
+        and(
+          eq(campaignMembers.campaignId, campaignId),
+          eq(campaignMembers.role, role),
+          isNull(campaignMembers.juggernautSince),
+          ne(campaignMembers.userId, campaigns.ownerId),
+        ),
+      );
+    return row?.seats ?? 0;
   }
 
   /** Writes the member's new role; `undefined` when `userId` is not a member of the campaign.

@@ -1,8 +1,14 @@
-import type { AccountSecurityDto, AccountSessionDto, ProfileDto } from '@lorkarium/contracts';
+import type {
+  AccountPlanDto,
+  AccountSecurityDto,
+  AccountSessionDto,
+  ProfileDto,
+} from '@lorkarium/contracts';
 import { useState } from 'react';
 import { useLoaderData, type LoaderFunction, type RouteObject } from 'react-router';
 import type { AppDependencies } from '@/app/router';
 import { valueOrThrow } from '@/app/shell/api-loader';
+import type { AccountLoadFailure, AccountResult } from '@/services/account-failure';
 import { accountAction } from './account-action';
 import { accountRecoveryAction } from './account-recovery-action';
 import { AccountRecoveryPage } from './account-recovery-page';
@@ -15,6 +21,8 @@ export type AccountLoaderData = Readonly<{
   profile: ProfileDto;
   security: AccountSecurityDto;
   sessions: AccountSessionDto[];
+  /** Kept as a result: a failed read shows inside "Seu plano" instead of failing the page. */
+  plan: AccountResult<AccountPlanDto, AccountLoadFailure>;
 }>;
 
 /** "Minha conta" under the shell (`/account`): the profile, the security and the sessions in one
@@ -58,17 +66,19 @@ export function accountRecoveryRoute(
 }
 
 function accountLoader(deps: AppDependencies): LoaderFunction {
-  const { profileApi, accountSecurityApi, sessionStore } = deps;
+  const { profileApi, accountSecurityApi, accountPlanApi, sessionStore } = deps;
   return async ({ request }): Promise<AccountLoaderData> => {
-    const [profile, security, sessions] = await Promise.all([
+    const [profile, security, sessions, plan] = await Promise.all([
       profileApi.get(),
       accountSecurityApi.security(),
       accountSecurityApi.sessions(),
+      accountPlanApi.get(),
     ]);
     return {
       profile: valueOrThrow(profile, request, sessionStore),
       security: valueOrThrow(security, request, sessionStore),
       sessions: valueOrThrow(sessions, request, sessionStore),
+      plan,
     };
   };
 }

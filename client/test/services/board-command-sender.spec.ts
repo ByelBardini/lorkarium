@@ -58,6 +58,16 @@ describe('BoardCommandSender', () => {
     expect(await result).toEqual({ ok: false, failure });
   });
 
+  it('a plan refusal carries the ceiling and the plan for the sentence', async () => {
+    const planLimit = { resource: 'lights', limit: 15, plan: 'free' } as const;
+    const result = sender.send(EVENT, VHARN_GRID, {});
+    await transport.answerAck(
+      { ok: false, error: { code: 'PLAN_LIMIT', message: 'x', planLimit } },
+      EVENT,
+    );
+    expect(await result).toEqual({ ok: false, failure: { kind: 'plan_limit', planLimit } });
+  });
+
   it('an ack that never arrives in 5 s is offline', async () => {
     const result = sender.send(EVENT, VHARN_GRID, {});
     await transport.timeOutAck(EVENT);

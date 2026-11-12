@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { recordEventsOf, type EventRecorder } from '../support/realtime-client';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import type { Table } from '../support/tables';
@@ -42,6 +43,7 @@ describe('tokens over Socket.IO', () => {
   });
 
   it('a bar with a custom color reaches the other client, the sync and survives a restart', async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
     const master = await live.atTable(live.ana, live.vharn);
     const caio = recordEventsOf(await live.atTable(live.caio, live.vharn));
 
@@ -55,6 +57,7 @@ describe('tokens over Socket.IO', () => {
   });
 
   it('a token with a custom bar on Quelm is not in the snapshot of Vharn', async () => {
+    await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
     const caio = await live.atTable(live.caio, live.quelm);
     expect(await send(caio, 'token:create', customBarCommand(live.quelm, live.caio.id))).toEqual({
       ok: true,

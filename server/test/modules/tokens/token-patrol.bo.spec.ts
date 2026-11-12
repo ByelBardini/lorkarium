@@ -1,3 +1,4 @@
+import { PLAN_LIMITS } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import { cell, tokenPatrol, type TokenPatrol } from '@lorkarium/game-core';
 import {
@@ -33,7 +34,8 @@ function kael(overrides: Partial<PatrolledToken> = {}): PatrolledToken {
   };
 }
 
-const rule = new TokenPatrolBo({ scene: SCENE, runningLimit: 30 });
+const FRIEND = PLAN_LIMITS.amigo_do_dono;
+const rule = new TokenPatrolBo({ scene: SCENE, runningLimit: 30, plan: FRIEND });
 
 describe('patrolPoseNowOf', () => {
   it('a running square at 1 cell/s stands on (2, 0) looking right at step 2 after 2.5 s', () => {
@@ -178,12 +180,45 @@ describe('TokenPatrolBo.start', () => {
     );
   });
 
+  it('the first patrol started on a free table is PLAN_LIMIT patrols, limit 0, and none starts', () => {
+    const free = new TokenPatrolBo({ scene: SCENE, runningLimit: 30, plan: PLAN_LIMITS.free });
+
+    expect(() => free.start([paused('kael')], 0, at(0))).toThrow(
+      expect.objectContaining({ code: 'PLAN_LIMIT', resource: 'patrols', limit: 0, plan: 'free' }),
+    );
+  });
+
+  it('on narrador the 5th starts and the 6th is PLAN_LIMIT; pausing on free passes', () => {
+    const narrator = new TokenPatrolBo({
+      scene: SCENE,
+      runningLimit: 30,
+      plan: PLAN_LIMITS.narrador,
+    });
+    const free = new TokenPatrolBo({ scene: SCENE, runningLimit: 30, plan: PLAN_LIMITS.free });
+
+    expect(narrator.start([paused('kael')], 4, at(0))).toHaveLength(1);
+    expect(() => narrator.start([paused('kael')], 5, at(0))).toThrow(
+      expect.objectContaining({ code: 'PLAN_LIMIT', resource: 'patrols', limit: 5 }),
+    );
+    expect(free.pause([kael()], at(500))).toHaveLength(1);
+  });
+
+  it('a free table starting only patrols already running adds nothing and passes', () => {
+    const free = new TokenPatrolBo({ scene: SCENE, runningLimit: 30, plan: PLAN_LIMITS.free });
+
+    expect(free.start([kael()], 3, at(0))).toEqual([]);
+  });
+
   it('exactly the limit starts (28 running + 2)', () => {
     expect(rule.start([paused('kael'), paused('lyra')], 28, at(0))).toHaveLength(2);
   });
 
   it('a route that no longer fits the grown token is OUT_OF_SCENE', () => {
-    const small = new TokenPatrolBo({ scene: { widthCells: 3, heightCells: 3 }, runningLimit: 30 });
+    const small = new TokenPatrolBo({
+      scene: { widthCells: 3, heightCells: 3 },
+      runningLimit: 30,
+      plan: FRIEND,
+    });
     const grown = { ...paused('kael'), size: { width: 2, height: 2 } };
 
     expect(() => small.start([grown], 0, at(0))).toThrow(

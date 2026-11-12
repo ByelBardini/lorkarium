@@ -4,15 +4,19 @@ import {
   type HexColorDto,
 } from '@lorkarium/contracts';
 import {
-  commandFailureOf,
+  planAwareFailureOf,
   type AccountCommonFailure,
   type AccountResult,
   type FailureByCode,
 } from './account-failure';
-import { callApi, parseOk, type ApiCall } from './api-call';
+import { callApi, parseOk, type ApiCall, type PlanLimitFailure } from './api-call';
 import type { HttpTransport } from './http-transport';
 
-export type SavedColorsFailure = AccountCommonFailure | Readonly<{ kind: 'saved_colors_limit' }>;
+export type SavedColorsFailure =
+  | AccountCommonFailure
+  | Readonly<{ kind: 'saved_colors_limit' }>
+  /** The person's plan has no custom color: 403 `PLAN_LIMIT`. */
+  | PlanLimitFailure;
 
 /** The whole list of the account (most recent first), or why the call failed. */
 export type SavedColorsResult = AccountResult<readonly HexColorDto[], SavedColorsFailure>;
@@ -34,7 +38,7 @@ const FAILURE_BY_CODE: FailureByCode<SavedColorsFailure> = {
 
 function resultOf(call: ApiCall): SavedColorsResult {
   if (call.kind !== 'ok') {
-    return { ok: false, failure: commandFailureOf(call, FAILURE_BY_CODE) };
+    return { ok: false, failure: planAwareFailureOf(call, FAILURE_BY_CODE) };
   }
   return parseOk(savedColorsResponseDto, call.body, (body) => body.colors);
 }

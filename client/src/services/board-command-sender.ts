@@ -1,13 +1,17 @@
 import {
+  PLAN_LIMIT_CODE,
   TOKEN_BLOCKER_LIMIT_CODE,
   TOKEN_LIMIT_CODE,
   TOKEN_PATROL_LIMIT_CODE,
   TOKEN_PATROL_NOT_FOUND_CODE,
   boardCommandAckDto,
+  type ApiErrorDto,
 } from '@lorkarium/contracts';
+import type { PlanLimitFailure } from './api-call';
 import type { RealtimeTransport } from './realtime-transport';
 
-export type BoardCommandFailure =
+/** A refusal named by its code alone. */
+export type BoardFailureCode =
   | 'forbidden'
   | 'not_found'
   | 'scene_not_found'
@@ -48,6 +52,10 @@ export type BoardCommandFailure =
   | 'offline'
   | 'unexpected';
 
+/** Why a board command was refused: a code, or the plan of the table that ran out (with the
+ *  ceiling and the plan, for the sentence). */
+export type BoardCommandFailure = BoardFailureCode | PlanLimitFailure;
+
 /** `createdIds` only on a creating command (`createTokens`, `createDrawings`, `createEffectAreas`, `eraseWallSegment`,
  *  `createWalls`, `createLights`): the ids the server gave, in the order sent. */
 export type BoardCommandResult =
@@ -68,7 +76,7 @@ export type TableScope = Readonly<{ campaignId: string }>;
 // Same patience as the join: past this the command counts as lost.
 const COMMAND_ACK_TIMEOUT_MS = 5000;
 
-const FAILURE_BY_CODE: Readonly<Record<string, BoardCommandFailure>> = {
+const FAILURE_BY_CODE: Readonly<Record<string, BoardFailureCode>> = {
   FORBIDDEN: 'forbidden',
   CAMPAIGN_NOT_FOUND: 'not_found',
   SCENE_NOT_FOUND: 'scene_not_found',
@@ -183,12 +191,22 @@ function resultOf(answer: unknown): BoardCommandResult {
     const { version, createdIds } = parsed.data;
     return createdIds ? { ok: true, version, createdIds } : { ok: true, version };
   }
-  return { ok: false, failure: boardFailureOf(parsed.data.error.code) };
+  return { ok: false, failure: ackFailureOf(parsed.data.error) };
+}
+
+/** The failure of a refused ack: the plan's own (with its `planLimit`), or the code's.
+ *
+ *  Example: `ackFailureOf({ code: 'PLAN_LIMIT', message, planLimit }) // { kind: 'plan_limit', planLimit }` */
+export function ackFailureOf(error: ApiErrorDto): BoardCommandFailure {
+  if (error.code === PLAN_LIMIT_CODE && error.planLimit) {
+    return { kind: 'plan_limit', planLimit: error.planLimit };
+  }
+  return boardFailureOf(error.code);
 }
 
 /** The failure a board refusal code stands for (`unexpected` when unknown).
  *
  *  Example: `boardFailureOf('SCENE_NOT_FOUND') // 'scene_not_found'` */
-export function boardFailureOf(code: string): BoardCommandFailure {
+export function boardFailureOf(code: string): BoardFailureCode {
   return FAILURE_BY_CODE[code] ?? 'unexpected';
 }

@@ -11,6 +11,7 @@ import { tabInteractionFactory } from '@/features/board/tab-interaction';
 import { buildRoutes } from '@/app/router';
 import { NO_PERF_PROBE, RecordingPerfProbe } from '@/lib/perf-probe';
 import { HttpAccountLinksApi } from '@/services/account-links-api';
+import { HttpAccountPlanApi } from '@/services/account-plan-api';
 import { HttpAccountSecurityApi } from '@/services/account-security-api';
 import { HttpUserAdminApi } from '@/services/user-admin-api';
 import { HttpAuthApi } from '@/services/auth-api';
@@ -125,6 +126,7 @@ const router = createBrowserRouter(
     profileApi: new HttpProfileApi(transport),
     savedColorsApi: new HttpSavedColorsApi(transport),
     accountSecurityApi: new HttpAccountSecurityApi(transport),
+    accountPlanApi: new HttpAccountPlanApi(transport),
     userAdminApi: new HttpUserAdminApi(transport),
     accountLinksApi: new HttpAccountLinksApi(transport),
     libraryApi: new HttpLibraryApi(transport),

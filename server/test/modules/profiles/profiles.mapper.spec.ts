@@ -43,4 +43,20 @@ describe('profiles mapper', () => {
     expect(toProfileDto(row)).toMatchObject({ diceTextureId: 'tex', diceNumberColor: '#ffaa00' });
     expect(toProfileChanges({ diceNumberColor: null })).toEqual({ diceNumberColor: null });
   });
+
+  it('the stored plan goes out for the seal', () => {
+    const row = profileRow({ plan: 'lenda' });
+
+    expect(toProfileDto(row)).toMatchObject({ plan: 'lenda', admin: false });
+  });
+
+  it('a global admin goes out as admin, with its stored plan', () => {
+    const row = profileRow({ role: 'admin', plan: 'free' });
+
+    expect(toProfileDto(row)).toMatchObject({ plan: 'free', admin: true, lorkariumOwner: false });
+  });
+
+  it('the Dono do Lorkarium goes out marked, for its seal', () => {
+    expect(toProfileDto(profileRow({ lorkariumOwner: true })).lorkariumOwner).toBe(true);
+  });
 });

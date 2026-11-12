@@ -9,7 +9,15 @@ import {
   type UpdateSavedRollRequestDto,
 } from '@lorkarium/contracts';
 import type { z } from 'zod';
-import { callApi, errorCodeOf, parseOk, retryAfterOf, type ApiCall } from './api-call';
+import {
+  callApi,
+  errorCodeOf,
+  parseOk,
+  planLimitFailureOf,
+  retryAfterOf,
+  type ApiCall,
+  type PlanLimitFailure,
+} from './api-call';
 import type { HttpMethod, HttpResponse, HttpTransport } from './http-transport';
 
 export type SavedRollsFailure =
@@ -28,7 +36,9 @@ export type SavedRollsFailure =
         | 'unauthenticated'
         | 'offline'
         | 'unexpected';
-    }>;
+    }>
+  /** The table owner's plan ran out (saved rolls, folders): 403 `PLAN_LIMIT`. */
+  | PlanLimitFailure;
 
 export type SavedRollsFailureKind = SavedRollsFailure['kind'];
 
@@ -171,6 +181,8 @@ function failureOf(response: HttpResponse): SavedRollsFailure {
   if (response.status === 429) {
     return { kind: 'rate_limited', retryAfterSeconds: retryAfterOf(response) };
   }
+  const planLimit = planLimitFailureOf(response);
+  if (planLimit) return planLimit;
   const byCode = FAILURE_BY_CODE[errorCodeOf(response) ?? ''];
   if (byCode) return byCode;
   return FAILURE_BY_STATUS[response.status] ?? { kind: 'unexpected' };

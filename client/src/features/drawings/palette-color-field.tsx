@@ -1,4 +1,5 @@
 import { isHexColor, type HexColorDto } from '@lorkarium/contracts';
+import type { CustomColorScope } from '@/components/color-picker/custom-color-locks';
 import { CustomColorTile } from '@/components/color-picker/custom-color-tile';
 import { StyleTileGroup, type StyleTile } from './style-tile-group';
 
@@ -16,6 +17,9 @@ export type PaletteColorFieldProps<T extends string> = Readonly<{
   legendHidden?: boolean;
   /** The background the color will be read on: the panel warns when it reads badly. */
   legibleOn?: HexColorDto;
+  /** Whose plan offers the custom tile: the table's (its content) by default; `null` = always
+   *  (a map place, which only takes a hex). */
+  customScope?: CustomColorScope | null;
 }>;
 
 /** The round swatches of a palette followed by the tile that opens the custom color picker.
@@ -27,6 +31,7 @@ export function PaletteColorField<T extends string>({
   disabled,
   customDisabled,
   legibleOn,
+  customScope = 'table',
   ...row
 }: PaletteColorFieldProps<T>): React.JSX.Element {
   return (
@@ -42,6 +47,7 @@ export function PaletteColorField<T extends string>({
           onPick={onChange}
           disabled={disabled === true || customDisabled === true}
           legibleOn={legibleOn}
+          scope={customScope ?? undefined}
         />
       }
     />
