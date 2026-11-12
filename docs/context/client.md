@@ -1,6 +1,6 @@
 # Client
 
-SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/features/<área>/`, componente compartilhado em `src/components/`, rede em `src/services/`, estado em `src/stores/`, moldura do app em `src/app/shell/`, tabuleiro em `src/renderer/` (PixiJS, sem React; ver [`client/board-renderer.md`](client/board-renderer.md)), dados 3D pelo pacote `@lorkarium/dice-renderer` (o único lugar do `three`, ver [`dice-renderer.md`](dice-renderer.md); o client o carrega por `import()` em `src/features/dice/app-dice-renderer.ts`) e som dos dados em `src/dice-audio/` (ver [`client/dice.md`](client/dice.md)).
+SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/features/<área>/`, componente compartilhado em `src/components/`, rede em `src/services/`, estado em `src/stores/`, moldura do app em `src/app/shell/`, tabuleiro em `src/renderer/` (PixiJS, sem React; ver [`client/board-renderer.md`](client/board-renderer.md)), dados 3D pelo pacote `@lorkarium/dice-renderer` (o único lugar do `three`, ver [`dice-renderer.md`](dice-renderer.md); o client o carrega por `import()` em `src/features/dice/app-dice-renderer.ts`) som dos dados em `src/dice-audio/` (ver [`client/dice.md`](client/dice.md)) e som do chat em `src/chat-audio/` (ver [`client/chat-som.md`](client/chat-som.md)).
 
 > **Detalhe por assunto em [`client/`](client/) — abra só o arquivo da tarefa.** Este hub guarda a estrutura e os testes.
 
@@ -50,7 +50,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Backoffice: moldura, Usuários, busca/filtros na URL, convidar, menus e diálogos das contas     | [`backoffice.md`](client/backoffice.md)                         |
 | Dados: rede, stores, 3D (conta e adaptador), e o índice da aba "Dados"                         | [`dice.md`](client/dice.md)                                     |
 | Aba "Dados": bandeja, salvas em etiquetas, histórico em linhas, aviso sobre o tabuleiro        | [`dice-tab.md`](client/dice-tab.md)                             |
-| Chat da mesa: `chat:send`/`chat:sent`, store de conversas, leitura do campo, feed, destino     | [`chat.md`](client/chat.md)                                     |
+| Chat da mesa: rodapé (barra, gaveta, prévia, aviso), store de conversas, campo, feed, destino  | [`chat.md`](client/chat.md)                                     |
 | Janelas de Chat, Dados e Imagens: host, portal, controles e portais Radix                      | [`chat-janela.md`](client/chat-janela.md)                       |
 | Som do chat: menção e sussurro, asset CC0, intervalo, chave "Som do chat"                      | [`chat-som.md`](client/chat-som.md)                             |
 | Brilho do ícone na barra de tarefas (desktop): pendente por mesa, foco, porta Tauri            | [`chat-atencao.md`](client/chat-atencao.md)                     |

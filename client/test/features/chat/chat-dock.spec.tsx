@@ -225,6 +225,22 @@ describe('ChatDock', () => {
       ]);
     });
 
+    // The handle row, the strip, the filter row and "Atalhos" stacked four lines over a feed of
+    // three messages (2026-11-12): one line holds them all, the handle is the drawer's top edge.
+    it('one header line holds the conversations, the filter, the tools and "Recolher chat"', async () => {
+      renderDock({ window: { kind: 'docked', open: () => undefined, notice: null } });
+      await user.click(openButton());
+      const header = within(drawer()).getByTestId('chat-header');
+      expect(within(header).getByRole('navigation', { name: 'Conversas' })).toBeInTheDocument();
+      expect(
+        within(header).getByRole('radiogroup', { name: 'Mostrar no chat' }),
+      ).toBeInTheDocument();
+      for (const name of ['Atalhos do chat', 'Abrir em outra janela', 'Recolher chat'])
+        expect(within(header).getByRole('button', { name })).toBeInTheDocument();
+      const handle = within(drawer()).getByRole('separator', { name: 'Altura do chat' });
+      expect(handle.parentElement).toBe(drawer());
+    });
+
     it('"Recolher chat" closes the drawer, remembers it closed and gives the focus back to the bar', async () => {
       renderDock();
       await user.click(openButton());
