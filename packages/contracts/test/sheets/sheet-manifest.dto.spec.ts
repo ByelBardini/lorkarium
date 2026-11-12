@@ -74,12 +74,17 @@ describe('sheet template manifest', () => {
         sheetTemplateManifestDto.safeParse({ permissions: ['sheet:images', 'sheet:images'] }),
       ),
     ).toBe('permission "sheet:images" repeats; expected each permission once'));
-  it('refuses a color outside the palette, a hex included, citing it', () =>
+  it('takes a hex color like a token bar, lowercased', () =>
+    expect(
+      sheetTemplateManifestDto.parse({ bars: [{ label: 'Essência', color: '#FFFFFF', max: 15 }] })
+        .bars[0]?.color,
+    ).toBe('#ffffff'));
+  it('refuses a color neither in the palette nor a hex, citing it', () =>
     expect(
       issueOf(
-        sheetTemplateManifestDto.safeParse({ bars: [{ label: 'HP', color: '#ff0000', max: 1 }] }),
+        sheetTemplateManifestDto.safeParse({ bars: [{ label: 'HP', color: 'purple', max: 1 }] }),
       ),
-    ).toBe('bar color "#ff0000"; expected one of gold, steel, ember, moss, ash'));
+    ).toBe('bar color "purple"; expected one of gold, steel, ember, moss, ash or a hex #rrggbb'));
   it('refuses labels repeated ignoring case and accents, citing both', () => {
     const bars = [
       { label: 'Ação', color: 'gold', max: 2 },

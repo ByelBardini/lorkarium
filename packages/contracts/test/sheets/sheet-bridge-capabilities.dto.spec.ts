@@ -201,10 +201,14 @@ describe('bars.create', () => {
     expect(sheetFrameMessageDto.parse(create({ label: 'Fôlego', max: 6 }))).toEqual(
       create({ label: 'Fôlego', max: 6, color: 'gold' }),
     ));
-  it('refuses a hex color citing the palette', () =>
-    expect(issuesOf(create({ label: 'Fôlego', max: 6, color: '#ff0000' }))).toContain(
+  it('takes a hex color and refuses a color that is neither, citing the palette', () => {
+    expect(
+      sheetFrameMessageDto.safeParse(create({ label: 'Fôlego', max: 6, color: '#ffffff' })).success,
+    ).toBe(true);
+    expect(issuesOf(create({ label: 'Fôlego', max: 6, color: 'purple' }))).toContain(
       'expected one of gold',
-    ));
+    );
+  });
   it('refuses a current value: the bar starts full', () =>
     expect(
       sheetFrameMessageDto.safeParse(create({ label: 'MP', max: 6, current: 1 })).success,

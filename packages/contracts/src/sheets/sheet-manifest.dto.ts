@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { hexColorDto } from '../color/hex-color.dto';
 import {
   BAR_LABEL_MAX_LENGTH,
   BAR_PALETTE,
@@ -31,14 +32,15 @@ export type SheetManifestPermissionDto = z.infer<typeof sheetManifestPermissionD
 
 const paletteList = BAR_PALETTE.join(', ');
 
-/** A bar the template expects its holder to have; only a palette name, so every table draws it
- *  in its own tones.
+/** A bar the template expects its holder to have; its color a palette name (drawn in each
+ *  table's tones) or a custom hex, as a token bar takes.
  *
- *  Example: `sheetManifestBarDto.parse({ label: 'HP', color: 'ember', max: 12 })` */
+ *  Example: `sheetManifestBarDto.parse({ label: 'Essência', color: '#ffffff', max: 15 })` */
 export const sheetManifestBarDto = z.strictObject({
   label: z.string().trim().min(1).max(BAR_LABEL_MAX_LENGTH),
-  color: z.enum(BAR_PALETTE, {
-    error: (issue) => `bar color ${JSON.stringify(issue.input)}; expected one of ${paletteList}`,
+  color: z.union([z.enum(BAR_PALETTE), hexColorDto], {
+    error: (issue) =>
+      `bar color ${JSON.stringify(issue.input)}; expected one of ${paletteList} or a hex #rrggbb`,
   }),
   max: z.int().min(1).max(BAR_VALUE_LIMIT),
 });
