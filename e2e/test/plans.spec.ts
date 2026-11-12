@@ -72,13 +72,13 @@ test.describe('plans', () => {
       .getByRole('button', { name: 'Bia', exact: true })
       .click();
     const card = caio.getByRole('dialog', { name: 'Cartão de Bia' });
-    await expect(card.getByRole('img', { name: 'Plano Amigo do Dono' })).toBeVisible();
+    await expect(card.getByRole('img', { name: 'Amigo do Dono' })).toBeVisible();
 
     await changePlanInBackoffice(admin, 'Bia', 'Lenda');
     await expect(admin.getByText('@bia agora está no plano Lenda.')).toBeVisible();
 
     await expect(card.getByRole('img', { name: 'Plano Lenda' })).toBeVisible();
-    await expect(card.getByRole('img', { name: 'Plano Amigo do Dono' })).toHaveCount(0);
+    await expect(card.getByRole('img', { name: 'Amigo do Dono' })).toHaveCount(0);
   });
 
   test('the 6th grid of a Grátis table is refused with the plan sentence', async ({

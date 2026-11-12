@@ -48,7 +48,13 @@ const PLAN_SEAL_LOOKS: Readonly<Record<PlanSealKind, PlanSealLook>> = {
   apoiador: { kind: 'apoiador', label: 'Apoiador', accessibleName: 'Apoiador', color: 'violet' },
   narrador: planLook('narrador', 'steel'),
   lenda: planLook('lenda', 'gold'),
-  amigo_do_dono: planLook('amigo_do_dono', 'rose'),
+  // The Amigo do Dono, like the Apoiador, is named without "Plano".
+  amigo_do_dono: {
+    kind: 'amigo_do_dono',
+    label: 'Amigo do Dono',
+    accessibleName: 'Amigo do Dono',
+    color: 'rose',
+  },
 };
 
 function sealKindOf(holder: PlanSealHolder): PlanSealKind | null {

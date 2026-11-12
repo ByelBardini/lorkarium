@@ -22,14 +22,14 @@ A troca no backoffice avisa as mesas vivas: plano e **papel global** (`changeRol
 
 `planSealOf(holder)` → `PlanSealLook | null`, o mais alto: **Dono do Lorkarium > Admin > Amigo do Dono > Lenda > Narrador > Apoiador**. O Apoiador é um plano (`apoiador`), o mais baixo dos selos; o Grátis não tem selo. `PlanSealHolder` = `{ plan, admin, lorkariumOwner }`; `sealHolderOfAccount(conta)` tira o `admin` do `role` (`/me`, backoffice). `PLAN_NAMES` = os cinco planos.
 
-| Selo          | `kind`            | Nome acessível        | Cor      | Ícone (`plan-seal-icons.tsx`; o mapa por `kind` em `plan-seal-icon-map.ts`) |
-| ------------- | ----------------- | --------------------- | -------- | --------------------------------------------------------------------------- |
-| Dono          | `lorkarium_owner` | "Dono do Lorkarium"   | `bone`   | a logo (`LorkariumOwnerSealIcon`)                                           |
-| Admin         | `admin`           | "Administrador"       | `ember`  | espada erguida (`AdminSealIcon`)                                            |
-| Amigo do Dono | `amigo_do_dono`   | "Plano Amigo do Dono" | `rose`   | cálice (`AmigoDoDonoSealIcon`)                                              |
-| Lenda         | `lenda`           | "Plano Lenda"         | `gold`   | brasão (`LendaSealIcon`)                                                    |
-| Narrador      | `narrador`        | "Plano Narrador"      | `steel`  | pena (`NarradorSealIcon`)                                                   |
-| Apoiador      | `apoiador`        | "Apoiador"            | `violet` | chama (`ApoiadorSealIcon`)                                                  |
+| Selo          | `kind`            | Nome acessível      | Cor      | Ícone (`plan-seal-icons.tsx`; o mapa por `kind` em `plan-seal-icon-map.ts`) |
+| ------------- | ----------------- | ------------------- | -------- | --------------------------------------------------------------------------- |
+| Dono          | `lorkarium_owner` | "Dono do Lorkarium" | `bone`   | a logo (`LorkariumOwnerSealIcon`)                                           |
+| Admin         | `admin`           | "Administrador"     | `ember`  | espada erguida (`AdminSealIcon`)                                            |
+| Amigo do Dono | `amigo_do_dono`   | "Amigo do Dono"     | `rose`   | cálice (`AmigoDoDonoSealIcon`)                                              |
+| Lenda         | `lenda`           | "Plano Lenda"       | `gold`   | brasão (`LendaSealIcon`)                                                    |
+| Narrador      | `narrador`        | "Plano Narrador"    | `steel`  | pena (`NarradorSealIcon`)                                                   |
+| Apoiador      | `apoiador`        | "Apoiador"          | `violet` | chama (`ApoiadorSealIcon`)                                                  |
 
 ## Onde aparece
 
