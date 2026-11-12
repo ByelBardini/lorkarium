@@ -3,6 +3,7 @@ import { NOT_MEMBER_MESSAGE, OFFLINE_MESSAGE } from '@/features/campaigns/campai
 import {
   chatAnnouncement,
   chatInputRefusalMessage,
+  chatLineOf,
   chatSendFailureMessage,
   chatUnreadText,
   namesText,
@@ -10,6 +11,9 @@ import {
   unreadLabel,
   whisperMark,
 } from '@/features/chat/chat-messages';
+import { ANA } from '../../support/auth-api-fake';
+import { chatSent, directBetween, trioGroup } from '../../support/chat-fixtures';
+import { BIA_AT_TABLE, VHARN_GRID } from '../../support/table-session-fixtures';
 
 describe('chat messages', () => {
   it.each([
@@ -85,5 +89,28 @@ describe('chat messages', () => {
     [{ kind: 'group', name: 'Os Três' } as const, 'Bia, em Os Três: Oi.'],
   ])('the announcement at %o is "%s"', (place, expected) => {
     expect(chatAnnouncement('Bia', place, 'Oi.')).toBe(expected);
+  });
+
+  const nameOf = (userId: string): string => (userId === BIA_AT_TABLE.userId ? 'Bia' : 'Alguém');
+
+  it.each([
+    [chatSent(), 'Bia: Oi, mesa.'],
+    [
+      chatSent({ channel: { kind: 'table', whisperTo: ANA.id } }),
+      'Bia sussurrou para você: Oi, mesa.',
+    ],
+    [
+      chatSent({ channel: directBetween(ANA.id, BIA_AT_TABLE.userId) }),
+      'Bia, no privado: Oi, mesa.',
+    ],
+    [chatSent({ channel: trioGroup() }), 'Bia, em Os Três: Oi, mesa.'],
+    [
+      chatSent({
+        speaker: { kind: 'token', sceneId: VHARN_GRID.sceneId, tokenId: 'kael', name: 'Kael' },
+      }),
+      'Kael: Oi, mesa.',
+    ],
+  ])('the line of %o is "%s"', (event, expected) => {
+    expect(chatLineOf({ event, receivedAtMs: 0 }, nameOf)).toBe(expected);
   });
 });

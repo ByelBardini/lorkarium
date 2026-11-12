@@ -49,6 +49,8 @@ export type ChatPanelProps = Readonly<{
   services: ChatServices;
   /** Phase 11: whether the chat lives here or in another window (absent: here, no button). */
   window?: ChatWindowSlot | null;
+  /** The conversation shown first (the Table when absent); only read when the panel mounts. */
+  initialConversation?: ChatConversationKey;
 }>;
 
 /** The "Chat" tab of the room: the strip of conversations, the feed of the one chosen and the
@@ -71,7 +73,7 @@ function OpenChat(props: OpenChatProps): React.JSX.Element {
   const people = useChatPeople(props.presence, props.sessionStore);
   const allConversations = useChatHistory(table.chat, (state) => state.conversations);
   const conversations = allConversations.filter((conversation) => !conversation.closed);
-  const shown = useShownConversation(table.chat, conversations);
+  const shown = useShownConversation(table.chat, conversations, props.initialConversation);
   const [filter, setFilter] = useState<ChatFeedFilter>('all');
   const live = useTablePresence(table.presence, (state) => state.status === 'live');
   const atTable = shown.conversation.target.kind === 'table';
@@ -133,8 +135,9 @@ type ShownConversation = Readonly<{
 function useShownConversation(
   chat: StoreApi<ChatHistoryStore>,
   conversations: readonly ChatConversation[],
+  initialKey: ChatConversationKey = TABLE_CONVERSATION_KEY,
 ): ShownConversation {
-  const [key, setKey] = useState<ChatConversationKey>(TABLE_CONVERSATION_KEY);
+  const [key, setKey] = useState<ChatConversationKey>(initialKey);
   const find = (wanted: ChatConversationKey) => conversations.find((each) => each.key === wanted);
   const [firstUnreadId, setFirstUnreadId] = useState(() => firstUnreadIdOf(find(key)));
   const conversation = find(key) ?? find(TABLE_CONVERSATION_KEY) ?? conversations[0];
