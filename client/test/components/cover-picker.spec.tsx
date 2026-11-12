@@ -9,11 +9,7 @@ function Harness({ initial }: Readonly<{ initial: CampaignCoverDto }>) {
   const [cover, setCover] = useState<CampaignCoverDto>(initial);
   return (
     <>
-      <CoverPicker
-        value={cover}
-        onChange={setCover}
-        image={<button type="button">Enviar imagem</button>}
-      />
+      <CoverPicker value={cover} onChange={setCover} />
       <output aria-label="Capa">{JSON.stringify(cover)}</output>
     </>
   );
@@ -83,12 +79,6 @@ describe('CoverPicker', () => {
     await userEvent.click(within(tones()).getByRole('radio', { name: 'Musgo' }));
 
     expect(chosen()).toEqual({ kind: 'drawn', drawing: 0, tone: 4 });
-  });
-
-  it('renders the image slot it is given', () => {
-    render(<Harness initial={{ kind: 'drawn', drawing: 0, tone: 1 }} />);
-
-    expect(screen.getByRole('button', { name: 'Enviar imagem' })).toBeInTheDocument();
   });
 
   it('disabled turns every drawing and tone off', () => {
