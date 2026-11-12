@@ -5,7 +5,8 @@ import type { ChatConversation, ChatMessage } from '@/lib/chat-conversations';
 import { useChatHistory, type ChatHistoryStore } from '@/stores/chat-history-store';
 import type { OpenTable } from '@/stores/open-tables-store';
 import type { ChatDockPanelProps } from './chat-dock';
-import { chatLineOf, EMPTY_CONVERSATION } from './chat-messages';
+import { memberColorCss } from '@/lib/member-color';
+import { chatLineOf, chatVoiceOf, EMPTY_CONVERSATION } from './chat-messages';
 import { useChatUnreadMark } from './chat-unread-mark';
 import type { ChatPeople } from './use-chat-people';
 
@@ -19,7 +20,7 @@ export type ChatDockBarProps = Readonly<{
 }>;
 
 const BAR_CLASS =
-  'pointer-events-auto flex h-10.5 w-full max-w-170 items-center gap-2 rounded-sm border border-border bg-panel/95 pr-1 pl-3 text-sm backdrop-blur';
+  'pointer-events-auto flex h-10.5 w-full max-w-190 items-center gap-2 rounded-sm border border-border bg-panel/95 pr-1 pl-3 text-sm backdrop-blur';
 
 /** The chat collapsed at the foot of the board (42 px): the latest message of any open
  *  conversation ("Caio: Vou abrir a porta"), the unread counter on "Abrir chat" (gold for a
@@ -46,7 +47,7 @@ function DockedBar({ panel, table, people, onOpen, openButtonRef }: ChatDockBarP
   return (
     <>
       <p className="min-w-0 flex-1 truncate text-muted-foreground">
-        {latest === null ? EMPTY_CONVERSATION : chatLineOf(latest, people.nameOf)}
+        {latest === null ? EMPTY_CONVERSATION : <LatestLine message={latest} people={people} />}
       </p>
       <Button
         ref={openButtonRef}
@@ -59,6 +60,20 @@ function DockedBar({ panel, table, people, onOpen, openButtonRef }: ChatDockBarP
         {unread.mark}
         <ChevronUpIcon aria-hidden="true" />
       </Button>
+    </>
+  );
+}
+
+// The voice in the speaker's color, so who spoke reads at a glance; the rest stays muted.
+function LatestLine({ message, people }: Readonly<{ message: ChatMessage; people: ChatPeople }>) {
+  const voice = chatVoiceOf(message, people.nameOf);
+  const color = memberColorCss(people.identityOf(message.event.fromUserId).color);
+  return (
+    <>
+      <span className="font-semibold" style={{ color }}>
+        {voice}
+      </span>
+      {chatLineOf(message, people.nameOf).slice(voice.length)}
     </>
   );
 }

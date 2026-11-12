@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ChatDockBar } from '@/features/chat/chat-dock-bar';
 import { useChatPeople } from '@/features/chat/use-chat-people';
+import { memberColorCss } from '@/lib/member-color';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { chatMessageIdOf, chatSent, TRIO_GROUP_ID, trioGroup } from '../../support/chat-fixtures';
 import {
@@ -73,6 +74,14 @@ describe('ChatDockBar', () => {
     receiveChat(deps, { ...event, ...overrides });
     act(() => deps.diceClock.advance(1000));
   }
+
+  it('the name of who spoke wears their color, the text stays muted', () => {
+    render(<VharnBar />);
+    caioSays(1, 'Vou abrir a porta');
+    const name = within(bar()).getByText('Caio');
+    expect(name).toHaveStyle({ color: memberColorCss(CAIO_AT_TABLE.color) });
+    expect(bar()).toHaveTextContent('Caio: Vou abrir a porta');
+  });
 
   it('shows the latest message by arrival, whatever its conversation', () => {
     render(<VharnBar />);

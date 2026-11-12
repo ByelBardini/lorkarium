@@ -38,7 +38,7 @@ export function ChatImportantNotices(props: ChatImportantNoticesProps): React.JS
     <ul
       aria-label="Avisos importantes"
       aria-live="off"
-      className="pointer-events-none flex w-full max-w-170 flex-col items-start gap-1.5"
+      className="pointer-events-none flex w-full max-w-190 flex-col items-start gap-1.5"
     >
       {props.importants.map((item) => (
         <li key={item.id} className="max-w-full">

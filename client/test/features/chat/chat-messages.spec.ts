@@ -4,6 +4,7 @@ import {
   chatAnnouncement,
   chatInputRefusalMessage,
   chatLineOf,
+  chatVoiceOf,
   chatSendFailureMessage,
   chatUnreadText,
   namesText,
@@ -112,5 +113,18 @@ describe('chat messages', () => {
     ],
   ])('the line of %o is "%s"', (event, expected) => {
     expect(chatLineOf({ event, receivedAtMs: 0 }, nameOf)).toBe(expected);
+  });
+
+  it('the voice is the token spoken as, or else the author, and opens the line', () => {
+    const token = chatSent({
+      speaker: { kind: 'token', sceneId: VHARN_GRID.sceneId, tokenId: 'kael', name: 'Kael' },
+    });
+    expect(chatVoiceOf({ event: token, receivedAtMs: 0 }, nameOf)).toBe('Kael');
+    const whisper = {
+      event: chatSent({ channel: { kind: 'table', whisperTo: 'x' } }),
+      receivedAtMs: 0,
+    };
+    expect(chatVoiceOf(whisper, nameOf)).toBe('Bia');
+    expect(chatLineOf(whisper, nameOf).startsWith('Bia ')).toBe(true);
   });
 });
