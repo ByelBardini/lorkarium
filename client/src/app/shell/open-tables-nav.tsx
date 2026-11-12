@@ -94,12 +94,18 @@ function OpenTableLink({ table, expanded, onNavigate }: OpenTableLinkProps): Rea
   // Class as a string inside asChild: the Slots of both triggers stringify functions.
   const link = (
     <ContextMenuTrigger asChild>
-      <NavLink to={to} end onClick={onNavigate} className={railLinkClass(active, expanded)}>
+      <NavLink
+        to={to}
+        end
+        onClick={onNavigate}
+        className={cn(railLinkClass(active, expanded), !expanded && 'h-12')}
+      >
+        {/* At 24 px a logo's lettering blurs: the collapsed rail shows the photo at 40 px. */}
         <CampaignCover
           cover={table.cover}
           photoAssetId={table.photoAssetId}
           format="photo"
-          className="size-6 shrink-0"
+          className={cn('shrink-0 rounded-md', expanded ? 'size-6' : 'size-10')}
         />
         <span className={expanded ? 'flex min-w-0 flex-col leading-tight' : 'sr-only'}>
           <span className="truncate">{table.name}</span>
