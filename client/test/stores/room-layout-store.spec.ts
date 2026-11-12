@@ -72,7 +72,7 @@ describe('room layout store', () => {
   describe('chat bar', () => {
     it('starts closed at the default drawer height when nothing is stored', () => {
       const state = createRoomLayoutStore(new StorageFake()).getState();
-      expect(state).toMatchObject({ chat: 'closed', chatHeight: 330 });
+      expect(state).toMatchObject({ chat: 'closed', chatHeight: 440 });
     });
 
     it('openChat opens the drawer and remembers it as open', () => {
@@ -124,7 +124,7 @@ describe('room layout store', () => {
         const storage = new StorageFake();
         const store = createRoomLayoutStore(storage);
         store.getState().setChatHeight(height);
-        expect(store.getState().chatHeight).toBe(330);
+        expect(store.getState().chatHeight).toBe(440);
         expect(storage.values.has(ROOM_CHAT_HEIGHT_STORAGE_KEY)).toBe(false);
       },
     );
@@ -143,7 +143,7 @@ describe('room layout store', () => {
       (text) => {
         const storage = new StorageFake();
         storage.values.set(ROOM_CHAT_HEIGHT_STORAGE_KEY, text);
-        expect(createRoomLayoutStore(storage).getState().chatHeight).toBe(330);
+        expect(createRoomLayoutStore(storage).getState().chatHeight).toBe(440);
       },
     );
 

@@ -1,8 +1,7 @@
 import type { ChatSpeakerDto } from '@lorkarium/contracts';
-import { KeyboardIcon, SendHorizontalIcon } from 'lucide-react';
+import { SendHorizontalIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { chatCommandCatalogOf } from '@/lib/chat-commands-catalog';
 import type { ChatConversationTarget } from '@/lib/chat-conversations';
 import { chatContactsOf } from '@/lib/chat-recipients';
@@ -62,7 +61,6 @@ export function ChatComposer(props: ChatComposerProps): React.JSX.Element {
         </div>
       )}
       <ComposerBox {...props} composer={composer} />
-      <ComposerHint atTable={atTable} canRoll={props.tools.canRoll} />
     </div>
   );
 }
@@ -157,65 +155,4 @@ function useCaretAt(
     if (!element || element.selectionStart === caret) return;
     element.setSelectionRange(caret, caret);
   }, [field, caret, draft]);
-}
-
-function ComposerHint({ atTable, canRoll }: Readonly<{ atTable: boolean; canRoll: boolean }>) {
-  return (
-    <div
-      data-testid="composer-hint"
-      className="flex items-center justify-end text-[11px] text-muted-foreground"
-    >
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            variant="ghost"
-            size="xs"
-            aria-label="Atalhos do chat"
-            className="text-muted-foreground"
-          >
-            <KeyboardIcon aria-hidden="true" />
-            Atalhos
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent
-          side="top"
-          align="end"
-          aria-label="Atalhos do chat"
-          className="w-80 max-w-[calc(100vw-2rem)] gap-3 p-4"
-        >
-          <h3 className="text-sm font-semibold text-label">Atalhos do chat</h3>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
-            <ShortcutRow shortcut="Enter" description="Enviar mensagem" />
-            <ShortcutRow shortcut="Shift+Enter" description="Quebrar linha" />
-            <ShortcutRow shortcut="@nome" description="Mencionar alguém" />
-            {atTable && <ShortcutRow shortcut="/w nome mensagem" description="Sussurrar" />}
-            {atTable && canRoll && (
-              <>
-                <ShortcutRow shortcut="/r 1d20+5" description="Rolar para a mesa" />
-                <ShortcutRow shortcut="/gr 2d6" description="Rolar só para mestres" />
-                <ShortcutRow shortcut="/rolagem-salva" description="Rolar uma salva" />
-              </>
-            )}
-          </dl>
-          {atTable && (
-            <p className="text-xs text-muted-foreground">
-              Digite / no campo para ver os comandos disponíveis.
-            </p>
-          )}
-        </PopoverContent>
-      </Popover>
-    </div>
-  );
-}
-
-function ShortcutRow({
-  shortcut,
-  description,
-}: Readonly<{ shortcut: string; description: string }>) {
-  return (
-    <>
-      <dt className="font-mono text-label">{shortcut}</dt>
-      <dd className="text-muted-foreground">{description}</dd>
-    </>
-  );
 }

@@ -222,7 +222,7 @@ test('another panel tab: Bia on "Combate" sees the new message in the bar, a gol
 });
 
 // Two steps down (↓) keep the height inside the board on any viewport: going up could hit the
-// 60% ceiling, and the reload would then prove the ceiling, not the remembered height.
+// 70% ceiling, and the reload would then prove the ceiling, not the remembered height.
 async function expectDrawerSurvivesReload(page: Page): Promise<void> {
   const handle = chatDrawerOf(page).getByRole('separator', { name: 'Altura do chat' });
   const before = Number(await handle.getAttribute('aria-valuenow'));

@@ -122,9 +122,15 @@ export function chatAnnouncement(author: string, place: AnnouncedPlace, text: st
  *
  *  Example: `chatLineOf(message, people.nameOf) // 'Caio: Vou abrir a porta'` */
 export function chatLineOf(message: ChatMessage, nameOf: (userId: string) => string): string {
+  return chatAnnouncement(chatVoiceOf(message, nameOf), placeOf(message), message.event.text);
+}
+
+/** Who a message speaks as: the token's name, or the author's — the start of its `chatLineOf`.
+ *
+ *  Example: `chatVoiceOf(message, people.nameOf) // 'Kael'` */
+export function chatVoiceOf(message: ChatMessage, nameOf: (userId: string) => string): string {
   const { event } = message;
-  const author = event.speaker.kind === 'token' ? event.speaker.name : nameOf(event.fromUserId);
-  return chatAnnouncement(author, placeOf(message), event.text);
+  return event.speaker.kind === 'token' ? event.speaker.name : nameOf(event.fromUserId);
 }
 
 function placeOf({ event }: ChatMessage): AnnouncedPlace {

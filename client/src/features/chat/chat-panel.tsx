@@ -11,6 +11,7 @@ import {
 } from '@/lib/chat-conversations';
 import type { ChatFeedFilter } from '@/lib/chat-feed';
 import type { InteractionClock } from '@/lib/interaction-clock';
+import { watchesOnly } from '@/lib/table-role';
 import type { ChatCommands } from '@/services/chat-commands';
 import type { DiceCommands } from '@/services/dice-commands';
 import type { SavedRollsApi } from '@/services/saved-rolls-api';
@@ -23,6 +24,7 @@ import { useTablePresence, type TablePresenceStore } from '@/stores/table-presen
 import { ChatAnnouncer } from './chat-announcer';
 import { ComposerSlot } from './composer-slot';
 import { ChatFeed } from './chat-feed';
+import { ChatShortcutsButton } from './chat-shortcuts-button';
 import { TABLE_CONVERSATION_NAME } from './chat-messages';
 import { ConversationStrip } from './conversation-strip';
 import { DetachedChat, OpenWindowButton, type ChatWindowSlot } from './chat-window-slot';
@@ -93,8 +95,9 @@ function OpenChat(props: OpenChatProps): React.JSX.Element {
         nameOf={nameOf}
         onNewConversation={() => setStarting(true)}
       />
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 empty:hidden">
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
         {atTable && <FeedFilter filter={filter} onFilter={setFilter} />}
+        <ChatShortcutsButton atTable={atTable} canRoll={!watchesOnly(props.role)} />
         {props.window?.kind === 'docked' && <OpenWindowButton slot={props.window} />}
       </div>
       <ConversationFeed

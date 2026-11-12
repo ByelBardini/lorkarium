@@ -223,17 +223,17 @@ describe('ChatDock', () => {
       expect(field()).toHaveFocus();
     });
 
-    it('dragging the handle 100 px up grows the drawer, up to 60% of the board', () => {
-      act(() => deps.roomLayout.getState().setChatHeight(480));
+    it('dragging the handle 100 px up grows the drawer, up to 70% of the board', () => {
+      act(() => deps.roomLayout.getState().setChatHeight(560));
       renderDock();
       act(() => deps.roomLayout.getState().openChat());
       const handle = within(drawer()).getByRole('separator', { name: 'Altura do chat' });
       fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientY: 500 });
       fireEvent.pointerMove(handle, { pointerId: 1, clientY: 400 });
       fireEvent.pointerUp(handle, { pointerId: 1, clientY: 400 });
-      expect(deps.roomLayout.getState().chatHeight).toBe(540);
-      expect(deps.roomLayoutStorage.getItem(ROOM_CHAT_HEIGHT_STORAGE_KEY)).toBe('540');
-      expect(drawer()).toHaveStyle({ height: '540px' });
+      expect(deps.roomLayout.getState().chatHeight).toBe(630);
+      expect(deps.roomLayoutStorage.getItem(ROOM_CHAT_HEIGHT_STORAGE_KEY)).toBe('630');
+      expect(drawer()).toHaveStyle({ height: '630px' });
     });
 
     it('ArrowUp on the handle grows the drawer by one step, ArrowDown shrinks it back', () => {
