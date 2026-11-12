@@ -11,6 +11,7 @@ import {
 } from '@/lib/chat-conversations';
 import type { ChatFeedFilter } from '@/lib/chat-feed';
 import type { InteractionClock } from '@/lib/interaction-clock';
+import { watchesOnly } from '@/lib/table-role';
 import type { ChatCommands } from '@/services/chat-commands';
 import type { DiceCommands } from '@/services/dice-commands';
 import type { SavedRollsApi } from '@/services/saved-rolls-api';
@@ -23,9 +24,15 @@ import { useTablePresence, type TablePresenceStore } from '@/stores/table-presen
 import { ChatAnnouncer } from './chat-announcer';
 import { ComposerSlot } from './composer-slot';
 import { ChatFeed } from './chat-feed';
+import { ChatShortcutsButton } from './chat-shortcuts-button';
 import { TABLE_CONVERSATION_NAME } from './chat-messages';
 import { ConversationStrip } from './conversation-strip';
-import { DetachedChat, OpenWindowButton, type ChatWindowSlot } from './chat-window-slot';
+import {
+  DetachedChat,
+  OpenWindowButton,
+  WindowNotice,
+  type ChatWindowSlot,
+} from './chat-window-slot';
 import { NewConversationDialog } from './new-conversation-dialog';
 import { useChatPeople, useOpenTableOf, type ChatPeople } from './use-chat-people';
 
@@ -49,12 +56,16 @@ export type ChatPanelProps = Readonly<{
   services: ChatServices;
   /** Phase 11: whether the chat lives here or in another window (absent: here, no button). */
   window?: ChatWindowSlot | null;
+  /** The conversation shown first (the Table when absent); only read when the panel mounts. */
+  initialConversation?: ChatConversationKey;
+  /** At the end of the header line, after the tools (the drawer's "Recolher chat"). */
+  headerEnd?: React.ReactNode;
 }>;
 
-/** The "Chat" tab of the room: the strip of conversations, the feed of the one chosen and the
- *  composer. While it is on screen its conversation is the store's active one (read at once);
- *  gone, every conversation counts unread again. With the chat in another window (`window`
- *  detached) the tab only offers to bring it back.
+/** The chat of a table, in the room's drawer and in the detached window: the strip of
+ *  conversations, the feed of the one chosen and the composer. While it is on screen its
+ *  conversation is the store's active one (read at once); gone, every conversation counts unread
+ *  again. With the chat in another window (`window` detached) it only offers to bring it back.
  *
  *  Example: `<ChatPanel campaignId={campaign.id} role={campaign.myRole} sessionStore={deps.sessionStore} openTables={openTables} presence={presence} board={board} services={deps} />` */
 export function ChatPanel(props: ChatPanelProps): React.JSX.Element | null {
@@ -71,7 +82,7 @@ function OpenChat(props: OpenChatProps): React.JSX.Element {
   const people = useChatPeople(props.presence, props.sessionStore);
   const allConversations = useChatHistory(table.chat, (state) => state.conversations);
   const conversations = allConversations.filter((conversation) => !conversation.closed);
-  const shown = useShownConversation(table.chat, conversations);
+  const shown = useShownConversation(table.chat, conversations, props.initialConversation);
   const [filter, setFilter] = useState<ChatFeedFilter>('all');
   const live = useTablePresence(table.presence, (state) => state.status === 'live');
   const atTable = shown.conversation.target.kind === 'table';
@@ -83,18 +94,24 @@ function OpenChat(props: OpenChatProps): React.JSX.Element {
   };
   return (
     <section aria-label="Chat" className="flex min-h-0 flex-1 flex-col">
-      <ConversationStrip
-        conversations={stripOrderOf(conversations)}
-        selectedKey={shown.conversation.key}
-        onSelect={shown.select}
-        onClose={shown.close}
-        nameOf={nameOf}
-        onNewConversation={() => setStarting(true)}
-      />
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 empty:hidden">
+      <div
+        data-testid="chat-header"
+        className="flex shrink-0 items-center gap-1 border-b border-border"
+      >
+        <ConversationStrip
+          conversations={stripOrderOf(conversations)}
+          selectedKey={shown.conversation.key}
+          onSelect={shown.select}
+          onClose={shown.close}
+          nameOf={nameOf}
+          onNewConversation={() => setStarting(true)}
+        />
         {atTable && <FeedFilter filter={filter} onFilter={setFilter} />}
+        <ChatShortcutsButton atTable={atTable} canRoll={!watchesOnly(props.role)} />
         {props.window?.kind === 'docked' && <OpenWindowButton slot={props.window} />}
+        {props.headerEnd}
       </div>
+      <WindowNotice slot={props.window} />
       <ConversationFeed
         {...props}
         shown={shown}
@@ -133,8 +150,9 @@ type ShownConversation = Readonly<{
 function useShownConversation(
   chat: StoreApi<ChatHistoryStore>,
   conversations: readonly ChatConversation[],
+  initialKey: ChatConversationKey = TABLE_CONVERSATION_KEY,
 ): ShownConversation {
-  const [key, setKey] = useState<ChatConversationKey>(TABLE_CONVERSATION_KEY);
+  const [key, setKey] = useState<ChatConversationKey>(initialKey);
   const find = (wanted: ChatConversationKey) => conversations.find((each) => each.key === wanted);
   const [firstUnreadId, setFirstUnreadId] = useState(() => firstUnreadIdOf(find(key)));
   const conversation = find(key) ?? find(TABLE_CONVERSATION_KEY) ?? conversations[0];
@@ -206,7 +224,7 @@ function FeedFilter(
       value={props.filter}
       options={FILTERS}
       onChange={props.onFilter}
-      className="mr-auto"
+      className="shrink-0"
     />
   );
 }

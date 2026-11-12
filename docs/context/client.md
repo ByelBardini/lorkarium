@@ -1,6 +1,6 @@
 # Client
 
-SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/features/<área>/`, componente compartilhado em `src/components/`, rede em `src/services/`, estado em `src/stores/`, moldura do app em `src/app/shell/`, tabuleiro em `src/renderer/` (PixiJS, sem React; ver [`client/board-renderer.md`](client/board-renderer.md)), dados 3D pelo pacote `@lorkarium/dice-renderer` (o único lugar do `three`, ver [`dice-renderer.md`](dice-renderer.md); o client o carrega por `import()` em `src/features/dice/app-dice-renderer.ts`) e som dos dados em `src/dice-audio/` (ver [`client/dice.md`](client/dice.md)).
+SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/features/<área>/`, componente compartilhado em `src/components/`, rede em `src/services/`, estado em `src/stores/`, moldura do app em `src/app/shell/`, tabuleiro em `src/renderer/` (PixiJS, sem React; ver [`client/board-renderer.md`](client/board-renderer.md)), dados 3D pelo pacote `@lorkarium/dice-renderer` (o único lugar do `three`, ver [`dice-renderer.md`](dice-renderer.md); o client o carrega por `import()` em `src/features/dice/app-dice-renderer.ts`) som dos dados em `src/dice-audio/` (ver [`client/dice.md`](client/dice.md)) e som do chat em `src/chat-audio/` (ver [`client/chat-som.md`](client/chat-som.md)).
 
 > **Detalhe por assunto em [`client/`](client/) — abra só o arquivo da tarefa.** Este hub guarda a estrutura e os testes.
 
@@ -13,6 +13,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Tempo real: transporte Socket.IO, sessão da mesa, mesas abertas da aba, presença e versão      | [`realtime.md`](client/realtime.md)                             |
 | Sala de jogo: tabuleiro, renderer, câmera, ferramentas, sync e comandos                        | [`board.md`](client/board.md)                                   |
 | Renderer PixiJS: câmera, entrada, `BoardView`, hover, faixas, adaptador                        | [`board-renderer.md`](client/board-renderer.md)                 |
+| Atalhos da sala e do tabuleiro: F, Esc, ferramentas, câmera, edição                            | [`board-atalhos.md`](client/board-atalhos.md)                   |
 | Tokens na sala: arraste, teclado, lista "Na cena", detalhe, diálogo e barras                   | [`tokens.md`](client/tokens.md)                                 |
 | Diálogo do token: prévia (lugar da imagem), abas Básico, Barras, Formas, Visão e luz           | [`token-dialog.md`](client/token-dialog.md)                     |
 | Formas no mapa: `token:formChanged`, `setTokenForm`, desfazer, "Trocar forma", teclas 1–8      | [`token-forms.md`](client/token-forms.md)                       |
@@ -49,8 +50,9 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Backoffice: moldura, Usuários, busca/filtros na URL, convidar, menus e diálogos das contas     | [`backoffice.md`](client/backoffice.md)                         |
 | Dados: rede, stores, 3D (conta e adaptador), e o índice da aba "Dados"                         | [`dice.md`](client/dice.md)                                     |
 | Aba "Dados": bandeja, salvas em etiquetas, histórico em linhas, aviso sobre o tabuleiro        | [`dice-tab.md`](client/dice-tab.md)                             |
-| Chat da mesa: `chat:send`/`chat:sent`, store de conversas, leitura do campo, feed, destino     | [`chat.md`](client/chat.md)                                     |
+| Chat da mesa: rodapé (barra, gaveta, prévia, aviso), store de conversas, campo, feed, destino  | [`chat.md`](client/chat.md)                                     |
 | Janelas de Chat, Dados e Imagens: host, portal, controles e portais Radix                      | [`chat-janela.md`](client/chat-janela.md)                       |
+| Som do chat: menção e sussurro, asset CC0, intervalo, chave "Som do chat"                      | [`chat-som.md`](client/chat-som.md)                             |
 | Rotas: tabela, guardas, `restoreOpenTables`, árvore, `next` do login                           | [`rotas.md`](client/rotas.md)                                   |
 | Links de conta: `/invite` (escolher @ e senha) e `/reset-password`                             | [`account-links.md`](client/account-links.md)                   |
 | Barra de título do app desktop: `WindowTitleBar`, controles, lugar por rota, slot da sala      | [`title-bar.md`](client/title-bar.md)                           |
@@ -89,7 +91,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - App desktop: `src/lib/desktop-shell.ts` (`isDesktopShell`, `desktopShellOf`), `src/services/field-editing.ts` e `src/features/text-field-menu/` — ver [`client/text-field-menu.md`](client/text-field-menu.md); `src/services/desktop-window.ts` — porta `DesktopWindow` (`minimize`, `toggleMaximize`, `close`, `isMaximized`, `onMaximizedChange`) e `TauriDesktopWindow` para a principal (recusa → `DesktopWindowError` com o comando e o motivo) — ver [`client/title-bar.md`](client/title-bar.md). `desktop-chat-window-host.ts` e `detached-desktop-window.ts` controlam as auxiliares ([`client/chat-janela.md`](client/chat-janela.md)); esses adaptadores carregam `@tauri-apps/api` por `import()`, só na casca.
 - `src/lib/stored-choice.ts` — `readStoredChoice(storage, chave, opções, padrão)` / `writeStoredChoice`: preferência de UI no `localStorage` que cai na memória se o storage lança (trilho e painel da sala)
 - `src/lib/use-media-query.ts` — `useMediaQuery(query)` e `DESKTOP_QUERY` (`md`); sem `matchMedia` (jsdom) responde `true`
-- `src/lib/board-shortcuts.ts`, `ruler-label.ts` — atalhos e régua da sala (ver [`client/board.md`](client/board.md))
+- `src/lib/board-shortcuts.ts`, `ruler-label.ts` — atalhos e régua da sala (ver [`client/board-atalhos.md`](client/board-atalhos.md) e [`client/board.md`](client/board.md))
 - `src/lib/table-roster.ts`, `member-presence.ts`, `idle-watch.ts`, `away-label.ts` — seções, presença, inatividade e "ausente há N min" da aba "Na mesa" (ver [`client/table-people.md`](client/table-people.md))
 - `src/lib/cells-text.ts` — `cellsText(1.5)` → `'1,5'`: casas com vírgula; `positionText(4.015625)` → `'4,02'`: posição, até 2 decimais
 - `src/lib/token-side.ts` — `sideRingVar(lado)` → `var(--label)` / `var(--chart-3)` / `var(--chart-2)`: a cor do anel do token no DOM
@@ -126,11 +128,7 @@ Tabela de caminhos, guardas (`middleware` + `decideAccess`), `restoreOpenTables`
 
 ## Regras de arquitetura
 
-- Componente shadcn novo entra por `pnpm exec shadcn add <nome> -y` (rodado em `client/`) e é ajustado aos tokens do design system no próprio arquivo (raio de 4px, sem sombra nem blur, rótulos em pt-BR).
-- Texto de interface em pt-BR; identificadores em inglês.
-- Rede só por `src/services/` sobre `HttpTransport`; serviço devolve falha como valor, a tela só traduz o `kind` em mensagem.
-- Dados de tela pelo modo data: lista e detalhe por `loader`, mutação por `action` (o router revalida sozinho); envio sem navegação por `useFetcher`. O Zustand fica para sessão, trilho e (depois) tempo real.
-- Em dev, o Vite faz proxy de `/api` para `http://localhost:3333` com `ws: true` (o upgrade do Socket.IO em `/api/socket.io`) e sem `changeOrigin` (o server compara `Origin` com `Host`); o `vite preview` herda o mesmo proxy. Em produção é a mesma origem: o **server** entrega o `client/dist` (`CLIENT_DIST_DIR`, ver `server.md`) — `/assets/*` com `immutable` de um ano, o `index.html` e o resto da raiz com `no-cache`, e qualquer outro `GET` fora de `/api` e `/assets` cai no `index.html` (deep link do React Router). Por isso `/api` e `/assets/` são **reservados**: rota do client com esses prefixos nunca abre. Sem CORS e com cookie first-party.
+shadcn e tokens, pt-BR, rede só por `src/services/`, modo data do React Router, proxy do Vite: [`client/regras-arquitetura.md`](client/regras-arquitetura.md).
 
 ## Testes
 

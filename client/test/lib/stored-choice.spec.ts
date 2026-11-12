@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { readStoredChoice, readStoredColor, writeStoredChoice } from '@/lib/stored-choice';
+import {
+  readStoredChoice,
+  readStoredColor,
+  readStoredNumber,
+  readStoredSwitch,
+  writeStoredChoice,
+  writeStoredSwitch,
+} from '@/lib/stored-choice';
 import { StorageFake } from '../support/storage-fake';
 
 const CHOICES = ['open', 'closed'] as const;
@@ -58,5 +65,60 @@ describe('stored color', () => {
 
   it('a storage that throws reads as the fallback', () => {
     expect(readStoredColor(new StorageFake(true), 'key', PALETTE, 'gold')).toBe('gold');
+  });
+});
+
+describe('stored number', () => {
+  const ANY = (): boolean => true;
+  const POSITIVE = (value: number): boolean => value > 0;
+
+  it.each([
+    ['320', 320],
+    ['2.5', 2.5],
+    ['-5', -5],
+  ])('the decimal text %s is read back as %s', (text, expected) => {
+    const storage = new StorageFake();
+    storage.values.set('key', text);
+    expect(readStoredNumber(storage, 'key', ANY, 7)).toBe(expected);
+  });
+
+  it.each(['abc', '', ' 12', '12px', '0x10', '1e3', 'Infinity', 'NaN'])(
+    'the text "%s" is not a decimal and reads as the fallback',
+    (text) => {
+      const storage = new StorageFake();
+      storage.values.set('key', text);
+      expect(readStoredNumber(storage, 'key', ANY, 7)).toBe(7);
+    },
+  );
+
+  it('a decimal the caller does not accept reads as the fallback', () => {
+    const storage = new StorageFake();
+    storage.values.set('key', '-5');
+    expect(readStoredNumber(storage, 'key', POSITIVE, 7)).toBe(7);
+  });
+
+  it('nothing stored reads as the fallback', () => {
+    expect(readStoredNumber(new StorageFake(), 'key', ANY, 7)).toBe(7);
+  });
+
+  it('a storage that throws reads as the fallback', () => {
+    expect(readStoredNumber(new StorageFake(true), 'key', ANY, 7)).toBe(7);
+  });
+});
+
+describe('stored switch', () => {
+  it('a switch written off reads back off, and on again after writing on', () => {
+    const storage = new StorageFake();
+    writeStoredSwitch(storage, 'key', false);
+    expect(storage.values.get('key')).toBe('off');
+    expect(readStoredSwitch(storage, 'key')).toBe(false);
+    writeStoredSwitch(storage, 'key', true);
+    expect(readStoredSwitch(storage, 'key')).toBe(true);
+  });
+
+  it.each([null, 'yes', 'OFF'])('stored %s reads as on', (stored) => {
+    const storage = new StorageFake();
+    if (stored !== null) storage.values.set('key', stored);
+    expect(readStoredSwitch(storage, 'key')).toBe(true);
   });
 });

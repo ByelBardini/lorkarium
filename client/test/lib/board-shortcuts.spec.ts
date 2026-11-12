@@ -89,6 +89,28 @@ describe('shortcutFor', () => {
     expect(shortcutFor(press('2', { ctrlKey: true }))).toBeNull();
   });
 
+  it.each([
+    ['t', false],
+    ['T', true],
+  ])('%s (Shift %s) opens the chat', (key, shiftKey) => {
+    expect(shortcutFor(press(key, { shiftKey }))).toBe('open-chat');
+  });
+
+  it.each(['ctrlKey', 'metaKey', 'altKey'] as const)(
+    'T with %s belongs to the browser (Ctrl+T is a new tab)',
+    (modifier) => {
+      expect(shortcutFor(press('t', { [modifier]: true }))).toBeNull();
+    },
+  );
+
+  it.each([
+    '<input data-target />',
+    '<textarea role="combobox" data-target></textarea>',
+    '<div role="dialog"><button data-target>Salvar</button></div>',
+  ])('T typed or pressed in %s is not the chat shortcut', (html) => {
+    expect(shortcutFor(press('t', { target: mounted(html) }))).toBeNull();
+  });
+
   it('an unknown key is no shortcut', () => {
     expect(shortcutFor(press('q'))).toBeNull();
   });

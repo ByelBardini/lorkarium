@@ -154,6 +154,8 @@ function tableRoute({
   diceClock,
   chat,
   chatWindowHost,
+  chatPreferences,
+  createChatSound,
   documentWorkspace,
   sheetsApi,
   libraryApi,
@@ -208,6 +210,8 @@ function tableRoute({
                       diceClock={diceClock}
                       chat={chat}
                       chatWindowHost={chatWindowHost}
+                      chatPreferences={chatPreferences}
+                      createChatSound={createChatSound}
                       documentWorkspace={documentWorkspace}
                       covered={covered}
                     />

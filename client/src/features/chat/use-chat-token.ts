@@ -1,6 +1,7 @@
 import type { TokenDto } from '@lorkarium/contracts';
 import { useCallback, useRef, useSyncExternalStore } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
+import type { ChatMessage } from '@/lib/chat-conversations';
 import type { SceneTabsStore } from '@/stores/scene-tabs-store';
 
 /** What a line spoken as a token shows of it: the face beside the name. */
@@ -19,6 +20,27 @@ const NO_FACES: ChatTokenFaces = new Map();
  *  Example: `faces.get(chatVoiceKeyOf(speaker.sceneId, speaker.tokenId))` */
 export function chatVoiceKeyOf(sceneId: string, tokenId: string): string {
   return `${sceneId}:${tokenId}`;
+}
+
+/** The token voices of some messages, one per token spoken as however many lines it has.
+ *
+ *  Example: `useChatTokenFaces(tabs, useMemo(() => chatVoicesOf(messages), [messages]))` */
+export function chatVoicesOf(messages: readonly ChatMessage[]): ChatVoice[] {
+  const voices = new Map<string, ChatVoice>();
+  for (const { event } of messages) {
+    if (event.speaker.kind !== 'token') continue;
+    const { sceneId, tokenId } = event.speaker;
+    voices.set(chatVoiceKeyOf(sceneId, tokenId), { sceneId, tokenId });
+  }
+  return [...voices.values()];
+}
+
+/** The face of the token a message was spoken as; `null` spoken as oneself or not open here.
+ *
+ *  Example: `<ChatMessageRow face={chatFaceOf(faces, message)} … />` */
+export function chatFaceOf(faces: ChatTokenFaces, { event }: ChatMessage): ChatTokenFace | null {
+  if (event.speaker.kind !== 'token') return null;
+  return faces.get(chatVoiceKeyOf(event.speaker.sceneId, event.speaker.tokenId)) ?? null;
 }
 
 /** The faces of the feed's token voices, resolved only inside the grids this viewer already has

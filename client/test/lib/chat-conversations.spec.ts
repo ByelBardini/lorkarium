@@ -1,16 +1,27 @@
+import type { ChatSentDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   EMPTY_TABLE_CONVERSATION,
   chatUnreadSummaryOf,
   conversationKeyOf,
   conversationTargetOf,
+  isImportantConversation,
   mentionsAny,
   stripOrderOf,
   withConversation,
+  withRead,
+  withReceived,
   type ChatConversation,
+  type ChatViewer,
 } from '@/lib/chat-conversations';
 import { ANA } from '../support/auth-api-fake';
-import { TRIO_GROUP_ID, chatSent, directBetween, trioGroup } from '../support/chat-fixtures';
+import {
+  TRIO_GROUP_ID,
+  chatMessageIdOf,
+  chatSent,
+  directBetween,
+  trioGroup,
+} from '../support/chat-fixtures';
 import { BIA_AT_TABLE, CAIO_AT_TABLE } from '../support/table-session-fixtures';
 
 const BIA = BIA_AT_TABLE.userId;
@@ -21,6 +32,25 @@ const TRIO = {
   name: 'Os Três',
   memberIds: [ANA.id, BIA, CAIO],
 } as const;
+
+const BIA_READS: ChatViewer = { userId: BIA, names: ['Bia', 'bia'] };
+
+function fromAna(overrides: Partial<ChatSentDto> = {}): ChatSentDto {
+  return chatSent({ fromUserId: ANA.id, ...overrides });
+}
+
+// Bia's conversations after `events` arrive with her chat hidden (nothing active).
+function receivedByBia(...events: ChatSentDto[]): readonly ChatConversation[] {
+  return events.reduce<readonly ChatConversation[]>(
+    (conversations, event) => {
+      const message = { event, receivedAtMs: 1000 };
+      const next = withReceived(conversations, message, { viewer: BIA_READS, activeKey: null });
+      if (next === null) throw new Error(`event ${event.messageId} refused for Bia`);
+      return next.conversations;
+    },
+    [EMPTY_TABLE_CONVERSATION],
+  );
+}
 
 function conversationWith(
   target: ChatConversation['target'],
@@ -143,16 +173,77 @@ describe('chatUnreadSummaryOf', () => {
     expect(chatUnreadSummaryOf([table])).toEqual({ count: 3, important: false });
   });
 
-  it('unread in a direct is important', () => {
-    const table = conversationWith({ kind: 'table' }, 1000, { unread: 1 });
-    const direct = conversationWith({ kind: 'direct', userId: BIA }, 2000, { unread: 2 });
+  it('a Table message calling Bia by @, unread, is important for her', () => {
+    const conversations = receivedByBia(fromAna({ text: '@Bia, sua vez.' }));
 
-    expect(chatUnreadSummaryOf([table, direct])).toEqual({ count: 3, important: true });
+    expect(chatUnreadSummaryOf(conversations)).toEqual({ count: 1, important: true });
   });
 
-  it('a mention at the Table is important', () => {
-    const table = conversationWith({ kind: 'table' }, 1000, { unread: 1, mentioned: true });
+  it('Ana whispering to Bia at the Table is important for Bia', () => {
+    const conversations = receivedByBia(fromAna({ channel: { kind: 'table', whisperTo: BIA } }));
 
-    expect(chatUnreadSummaryOf([table])).toEqual({ count: 1, important: true });
+    expect(chatUnreadSummaryOf(conversations)).toEqual({ count: 1, important: true });
+  });
+
+  it('a direct with 3 unread and no mention counts them, neutral', () => {
+    const direct = directBetween(ANA.id, BIA);
+    const conversations = receivedByBia(
+      fromAna({ messageId: chatMessageIdOf(1), channel: direct }),
+      fromAna({ messageId: chatMessageIdOf(2), channel: direct }),
+      fromAna({ messageId: chatMessageIdOf(3), channel: direct }),
+    );
+
+    expect(chatUnreadSummaryOf(conversations)).toEqual({ count: 3, important: false });
+  });
+
+  it('the group "Os Três" with 2 unread counts them, neutral', () => {
+    const conversations = receivedByBia(
+      fromAna({ messageId: chatMessageIdOf(1), channel: trioGroup() }),
+      fromAna({ messageId: chatMessageIdOf(2), channel: trioGroup() }),
+    );
+
+    expect(chatUnreadSummaryOf(conversations)).toEqual({ count: 2, important: false });
+  });
+
+  it('a direct calling Bia by @ is important', () => {
+    const channel = directBetween(ANA.id, BIA);
+    const conversations = receivedByBia(fromAna({ channel, text: '@Bia, vem cá.' }));
+
+    expect(chatUnreadSummaryOf(conversations)).toEqual({ count: 1, important: true });
+  });
+
+  it('a mention already read is no longer important', () => {
+    const conversations = receivedByBia(fromAna({ text: '@Bia, sua vez.' }));
+
+    expect(chatUnreadSummaryOf(withRead(conversations, 'table'))).toEqual({
+      count: 0,
+      important: false,
+    });
+  });
+});
+
+describe('isImportantConversation', () => {
+  const direct = directBetween(ANA.id, BIA);
+  it.each([
+    ['a plain Table message', fromAna()],
+    ['a mention at the Table', fromAna({ text: '@Bia, sua vez.' })],
+    ['a whisper to Bia', fromAna({ channel: { kind: 'table', whisperTo: BIA } })],
+    ['a plain direct', fromAna({ channel: direct })],
+    ['a direct with a mention', fromAna({ channel: direct, text: '@bia oi' })],
+    ['a plain group', fromAna({ channel: trioGroup() })],
+  ])('%s is important exactly when the badge says so', (_situation, event) => {
+    const conversations = receivedByBia(event);
+    const received = conversations.find((each) => each.messages.length > 0);
+    if (received === undefined) throw new Error(`no conversation took ${event.messageId}`);
+
+    expect(isImportantConversation(received)).toBe(chatUnreadSummaryOf([received]).important);
+  });
+
+  it('a whisper to Bia is important and a plain direct is not', () => {
+    const [whispered] = receivedByBia(fromAna({ channel: { kind: 'table', whisperTo: BIA } }));
+    const plain = receivedByBia(fromAna({ channel: direct })).at(-1);
+
+    expect(whispered && isImportantConversation(whispered)).toBe(true);
+    expect(plain && isImportantConversation(plain)).toBe(false);
   });
 });

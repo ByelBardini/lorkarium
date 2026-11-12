@@ -2,6 +2,11 @@ import rollsUrl from '@/dice-audio/dice-rolls.wav?url';
 import type { DiceRollCue } from '@/dice-audio/dice-roll-cues';
 import { rollSampleOf, type DiceRollSample } from '@/dice-audio/dice-roll-samples';
 import type { DiceSound } from '@/dice-audio/dice-sound';
+import {
+  listenToUserGestures,
+  resumeAudioOnGesture,
+  type UserGestureSubscription,
+} from '@/lib/audio-unlock';
 
 /** The slice of Web Audio the rolls use, so the spec runs with a fake (jsdom has no audio). */
 export interface DiceAudioParam {
@@ -64,16 +69,8 @@ export type WebAudioDiceSoundDeps = Readonly<{
   /** Milliseconds: how late the rolls became playable (loading, a suspended context). */
   now: () => number;
   /** Calls back on each click or key of the page; returns the unsubscribe. */
-  onUserGesture: (listener: () => void) => () => void;
+  onUserGesture: UserGestureSubscription;
 }>;
-
-const USER_GESTURES = ['pointerdown', 'keydown'] as const;
-
-function listenToUserGestures(listener: () => void): () => void {
-  USER_GESTURES.forEach((type) => window.addEventListener(type, listener, { capture: true }));
-  return () =>
-    USER_GESTURES.forEach((type) => window.removeEventListener(type, listener, { capture: true }));
-}
 
 class WebAudioDiceSound implements DiceSound {
   private loading: Promise<Voice | null> | null = null;
@@ -131,9 +128,7 @@ class WebAudioDiceSound implements DiceSound {
    *  late. */
   private resumeOnGesture(context: DiceAudioContext): void {
     if (this.destroyed) return;
-    this.stopListening = this.deps.onUserGesture(() => {
-      if (context.state !== 'running') void context.resume().catch(() => undefined);
-    });
+    this.stopListening = resumeAudioOnGesture(context, this.deps.onUserGesture);
   }
 
   private async running(voice: Voice): Promise<Voice | null> {

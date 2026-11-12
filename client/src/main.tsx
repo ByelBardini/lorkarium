@@ -42,6 +42,8 @@ import { chunkLoaderOf } from '@/lib/chunk-loader';
 import { createWebAudioDiceSound } from '@/dice-audio/web-audio-dice-sound';
 import { HttpSavedRollsApi } from '@/services/saved-rolls-api';
 import { createDicePreferencesStore } from '@/stores/dice-preferences-store';
+import { createChatPreferencesStore } from '@/stores/chat-preferences-store';
+import { createWebAudioChatSound } from '@/chat-audio/web-audio-chat-sound';
 import { RealtimeTableSessionApi } from '@/services/table-session-api';
 import { RealtimeSceneActivation } from '@/services/scene-activation';
 import { createOpenTablesStore } from '@/stores/open-tables-store';
@@ -181,6 +183,8 @@ const router = createBrowserRouter(
     createDiceRenderer: () =>
       import('@/features/dice/app-dice-renderer').then((module) => module.createAppDiceRenderer()),
     createDiceSound: () => createWebAudioDiceSound(),
+    chatPreferences: createChatPreferencesStore(browserStorage),
+    createChatSound: () => createWebAudioChatSound(),
     interactionClock: browserClock,
     now: () => new Date(),
     random: Math.random,

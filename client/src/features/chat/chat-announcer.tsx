@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
-import type { ChatMessage } from '@/lib/chat-conversations';
 import type { ChatHistoryStore } from '@/stores/chat-history-store';
-import { chatAnnouncement, type AnnouncedPlace } from './chat-messages';
+import { chatLineOf } from './chat-messages';
 import type { ChatPeople } from './use-chat-people';
 
 /** The chat's own voice for the screen reader: each message of someone else, as it arrives,
@@ -20,7 +19,7 @@ export function ChatAnnouncer({
     () =>
       chat.getState().onNewMessage((message) => {
         if (message.event.fromUserId === viewerId) return;
-        setSaid(announcementOf(message, nameOf));
+        setSaid(chatLineOf(message, nameOf));
       }),
     [chat, viewerId, nameOf],
   );
@@ -29,17 +28,4 @@ export function ChatAnnouncer({
       {said}
     </p>
   );
-}
-
-function announcementOf(message: ChatMessage, nameOf: (userId: string) => string): string {
-  const { event } = message;
-  const author = event.speaker.kind === 'token' ? event.speaker.name : nameOf(event.fromUserId);
-  return chatAnnouncement(author, placeOf(message), event.text);
-}
-
-function placeOf({ event }: ChatMessage): AnnouncedPlace {
-  const { channel } = event;
-  if (channel.kind === 'group') return { kind: 'group', name: channel.name };
-  if (channel.kind === 'direct') return { kind: 'direct' };
-  return channel.whisperTo === null ? { kind: 'table' } : { kind: 'whisper' };
 }

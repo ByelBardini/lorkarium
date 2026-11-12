@@ -50,7 +50,9 @@ export const ChatMessageRow = memo(function ChatMessageRow(
       )}
     >
       <span className="flex w-7 shrink-0 justify-center">
-        {!props.continued && <RowAvatar event={event} people={props.people} face={props.face} />}
+        {!props.continued && (
+          <ChatVoiceAvatar event={event} people={props.people} face={props.face} />
+        )}
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         {!props.continued && <RowHeader event={event} people={props.people} mine={mine} />}
@@ -70,7 +72,11 @@ export const ChatMessageRow = memo(function ChatMessageRow(
 
 type RowPartProps = Readonly<{ event: ChatSentDto; people: ChatPeople }>;
 
-function RowAvatar({
+/** The face of a message's voice: the token spoken as (its face from the grids open here, or its
+ *  initials), or the author's avatar.
+ *
+ *  Example: `<ChatVoiceAvatar event={message.event} people={people} face={chatFaceOf(faces, message)} />` */
+export function ChatVoiceAvatar({
   event,
   people,
   face,

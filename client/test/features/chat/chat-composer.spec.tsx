@@ -187,6 +187,16 @@ describe('ChatComposer — suggestions', () => {
     expect(screen.queryByRole('dialog', { name: 'Atalhos do chat' })).not.toBeInTheDocument();
   });
 
+  // "Atalhos" under the field took a whole line of the chat drawer (2026-11-12).
+  it('"Atalhos" sits on the line above the feed, not under the field', () => {
+    const shortcuts = screen.getByRole('button', { name: 'Atalhos do chat' });
+    const feed = screen.getByRole('log', { name: 'Mensagens: Mesa' });
+    expect(shortcuts.compareDocumentPosition(feed) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      shortcuts.compareDocumentPosition(field()) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it('in a direct, "/" offers no roll and the hint does not mention /r', async () => {
     act(() => {
       vharnChat(deps)

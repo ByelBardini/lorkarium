@@ -5,9 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { UserHandle } from '@/components/user-handle';
 import type { ProfileApi } from '@/services/profile-api';
+import type { ChatPreferencesStore } from '@/stores/chat-preferences-store';
 import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
 import type { SessionStore } from '@/stores/session-store';
 import { AvatarField } from './avatar-field';
+import { ChatDeviceSwitch } from './chat-device-switch';
 import { DiceAppearanceField } from './dice-appearance-field';
 import { DiceDeviceSwitches } from './dice-device-switches';
 import { ProfileColorField } from './profile-color-field';
@@ -25,13 +27,14 @@ export type ProfileSectionProps = Readonly<{
   profileApi: ProfileApi;
   sessionStore: StoreApi<SessionStore>;
   dicePreferences: StoreApi<DicePreferencesStore>;
+  chatPreferences: StoreApi<ChatPreferencesStore>;
 }>;
 
 /** "Perfil": photo, nickname, the read-only @, color, "Sobre você" and the dice ("Seus dados",
- *  "Dados 3D", "Som dos dados"), one setting per row, with the preview held beside from `xl`.
+ *  "Dados 3D", "Som dos dados") and "Som do chat", one setting per row, with the preview held beside from `xl`.
  *  Nickname, color, bio and the dice number color wait in the page's draft for the bar.
  *
- *  Example: `<ProfileSection profile={profile} editor={editor} profileApi={profileApi} sessionStore={sessionStore} dicePreferences={dicePreferences} />` */
+ *  Example: `<ProfileSection profile={profile} editor={editor} profileApi={profileApi} sessionStore={sessionStore} dicePreferences={dicePreferences} chatPreferences={chatPreferences} />` */
 export function ProfileSection(props: ProfileSectionProps): React.JSX.Element {
   const { profile, editor } = props;
   const titleId = useId();
@@ -72,6 +75,7 @@ function ProfileRows(props: ProfileSectionProps): React.JSX.Element {
       <BioRow draft={draft} />
       <DiceAppearanceField profile={profile} draft={draft} {...images} />
       <DiceDeviceSwitches dicePreferences={props.dicePreferences} />
+      <ChatDeviceSwitch chatPreferences={props.chatPreferences} />
     </>
   );
 }

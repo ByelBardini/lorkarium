@@ -154,6 +154,22 @@ describe('DiceRollNotice', () => {
     expect(notice().parentElement).toHaveClass('right-0');
   });
 
+  it('beside the board it sits at the top, clear of the chat bar and the previews rising from it', () => {
+    renderNotice(deps);
+    roll(deps, biaRolled());
+    advance(deps, 2400);
+    expect(notice().parentElement).toHaveClass('top-14');
+    expect(notice().parentElement).not.toHaveClass('bottom-18');
+  });
+
+  it('stays at the top with the chat drawer open, off the conversation', () => {
+    deps.roomLayout.getState().openChat();
+    renderNotice(deps);
+    roll(deps, biaRolled());
+    advance(deps, 2400);
+    expect(notice().parentElement).toHaveClass('top-14');
+  });
+
   it('in focus mode the panel is hidden, so it centres over the whole board', () => {
     renderNotice(deps);
     roll(deps, biaRolled());
@@ -166,9 +182,10 @@ describe('DiceRollNotice', () => {
 describe('DiceRollNotice on a phone', () => {
   emulateViewport('mobile');
 
-  it('sits above the "Painel" button', () => {
+  it('sits above the "Painel" button, even with the chat drawer remembered open', () => {
     const deps = testDependencies();
     openVharnWithRoster(deps);
+    deps.roomLayout.getState().openChat();
     renderNotice(deps);
     roll(deps, biaRolled());
     advance(deps, 2400);
