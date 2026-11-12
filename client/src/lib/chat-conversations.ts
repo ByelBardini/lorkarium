@@ -159,18 +159,23 @@ export function stripOrderOf(
   return [...table, ...others.sort((a, b) => lastActivityOf(b) - lastActivityOf(a))];
 }
 
-/** What the "Chat" badge shows: every unread message, and whether one is important (a direct, a
- *  group, a mention or a whisper to the viewer), drawn in gold.
+/** What the "Chat" badge shows: every unread message, and whether one is important (a mention
+ *  or a whisper to the viewer), drawn in gold. A direct or a group alone stays neutral.
  *
  *  Example: `chatUnreadSummaryOf(conversations) // { count: 3, important: true }` */
 export function chatUnreadSummaryOf(
   conversations: readonly ChatConversation[],
 ): Readonly<{ count: number; important: boolean }> {
   const count = conversations.reduce((total, each) => total + each.unread, 0);
-  const important = conversations.some(
-    (each) => each.mentioned || (each.unread > 0 && each.target.kind !== 'table'),
-  );
-  return { count, important };
+  return { count, important: conversations.some(isImportantConversation) };
+}
+
+/** Whether a conversation's counter is gold: an unread message of it called the viewer by `@`
+ *  or whispered to them, whatever the conversation is (the Table, a direct, a group).
+ *
+ *  Example: `isImportantConversation({ ...direct, unread: 2, mentioned: false }) // false` */
+export function isImportantConversation(conversation: ChatConversation): boolean {
+  return conversation.mentioned;
 }
 
 // A conversation with no message yet was just opened here: it goes before every other.

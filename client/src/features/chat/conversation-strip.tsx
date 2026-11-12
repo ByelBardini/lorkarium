@@ -6,10 +6,11 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
-import type {
-  ChatConversation,
-  ChatConversationKey,
-  ChatConversationTarget,
+import {
+  isImportantConversation,
+  type ChatConversation,
+  type ChatConversationKey,
+  type ChatConversationTarget,
 } from '@/lib/chat-conversations';
 import { cn } from '@/lib/utils';
 import { unreadLabel } from './chat-messages';
@@ -26,7 +27,7 @@ export type ConversationStripProps = Readonly<{
 }>;
 
 /** The conversations of the visit in one row: the Table, the directs and the groups, each with
- *  its unread count (gold for a direct, a group or a mention: what is for the viewer).
+ *  its unread count (gold for a mention or a whisper to the viewer: what is for them).
  *
  *  Example: `<ConversationStrip conversations={stripOrderOf(all)} selectedKey="table" onSelect={select} nameOf={nameOf} onNewConversation={null} />` */
 export function ConversationStrip(props: ConversationStripProps): React.JSX.Element {
@@ -69,8 +70,7 @@ type ConversationButtonProps = Readonly<{
 }>;
 
 function ConversationButton(props: ConversationButtonProps): React.JSX.Element {
-  const { unread, mentioned, target } = props.conversation;
-  const important = mentioned || target.kind !== 'table';
+  const { unread, target } = props.conversation;
   const button = (
     <button
       type="button"
@@ -85,7 +85,9 @@ function ConversationButton(props: ConversationButtonProps): React.JSX.Element {
       )}
     >
       <span className="truncate">{props.name}</span>
-      {unread > 0 && <UnreadCount count={unread} important={important} />}
+      {unread > 0 && (
+        <UnreadCount count={unread} important={isImportantConversation(props.conversation)} />
+      )}
     </button>
   );
   if (target.kind === 'table') return button;
