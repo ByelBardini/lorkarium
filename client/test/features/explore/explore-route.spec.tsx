@@ -5,6 +5,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildRoutes } from '@/app/router';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ANA, ROOT_ADMIN } from '../../support/auth-api-fake';
+import {
+  COVER_URL,
+  imageSourcesIn,
+  PHOTO_URL,
+  withDistinctImages,
+} from '../../support/campaign-image-fixtures';
 import { PUBLIC_VHARN, QUELM } from '../../support/campaigns-api-fake';
 
 const QUELM_PUBLIC = {
@@ -127,6 +133,28 @@ describe('explore route ("Explorar mesas")', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Entrar em “Cripta Selada”' });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' }));
     expect(await screen.findByRole('dialog', { name: 'Cripta Selada' })).toBeInTheDocument();
+  });
+
+  describe('a campaign with a photo, a cover and a banner', () => {
+    beforeEach(() => {
+      deps.campaignsApi.answer('listPublic', {
+        ok: true,
+        value: [withDistinctImages(PUBLIC_VHARN)],
+      });
+    });
+
+    it('its card shows the cover', async () => {
+      renderAt('/campaigns/public');
+      const card = (await screen.findByText('Os Sinos de Vharn')).closest('li');
+      if (!card) throw new Error('the card of "Os Sinos de Vharn" is not a list item');
+      expect(imageSourcesIn(card)).toEqual([COVER_URL]);
+    });
+
+    it('its "Detalhes" shows the photo', async () => {
+      renderAt('/campaigns/public');
+      const dialog = await openDetails('Os Sinos de Vharn');
+      expect(imageSourcesIn(dialog)).toEqual([PHOTO_URL]);
+    });
   });
 
   it('a campaign that stopped being public says so in its details', async () => {

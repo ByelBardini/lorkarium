@@ -1,15 +1,12 @@
 import {
   CAMPAIGN_DESCRIPTION_MAX_LENGTH,
   CAMPAIGN_NAME_MAX_LENGTH,
-  type CampaignCoverDto,
   type CampaignDetailDto,
   type CampaignStatusDto,
   type CampaignVisibilityDto,
 } from '@lorkarium/contracts';
 import { useId, useState } from 'react';
-import { CoverPicker } from '@/components/cover-picker';
 import { FormField } from '@/components/form-field';
-import { ImagePicker } from '@/components/image-picker';
 import { PasswordField } from '@/components/password-field';
 import { SegmentField, type SegmentOption } from '@/components/segment-field';
 import { Button } from '@/components/ui/button';
@@ -23,8 +20,8 @@ import {
   CAMPAIGN_STATUS_HINT,
   CAMPAIGN_STATUS_LABEL,
 } from '@/lib/campaign-status';
-import type { AssetsApi } from '@/services/assets-api';
 import type { Clipboard } from '@/services/clipboard';
+import { CampaignImageFields, type CampaignImageFieldsProps } from './campaign-image-fields';
 import { CampaignTagsField, ContentWarningsField } from './campaign-label-fields';
 import { PLAYER_TOKEN_RIGHTS_TEXT } from './campaign-settings-messages';
 import { DeleteCampaignDialog } from './delete-campaign-dialog';
@@ -81,44 +78,20 @@ function SettingsSection(props: SettingsSectionProps): React.JSX.Element {
   );
 }
 
-export type GeneralSectionProps = Readonly<{
-  draft: SettingsDraft;
-  campaignId: string;
-  assets: AssetsApi;
-  /** The drawn cover "Usar capa desenhada" goes back to. */
-  drawnCover: CampaignCoverDto;
-}>;
+export type GeneralSectionProps = CampaignImageFieldsProps;
 
-/** "Geral": cover (drawn or an image sent to the campaign), name, system, status and "Sobre a mesa".
+/** "Geral": the photo, cover and banner, name, system, status and "Sobre a mesa".
  *
  *  Example: `<GeneralSection draft={draft} campaignId={id} assets={assets} drawnCover={cover} />` */
-export function GeneralSection({ draft, ...props }: GeneralSectionProps): React.JSX.Element {
-  const { values, change } = draft;
-  const imageId = values.cover.kind === 'image' ? values.cover.assetId : null;
+export function GeneralSection(props: GeneralSectionProps): React.JSX.Element {
+  const { values, change } = props.draft;
   return (
     <SettingsSection
       section={SETTINGS_SECTIONS.general}
       description="O que aparece no hub e nos detalhes da mesa."
     >
-      <span className="-mb-3 text-[13px] font-medium text-label">Capa</span>
-      <CoverPicker
-        value={values.cover}
-        onChange={(cover) => change({ cover })}
-        image={
-          <ImagePicker
-            campaignId={props.campaignId}
-            purpose="cover"
-            assets={props.assets}
-            value={imageId}
-            label="Imagem da capa"
-            removeLabel="Usar capa desenhada"
-            onChange={(asset) =>
-              change({ cover: asset ? { kind: 'image', assetId: asset.id } : props.drawnCover })
-            }
-          />
-        }
-      />
-      <NameAndSystemFields draft={draft} />
+      <CampaignImageFields {...props} />
+      <NameAndSystemFields draft={props.draft} />
       <SegmentField
         legend="Status"
         value={values.status}
@@ -126,7 +99,7 @@ export function GeneralSection({ draft, ...props }: GeneralSectionProps): React.
         onChange={(status) => change({ status })}
         hint={CAMPAIGN_STATUS_HINT[values.status]}
       />
-      <DescriptionField draft={draft} />
+      <DescriptionField draft={props.draft} />
     </SettingsSection>
   );
 }

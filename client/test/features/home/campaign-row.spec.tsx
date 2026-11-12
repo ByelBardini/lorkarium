@@ -4,6 +4,11 @@ import { describe, expect, it } from 'vitest';
 import type { CampaignSummaryDto } from '@lorkarium/contracts';
 import { CampaignRow } from '@/features/home/campaign-row';
 import { ANA } from '../../support/auth-api-fake';
+import {
+  imageSourcesIn,
+  PHOTO_URL,
+  withDistinctImages,
+} from '../../support/campaign-image-fixtures';
 import { QUELM, VHARN } from '../../support/campaigns-api-fake';
 
 function renderRow(campaign: CampaignSummaryDto): void {
@@ -46,6 +51,11 @@ describe('CampaignRow', () => {
   ])('shows the role of the user in %#', (campaign, role) => {
     renderRow(campaign);
     expect(screen.getByRole('link')).toHaveTextContent(role);
+  });
+
+  it('a campaign with a photo, a cover and a banner shows the photo', () => {
+    renderRow(withDistinctImages(VHARN));
+    expect(imageSourcesIn(screen.getByRole('link'))).toEqual([PHOTO_URL]);
   });
 
   it('shows the description', () => {

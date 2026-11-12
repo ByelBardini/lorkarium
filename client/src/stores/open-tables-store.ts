@@ -42,21 +42,25 @@ export type { TabStorage } from '@/stores/scene-tabs-storage';
 
 export const OPEN_TABLES_STORAGE_KEY = 'lorkarium.openTables';
 
-/** `cover`: the campaign's; without it (a list stored by an older tab) the id's drawing. */
+/** `cover`: the campaign's; without it (a list stored by an older tab) the id's drawing.
+ *  `photoAssetId`: the campaign's photo; without it, no photo (the nav falls back to the cover). */
 export type OpenTableRef = Readonly<{
   campaignId: string;
   name: string;
   cover?: CampaignCoverDto;
+  photoAssetId?: string | null;
 }>;
 
 /** An open table: its live presence, its grid tabs, its table stream (the characters and the
  *  condition list, in the table's version), and — for the group grid's tab, which everyone has
  *  open — its confirmed board and this user's undo stack on it (kept while the table stays
  *  open). */
-export type OpenTable = Omit<OpenTableRef, 'cover'> &
+export type OpenTable = Omit<OpenTableRef, 'cover' | 'photoAssetId'> &
   Readonly<{
     /** Kept up to date by `session:campaignUpdated`, like the name. */
     cover: CampaignCoverDto;
+    /** Kept up to date by `session:campaignUpdated`, like the cover; `null` = no photo. */
+    photoAssetId: string | null;
     /** The players' token keys from the last `session:campaignUpdated`; `null` until one comes
      *  (the route's campaign answers then: an F5 restores tables without it). */
     tokenRights: TableTokenRights | null;
@@ -130,6 +134,7 @@ const storedTablesSchema = z.object({
         campaignId: z.string(),
         name: z.string(),
         cover: campaignCoverDto.optional(),
+        photoAssetId: z.string().nullable().optional(),
       }),
     )
     .max(MAX_OPEN_TABLES),
@@ -267,6 +272,7 @@ class OpenTablesActions {
     });
     const parts = {
       cover,
+      photoAssetId: table.photoAssetId ?? null,
       tokenRights: null,
       limits: null,
       presence,
@@ -399,11 +405,13 @@ function retitled(table: OpenTable, campaign: CampaignInfoDto): OpenTable {
   const shown = {
     name: campaign.name,
     cover: campaign.cover,
+    photoAssetId: campaign.photoAssetId ?? null,
     tokenRights: tableTokenRightsOf(campaign),
     limits: campaign.limits,
   };
-  const { name, cover, tokenRights, limits } = table;
-  const same = JSON.stringify({ name, cover, tokenRights, limits }) === JSON.stringify(shown);
+  const { name, cover, photoAssetId, tokenRights, limits } = table;
+  const kept = { name, cover, photoAssetId, tokenRights, limits };
+  const same = JSON.stringify(kept) === JSON.stringify(shown);
   return same ? table : { ...table, ...shown };
 }
 
@@ -439,7 +447,12 @@ function readStored(storage: TabStorage): StoredTables | null {
 
 function writeStored(storage: TabStorage, state: OpenTablesState): void {
   if (state.ownerId === null) return;
-  const tables = state.tables.map(({ campaignId, name, cover }) => ({ campaignId, name, cover }));
+  const tables = state.tables.map(({ campaignId, name, cover, photoAssetId }) => ({
+    campaignId,
+    name,
+    cover,
+    photoAssetId,
+  }));
   try {
     storage.setItem(OPEN_TABLES_STORAGE_KEY, JSON.stringify({ userId: state.ownerId, tables }));
   } catch {
