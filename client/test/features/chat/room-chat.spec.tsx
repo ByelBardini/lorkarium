@@ -75,12 +75,15 @@ describe('RoomChat', () => {
 describe('RoomChat on a phone', () => {
   emulateViewport('mobile');
 
-  it('draws no chat bar, and the title still counts the unread messages', () => {
+  it('draws the "Chat" button instead of the bar, and the title still counts the unread messages', () => {
     const deps = testDependencies();
     openAsBia(deps);
     renderRoomChat(deps);
     receiveChat(deps, chatSent({ messageId: chatMessageIdOf(1), fromUserId: CAIO }));
     expect(screen.queryByRole('region', { name: 'Chat da mesa' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Chat' })).toHaveAccessibleDescription(
+      '1 mensagem não lida',
+    );
     expect(document.title).toBe('(1) Lorkarium · Vharn');
   });
 });

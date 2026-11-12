@@ -3,7 +3,6 @@ import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useChatUnreadMark } from '@/features/chat/chat-unread-mark';
 import type { ChatWindowSlot } from '@/features/chat/chat-window-slot';
 import { CombatPanel } from '@/features/combat/combat-panel';
 import { DicePanel, type DicePanelProps } from '@/features/dice/dice-panel';
@@ -67,19 +66,13 @@ export function RoomSidePanel(props: RoomPanelProps): React.JSX.Element | null {
   );
 }
 
+// The chat's counter is not here: "Chat" (`ChatPhoneButton`) is its own button beside this one.
 function PhonePanel(props: RoomPanelProps): React.JSX.Element {
-  const unread = useChatUnreadMark(props.dice.openTables, props.dice.campaignId);
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          aria-describedby={unread.describedBy}
-          className="absolute right-3 bottom-3 bg-panel"
-        >
+        <Button variant="outline" size="sm" className="absolute right-3 bottom-3 bg-panel">
           Painel
-          {unread.mark}
         </Button>
       </SheetTrigger>
       <SheetContent side="bottom" className="max-h-[70svh] bg-panel px-4 pb-6">
