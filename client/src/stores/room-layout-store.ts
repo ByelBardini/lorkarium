@@ -22,6 +22,8 @@ export type RoomLayoutState = Readonly<{
   focus: boolean;
   chat: RoomChat;
   chatHeight: number;
+  /** How many times the composer was asked for (T); the docked chat opens and focuses on each. */
+  chatFocusRequest: number;
 }>;
 
 export type RoomLayoutStore = RoomLayoutState &
@@ -34,6 +36,7 @@ export type RoomLayoutStore = RoomLayoutState &
     closeChat: () => void;
     toggleChat: () => void;
     setChatHeight: (height: number) => void;
+    requestChatFocus: () => void;
   }>;
 
 export const ROOM_PANEL_STORAGE_KEY = 'lorkarium.roomPanel';
@@ -46,21 +49,23 @@ const OPEN_OR_CLOSED = ['open', 'closed'] as const;
 
 type SetRoomLayout = StoreApi<RoomLayoutStore>['setState'];
 type GetRoomLayout = StoreApi<RoomLayoutStore>['getState'];
-type RoomPanelSlice = Omit<RoomLayoutStore, keyof RoomChatSlice>;
+type RoomPanelSlice = Omit<RoomLayoutStore, keyof RoomChatSlice | keyof ChatFocusSlice>;
 type RoomChatSlice = Pick<
   RoomLayoutStore,
   'chat' | 'chatHeight' | 'openChat' | 'closeChat' | 'toggleChat' | 'setChatHeight'
 >;
+type ChatFocusSlice = Pick<RoomLayoutStore, 'chatFocusRequest' | 'requestChatFocus'>;
 
 /** How the play room is laid out around the board: the side panel and the chat bar (both
- *  remembered in the browser, with the chat drawer height), the panel tab and focus mode (board
- *  only). Tab and focus reset per visit.
+ *  remembered in the browser, with the chat drawer height), the panel tab, focus mode (board
+ *  only) and the requests for the chat composer. Tab, focus and requests reset per visit.
  *
  *  Example: `createRoomLayoutStore(window.localStorage).getState().showTab('people')` */
 export function createRoomLayoutStore(storage: ChoiceStorage): StoreApi<RoomLayoutStore> {
   return createStore<RoomLayoutStore>()((set, get) => ({
     ...panelSliceOf(storage, set, get),
     ...chatSliceOf(storage, set, get),
+    ...chatFocusSliceOf(set, get),
   }));
 }
 
@@ -111,6 +116,14 @@ function chatSliceOf(
   };
 }
 
+// Only counted: whether the chat can open here (docked, beside the board) is the dock's call.
+function chatFocusSliceOf(set: SetRoomLayout, get: GetRoomLayout): ChatFocusSlice {
+  return {
+    chatFocusRequest: 0,
+    requestChatFocus: () => set({ chatFocusRequest: get().chatFocusRequest + 1 }),
+  };
+}
+
 // The height comes from a drag, so it is rounded; a value no drawer can have is dropped rather
 // than stored, so the next visit never starts from it.
 function rememberChatHeight(storage: ChoiceStorage, set: SetRoomLayout, height: number): void {
@@ -122,6 +135,19 @@ function rememberChatHeight(storage: ChoiceStorage, set: SetRoomLayout, height: 
 
 function isChatHeight(height: number): boolean {
   return Number.isInteger(height) && height > 0;
+}
+
+/** Calls `onRequest` on each `requestChatFocus` (T) and on nothing else, until the returned
+ *  function is called.
+ *
+ *  Example: `useEffect(() => onChatFocusRequest(roomLayout, focusComposer), [roomLayout])` */
+export function onChatFocusRequest(
+  store: StoreApi<RoomLayoutStore>,
+  onRequest: () => void,
+): () => void {
+  return store.subscribe((state, last) => {
+    if (state.chatFocusRequest !== last.chatFocusRequest) onRequest();
+  });
 }
 
 /** React view of one slice of the room layout (re-renders when it changes).

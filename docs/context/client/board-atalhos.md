@@ -7,6 +7,8 @@
 | F                 | sala                | liga/desliga o modo foco                                                       |
 | Esc               | sala / arrastando   | sai do foco, limpa a régua, cancela o arraste                                  |
 | V / R / B / M / G | sala                | Selecionar / Régua / Desenhar / Área de efeito / grid local                    |
+| T                 | sala, até modo foco | abre a gaveta do chat e foca o compositor (também já aberta)                   |
+| Esc               | gaveta do chat      | fecha só a gaveta (não sai do foco); sugestão/menu aberto fecha antes          |
 | 1 / 2 / 3         | sala (mestre)       | camada ativa: Tokens / Objetos / Fundo                                         |
 | P                 | sala (mestre)       | Paredes ([`walls.md`](walls.md))                                               |
 | ⇧M / ⇧F           | sala, até documento | mapa principal / sua ficha principal ([`library-maps.md`](library-maps.md))    |
@@ -30,3 +32,5 @@
 | Enter / ⌫ / Esc   | editor da patrulha  | salva / tira o último ponto / cancela ([`token-patrols.md`](token-patrols.md)) |
 
 Ignorados em campo, `contenteditable`, diálogo/menu e com Ctrl/⌘/Alt (`src/lib/board-shortcuts.ts`); ⇧M/⇧F não viram M/F. Edição (`editShortcutFor`): Ctrl/⌘, sem Alt.
+
+O `T` só conta um pedido (`requestChatFocus` → `chatFocusRequest` na `room-layout-store`, ouvido por `onChatFocusRequest`) e cancela o `keydown`, senão a letra cairia no compositor que acabou de ganhar o foco. Quem decide é o chat: o `ChatDock` abre a gaveta só com o chat no rodapé, e a `ChatDrawer` refoca o compositor a cada pedido. Com o chat em outra janela, ou no celular (sem barra), `T` não faz nada e não grava a gaveta como aberta. O `Esc` da gaveta para no `onKeyDown` dela (`stopPropagation`): os atalhos da sala ouvem na `window`.

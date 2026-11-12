@@ -3,13 +3,18 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { StoreApi } from 'zustand/vanilla';
 import { useRoomShortcuts } from '@/features/board/use-room-shortcuts';
 import { ChatDock, type ChatDockProps } from '@/features/chat/chat-dock';
 import { CHAT_DRAWER_STEP } from '@/features/chat/chat-drawer';
 import type { ChatWindowSlot } from '@/features/chat/chat-window-slot';
 import { CHAT_DRAWER_DEFAULT_HEIGHT } from '@/lib/chat-drawer-height';
 import { createBoardInteractionStore } from '@/stores/board-interaction-store';
-import { ROOM_CHAT_HEIGHT_STORAGE_KEY, ROOM_CHAT_STORAGE_KEY } from '@/stores/room-layout-store';
+import {
+  ROOM_CHAT_HEIGHT_STORAGE_KEY,
+  ROOM_CHAT_STORAGE_KEY,
+  type RoomLayoutStore,
+} from '@/stores/room-layout-store';
 import { ANA } from '../../support/auth-api-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { chatMessageIdOf, chatSent, directBetween } from '../../support/chat-fixtures';
@@ -77,6 +82,21 @@ function previews(): HTMLElement {
 
 function barCounter(): Element | null {
   return bar().querySelector('[data-important]');
+}
+
+type ShortcutsOfTheRoomProps = Readonly<{ roomLayout: StoreApi<RoomLayoutStore> }>;
+
+/** The room's keys on `window`, as the `PlayRoomPage` mounts them, for a player. */
+function ShortcutsOfTheRoom({ roomLayout }: ShortcutsOfTheRoomProps): null {
+  const [interaction] = useState(() =>
+    createBoardInteractionStore({
+      scopeOf: () => VHARN_GRID,
+      commands: new TableBoardCommandsFake(),
+      describeRefusal: String,
+    }),
+  );
+  useRoomShortcuts({ roomLayout, interaction, role: 'player' });
+  return null;
 }
 
 describe('ChatDock', () => {
@@ -258,20 +278,8 @@ describe('ChatDock', () => {
   describe('Esc and the room shortcuts', () => {
     beforeEach(openAsBia);
 
-    function ShortcutsOfTheRoom(): null {
-      const [interaction] = useState(() =>
-        createBoardInteractionStore({
-          scopeOf: () => VHARN_GRID,
-          commands: new TableBoardCommandsFake(),
-          describeRefusal: String,
-        }),
-      );
-      useRoomShortcuts({ roomLayout: deps.roomLayout, interaction, role: 'player' });
-      return null;
-    }
-
     it('Esc inside the drawer closes it without leaving focus mode (the shortcuts listen on window)', async () => {
-      render(<ShortcutsOfTheRoom />);
+      render(<ShortcutsOfTheRoom roomLayout={deps.roomLayout} />);
       renderDock();
       act(() => {
         deps.roomLayout.getState().toggleFocus();
@@ -284,11 +292,51 @@ describe('ChatDock', () => {
     });
 
     it('Esc outside the drawer still leaves focus mode', async () => {
-      render(<ShortcutsOfTheRoom />);
+      render(<ShortcutsOfTheRoom roomLayout={deps.roomLayout} />);
       renderDock();
       act(() => deps.roomLayout.getState().toggleFocus());
       await user.keyboard('{Escape}');
       expect(deps.roomLayout.getState().focus).toBe(false);
+    });
+  });
+
+  describe('T and the room shortcuts', () => {
+    beforeEach(openAsBia);
+
+    it('T on the board opens the drawer with the composer focused and empty', async () => {
+      render(<ShortcutsOfTheRoom roomLayout={deps.roomLayout} />);
+      renderDock();
+      await user.keyboard('t');
+      expect(field()).toHaveFocus();
+      expect(field()).toHaveValue('');
+      expect(deps.roomLayout.getState().chat).toBe('open');
+    });
+
+    it('Shift+T with the drawer already open and the focus elsewhere takes the focus back to the composer', async () => {
+      render(<ShortcutsOfTheRoom roomLayout={deps.roomLayout} />);
+      renderDock();
+      act(() => deps.roomLayout.getState().openChat());
+      act(() => within(drawer()).getByRole('button', { name: 'Recolher chat' }).focus());
+      await user.keyboard('{Shift>}T{/Shift}');
+      expect(field()).toHaveFocus();
+      expect(field()).toHaveValue('');
+    });
+
+    it('T typed in the composer is only the letter', async () => {
+      render(<ShortcutsOfTheRoom roomLayout={deps.roomLayout} />);
+      renderDock();
+      await user.click(openButton());
+      await user.keyboard('t');
+      expect(field()).toHaveValue('t');
+      expect(deps.roomLayout.getState().chatFocusRequest).toBe(0);
+    });
+
+    it('T with the chat in another window opens no drawer and leaves the chat closed', async () => {
+      render(<ShortcutsOfTheRoom roomLayout={deps.roomLayout} />);
+      renderDock({ window: slot.detached() });
+      await user.keyboard('t');
+      expect(screen.queryByRole('region', { name: 'Conversa' })).toBeNull();
+      expect(deps.roomLayout.getState().chat).toBe('closed');
     });
   });
 
