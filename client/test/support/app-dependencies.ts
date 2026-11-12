@@ -16,6 +16,7 @@ import { createRoomLayoutStore } from '@/stores/room-layout-store';
 import { createSessionStore } from '@/stores/session-store';
 import { createAppUpdateStore } from '@/stores/app-update-store';
 import { createDicePreferencesStore } from '@/stores/dice-preferences-store';
+import { createChatPreferencesStore } from '@/stores/chat-preferences-store';
 import { AccountLinksApiFake } from './account-links-api-fake';
 import { AccountPlanApiFake } from './account-plan-api-fake';
 import { AccountSecurityApiFake } from './account-security-api-fake';
@@ -26,6 +27,7 @@ import { BoardRenderersFake } from './board-renderer-fake';
 import { CallJournal } from './call-journal';
 import { CampaignsApiFake } from './campaigns-api-fake';
 import { ChatCommandsFake } from './chat-commands-fake';
+import { ChatSoundsFake } from './chat-sound-fake';
 import { ChatWindowHostFake } from './chat-window-host-fake';
 import { DiceCommandsFake } from './dice-commands-fake';
 import { SheetCommandsFake } from './sheet-commands-fake';
@@ -108,6 +110,10 @@ export type TestDependencies = AppDependencies & {
   diceRenderers: DiceRenderersFake;
   /** Every dice sound the room created, behind `createDiceSound`. */
   diceSounds: DiceSoundsFake;
+  /** The `localStorage` under `chatPreferences`. */
+  chatPreferencesStorage: StorageFake;
+  /** Every chat sound the room created, behind `createChatSound`. */
+  chatSounds: ChatSoundsFake;
   /** The board's own time (the hover card's delay), moved by hand. */
   interactionClock: InteractionClockFake;
   /** Where the auth and table session fakes write, in call order. */
@@ -155,6 +161,8 @@ export function testDependencies(): TestDependencies {
   const boardRenderers = new BoardRenderersFake();
   const diceRenderers = new DiceRenderersFake();
   const diceSounds = new DiceSoundsFake();
+  const chatPreferencesStorage = new StorageFake();
+  const chatSounds = new ChatSoundsFake();
   const boardCommands = new TableBoardCommandsFake();
   const retryWaits = RetryWaitFake.held();
   const publishedBuild = new PublishedBuildFake(TEST_BUILD);
@@ -221,6 +229,10 @@ export function testDependencies(): TestDependencies {
     createDiceRenderer: diceRenderers.create,
     diceSounds,
     createDiceSound: diceSounds.create,
+    chatPreferencesStorage,
+    chatPreferences: createChatPreferencesStore(chatPreferencesStorage),
+    chatSounds,
+    createChatSound: chatSounds.create,
     interactionClock,
     openTables: createOpenTablesStore({
       api: tableSessionApi,

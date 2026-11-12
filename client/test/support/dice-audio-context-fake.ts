@@ -42,7 +42,8 @@ export class SourceFake extends AudioNodeFake implements DiceAudioSource {
   buffer: DiceAudioBuffer | null = null;
   started: { atSeconds: number; offsetSeconds: number; durationSeconds: number } | null = null;
 
-  start(atSeconds: number, offsetSeconds: number, durationSeconds: number): void {
+  // Optional like Web Audio's (from the start, to the end), so the chat's `start(at)` fits too.
+  start(atSeconds: number, offsetSeconds = 0, durationSeconds = Number.POSITIVE_INFINITY): void {
     this.started = { atSeconds, offsetSeconds, durationSeconds };
   }
 }
