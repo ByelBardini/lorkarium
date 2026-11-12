@@ -736,6 +736,20 @@
       "when": 1794447108799,
       "tag": "0104_user_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1794453691750,
+      "tag": "0105_campaign_image_purposes",
+      "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1794454279536,
+      "tag": "0106_campaign_photo_banner",
+      "breakpoints": true
     }
   ]
 }
