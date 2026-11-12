@@ -8,9 +8,10 @@ import { useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store'
 import { ChatAnnouncer } from './chat-announcer';
 import { ChatDockBar } from './chat-dock-bar';
 import { ChatDrawer } from './chat-drawer';
+import { ChatImportantNotices } from './chat-important-notices';
 import type { ChatPanelProps } from './chat-panel';
 import { ChatPreviewStack } from './chat-preview-stack';
-import { useChatNotices, type ChatNotices } from './use-chat-notices';
+import { useChatNotices, type ChatNoticeItem, type ChatNotices } from './use-chat-notices';
 import { useChatPeople, useOpenTableOf, type ChatPeople } from './use-chat-people';
 
 /** What the drawer's `ChatPanel` gets: the dock picks the conversation it opens on. */
@@ -25,8 +26,9 @@ export type ChatDockProps = ChatDockPanelProps &
   }>;
 
 /** The chat of the room at the foot of the board, for every role: a thin bar with the latest
- *  message, the unread counter and "Abrir chat", the previews of the new messages above it, and
- *  the translucent drawer with the whole `ChatPanel` over the grid when open (it focuses the
+ *  message, the unread counter and "Abrir chat", the previews of the new messages above it, the
+ *  gold notices of the mentions and whispers to the viewer on top (with the drawer open too),
+ *  and the translucent drawer with the whole `ChatPanel` over the grid when open (it focuses the
  *  composer as it mounts). With the chat in another window (`window` detached) the bar only
  *  offers to bring it back. Mount it inside the board's positioned box.
  *
@@ -52,8 +54,20 @@ function TableDock(props: TableDockProps): React.JSX.Element {
   const open = useRoomLayout(roomLayout, (state) => state.chat === 'open');
   const docked = panel.window?.kind !== 'detached';
   const parts: DockParts = { ...props, people, drawer };
+  const openNotice = (item: ChatNoticeItem): void => {
+    notices.dismiss(item.id);
+    drawer.openAt(item.key);
+  };
   return (
     <DockLane roomLayout={roomLayout}>
+      {docked && (
+        <ChatImportantNotices
+          importants={notices.importants}
+          people={people}
+          tabs={table.tabs}
+          onOpen={openNotice}
+        />
+      )}
       {docked && !open && (
         <ClosedNotices table={table} people={people} notices={notices} onOpen={drawer.openAt} />
       )}
@@ -98,10 +112,20 @@ type ClosedNoticesProps = Readonly<{
 function ClosedNotices({ table, people, notices, onOpen }: ClosedNoticesProps): React.JSX.Element {
   return (
     <>
-      <ChatPreviewStack previews={notices.previews} nameOf={people.nameOf} onOpen={onOpen} />
+      <ChatPreviewStack
+        previews={plainPreviewsOf(notices)}
+        nameOf={people.nameOf}
+        onOpen={onOpen}
+      />
       <ChatAnnouncer chat={table.chat} people={people} />
     </>
   );
+}
+
+// An important message is already a notice above: the same message twice would be noise.
+function plainPreviewsOf({ previews, importants }: ChatNotices): readonly ChatNoticeItem[] {
+  if (importants.length === 0) return previews;
+  return previews.filter((preview) => !importants.some((item) => item.id === preview.id));
 }
 
 type DockLaneProps = Readonly<{ roomLayout: StoreApi<RoomLayoutStore>; children: React.ReactNode }>;
