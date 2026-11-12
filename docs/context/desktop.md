@@ -107,7 +107,7 @@ site aberto → carga na origem do app falha (NavigationCompleted) → load_fail
 ## Segurança (IPC)
 
 - `capabilities/splash.json`: janela `main`, `local: true`, `core:event:allow-listen/unlisten`, `core:window:allow-minimize/toggle-maximize/close` (a barra da splash), `allow-begin-startup`, `allow-retry-connection`. As permissões dos comandos vêm do `AppManifest` no `build.rs` — comando novo precisa entrar lá **e** na capability.
-- **Capability remota do site** (`window_controls::install`, no setup, logo depois de criar a janela): `CapabilityBuilder` + `Manager::add_capability` (feature `dynamic-acl`, padrão do `tauri`) em tempo de execução, porque a origem só existe no build. Id `app-window-controls`, janela `main`, `local(false)`, `remote` = `remote_url_pattern(&AppOrigin)` (`https://lorkarium.app/*`; no dev `http://localhost:5173/*`). Libera exatamente `REMOTE_WINDOW_PERMISSIONS`: `core:window:allow-minimize`, `-toggle-maximize`, `-close`, `-is-maximized`, `core:event:allow-listen`, `-unlisten` (o `onResized` do client). Nunca `allow-destroy` (o X só esconde), `set-*` ou `start-dragging` (o arraste é CSS); os comandos do startup ficam fora do alcance do site.
+- **Capability remota do site** (`window_controls::install`, no setup, logo depois de criar a janela): `CapabilityBuilder` + `Manager::add_capability` (feature `dynamic-acl`, padrão do `tauri`) em tempo de execução, porque a origem só existe no build. Id `app-window-controls`, janela `main`, `local(false)`, `remote` = `remote_url_pattern(&AppOrigin)` (`https://lorkarium.app/*`; no dev `http://localhost:5173/*`). Libera exatamente `REMOTE_WINDOW_PERMISSIONS`: `core:window:allow-minimize`, `-toggle-maximize`, `-close`, `-is-maximized`, `-request-user-attention` ([`client/chat-atencao.md`](client/chat-atencao.md)), `core:event:allow-listen`, `-unlisten` (o `onResized` do client). Nunca `allow-destroy` (o X só esconde), `set-*` ou `start-dragging` (o arraste é CSS); os comandos do startup ficam fora do alcance do site.
 - **Controles de Chat e Dados**: capability `chat-window-controls` permite à `main` da origem do app `set_chat_always_on_top` e `control_detached_window`; ambos conferem emissor, rótulo `chat-<n>` e URL auxiliar na mesma origem. O segundo aceita somente fechar, minimizar, alternar maximização e consultar maximização. Não libera setters genéricos de janela. Detalhe em [`desktop/janela-do-chat.md`](desktop/janela-do-chat.md).
 - Qualquer outro `invoke` do site é recusado ("not allowed … allowed on: URL: local").
 
@@ -144,6 +144,8 @@ Um clique, janela escura, tela única (Instalar / Atualizar / Reinstalar / "Inst
 ## Armadilhas
 
 - **Download do updater sem prazo prende a splash**: o reqwest não tem prazo por padrão, e uma conexão parada (sem cair) deixava "Baixando atualização" para sempre — o player só saía reinstalando pelo site. Por isso o `read_timeout` (prazo por leitura, não total: rede lenta que segue recebendo nunca é cortada). O `configure_client` recebe o `reqwest::ClientBuilder` do plugin: subir o reqwest de um lado só quebra a compilação.
+
+- **Lorkarium instalado aberto barra o `pnpm desktop:dev`**: mesmo identificador, então o `single-instance` foca o instalado (até escondido na bandeja) e o dev sai com código 0 logo depois do `Running`. Encerrar o instalado (bandeja → Sair) antes.
 
 - **Escondido na bandeja o site continua vivo**: o Socket.IO segue ligado e a presença na mesa não cai (a aba do navegador minimizada faz o mesmo). Quem quiser sair da mesa usa o "Sair" da bandeja.
 

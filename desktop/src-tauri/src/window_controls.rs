@@ -8,11 +8,13 @@ const REMOTE_CAPABILITY: &str = "app-window-controls";
 
 /// What the site's own title bar may ask of the window. Dragging is CSS (`app-region: drag`), so no
 /// `start-dragging`; no `destroy` or `set-*`: the X still only hides the window into the tray.
-pub const REMOTE_WINDOW_PERMISSIONS: [&str; 6] = [
+pub const REMOTE_WINDOW_PERMISSIONS: [&str; 7] = [
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",
     "core:window:allow-close",
     "core:window:allow-is-maximized",
+    // Lights the taskbar button for a chat message the person cannot see (FlashWindowEx).
+    "core:window:allow-request-user-attention",
     "core:event:allow-listen",
     "core:event:allow-unlisten",
 ];
@@ -67,6 +69,7 @@ mod tests {
                 "core:window:allow-toggle-maximize",
                 "core:window:allow-close",
                 "core:window:allow-is-maximized",
+                "core:window:allow-request-user-attention",
                 "core:event:allow-listen",
                 "core:event:allow-unlisten",
             ]
