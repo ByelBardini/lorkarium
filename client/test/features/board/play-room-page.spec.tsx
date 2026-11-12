@@ -206,6 +206,36 @@ describe('play room page', () => {
     });
   });
 
+  describe('the chat shortcut', () => {
+    function composer(): HTMLElement {
+      const drawer = screen.getByRole('region', { name: 'Conversa' });
+      return within(drawer).getByRole('combobox', { name: 'Mensagem' });
+    }
+
+    it('T opens the chat drawer at the foot of the board with the composer focused', async () => {
+      await renderLiveRoom();
+      await userEvent.keyboard('t');
+      expect(composer()).toHaveFocus();
+      expect(composer()).toHaveValue('');
+    });
+
+    it('T typed in the composer is only the letter', async () => {
+      await renderLiveRoom();
+      await userEvent.keyboard('t');
+      await userEvent.keyboard('tf');
+      expect(composer()).toHaveValue('tf');
+      expect(roomHeader()).toBeInTheDocument();
+    });
+
+    it('T in focus mode opens the drawer and the room stays in focus mode', async () => {
+      await renderLiveRoom();
+      await userEvent.keyboard('f');
+      await userEvent.keyboard('t');
+      expect(composer()).toHaveFocus();
+      expect(screen.queryByRole('region', { name: 'Topo da sala' })).toBeNull();
+    });
+  });
+
   describe('states', () => {
     it('opens the live session and reads "Conectando à mesa…", then "Carregando o tabuleiro…"', async () => {
       renderRoom();
@@ -647,6 +677,13 @@ describe('play room page', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Painel' }));
       const sheet = await screen.findByRole('dialog', { name: 'Painel da mesa' });
       expect(within(sheet).getByRole('tab', { name: 'Combate' })).toBeInTheDocument();
+    });
+
+    it('T opens nothing (no chat bar on a phone) and leaves the chat closed', async () => {
+      await renderLiveRoom();
+      await userEvent.keyboard('t');
+      expect(screen.queryByRole('region', { name: 'Conversa' })).toBeNull();
+      expect(deps.roomLayout.getState().chat).toBe('closed');
     });
   });
 });

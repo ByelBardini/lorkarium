@@ -42,7 +42,8 @@ export class SourceFake extends AudioNodeFake implements DiceAudioSource {
   buffer: DiceAudioBuffer | null = null;
   started: { atSeconds: number; offsetSeconds: number; durationSeconds: number } | null = null;
 
-  start(atSeconds: number, offsetSeconds: number, durationSeconds: number): void {
+  // Optional like Web Audio's (from the start, to the end), so the chat's `start(at)` fits too.
+  start(atSeconds: number, offsetSeconds = 0, durationSeconds = Number.POSITIVE_INFINITY): void {
     this.started = { atSeconds, offsetSeconds, durationSeconds };
   }
 }
@@ -64,16 +65,25 @@ export class AudioContextFake implements DiceAudioContext {
   readonly sources: SourceFake[] = [];
   resumes = 0;
   private resumed: (() => void) | null = null;
+  private refused: ((reason: DOMException) => void) | null = null;
 
   resume(): Promise<void> {
     this.resumes += 1;
-    return new Promise((resolve) => (this.resumed = resolve));
+    return new Promise((resolve, reject) => {
+      this.resumed = resolve;
+      this.refused = reject;
+    });
   }
 
   /** Lets a pending `resume` finish, the context now running. */
   finishResume(): void {
     this.state = 'running';
     this.resumed?.();
+  }
+
+  /** Rejects a pending `resume`, as the browser does for a closed context. */
+  refuseResume(): void {
+    this.refused?.(new DOMException('the context is closed', 'InvalidStateError'));
   }
 
   close(): Promise<void> {

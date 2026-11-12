@@ -30,6 +30,11 @@ function conversation(name: RegExp): HTMLElement {
   });
 }
 
+// The square is hidden from the screen reader (the button's name carries the count).
+function stripCounterOf(name: RegExp): Element | null {
+  return conversation(name).querySelector('[data-important]');
+}
+
 describe('ChatPanel — feed and text', () => {
   let deps: TestDependencies;
   let user: UserEvent;
@@ -158,6 +163,19 @@ describe('ChatPanel — feed and text', () => {
     const other = within(feed()).getByText('@Caio, depois.').closest('li');
     expect(mention).toHaveTextContent('Menciona você');
     expect(other).not.toHaveTextContent('Menciona você');
+  });
+
+  it('an unread direct without a mention has a neutral counter in the strip', () => {
+    renderChatPanel(deps);
+    receiveChat(deps, chatSent({ channel: directBetween(ANA.id, BIA_AT_TABLE.userId) }));
+    expect(stripCounterOf(/^Bia/)).toHaveAttribute('data-important', 'false');
+  });
+
+  it('an unread direct calling the viewer by @ has a gold counter in the strip', () => {
+    renderChatPanel(deps);
+    const direct = directBetween(ANA.id, BIA_AT_TABLE.userId);
+    receiveChat(deps, chatSent({ channel: direct, text: '@Ana, vem cá.' }));
+    expect(stripCounterOf(/^Bia/)).toHaveAttribute('data-important', 'true');
   });
 
   it('opening a conversation with unread messages zeroes them and shows "Novas" before them', async () => {

@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { openAccount } from './support/account';
+import { chatDrawerOf, openChatDrawer } from './support/chat';
 import { BIA, CAIO } from './support/dev-players';
 import { test } from './support/player-pages';
 import { adminCredentials, signIn } from './support/sign-in';
@@ -83,9 +84,9 @@ test('detached dice rolls stay live alongside the chat window and return when cl
   const dice = await diceOpened;
   await expect(dice.getByLabel('Fórmula')).toBeVisible();
   await expect(dice).toHaveTitle('Dados · Lorkarium');
-  await bia.getByRole('tab', { name: 'Chat' }).click();
+  await openChatDrawer(bia);
   const chatOpened = bia.waitForEvent('popup');
-  await bia.getByRole('button', { name: 'Abrir em outra janela' }).click();
+  await chatDrawerOf(bia).getByRole('button', { name: 'Abrir em outra janela' }).click();
   const chat = await chatOpened;
   await expect(chat.getByRole('log')).toBeVisible();
   await expect(chat).toHaveTitle('Chat · Lorkarium');

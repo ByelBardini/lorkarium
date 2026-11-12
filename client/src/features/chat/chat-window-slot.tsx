@@ -27,29 +27,36 @@ export function DetachedChat({ bringBack }: Readonly<{ bringBack: () => void }>)
   );
 }
 
-/** "Abrir em outra janela", and the browser's refusal of it under the button.
+/** "Abrir em outra janela" as an icon of the chat's header line (its refusal is the panel's
+ *  `WindowNotice`).
  *
  *  Example: `<OpenWindowButton slot={{ kind: 'docked', open, notice: null }} />` */
 export function OpenWindowButton({
   slot,
 }: Readonly<{ slot: Extract<ChatWindowSlot, { kind: 'docked' }> }>): React.JSX.Element {
   return (
-    <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-      {slot.notice !== null && (
-        <p role="status" className="text-xs text-muted-foreground">
-          {slot.notice}
-        </p>
-      )}
-      <Button
-        variant="ghost"
-        size="sm"
-        aria-label="Abrir em outra janela"
-        onClick={slot.open}
-        className="text-muted-foreground"
-      >
-        <ExternalLinkIcon aria-hidden="true" />
-        Abrir em outra janela
-      </Button>
-    </div>
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label="Abrir em outra janela"
+      title="Abrir em outra janela"
+      onClick={slot.open}
+      className="text-muted-foreground"
+    >
+      <ExternalLinkIcon aria-hidden="true" />
+    </Button>
+  );
+}
+
+/** Why "Abrir em outra janela" did not open (the browser blocked it, the plan lacks it), under
+ *  the chat's header line; nothing without a notice.
+ *
+ *  Example: `<WindowNotice slot={{ kind: 'docked', open, notice: 'Disponível no Narrador' }} />` */
+export function WindowNotice({ slot }: Readonly<{ slot: ChatWindowSlot | null | undefined }>) {
+  if (slot?.kind !== 'docked' || slot.notice === null) return null;
+  return (
+    <p role="status" className="pt-1.5 text-xs text-muted-foreground">
+      {slot.notice}
+    </p>
   );
 }

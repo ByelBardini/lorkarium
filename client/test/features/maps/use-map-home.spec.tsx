@@ -23,7 +23,12 @@ const MAP_KEY = mapWorkspaceKey(VHARN.id);
 const MAIN_MAP = { ok: true, value: libraryMapSummary({ isMain: true }) } as const;
 const NO_MAIN_MAP = { ok: true, value: null } as const;
 
-describe('the home of the table', () => {
+// Each case mounts the whole app through the router (loader, room, chat dock, sound): on a loaded
+// CI runner one entry into the room took over 1 s and a re-entry over 5 s (PR #90), so the room
+// gets its own waits and the cases more than the default 5 s. The assertions stay the same.
+const ROOM_WAIT = { timeout: 5000 };
+
+describe('the home of the table', { timeout: 20_000 }, () => {
   let deps: TestDependencies;
 
   beforeEach(() => {
@@ -38,8 +43,8 @@ describe('the home of the table', () => {
   ): Promise<ReturnType<typeof createMemoryRouter>> {
     const router = createMemoryRouter(buildRoutes(routeDeps), { initialEntries: [TABLE_PATH] });
     render(<RouterProvider router={router} />);
-    await screen.findByRole('region', { name: 'Topo da sala' });
-    await waitFor(() => expect(mainReads()).toBeGreaterThan(0));
+    await screen.findByRole('region', { name: 'Topo da sala' }, ROOM_WAIT);
+    await waitFor(() => expect(mainReads()).toBeGreaterThan(0), ROOM_WAIT);
     await settle();
     return router;
   }
@@ -140,7 +145,7 @@ describe('the home of the table', () => {
     backToBoard();
     await act(() => router.navigate('/'));
     await act(() => router.navigate(TABLE_PATH));
-    await screen.findByRole('region', { name: 'Topo da sala' });
+    await screen.findByRole('region', { name: 'Topo da sala' }, ROOM_WAIT);
     await settle();
     expect(activeKey()).toBeNull();
   });
@@ -150,13 +155,19 @@ describe('the home of the table', () => {
     backToBoard();
     await userEvent.click(screen.getByRole('button', { name: 'Sair da mesa' }));
     await waitFor(() => expect(deps.openTables.getState().tables).toEqual([]));
+    // Back only once the room is gone, as a person would from the home: navigating while React has
+    // not unmounted it yet keeps the same room mounted, and the table it closed never reopens.
+    await waitFor(
+      () => expect(screen.queryByRole('region', { name: 'Topo da sala' })).toBeNull(),
+      ROOM_WAIT,
+    );
     expect(activeKey()).toBeNull();
     const readsBefore = mainReads();
     await act(() => router.navigate(TABLE_PATH));
     // The room mounts again before it reads the main map: wait for each step, not for both in 1 s.
-    await screen.findByRole('region', { name: 'Topo da sala' });
-    await waitFor(() => expect(mainReads()).toBeGreaterThan(readsBefore));
-    await waitFor(() => expect(activeKey()).toBe(MAP_KEY));
+    await screen.findByRole('region', { name: 'Topo da sala' }, ROOM_WAIT);
+    await waitFor(() => expect(mainReads()).toBeGreaterThan(readsBefore), ROOM_WAIT);
+    await waitFor(() => expect(activeKey()).toBe(MAP_KEY), ROOM_WAIT);
   });
 
   it('a table with no main map keeps a plain title and opens nothing', async () => {

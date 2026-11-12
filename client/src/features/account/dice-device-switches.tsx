@@ -1,35 +1,6 @@
-import { useId } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
-import { Switch } from '@/components/ui/switch';
 import { useDicePreferences, type DicePreferencesStore } from '@/stores/dice-preferences-store';
-import { SettingsRow } from './settings-row';
-
-type DeviceSwitchProps = Readonly<{
-  label: string;
-  hint: string;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-}>;
-
-function DeviceSwitch(props: DeviceSwitchProps): React.JSX.Element {
-  const id = useId();
-  return (
-    <SettingsRow
-      title={props.label}
-      titleFor={id}
-      description={props.hint}
-      descriptionId={`${id}-hint`}
-    >
-      <Switch
-        id={id}
-        checked={props.checked}
-        aria-describedby={`${id}-hint`}
-        onCheckedChange={props.onCheckedChange}
-        className="self-start"
-      />
-    </SettingsRow>
-  );
-}
+import { DeviceSwitch } from './device-switch';
 
 export type DiceDeviceSwitchesProps = Readonly<{
   dicePreferences: StoreApi<DicePreferencesStore>;

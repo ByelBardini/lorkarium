@@ -19,7 +19,7 @@ export type DiceRollNoticeProps = Readonly<{
   campaignId: string;
   openTables: StoreApi<OpenTablesStore>;
   presence: StoreApi<TablePresenceStore> | null;
-  /** Where the board is free: left of the open panel, above "Painel" on a phone. */
+  /** Where the board is free: left of the open panel, off the chat, above "Painel" on a phone. */
   roomLayout: StoreApi<RoomLayoutStore>;
   /** The wall clock the history's `revealAtMs` is on. */
   clock: InteractionClock;
@@ -70,7 +70,9 @@ type NoticePlaceProps = Readonly<{
 }>;
 
 // Centred on the free board: the panel covers the right 360px when open (not in focus mode), and
-// on a phone "Painel" sits at the bottom right.
+// on a phone "Painel" sits at the bottom right. Beside the board the chat owns the foot: its bar,
+// the previews and gold notices rising from it (up to six cards) and a drawer of up to 60% of the
+// board, so the notice lives at the top rather than cover any of them.
 function NoticePlace({ roomLayout, children }: NoticePlaceProps): React.JSX.Element {
   const desktop = useMediaQuery(DESKTOP_QUERY);
   const panelShown = useRoomLayout(roomLayout, (state) => state.panel === 'open' && !state.focus);
@@ -78,7 +80,7 @@ function NoticePlace({ roomLayout, children }: NoticePlaceProps): React.JSX.Elem
     <div
       className={cn(
         'pointer-events-none absolute left-0 flex justify-center px-4',
-        desktop ? 'bottom-6' : 'bottom-16',
+        desktop ? 'top-14' : 'bottom-16',
         desktop && panelShown ? 'right-90' : 'right-0',
       )}
     >

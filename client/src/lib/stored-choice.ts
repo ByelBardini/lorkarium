@@ -32,6 +32,40 @@ export function readStoredColor<Name extends string>(
   return palette.find((name) => name === stored) ?? fallback;
 }
 
+const SWITCH_CHOICES = ['on', 'off'] as const;
+
+/** A remembered on/off switch (`'on'`/`'off'`); on by default, and on for anything else stored.
+ *
+ *  Example: `readStoredSwitch(storage, 'lorkarium.chatSound')` */
+export function readStoredSwitch(storage: ChoiceStorage, key: string): boolean {
+  return readStoredChoice(storage, key, SWITCH_CHOICES, 'on') === 'on';
+}
+
+/** Remembers an on/off switch as `'on'`/`'off'`, read back by `readStoredSwitch`.
+ *
+ *  Example: `writeStoredSwitch(storage, 'lorkarium.chatSound', false)` */
+export function writeStoredSwitch(storage: ChoiceStorage, key: string, on: boolean): void {
+  writeStoredChoice(storage, key, on ? 'on' : 'off');
+}
+
+const DECIMAL_TEXT = /^-?\d+(\.\d+)?$/;
+
+/** A remembered number written as plain decimal text that `accepts` approves, or `fallback` for
+ *  anything else (`'12px'`, `'1e3'`, `'Infinity'`, a refused value, a storage that throws).
+ *
+ *  Example: `readStoredNumber(storage, 'lorkarium.roomChatHeight', (h) => h > 0, 330)` */
+export function readStoredNumber(
+  storage: ChoiceStorage,
+  key: string,
+  accepts: (value: number) => boolean,
+  fallback: number,
+): number {
+  const stored = storedTextOf(storage, key);
+  if (stored === null || !DECIMAL_TEXT.test(stored)) return fallback;
+  const value = Number(stored);
+  return accepts(value) ? value : fallback;
+}
+
 function storedTextOf(storage: ChoiceStorage, key: string): string | null {
   try {
     return storage.getItem(key);

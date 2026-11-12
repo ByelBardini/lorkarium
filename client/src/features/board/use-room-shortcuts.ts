@@ -31,8 +31,8 @@ const LAYER_OF: Partial<Record<BoardShortcut, TokenLayerDto>> = {
   'layer-background': 'background',
 };
 
-/** The room keys anywhere on the page (F, Esc, V, R, G, B, M and C but for a spectator, and P, L
- *  and 1 2 3 for the master), except while typing or in a dialog. Ctrl/⌘+C stays the copy.
+/** The room keys anywhere on the page (F, Esc, V, R, G, T, B, M and C but for a spectator, and P,
+ *  L and 1 2 3 for the master), except while typing or in a dialog. Ctrl/⌘+C stays the copy.
  *
  *  Example: `useRoomShortcuts({ roomLayout, interaction, role: campaign.myRole })` */
 export function useRoomShortcuts({
@@ -45,7 +45,10 @@ export function useRoomShortcuts({
     if (!enabled) return;
     const onKeyDown = (event: KeyboardEvent): void => {
       const shortcut = shortcutFor(event);
-      if (shortcut) runShortcut(shortcut, { roomLayout, interaction, role });
+      if (!shortcut) return;
+      // The composer takes the focus during this keydown: the T would be typed into it.
+      if (shortcut === 'open-chat') event.preventDefault();
+      runShortcut(shortcut, { roomLayout, interaction, role });
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -56,6 +59,7 @@ function runShortcut(shortcut: BoardShortcut, stores: RoomShortcutStores): void 
   const layout = stores.roomLayout.getState();
   const board = stores.interaction.getState();
   if (shortcut === 'toggle-focus') return layout.toggleFocus();
+  if (shortcut === 'open-chat') return layout.requestChatFocus();
   const tool = TOOL_OF[shortcut];
   if (tool) return void (toolsOf(stores.role).includes(tool) && board.setTool(tool));
   if (shortcut === 'toggle-grid') return board.toggleLocalGrid();
