@@ -156,6 +156,7 @@ function tableRoute({
   chatWindowHost,
   chatPreferences,
   createChatSound,
+  chatAttention,
   documentWorkspace,
   sheetsApi,
   libraryApi,
@@ -212,6 +213,7 @@ function tableRoute({
                       chatWindowHost={chatWindowHost}
                       chatPreferences={chatPreferences}
                       createChatSound={createChatSound}
+                      chatAttention={chatAttention}
                       documentWorkspace={documentWorkspace}
                       covered={covered}
                     />

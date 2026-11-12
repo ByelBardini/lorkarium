@@ -204,6 +204,27 @@ describe('ChatDock', () => {
       expect(screen.queryByRole('region', { name: 'Chat da mesa' })).toBeNull();
     });
 
+    // The drawer mounts 0 px tall (the board is measured after): a plain focus scrolled the room's
+    // clipped box up to reach the composer, leaving a dark strip under the board.
+    it('opening and closing the drawer focuses the composer without scrolling the room', async () => {
+      const focus = vi.spyOn(HTMLElement.prototype, 'focus');
+      renderDock();
+      for (let round = 0; round < 3; round += 1) {
+        await user.click(openButton());
+        await user.click(within(drawer()).getByRole('button', { name: 'Recolher chat' }));
+      }
+      const composerFocuses = focus.mock.contexts.flatMap((element, index) =>
+        element instanceof HTMLElement && element.getAttribute('role') === 'combobox'
+          ? [focus.mock.calls[index]?.[0]]
+          : [],
+      );
+      expect(composerFocuses).toEqual([
+        { preventScroll: true },
+        { preventScroll: true },
+        { preventScroll: true },
+      ]);
+    });
+
     // The handle row, the strip, the filter row and "Atalhos" stacked four lines over a feed of
     // three messages (2026-11-12): one line holds them all, the handle is the drawer's top edge.
     it('one header line holds the conversations, the filter, the tools and "Recolher chat"', async () => {
