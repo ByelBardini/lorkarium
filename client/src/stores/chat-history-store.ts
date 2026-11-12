@@ -5,6 +5,7 @@ import { createStore, type StoreApi } from 'zustand/vanilla';
 import {
   CHAT_HISTORY_LIMIT,
   EMPTY_TABLE_CONVERSATION,
+  callsViewer,
   conversationKeyOf,
   withConversation,
   withRead,
@@ -25,7 +26,13 @@ export type { ChatViewer } from '@/lib/chat-conversations';
 const CHAT_HISTORY_STORAGE_PREFIX = 'lorkarium.chat.';
 const SPEAK_AS_STORAGE_SUFFIX = '.speakAs';
 
-export type ChatMessageListener = (message: ChatMessage, key: ChatConversationKey) => void;
+/** `calls`: the message whispers to the viewer or names them by `@` (`callsViewer`), whoever
+ *  sent it and whatever conversation is on screen. */
+export type ChatMessageListener = (
+  message: ChatMessage,
+  key: ChatConversationKey,
+  calls: boolean,
+) => void;
 
 export type ChatHistoryState = Readonly<{
   campaignId: string;
@@ -53,8 +60,8 @@ export type ChatHistoryStore = ChatHistoryState &
     setSpeakAsTokenId: (tokenId: string | null) => void;
     /** Leaving the table: forgets every conversation and the storage key. */
     clear: () => void;
-    /** Hears each message as it enters (the announcer, the speech balloon), never the ones
-     *  read back from the storage. */
+    /** Hears each message as it enters (the announcer, the speech balloon, the notices), with
+     *  whether it calls the viewer; never the ones read back from the storage. */
     onNewMessage: (listener: ChatMessageListener) => Unsubscribe;
   }>;
 
@@ -116,8 +123,11 @@ export function createChatHistoryStore(deps: ChatHistoryDeps): StoreApi<ChatHist
     apply: (update, receivedAtMs) => {
       if (update.kind !== 'chatSent' || update.event.campaignId !== deps.campaignId) return;
       const message = { event: update.event, receivedAtMs };
-      const key = receive(deps, set, get, message);
-      if (key !== null) for (const listener of listeners) listener(message, key);
+      const viewer = deps.viewer();
+      const key = receive(deps, set, get, message, viewer);
+      if (key === null) return;
+      const calls = callsViewer(message.event, viewer);
+      for (const listener of listeners) listener(message, key, calls);
     },
     startConversation: (target) => {
       save(deps, set, withConversation(get().conversations, target));
@@ -160,8 +170,9 @@ function receive(
   set: SetChat,
   get: GetChat,
   message: ChatMessage,
+  viewer: ChatViewer | null,
 ): ChatConversationKey | null {
-  const context = { viewer: deps.viewer(), activeKey: get().activeKey };
+  const context = { viewer, activeKey: get().activeKey };
   const received = withReceived(get().conversations, message, context);
   if (received === null) return null;
   save(deps, set, received.conversations);

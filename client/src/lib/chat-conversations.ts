@@ -39,6 +39,9 @@ export type ChatConversation = Readonly<{
  *  names an `@` may call them by. */
 export type ChatViewer = Readonly<{ userId: string; names: readonly string[] }>;
 
+/** Every unread message of the chat, and whether one of them is important (gold). */
+export type ChatUnreadSummary = Readonly<{ count: number; important: boolean }>;
+
 /** What a received message needs to know about the screen. */
 export type ChatReceiveContext = Readonly<{
   viewer: ChatViewer | null;
@@ -163,9 +166,7 @@ export function stripOrderOf(
  *  or a whisper to the viewer), drawn in gold. A direct or a group alone stays neutral.
  *
  *  Example: `chatUnreadSummaryOf(conversations) // { count: 3, important: true }` */
-export function chatUnreadSummaryOf(
-  conversations: readonly ChatConversation[],
-): Readonly<{ count: number; important: boolean }> {
+export function chatUnreadSummaryOf(conversations: readonly ChatConversation[]): ChatUnreadSummary {
   const count = conversations.reduce((total, each) => total + each.unread, 0);
   return { count, important: conversations.some(isImportantConversation) };
 }
@@ -176,6 +177,16 @@ export function chatUnreadSummaryOf(
  *  Example: `isImportantConversation({ ...direct, unread: 2, mentioned: false }) // false` */
 export function isImportantConversation(conversation: ChatConversation): boolean {
   return conversation.mentioned;
+}
+
+/** Whether `event` calls the viewer: a whisper to them or an `@` of one of their names. The one
+ *  rule of "important" (the gold counter, the notice, the sound); `null` (unknown) is never called.
+ *
+ *  Example: `callsViewer(chatSent({ text: '@Bia cura?' }), { userId: bia, names: ['Bia'] }) // true` */
+export function callsViewer(event: ChatSentDto, viewer: ChatViewer | null): boolean {
+  if (viewer === null) return false;
+  const whisperedTo = event.channel.kind === 'table' ? event.channel.whisperTo : null;
+  return whisperedTo === viewer.userId || mentionsAny(event.text, viewer.names);
 }
 
 // A conversation with no message yet was just opened here: it goes before every other.
@@ -205,12 +216,6 @@ function withMessage(
   if (!fromOther || context.activeKey === conversation.key) return { ...conversation, messages };
   const mentioned = conversation.mentioned || callsViewer(message.event, viewer);
   return { ...conversation, messages, unread: conversation.unread + 1, mentioned };
-}
-
-function callsViewer(event: ChatSentDto, viewer: ChatViewer | null): boolean {
-  if (viewer === null) return false;
-  const whisperedTo = event.channel.kind === 'table' ? event.channel.whisperTo : null;
-  return whisperedTo === viewer.userId || mentionsAny(event.text, viewer.names);
 }
 
 function sameMembers(kept: readonly string[], arrived: readonly string[]): boolean {
