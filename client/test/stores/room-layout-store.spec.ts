@@ -5,6 +5,7 @@ import {
   ROOM_PANEL_STORAGE_KEY,
   createRoomLayoutStore,
   isRoomTab,
+  onChatFocusRequest,
 } from '@/stores/room-layout-store';
 import { StorageFake } from '../support/storage-fake';
 
@@ -166,6 +167,29 @@ describe('room layout store', () => {
       store.getState().openChat();
       expect(store.getState().panel).toBe('closed');
       expect(storage.values.get(ROOM_PANEL_STORAGE_KEY)).toBe('closed');
+    });
+
+    it('requestChatFocus counts each request from 0, without opening the drawer or storing it', () => {
+      const storage = new StorageFake();
+      const store = createRoomLayoutStore(storage);
+      expect(store.getState().chatFocusRequest).toBe(0);
+      store.getState().requestChatFocus();
+      store.getState().requestChatFocus();
+      expect(store.getState()).toMatchObject({ chatFocusRequest: 2, chat: 'closed' });
+      expect([...storage.values.keys()]).toEqual([]);
+    });
+
+    it('onChatFocusRequest hears each request but no other change, until it is stopped', () => {
+      const store = createRoomLayoutStore(new StorageFake());
+      let heard = 0;
+      const stop = onChatFocusRequest(store, () => void (heard += 1));
+      store.getState().openChat();
+      store.getState().toggleFocus();
+      store.getState().requestChatFocus();
+      store.getState().requestChatFocus();
+      stop();
+      store.getState().requestChatFocus();
+      expect(heard).toBe(2);
     });
   });
 

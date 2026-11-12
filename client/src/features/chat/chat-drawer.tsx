@@ -4,7 +4,11 @@ import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import { CHAT_DRAWER_MIN_HEIGHT, clampChatDrawerHeight } from '@/lib/chat-drawer-height';
 import { trackPointerDrag, type DragPoint } from '@/lib/pointer-drag';
-import { useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store';
+import {
+  onChatFocusRequest,
+  useRoomLayout,
+  type RoomLayoutStore,
+} from '@/stores/room-layout-store';
 import { ChatPanel, type ChatPanelProps } from './chat-panel';
 
 /** One arrow press on the handle grows or shrinks the drawer this many pixels. */
@@ -12,7 +16,8 @@ export const CHAT_DRAWER_STEP = 24;
 
 export type ChatDrawerProps = Readonly<{
   panel: ChatPanelProps;
-  /** The drawer height (`chatHeight`, fitted to the board as it is drawn). */
+  /** The drawer height (`chatHeight`, fitted to the board as it is drawn) and the requests for
+   *  the composer (T). */
   roomLayout: StoreApi<RoomLayoutStore>;
   /** "Recolher chat", or Esc with the focus inside. */
   onClose: () => void;
@@ -20,7 +25,8 @@ export type ChatDrawerProps = Readonly<{
 
 /** The open chat over the grid: a translucent box with the whole `ChatPanel`, a handle on top
  *  that sets its height (at least 180 px, at most 60% of the board: its parent is as tall as the
- *  board) and "Recolher chat". It focuses the composer as it mounts. Esc inside it closes it and
+ *  board) and "Recolher chat". It focuses the composer as it mounts and on each `requestChatFocus`
+ *  (T with the focus elsewhere). Esc inside it closes it and
  *  never reaches the room's shortcuts (on `window`); an Esc someone inside already took (the
  *  composer's suggestions, a menu, a dialog) closes only that.
  *
@@ -32,7 +38,7 @@ export function ChatDrawer({ panel, roomLayout, onClose }: ChatDrawerProps): Rea
   const height = clampChatDrawerHeight(stored, boardHeight);
   const fit = (wanted: number): void =>
     roomLayout.getState().setChatHeight(clampChatDrawerHeight(wanted, boardHeight));
-  useComposerFocusOnMount(ref);
+  useComposerFocus(ref, roomLayout);
   return (
     <section
       ref={ref}
@@ -62,10 +68,16 @@ function closeOnEscape(event: KeyboardEvent<HTMLElement>, onClose: () => void): 
   onClose();
 }
 
-function useComposerFocusOnMount(ref: React.RefObject<HTMLElement | null>): void {
+function useComposerFocus(
+  ref: React.RefObject<HTMLElement | null>,
+  roomLayout: StoreApi<RoomLayoutStore>,
+): void {
   useLayoutEffect(() => {
-    ref.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
-  }, [ref]);
+    const focusComposer = (): void =>
+      ref.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
+    focusComposer();
+    return onChatFocusRequest(roomLayout, focusComposer);
+  }, [ref, roomLayout]);
 }
 
 // The parent spans the board: it is what the 60% ceiling is measured against.

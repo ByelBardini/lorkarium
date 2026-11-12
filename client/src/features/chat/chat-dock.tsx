@@ -1,10 +1,14 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { TABLE_CONVERSATION_KEY, type ChatConversationKey } from '@/lib/chat-conversations';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import { cn } from '@/lib/utils';
 import type { OpenTable } from '@/stores/open-tables-store';
-import { useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store';
+import {
+  onChatFocusRequest,
+  useRoomLayout,
+  type RoomLayoutStore,
+} from '@/stores/room-layout-store';
 import { ChatAnnouncer } from './chat-announcer';
 import { ChatDockBar } from './chat-dock-bar';
 import { ChatDrawer } from './chat-drawer';
@@ -29,8 +33,9 @@ export type ChatDockProps = ChatDockPanelProps &
  *  message, the unread counter and "Abrir chat", the previews of the new messages above it, the
  *  gold notices of the mentions and whispers to the viewer on top (with the drawer open too),
  *  and the translucent drawer with the whole `ChatPanel` over the grid when open (it focuses the
- *  composer as it mounts). With the chat in another window (`window` detached) the bar only
- *  offers to bring it back. Mount it inside the board's positioned box.
+ *  composer as it mounts; `requestChatFocus`, the T, opens it). With the chat in another window
+ *  (`window` detached) the bar only offers to bring it back, and T does nothing. Mount it inside
+ *  the board's positioned box.
  *
  *  Example: `<ChatDock {...chatPanelProps} window={chatWindow.slot} roomLayout={roomLayout} clock={deps.interactionClock} />` */
 export function ChatDock({ roomLayout, clock, ...panel }: ChatDockProps): React.JSX.Element | null {
@@ -53,6 +58,7 @@ function TableDock(props: TableDockProps): React.JSX.Element {
   const drawer = useDrawerRequest(roomLayout);
   const open = useRoomLayout(roomLayout, (state) => state.chat === 'open');
   const docked = panel.window?.kind !== 'detached';
+  useOpenOnFocusRequest(roomLayout, docked);
   const parts: DockParts = { ...props, people, drawer };
   const openNotice = (item: ChatNoticeItem): void => {
     notices.dismiss(item.id);
@@ -74,6 +80,14 @@ function TableDock(props: TableDockProps): React.JSX.Element {
       {docked && open ? <OpenDrawer {...parts} /> : <ClosedBar {...parts} />}
     </DockLane>
   );
+}
+
+// Detached, the composer is in the other window: T leaves the drawer (and its stored state) alone.
+function useOpenOnFocusRequest(roomLayout: StoreApi<RoomLayoutStore>, docked: boolean): void {
+  useEffect(() => {
+    if (!docked) return;
+    return onChatFocusRequest(roomLayout, () => roomLayout.getState().openChat());
+  }, [roomLayout, docked]);
 }
 
 type DockParts = TableDockProps & Readonly<{ people: ChatPeople; drawer: DrawerRequest }>;
