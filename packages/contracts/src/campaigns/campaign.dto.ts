@@ -42,6 +42,8 @@ export const contentWarningsDto = z
  *  `session:campaignUpdated`. `ownerId` is the creator, the one fixed master (`masterName` is
  *  theirs); co-masters are other `master` members. `playersCreateTokens`/`playersDeleteTokens` are the table settings
  *  that open creating, editing and deleting their own tokens to players (game-core `token-rights`).
+ *  `photoAssetId`/`bannerAssetId` are the 1:1 photo and the 3:1 banner (`null` = the screen falls
+ *  back to the `cover`, which the client resolves).
  *  `limits` are the owner's effective ones (an admin owner gets `amigo_do_dono`'s): they hold for
  *  every member, and the client only anticipates them. */
 export const campaignInfoDto = z.strictObject({
@@ -55,6 +57,8 @@ export const campaignInfoDto = z.strictObject({
   masterName: z.string(),
   memberCount: z.number().int().positive(),
   cover: campaignCoverDto,
+  photoAssetId: z.uuid().nullable(),
+  bannerAssetId: z.uuid().nullable(),
   contentWarnings: contentWarningsDto,
   tags: campaignTagsDto,
   playersCreateTokens: z.boolean(),

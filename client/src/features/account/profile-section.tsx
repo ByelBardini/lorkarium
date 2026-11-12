@@ -1,179 +1,159 @@
 import { PROFILE_BIO_MAX_LENGTH, type ProfileDto } from '@lorkarium/contracts';
-import { useId, type FormEvent } from 'react';
+import { useId } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
-import { FormField } from '@/components/form-field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { UserHandle } from '@/components/user-handle';
-import { UnsavedChangesBar } from '@/components/unsaved-changes-bar';
-import {
-  unsavedChangesStateOf,
-  useSavedNotice,
-  type UnsavedChangesState,
-} from '@/lib/unsaved-changes';
 import type { ProfileApi } from '@/services/profile-api';
 import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
 import type { SessionStore } from '@/stores/session-store';
-import { accountFailureMessage } from './account-messages';
 import { AvatarField } from './avatar-field';
-import { DiceDeviceSwitches } from './dice-device-switches';
 import { DiceAppearanceField } from './dice-appearance-field';
-import { LeaveWithoutSavingDialog } from './leave-without-saving-dialog';
+import { DiceDeviceSwitches } from './dice-device-switches';
 import { ProfileColorField } from './profile-color-field';
+import { ProfileForm } from './profile-form';
 import { ProfilePreview } from './profile-preview';
 import { SectionHeading } from './section-heading';
-import { failureOf, useAccountFetcher, useOnSettled } from './use-account-fetcher';
-import { useProfileDraft, type ProfileDraft } from './use-profile-draft';
+import { SettingsLayout } from './settings-layout';
+import { SettingsRow } from './settings-row';
+import type { ProfileDraft } from './use-profile-draft';
+import type { ProfileEditor } from './use-profile-editor';
 
 export type ProfileSectionProps = Readonly<{
   profile: ProfileDto;
+  editor: ProfileEditor;
   profileApi: ProfileApi;
   sessionStore: StoreApi<SessionStore>;
   dicePreferences: StoreApi<DicePreferencesStore>;
 }>;
 
-/** "Perfil": photo, nickname, the read-only @, color, "Sobre você", "Seus dados" and "Dados 3D",
- *  with the preview beside from `lg`. Nickname, color, bio and the dice number color wait in a
- *  draft for the bar; leaving with edits asks first.
+/** "Perfil": photo, nickname, the read-only @, color, "Sobre você" and the dice ("Seus dados",
+ *  "Dados 3D", "Som dos dados"), one setting per row, with the preview held beside from `xl`.
+ *  Nickname, color, bio and the dice number color wait in the page's draft for the bar.
  *
- *  Example: `<ProfileSection profile={profile} profileApi={profileApi} sessionStore={sessionStore} dicePreferences={dicePreferences} />` */
+ *  Example: `<ProfileSection profile={profile} editor={editor} profileApi={profileApi} sessionStore={sessionStore} dicePreferences={dicePreferences} />` */
 export function ProfileSection(props: ProfileSectionProps): React.JSX.Element {
-  const { profile } = props;
-  const draft = useProfileDraft(profile);
-  const save = useProfileSave(draft);
+  const { profile, editor } = props;
   const titleId = useId();
   return (
-    <section aria-labelledby={titleId} className="flex flex-col gap-6 border-t border-divider pt-8">
+    <section aria-labelledby={titleId} className="flex flex-col gap-8">
       <SectionHeading id={titleId} title="Perfil">
         Isso aparece em todas as mesas. O nome do personagem você muda dentro de cada mesa.
       </SectionHeading>
-      <form
-        noValidate
-        aria-label="Perfil"
-        aria-busy={save.saving}
-        onSubmit={save.submit}
-        className="flex flex-col gap-6"
-      >
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="flex flex-col gap-6">
-            <AvatarField
-              profile={profile}
-              profileApi={props.profileApi}
-              sessionStore={props.sessionStore}
+      <ProfileForm label="Perfil" editor={editor}>
+        <SettingsLayout
+          aside={
+            <ProfilePreview
+              {...editor.draft.values}
+              username={profile.username}
+              avatarId={profile.avatarId}
+              memberSince={profile.memberSince}
+              seal={profile}
             />
-            <ProfileFields draft={draft} profile={profile} />
-            <DiceAppearanceField
-              profile={profile}
-              draft={draft}
-              profileApi={props.profileApi}
-              sessionStore={props.sessionStore}
-            />
-            <DiceDeviceSwitches dicePreferences={props.dicePreferences} />
-          </div>
-          <ProfilePreview
-            {...draft.values}
-            username={profile.username}
-            avatarId={profile.avatarId}
-            memberSince={profile.memberSince}
-            seal={profile}
-          />
-        </div>
-        {save.barState && (
-          <UnsavedChangesBar
-            label="Alterações do perfil"
-            className="-mx-4 sm:-mx-8 sm:px-8 lg:-mx-12 lg:px-12"
-            state={save.barState}
-            invalid={draft.update === null}
-            failureMessage={save.failureMessage}
-            onDiscard={draft.discard}
-          />
-        )}
-      </form>
-      <LeaveWithoutSavingDialog dirty={draft.dirty} />
+          }
+        >
+          <ProfileRows {...props} />
+        </SettingsLayout>
+      </ProfileForm>
     </section>
   );
 }
 
-type ProfileSave = Readonly<{
-  saving: boolean;
-  barState: UnsavedChangesState | null;
-  failureMessage: string | null;
-  submit: (event: FormEvent<HTMLFormElement>) => void;
-}>;
-
-function useProfileSave(draft: ProfileDraft): ProfileSave {
-  const fetcher = useAccountFetcher();
-  const notice = useSavedNotice();
-  const failure = failureOf(fetcher.settled);
-  useOnSettled(fetcher.settled, (result) => {
-    if (!('done' in result)) return;
-    draft.discard();
-    notice.showSaved();
-  });
-  const submit = (event: FormEvent<HTMLFormElement>): void => {
-    event.preventDefault();
-    if (draft.update) fetcher.send({ intent: 'profile-update', input: draft.update });
-  };
-  return {
-    saving: fetcher.busy,
-    barState: unsavedChangesStateOf({
-      saving: fetcher.busy,
-      dirty: draft.dirty,
-      justSaved: notice.justSaved,
-    }),
-    failureMessage: failure && draft.dirty ? accountFailureMessage(failure) : null,
-    submit,
-  };
-}
-
-function ProfileFields({ draft, profile }: Readonly<{ draft: ProfileDraft; profile: ProfileDto }>) {
-  const ids = { name: useId(), bio: useId() };
-  const { values, errors } = draft;
+function ProfileRows(props: ProfileSectionProps): React.JSX.Element {
+  const { profile } = props;
+  const { draft } = props.editor;
+  const images = { profileApi: props.profileApi, sessionStore: props.sessionStore };
   return (
     <>
-      <FormField
-        id={ids.name}
-        label="Apelido"
-        error={errors.name}
-        hint="Aparece para todo mundo nas mesas."
-      >
-        <Input
-          id={ids.name}
-          value={values.name}
-          autoComplete="nickname"
-          onChange={(event) => draft.change({ name: event.target.value })}
-          aria-invalid={errors.name !== undefined}
-          aria-describedby={errors.name ? `${ids.name}-error` : undefined}
-        />
-      </FormField>
-      <UsernameLine profile={profile} />
-      <ProfileColorField value={values.color} onChange={(color) => draft.change({ color })} />
-      <FormField
-        id={ids.bio}
-        label="Sobre você"
-        error={errors.bio}
-        hint={`${values.bio.length}/${PROFILE_BIO_MAX_LENGTH} · aparece no seu cartão na mesa.`}
-      >
-        <Textarea
-          id={ids.bio}
-          value={values.bio}
-          onChange={(event) => draft.change({ bio: event.target.value })}
-          aria-invalid={errors.bio !== undefined}
-          aria-describedby={errors.bio ? `${ids.bio}-error` : undefined}
-        />
-      </FormField>
+      <AvatarField profile={profile} {...images} />
+      <NicknameRow draft={draft} />
+      <UsernameRow profile={profile} />
+      <ColorRow draft={draft} />
+      <BioRow draft={draft} />
+      <DiceAppearanceField profile={profile} draft={draft} {...images} />
+      <DiceDeviceSwitches dicePreferences={props.dicePreferences} />
     </>
   );
 }
 
-function UsernameLine({ profile }: Readonly<{ profile: ProfileDto }>): React.JSX.Element {
+type DraftRowProps = Readonly<{ draft: ProfileDraft }>;
+
+function NicknameRow({ draft }: DraftRowProps): React.JSX.Element {
+  const id = useId();
+  const error = draft.errors.name;
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-[13px] font-medium text-label">Nome de usuário</span>
-      <p className="text-[15px] text-foreground">
+    <SettingsRow title="Apelido" titleFor={id} description="Aparece para todo mundo nas mesas.">
+      <Input
+        id={id}
+        value={draft.values.name}
+        autoComplete="nickname"
+        onChange={(event) => draft.change({ name: event.target.value })}
+        aria-invalid={error !== undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
+      />
+      <FieldError id={`${id}-error`} error={error} />
+    </SettingsRow>
+  );
+}
+
+function UsernameRow({ profile }: Readonly<{ profile: ProfileDto }>): React.JSX.Element {
+  return (
+    <SettingsRow title="Nome de usuário" description="É fixo: ele te identifica em todas as mesas.">
+      <p className="flex h-12 items-center border border-divider px-4 text-[15px] text-label">
         <UserHandle username={profile.username} seal={profile} />
       </p>
-      <p className="text-[13px] text-placeholder">É fixo: ele te identifica em todas as mesas.</p>
-    </div>
+    </SettingsRow>
+  );
+}
+
+function ColorRow({ draft }: DraftRowProps): React.JSX.Element {
+  const ids = { title: useId(), hint: useId() };
+  return (
+    <SettingsRow
+      title="Sua cor no mapa"
+      titleId={ids.title}
+      descriptionId={ids.hint}
+      description="Pinta seu ping no mapa e suas iniciais. Sem escolha, vale a cor que o Lorkarium sorteou."
+    >
+      <ProfileColorField
+        value={draft.values.color}
+        onChange={(color) => draft.change({ color })}
+        labelledBy={ids.title}
+        describedBy={ids.hint}
+      />
+    </SettingsRow>
+  );
+}
+
+function BioRow({ draft }: DraftRowProps): React.JSX.Element {
+  const id = useId();
+  const error = draft.errors.bio;
+  const length = draft.values.bio.length;
+  return (
+    <SettingsRow title="Sobre você" titleFor={id} description="Aparece no seu cartão na mesa.">
+      <Textarea
+        id={id}
+        rows={5}
+        value={draft.values.bio}
+        onChange={(event) => draft.change({ bio: event.target.value })}
+        aria-invalid={error !== undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
+      />
+      <div className="flex justify-between gap-4">
+        <FieldError id={`${id}-error`} error={error} />
+        <p className="ml-auto text-sm text-placeholder tabular-nums">
+          {length}/{PROFILE_BIO_MAX_LENGTH}
+        </p>
+      </div>
+    </SettingsRow>
+  );
+}
+
+function FieldError({ id, error }: Readonly<{ id: string; error: string | undefined }>) {
+  if (!error) return null;
+  return (
+    <p id={id} className="text-sm text-destructive-text">
+      {error}
+    </p>
   );
 }

@@ -20,7 +20,9 @@ describe('security section (/account)', () => {
   async function openAccount(): Promise<void> {
     render(
       <RouterProvider
-        router={createMemoryRouter(buildRoutes(deps), { initialEntries: ['/account'] })}
+        router={createMemoryRouter(buildRoutes(deps), {
+          initialEntries: ['/account?aba=seguranca'],
+        })}
       />,
     );
     await screen.findByRole('heading', { name: 'Conta e segurança' });
@@ -30,12 +32,43 @@ describe('security section (/account)', () => {
     return screen.getByRole('region', { name: 'Conta e segurança' });
   }
 
+  function passwordRow(): HTMLElement {
+    return screen.getByRole('group', { name: 'Senha' });
+  }
+
   function statusLine(): HTMLElement {
     const lines = within(section()).getAllByRole('status');
     const line = lines[0];
     if (!line) throw new Error('the security section has no status line');
     return line;
   }
+
+  describe('proteção da conta', () => {
+    function overview(): HTMLElement {
+      return screen.getByRole('complementary', { name: 'Proteção da conta' });
+    }
+
+    it('with 2FA off it reads "Proteção básica" with the password and the devices', async () => {
+      await openAccount();
+      expect(within(overview()).getByText('Proteção básica')).toBeVisible();
+      expect(within(overview()).getByText('Verificação em duas etapas desligada')).toBeVisible();
+      expect(within(overview()).getByText('Ainda é a senha da criação da conta.')).toBeVisible();
+      const devices = deps.accountSecurityApi.currentSessions.length;
+      expect(within(overview()).getByText(`${devices} aparelhos conectados`)).toBeVisible();
+    });
+
+    it('with 2FA on and an e-mail change waiting it reads "Conta protegida" and says so', async () => {
+      deps.accountSecurityApi.currentSecurity = {
+        ...ANA_SECURITY,
+        pendingEmail: 'b*****@x.com',
+        twoFactor: { enabled: true, recoveryCodesLeft: 10 },
+      };
+      await openAccount();
+      expect(within(overview()).getByText('Conta protegida')).toBeVisible();
+      expect(within(overview()).getByText('Verificação em duas etapas ligada')).toBeVisible();
+      expect(within(overview()).getByText('Troca de e-mail esperando confirmação')).toBeVisible();
+    });
+  });
 
   describe('e-mail', () => {
     it('shows the current address', async () => {
@@ -138,7 +171,7 @@ describe('security section (/account)', () => {
     it('a password never changed reads so', async () => {
       await openAccount();
       expect(
-        within(section()).getByText('Ainda é a senha da criação da conta.'),
+        within(passwordRow()).getByText('Ainda é a senha da criação da conta.'),
       ).toBeInTheDocument();
     });
 
@@ -146,7 +179,7 @@ describe('security section (/account)', () => {
       const changedAt = new Date(Date.parse('2026-10-14T20:00:00') - 95 * DAY_MS).toISOString();
       deps.accountSecurityApi.currentSecurity = { ...ANA_SECURITY, passwordChangedAt: changedAt };
       await openAccount();
-      expect(within(section()).getByText('Trocada há 3 meses')).toBeInTheDocument();
+      expect(within(passwordRow()).getByText('Trocada há 3 meses')).toBeInTheDocument();
     });
 
     it('a new password of 7 characters is refused by the rule of the DTO', async () => {
@@ -192,7 +225,7 @@ describe('security section (/account)', () => {
         ),
       );
       expect(screen.queryByRole('dialog', { name: 'Trocar senha' })).not.toBeInTheDocument();
-      expect(within(section()).getByText('Trocada agora')).toBeInTheDocument();
+      expect(within(passwordRow()).getByText('Trocada agora')).toBeInTheDocument();
       expect(deps.accountSecurityApi.answers.callsOf('changePassword')).toEqual([
         { currentPassword: 'velha', newPassword: 'senha-nova-1' },
       ]);

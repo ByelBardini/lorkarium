@@ -130,27 +130,55 @@ describe('CampaignSettingsBo.passwordChange', () => {
   });
 });
 
-describe('CampaignSettingsBo.requireCoverImage', () => {
-  it('a cover asset of this table passes', () => {
+describe('CampaignSettingsBo.requireCampaignImage', () => {
+  it.each([
+    ['photo', 'campaign_photo'],
+    ['cover', 'cover'],
+    ['banner', 'campaign_banner'],
+  ] as const)('a %s from a %s asset of this table passes', (slot, purpose) => {
     const check = () =>
-      settingsOf('master').requireCoverImage({ assetId: COVER_ID, purpose: 'cover' });
+      settingsOf('master').requireCampaignImage(slot, { assetId: COVER_ID, purpose });
     expect(check).not.toThrow();
   });
 
-  it('an asset of this table sent for a token is refused with INVALID_BODY citing its purpose', () => {
+  it('a cover asset used as the banner is refused citing the asset, the slot and the purpose expected', () => {
     const check = () =>
-      settingsOf('master').requireCoverImage({ assetId: COVER_ID, purpose: 'token' });
+      settingsOf('master').requireCampaignImage('banner', { assetId: COVER_ID, purpose: 'cover' });
     expect(check).toThrow(
       expect.objectContaining({
         code: 'INVALID_BODY',
-        message: expect.stringMatching(new RegExp(`${COVER_ID}.*${VHARN_ID}.*purpose token`)),
+        message: expect.stringMatching(
+          new RegExp(
+            `banner asset ${COVER_ID} of campaign ${VHARN_ID}.*purpose cover.*expected campaign_banner`,
+          ),
+        ),
       }),
     );
   });
 
+  it('a campaign photo used as the cover is refused with INVALID_BODY', () => {
+    const check = () =>
+      settingsOf('master').requireCampaignImage('cover', {
+        assetId: COVER_ID,
+        purpose: 'campaign_photo',
+      });
+    expect(check).toThrow(
+      expect.objectContaining({
+        code: 'INVALID_BODY',
+        message: expect.stringContaining('expected cover'),
+      }),
+    );
+  });
+
+  it('an asset of this table sent for a token is refused as the photo', () => {
+    const check = () =>
+      settingsOf('master').requireCampaignImage('photo', { assetId: COVER_ID, purpose: 'token' });
+    expect(check).toThrow(expect.objectContaining({ code: 'INVALID_BODY' }));
+  });
+
   it('an asset that is not of this table is refused with INVALID_BODY', () => {
     const check = () =>
-      settingsOf('master').requireCoverImage({ assetId: COVER_ID, purpose: null });
+      settingsOf('master').requireCampaignImage('photo', { assetId: COVER_ID, purpose: null });
     expect(check).toThrow(
       expect.objectContaining({
         code: 'INVALID_BODY',

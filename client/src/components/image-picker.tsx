@@ -2,8 +2,9 @@ import type { AssetDto, AssetPurposeDto } from '@lorkarium/contracts';
 import { useEffect, useId } from 'react';
 import { animatesImage, imageOfClipboard } from '@/lib/image-file';
 import { assetUrlOf, type AssetsApi } from '@/services/assets-api';
+import { ImageCropDialog, type CropAreaComponent } from './image-crop/image-crop-dialog';
 import { ImageSourceButtons } from './image-source-buttons';
-import { useImageSender } from './use-image-sender';
+import { useImageSender, type CroppingImageSender } from './use-image-sender';
 
 export type ImagePickerProps = Readonly<{
   campaignId: string;
@@ -18,10 +19,13 @@ export type ImagePickerProps = Readonly<{
   removeLabel?: string;
   disabled?: boolean;
   onBusyChange?: (busy: boolean) => void;
+  /** The drag-and-zoom area of the crop dialog (photo, cover, banner); a spec passes a fake. */
+  cropArea?: CropAreaComponent;
 }>;
 
 /** One place to choose an image: the area takes a dropped or pasted (Ctrl+V) file and shows the
- *  chosen one; under it, "Escolher imagem", the bin and the link button.
+ *  chosen one; under it, "Escolher imagem", the bin and the link button. For the campaign photo,
+ *  cover and banner a file opens the crop dialog first, and goes only on "Enviar".
  *
  *  Example: `<ImagePicker campaignId={id} purpose="token" assets={assets} value={imageAssetId} onChange={setImage} label="Imagem" />` */
 export function ImagePicker(props: ImagePickerProps): React.JSX.Element {
@@ -66,6 +70,22 @@ export function ImagePicker(props: ImagePickerProps): React.JSX.Element {
         removeLabel={props.removeLabel}
         onRemove={() => onChange(null)}
       />
+      <ImageCropStep sender={sender} cropArea={props.cropArea} />
     </fieldset>
+  );
+}
+
+type ImageCropStepProps = Readonly<{ sender: CroppingImageSender; cropArea?: CropAreaComponent }>;
+
+function ImageCropStep({ sender, cropArea }: ImageCropStepProps): React.JSX.Element | null {
+  if (!sender.cropping) return null;
+  return (
+    <ImageCropDialog
+      file={sender.cropping.file}
+      purpose={sender.cropping.purpose}
+      onConfirm={sender.confirmCrop}
+      onCancel={sender.cancelCrop}
+      CropArea={cropArea}
+    />
   );
 }

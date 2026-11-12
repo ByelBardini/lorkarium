@@ -49,6 +49,8 @@ export function campaignPo(overrides: Partial<CampaignPo> = {}): CampaignPo {
     coverDrawing: null,
     coverTone: null,
     coverAssetId: null,
+    photoAssetId: null,
+    bannerAssetId: null,
     contentWarnings: [],
     tags: [],
     playersCreateTokens: false,

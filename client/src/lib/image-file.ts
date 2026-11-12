@@ -1,4 +1,10 @@
-import { ASSET_MAX_BYTES, ASSET_MIME_TYPES, type AssetPurposeDto } from '@lorkarium/contracts';
+import {
+  ASSET_FRAME,
+  ASSET_MAX_BYTES,
+  ASSET_MIME_TYPES,
+  type AssetPurposeDto,
+  type FramedAssetPurposeDto,
+} from '@lorkarium/contracts';
 
 // Only the aura keeps a GIF animated; every other place stores a still image (the server refuses
 // GIF outside the purpose `aura`), so the picker refuses it before sending.
@@ -17,6 +23,14 @@ export type ImageFileOptions = Readonly<{ animated?: boolean }>;
  *  Example: `animatesImage('aura') // true` */
 export function animatesImage(purpose: AssetPurposeDto): boolean {
   return purpose === 'aura';
+}
+
+/** Whether the server keeps a purpose in a fixed aspect (the three campaign images), so a chosen
+ *  file is framed before it goes.
+ *
+ *  Example: `isFramedPurpose('campaign_banner') // true` */
+export function isFramedPurpose(purpose: AssetPurposeDto): purpose is FramedAssetPurposeDto {
+  return Object.hasOwn(ASSET_FRAME, purpose);
 }
 
 /** The `accept` of the file input: the types the server keeps for that place.

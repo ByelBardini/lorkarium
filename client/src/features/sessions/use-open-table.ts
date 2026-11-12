@@ -28,7 +28,7 @@ export type OpenTableView =
  *
  *  Example: `const view = useOpenTable(campaign, deps.openTables)` */
 export function useOpenTable(
-  campaign: Pick<CampaignDetailDto, 'id' | 'name' | 'cover'>,
+  campaign: Pick<CampaignDetailDto, 'id' | 'name' | 'cover' | 'photoAssetId'>,
   openTables: StoreApi<OpenTablesStore>,
 ): OpenTableView {
   // Until the effect opens it, the room reads these: connecting, nobody listed, board loading.
@@ -45,9 +45,10 @@ export function useOpenTable(
   );
   // Reruns only when a slot frees up, so closing this very table does not reopen it.
   const { id: campaignId, name, cover } = campaign;
+  const photoAssetId = campaign.photoAssetId ?? null;
   useEffect(() => {
-    if (!isFull) openTables.getState().open({ campaignId, name, cover });
-  }, [campaignId, name, cover, isFull, openTables]);
+    if (!isFull) openTables.getState().open({ campaignId, name, cover, photoAssetId });
+  }, [campaignId, name, cover, photoAssetId, isFull, openTables]);
   // The same view while the table stands: the room's memo and the keys' listener hang on it.
   return useMemo(() => tableViewOf(isFull, table, pending), [isFull, table, pending]);
 }

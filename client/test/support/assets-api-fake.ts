@@ -1,5 +1,10 @@
 import type { AssetDto, AssetPurposeDto } from '@lorkarium/contracts';
-import type { AssetOutlineResult, AssetsResult, RoomAssetsApi } from '@/services/assets-api';
+import type {
+  AssetOutlineResult,
+  AssetsResult,
+  ImageCropRect,
+  RoomAssetsApi,
+} from '@/services/assets-api';
 import { AssetOutlineApiFake } from './asset-outline-api-fake';
 
 export const LYRA_PORTRAIT: AssetDto = {
@@ -17,10 +22,17 @@ export const VHARN_MAP: AssetDto = {
 };
 
 export type SentAsset =
-  | Readonly<{ kind: 'upload'; campaignId: string; file: Blob; purpose: AssetPurposeDto }>
+  | Readonly<{
+      kind: 'upload';
+      campaignId: string;
+      file: Blob;
+      purpose: AssetPurposeDto;
+      crop?: ImageCropRect;
+    }>
   | Readonly<{ kind: 'link'; campaignId: string; url: string; purpose: AssetPurposeDto }>;
 
-/** The assets API as the test plays the server: `sent` keeps every upload and link, `answerWith`
+/** The assets API as the test plays the server: `sent` keeps every upload (with its `crop` only
+ *  when one was given) and link, `answerWith`
  *  sets the next answer (Lyra's portrait by default) and `hold()` keeps the next one pending
  *  until `release()`; `outlines` plays the silhouettes of the images.
  *
@@ -45,8 +57,14 @@ export class AssetsApiFake implements RoomAssetsApi {
     this.held = null;
   }
 
-  upload(campaignId: string, file: Blob, purpose: AssetPurposeDto): Promise<AssetsResult> {
-    return this.record({ kind: 'upload', campaignId, file, purpose });
+  upload(
+    campaignId: string,
+    file: Blob,
+    purpose: AssetPurposeDto,
+    crop?: ImageCropRect,
+  ): Promise<AssetsResult> {
+    const sent = { kind: 'upload', campaignId, file, purpose } as const;
+    return this.record(crop ? { ...sent, crop } : sent);
   }
 
   importLink(campaignId: string, url: string, purpose: AssetPurposeDto): Promise<AssetsResult> {

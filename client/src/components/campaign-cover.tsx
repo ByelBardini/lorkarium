@@ -1,4 +1,9 @@
-import type { CampaignCoverDto, DrawnCampaignCoverDto } from '@lorkarium/contracts';
+import type { DrawnCampaignCoverDto } from '@lorkarium/contracts';
+import {
+  campaignImageOf,
+  type CampaignImageFormat,
+  type CampaignImages,
+} from '@/lib/campaign-cover';
 import { cn } from '@/lib/utils';
 import { assetUrlOf } from '@/services/assets-api';
 
@@ -45,16 +50,31 @@ const GRID_STYLE: React.CSSProperties = {
   backgroundSize: '20px 20px',
 };
 
-export type CampaignCoverProps = Readonly<{ cover: CampaignCoverDto; className?: string }>;
+const FORMAT_ASPECT_CLASS: Readonly<Record<CampaignImageFormat, string>> = {
+  photo: 'aspect-square',
+  cover: 'aspect-[2/1]',
+  banner: 'aspect-[3/1]',
+};
 
-/** Decorative cover of a campaign, hidden from assistive tech: the image the master sent, or one
- *  of the drawings in one of the `chart-1..4` tones or a custom color.
+/** `format` picks the image (`campaignImageOf`) and, when given, the proportion class; without
+ *  it the cover is drawn in the size the screen's `className` sets. */
+export type CampaignCoverProps = CampaignImages &
+  Readonly<{ format?: CampaignImageFormat; className?: string }>;
+
+/** Decorative image of a campaign in a format, hidden from assistive tech: the image the master
+ *  sent, or one of the drawings in one of the `chart-1..4` tones or a custom color.
  *
- *  Example: `<CampaignCover cover={campaign.cover} className="size-16" />` */
-export function CampaignCover({ cover, className }: CampaignCoverProps): React.JSX.Element {
+ *  Example: `<CampaignCover {...campaign} format="photo" className="size-16" />` */
+export function CampaignCover({
+  format,
+  className,
+  ...images
+}: CampaignCoverProps): React.JSX.Element {
+  const cover = campaignImageOf(images, format ?? 'cover');
+  const sized = cn(format && FORMAT_ASPECT_CLASS[format], className);
   if (cover.kind === 'image') {
     return (
-      <div aria-hidden="true" className={cn('relative overflow-hidden bg-panel', className)}>
+      <div aria-hidden="true" className={cn('relative overflow-hidden bg-panel', sized)}>
         <img
           src={assetUrlOf(cover.assetId)}
           alt=""
@@ -63,7 +83,7 @@ export function CampaignCover({ cover, className }: CampaignCoverProps): React.J
       </div>
     );
   }
-  return <DrawnCover cover={cover} className={className} />;
+  return <DrawnCover cover={cover} className={sized} />;
 }
 
 type DrawnCoverProps = Readonly<{ cover: DrawnCampaignCoverDto; className?: string }>;

@@ -28,20 +28,30 @@ export type NormalizeOutcome =
  *  animation at most `maxDecodedPixels` (the side shrinks to fit it, the frames never drop). */
 export type AnimationBudget = Readonly<{ maxFrames: number; maxDecodedPixels: number }>;
 
-/** How the image is kept: no side above `maxSide`; `square` cuts the centre square out of it;
- *  `animation` lets a GIF in and keeps it animated within the budget (absent: GIF is refused);
- *  `outline` also traces the silhouette of what was kept; `opaqueAsWebp` re-encodes a still image
- *  with no transparent pixel as WebP (a transparent one keeps its format). */
+/** The shape a frame is cut to, as width : height (`{ width: 3, height: 1 }` is a 3:1 banner). */
+export type ImageAspect = Readonly<{ width: number; height: number }>;
+
+/** The rectangle the sender picked, in percent (0..100) of the upright image. */
+export type ImageCrop = Readonly<{ x: number; y: number; w: number; h: number }>;
+
+/** A cut to a fixed `aspect`: the largest box of it centred in `crop`, or in the whole image when
+ *  `crop` is `null`. */
+export type ImageFrame = Readonly<{ aspect: ImageAspect; crop: ImageCrop | null }>;
+
+/** How the image is kept: no side above `maxSide`; `frame` cuts it to an aspect first (a still
+ *  image only); `animation` lets a GIF in and keeps it animated within the budget (absent: GIF is
+ *  refused); `outline` also traces the silhouette of what was kept; `opaqueAsWebp` re-encodes a
+ *  still image with no transparent pixel as WebP (a transparent one keeps its format). */
 export type NormalizeOptions = Readonly<{
   maxSide: number;
-  square?: boolean;
+  frame?: ImageFrame;
   animation?: AnimationBudget;
   outline?: boolean;
   opaqueAsWebp?: boolean;
 }>;
 
 /** Proves the bytes are a PNG, JPEG, WebP or GIF (kept animated only when `animation` is given) and rewrites
- *  them no larger than `maxSide` (§8.5), cut to a centred square when `square`; anything else
+ *  them no larger than `maxSide` (§8.5), cut to its `frame` first when given; anything else
  *  comes back as a refusal, never thrown. */
 export interface ImageProcessorPort {
   normalize(bytes: Uint8Array, options: NormalizeOptions): Promise<NormalizeOutcome>;

@@ -53,6 +53,13 @@ export const campaigns = pgTable(
     coverAssetId: uuid('cover_asset_id').references((): AnyPgColumn => assets.id, {
       onDelete: 'set null',
     }),
+    // The 1:1 photo and the 3:1 banner; null (or a deleted asset) = the screens fall back to the cover.
+    photoAssetId: uuid('photo_asset_id').references((): AnyPgColumn => assets.id, {
+      onDelete: 'set null',
+    }),
+    bannerAssetId: uuid('banner_asset_id').references((): AnyPgColumn => assets.id, {
+      onDelete: 'set null',
+    }),
     // Only the values of the contract's `contentWarningDto`; the mapper reads them back through it.
     contentWarnings: text('content_warnings').array().notNull().default([]),
     tags: text('tags').array().notNull().default([]),

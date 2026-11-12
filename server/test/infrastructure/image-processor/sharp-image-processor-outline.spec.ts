@@ -160,7 +160,11 @@ describe('SharpImageProcessor.normalize with the outline asked', () => {
 
   it('the outline follows the kept image: a square crop leaves only what stayed', async () => {
     const png = await pngOfAlpha(300, 100, (x) => (between(x, 100, 200) ? 255 : 0));
-    const square = { maxSide: 256, square: true, outline: true };
+    const square = {
+      maxSide: 256,
+      frame: { aspect: { width: 1, height: 1 }, crop: null },
+      outline: true,
+    };
 
     const { outline } = keptOf(await processor.normalize(png, square));
 

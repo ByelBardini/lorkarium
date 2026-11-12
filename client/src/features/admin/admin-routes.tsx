@@ -4,6 +4,7 @@ import { redirect, useLoaderData, type LoaderFunction, type RouteObject } from '
 import type { AppDependencies } from '@/app/router';
 import { loginPathFor } from '@/app/route-access';
 import { ApiLoadError } from '@/app/shell/api-loader';
+import { skipSearchOnlyRevalidation } from '@/lib/search-only-revalidation';
 import type { UserAdminFailure } from '@/services/user-admin-api';
 import { useSession } from '@/stores/session-store';
 import { AdminErrorScreen } from './admin-error-screen';
@@ -39,13 +40,7 @@ export function usersRoute(
   return {
     loader: usersLoader(deps),
     // The search and the filters live in the URL and filter on the client: typing reloads nothing.
-    shouldRevalidate: ({ currentUrl, nextUrl, formMethod, defaultShouldRevalidate }) => {
-      const onlyFilters =
-        !formMethod &&
-        currentUrl.pathname === nextUrl.pathname &&
-        currentUrl.search !== nextUrl.search;
-      return onlyFilters ? false : defaultShouldRevalidate;
-    },
+    shouldRevalidate: skipSearchOnlyRevalidation,
     action: usersAction(deps),
     Component: function UsersRoute(): React.JSX.Element {
       const { directory } = useLoaderData<UsersLoaderData>();

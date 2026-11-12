@@ -21,6 +21,9 @@ export type SettingsValues = Readonly<{
   contentWarnings: readonly ContentWarningDto[];
   tags: readonly string[];
   cover: CampaignCoverDto;
+  /** `null` = the screens fall back to the cover ("Usar a capa"). */
+  photoAssetId: string | null;
+  bannerAssetId: string | null;
   requirePassword: boolean;
   password: string;
   playersCreateTokens: boolean;
@@ -71,6 +74,8 @@ function confirmedValues(campaign: CampaignDetailDto): SettingsValues {
     contentWarnings: campaign.contentWarnings,
     tags: campaign.tags,
     cover: campaign.cover,
+    photoAssetId: campaign.photoAssetId,
+    bannerAssetId: campaign.bannerAssetId,
     requirePassword: campaign.hasPassword,
     password: '',
     playersCreateTokens: campaign.playersCreateTokens,
@@ -94,9 +99,19 @@ function changesOf(values: SettingsValues, confirmed: SettingsValues): Changes {
   if (!sameCover(values.cover, confirmed.cover)) changes.cover = values.cover;
   return {
     ...changes,
+    ...framedImageChanges(values, confirmed),
     ...tokenRightsChanges(values, confirmed),
     ...passwordChange(values, confirmed.requirePassword),
   };
+}
+
+function framedImageChanges(values: SettingsValues, confirmed: SettingsValues): Changes {
+  const changes: Changes = {};
+  if (values.photoAssetId !== confirmed.photoAssetId) changes.photoAssetId = values.photoAssetId;
+  if (values.bannerAssetId !== confirmed.bannerAssetId) {
+    changes.bannerAssetId = values.bannerAssetId;
+  }
+  return changes;
 }
 
 function tokenRightsChanges(values: SettingsValues, confirmed: SettingsValues): Changes {

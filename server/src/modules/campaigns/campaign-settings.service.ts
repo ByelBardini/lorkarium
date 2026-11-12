@@ -9,7 +9,7 @@ import type { CachedMemberships } from './cached-memberships';
 import type { CampaignChangedPort } from './campaign-changed.port';
 import type { CampaignCodePort } from './campaign-code.port';
 import type { CampaignMembersDao } from './campaign-members.dao';
-import type { CampaignSettingsBo } from './campaign-settings.bo';
+import type { CampaignImageSlot, CampaignSettingsBo } from './campaign-settings.bo';
 import type { CampaignsDao } from './campaigns.dao';
 import { CampaignCodeExhaustedError, CampaignNotFoundError } from './campaigns.error';
 import { toCampaignInfoDto, toCampaignPatch, toCampaignSettingsBo } from './campaigns.mapper';
@@ -36,7 +36,7 @@ export type CampaignSettingsServiceDeps = Readonly<{
   objects: Pick<AssetStoragePort, 'remove'>;
   log: AssetRemovalLog;
   members: Pick<CampaignMembersDao, 'findMembership'>;
-  /** The image of a cover must be an asset of the same table. */
+  /** The photo, the cover and the banner must be assets of the same table, sent for their slot. */
   assets: Pick<AssetsDao, 'findInCampaign'>;
   /** The detail read back after the write: the answer and the event carry the same campaign. */
   detail: Pick<CampaignsService, 'detail'>;
@@ -63,9 +63,7 @@ export class CampaignSettingsService {
     input: UpdateCampaignRequestDto,
   ): Promise<CampaignDetailDto> {
     const settings = await this.masterSettings(userId, campaignId, 'change the campaign settings');
-    if (input.cover?.kind === 'image') {
-      await this.checkCoverImage(settings, campaignId, input.cover.assetId);
-    }
+    await this.checkImages(settings, campaignId, input);
     const passwordHash = await this.passwordHashOf(settings, input.password);
     const patch = toCampaignPatch(input, { passwordHash, updatedAt: this.deps.clock.now() });
     const row = await this.deps.campaigns.update(campaignId, patch);
@@ -132,13 +130,22 @@ export class CampaignSettingsService {
     return toCampaignSettingsBo(campaignId, userId, membership, atTable, ownerId);
   }
 
-  private async checkCoverImage(
+  // Only the images being set are checked; `null` removes one and needs no asset.
+  private async checkImages(
     settings: CampaignSettingsBo,
     campaignId: string,
-    assetId: string,
+    input: UpdateCampaignRequestDto,
   ): Promise<void> {
-    const asset = await this.deps.assets.findInCampaign(campaignId, assetId);
-    settings.requireCoverImage({ assetId, purpose: asset?.purpose ?? null });
+    const chosen: [CampaignImageSlot, string | null | undefined][] = [
+      ['photo', input.photoAssetId],
+      ['cover', input.cover?.kind === 'image' ? input.cover.assetId : null],
+      ['banner', input.bannerAssetId],
+    ];
+    for (const [slot, assetId] of chosen) {
+      if (!assetId) continue;
+      const asset = await this.deps.assets.findInCampaign(campaignId, assetId);
+      settings.requireCampaignImage(slot, { assetId, purpose: asset?.purpose ?? null });
+    }
   }
 
   private async passwordHashOf(

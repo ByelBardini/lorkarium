@@ -17,7 +17,7 @@ Hub: [`../assets.md`](../assets.md). O plano que vale é o do **dono** da mesa (
 
 ## Referências (`asset-references.dao.ts`)
 
-- `ASSET_FOREIGN_KEYS`: toda coluna com FK para `assets.id` — `campaigns.cover_asset_id`, `scenes.background_asset_id`, `tokens.image_asset_id`/`aura_image_asset_id`, `token_forms.image_asset_id`, `characters.image_asset_id`/`aura_image_asset_id`, `condition_definitions.image_asset_id`, `library_images.asset_id`, `library_maps.asset_id`, `library_document_assets.asset_id`, `sheet_assets.asset_id`. Mais a referência sem FK: `sheet_templates.manifest -> 'assets'` (o `assetId` declarado, na mesma mesa).
+- `ASSET_FOREIGN_KEYS`: toda coluna com FK para `assets.id` — `campaigns.cover_asset_id`/`photo_asset_id`/`banner_asset_id`, `scenes.background_asset_id`, `tokens.image_asset_id`/`aura_image_asset_id`, `token_forms.image_asset_id`, `characters.image_asset_id`/`aura_image_asset_id`, `condition_definitions.image_asset_id`, `library_images.asset_id`, `library_maps.asset_id`, `library_document_assets.asset_id`, `sheet_assets.asset_id`. Mais a referência sem FK: `sheet_templates.manifest -> 'assets'` (o `assetId` declarado, na mesma mesa).
 - Cada uma vira um `NOT EXISTS` no topo do `WHERE` (o planner faz _anti join_; nenhuma dessas colunas tem índice). `assetReferenceColumns()` lista `tabela.coluna`.
 - `usageOfOwner(ownerId, cutoff)`, `unreferencedOlderThan(cutoff, limit)` (`FOR UPDATE` nas linhas de `assets`), `deleteUnreferenced(ids, cutoff)` (confere de novo, num comando novo, e devolve as chaves apagadas) e `claimSweep()` (`pg_try_advisory_xact_lock` com chave fixa).
 

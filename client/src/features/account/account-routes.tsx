@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { useLoaderData, type LoaderFunction, type RouteObject } from 'react-router';
 import type { AppDependencies } from '@/app/router';
 import { valueOrThrow } from '@/app/shell/api-loader';
+import { skipSearchOnlyRevalidation } from '@/lib/search-only-revalidation';
 import type { AccountLoadFailure, AccountResult } from '@/services/account-failure';
 import { accountAction } from './account-action';
 import { accountRecoveryAction } from './account-recovery-action';
@@ -25,8 +26,8 @@ export type AccountLoaderData = Readonly<{
   plan: AccountResult<AccountPlanDto, AccountLoadFailure>;
 }>;
 
-/** "Minha conta" under the shell (`/account`): the profile, the security and the sessions in one
- *  load, and every command through one action.
+/** "Minha conta" under the shell (`/account`, the tab in `?aba=`): the profile, the security and
+ *  the sessions in one load, and every command through one action.
  *
  *  Example: `{ id: 'shell', children: [...homeRoutes(deps), accountRoute(deps)] }` */
 export function accountRoute(deps: AppDependencies): RouteObject {
@@ -34,6 +35,8 @@ export function accountRoute(deps: AppDependencies): RouteObject {
     id: 'account',
     path: 'account',
     loader: accountLoader(deps),
+    // The open tab lives in `?aba=`: switching tabs reloads nothing.
+    shouldRevalidate: skipSearchOnlyRevalidation,
     action: accountAction(deps),
     Component: accountScreen(deps),
     ErrorBoundary: accountErrorBoundary(deps),

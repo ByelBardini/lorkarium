@@ -1,4 +1,5 @@
 import type { AccountSecurityDto } from '@lorkarium/contracts';
+import { ShieldAlertIcon, ShieldCheckIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SecurityRow, type SecurityDialog } from './security-row';
 
@@ -17,7 +18,13 @@ export function TwoFactorRow({ twoFactor, onOpen }: TwoFactorRowProps): React.JS
     ? `Ligado · ${left} ${left === 1 ? 'código' : 'códigos'} de recuperação`
     : 'Desligado';
   return (
-    <SecurityRow label="Verificação em duas etapas (2FA)" value={value}>
+    <SecurityRow
+      label="Verificação em duas etapas (2FA)"
+      description="Além da senha, um código do app autenticador a cada entrada: quem descobrir a senha sozinha não entra."
+      icon={twoFactor.enabled ? ShieldCheckIcon : ShieldAlertIcon}
+      tone={twoFactor.enabled ? 'good' : 'plain'}
+      value={value}
+    >
       {twoFactor.enabled ? (
         <>
           <Button variant="outline" size="lg" onClick={() => onOpen('recovery-codes')}>

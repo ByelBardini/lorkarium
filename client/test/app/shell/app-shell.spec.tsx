@@ -8,6 +8,12 @@ import { createOpenTablesStore, type OpenTablesStore } from '@/stores/open-table
 import { RAIL_STORAGE_KEY, createRailStore, type RailStore } from '@/stores/rail-store';
 import type { StoreApi } from 'zustand/vanilla';
 import { ANA } from '../../support/auth-api-fake';
+import {
+  COVER_ASSET_ID,
+  imageSourcesIn,
+  PHOTO_ASSET_ID,
+  PHOTO_URL,
+} from '../../support/campaign-image-fixtures';
 import { QUELM, VHARN } from '../../support/campaigns-api-fake';
 import { StorageFake } from '../../support/storage-fake';
 import { tabInteractions } from '../../support/tab-interactions';
@@ -174,6 +180,18 @@ describe('AppShell', () => {
         `/campaigns/${QUELM.id}/table`,
       ]);
       expect(links[0]).toHaveTextContent('Vharn');
+    });
+
+    it('a table with a photo and a cover shows the photo in its link', async () => {
+      openTables.getState().open({
+        campaignId: VHARN.id,
+        name: 'Vharn',
+        cover: { kind: 'image', assetId: COVER_ASSET_ID },
+        photoAssetId: PHOTO_ASSET_ID,
+      });
+      renderShellAt('/');
+      await screen.findByRole('navigation', { name: 'Principal' });
+      expect(imageSourcesIn(tableLink(/Vharn/))).toEqual([PHOTO_URL]);
     });
 
     it('the VHARN link counts who is online from the snapshot and follows memberJoined', async () => {

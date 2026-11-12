@@ -5,6 +5,11 @@ import { describe, expect, it } from 'vitest';
 import { HomePage } from '@/features/home/home-page';
 import { ANA } from '../../support/auth-api-fake';
 import { TEST_NOW } from '../../support/app-dependencies';
+import {
+  BANNER_URL,
+  imageSourcesIn,
+  withDistinctImages,
+} from '../../support/campaign-image-fixtures';
 import { QUELM, VHARN } from '../../support/campaigns-api-fake';
 import { ClipboardFake } from '../../support/clipboard-fake';
 
@@ -39,6 +44,12 @@ describe('HomePage', () => {
       'href',
       `/campaigns/${VHARN.id}`,
     );
+  });
+
+  it('the "Continuar" band of a campaign with a photo, a cover and a banner shows the banner', async () => {
+    renderHome([withDistinctImages(VHARN)]);
+    const band = await screen.findByRole('region', { name: 'Continuar' });
+    expect(imageSourcesIn(band)).toEqual([BANNER_URL]);
   });
 
   it('without any campaign entered there is no "Continuar" band', async () => {
