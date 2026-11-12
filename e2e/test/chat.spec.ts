@@ -91,7 +91,9 @@ test('slash rolls: /r and a saved /ataque produce matching totals in both chat f
   await expect(shortcuts).toContainText('/r 1d20+5');
   await expect(shortcuts).toContainText('/gr 2d6');
   await expect(shortcuts).toContainText('/rolagem-salva');
-  await expect(bia.getByTestId('composer-hint')).toHaveText('Atalhos');
+  await expect(
+    bia.getByTestId('chat-header').getByRole('button', { name: 'Atalhos do chat' }),
+  ).toBeVisible();
   await bia.screenshot({ path: testInfo.outputPath('chat-shortcuts.png'), animations: 'disabled' });
   await bia.keyboard.press('Escape');
   await expect(shortcuts).toBeHidden();

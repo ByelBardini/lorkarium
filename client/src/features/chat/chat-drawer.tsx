@@ -24,8 +24,8 @@ export type ChatDrawerProps = Readonly<{
 }>;
 
 /** The open chat over the grid: a translucent box with the whole `ChatPanel`, a handle on top
- *  that sets its height (at least 180 px, at most 70% of the board: its parent is as tall as the
- *  board) and "Recolher chat". It focuses the composer as it mounts and on each `requestChatFocus`
+ *  on its top edge that sets its height (at least 180 px, at most 70% of the board: its parent is as tall as the
+ *  board) and "Recolher chat" at the end of the chat's header line. It focuses the composer as it mounts and on each `requestChatFocus`
  *  (T with the focus elsewhere). Esc inside it closes it and
  *  never reaches the room's shortcuts (on `window`); an Esc someone inside already took (the
  *  composer's suggestions, a menu, a dialog) closes only that.
@@ -45,17 +45,26 @@ export function ChatDrawer({ panel, roomLayout, onClose }: ChatDrawerProps): Rea
       aria-label="Conversa"
       style={{ height }}
       onKeyDown={(event) => closeOnEscape(event, onClose)}
-      className="pointer-events-auto flex w-full max-w-190 flex-col rounded-sm border border-border bg-panel/95 px-4 pb-3 backdrop-blur"
+      className="pointer-events-auto relative flex w-full max-w-190 flex-col rounded-sm border border-border bg-panel/95 px-3 pt-1 backdrop-blur"
     >
-      <div className="flex items-center gap-2 pt-2 pb-1">
-        <ChatDrawerHandle height={height} boardHeight={boardHeight} onChange={fit} />
-        <Button variant="outline" size="lg" onClick={onClose} className="shrink-0 px-3">
-          Recolher chat
-          <ChevronDownIcon aria-hidden="true" />
-        </Button>
-      </div>
-      <ChatPanel {...panel} />
+      <ChatDrawerHandle height={height} boardHeight={boardHeight} onChange={fit} />
+      <ChatPanel {...panel} headerEnd={<CollapseButton onClose={onClose} />} />
     </section>
+  );
+}
+
+function CollapseButton({ onClose }: Readonly<{ onClose: () => void }>): React.JSX.Element {
+  return (
+    <Button
+      variant="outline"
+      size="icon"
+      aria-label="Recolher chat"
+      title="Recolher chat (Esc)"
+      onClick={onClose}
+      className="ml-1 shrink-0"
+    >
+      <ChevronDownIcon aria-hidden="true" />
+    </Button>
   );
 }
 
@@ -123,7 +132,7 @@ function ChatDrawerHandle(props: ChatDrawerHandleProps): React.JSX.Element {
       aria-valuemax={clampChatDrawerHeight(Number.POSITIVE_INFINITY, props.boardHeight)}
       onKeyDown={onKeyDown}
       onPointerDown={(event) => startDrag(event, props)}
-      className="group flex h-9 min-w-0 flex-1 cursor-row-resize touch-none items-center justify-center outline-none"
+      className="group absolute inset-x-0 top-0 flex h-3 -translate-y-1/2 cursor-row-resize touch-none items-center justify-center outline-none"
     >
       <span
         aria-hidden="true"
