@@ -64,16 +64,25 @@ export class AudioContextFake implements DiceAudioContext {
   readonly sources: SourceFake[] = [];
   resumes = 0;
   private resumed: (() => void) | null = null;
+  private refused: ((reason: DOMException) => void) | null = null;
 
   resume(): Promise<void> {
     this.resumes += 1;
-    return new Promise((resolve) => (this.resumed = resolve));
+    return new Promise((resolve, reject) => {
+      this.resumed = resolve;
+      this.refused = reject;
+    });
   }
 
   /** Lets a pending `resume` finish, the context now running. */
   finishResume(): void {
     this.state = 'running';
     this.resumed?.();
+  }
+
+  /** Rejects a pending `resume`, as the browser does for a closed context. */
+  refuseResume(): void {
+    this.refused?.(new DOMException('the context is closed', 'InvalidStateError'));
   }
 
   close(): Promise<void> {
