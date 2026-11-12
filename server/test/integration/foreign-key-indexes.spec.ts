@@ -11,7 +11,9 @@ const ACCOUNT_DELETION = 'fires only when an admin deletes an account';
 const CAMPAIGN_PREFIX = 'an index led by campaign_id narrows it to one table, a few dozen rows';
 const ACCEPTED_WITHOUT_INDEX: Record<string, string> = {
   'assets.owner_id': ACCOUNT_DELETION,
+  'campaigns.banner_asset_id': ASSET_GOES_WITH_ITS_TABLE,
   'campaigns.cover_asset_id': ASSET_GOES_WITH_ITS_TABLE,
+  'campaigns.photo_asset_id': ASSET_GOES_WITH_ITS_TABLE,
   'campaigns.owner_id': ACCOUNT_DELETION,
   'character_controllers.user_id': ACCOUNT_DELETION,
   'characters.aura_image_asset_id': ASSET_GOES_WITH_ITS_TABLE,

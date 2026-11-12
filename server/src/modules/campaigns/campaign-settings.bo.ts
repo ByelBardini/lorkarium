@@ -8,16 +8,26 @@ export type CampaignPasswordChange =
   | Readonly<{ kind: 'remove' }>
   | Readonly<{ kind: 'replace'; password: string }>;
 
-/** The image a cover points at: its purpose, or `null` when no asset of this campaign has the id
- *  (another table's asset, or none at all). */
-export type CoverImageCandidate = Readonly<{ assetId: string; purpose: string | null }>;
+/** The image a campaign slot points at: its purpose, or `null` when no asset of this campaign has
+ *  the id (another table's asset, or none at all). */
+export type CampaignImageCandidate = Readonly<{ assetId: string; purpose: string | null }>;
+
+/** The three images of a campaign: the 1:1 photo, the 2:1 cover and the 3:1 banner. */
+export type CampaignImageSlot = 'photo' | 'cover' | 'banner';
+
+// An image is sent already cut to its slot's aspect: a photo never becomes a banner.
+const PURPOSE_OF_SLOT: Readonly<Record<CampaignImageSlot, string>> = {
+  photo: 'campaign_photo',
+  cover: 'cover',
+  banner: 'campaign_banner',
+};
 
 /** Whether the asker created the campaign or is an admin in juggernaut mode at it. */
 export type OwnerPowersSeat = Pick<TableSeat, 'owner' | 'juggernaut'>;
 
 /** The rules of the campaign settings (edit, new join code, delete): any master edits and hands
  *  out a code, only owner powers delete, always with the table open; the password
- *  kept/removed/replaced, and an image cover only from this table's cover assets. `atTable` = the
+ *  kept/removed/replaced, and each image only from this table's assets sent for its slot. `atTable` = the
  *  asker has the table open in a live connection, as the service read it from the presence.
  *
  *  Example: `new CampaignSettingsBo(access, true, { owner: true, juggernaut: false }).requireOwnerPowersAtTable('delete the campaign')` */
@@ -63,12 +73,12 @@ export class CampaignSettingsBo {
     return { kind: 'replace', password };
   }
 
-  /** Refuses with INVALID_BODY an image that is not a cover sent to this campaign.
+  /** Refuses with INVALID_BODY an image that is not an asset of this campaign sent for `slot`.
    *
-   *  Example: `settings.requireCoverImage({ assetId, purpose: 'token' }) // throws INVALID_BODY` */
-  requireCoverImage(candidate: CoverImageCandidate): void {
-    if (candidate.purpose === 'cover') return;
-    const campaignId = this.access.campaignIdOf();
-    throw new InvalidCampaignCoverError(campaignId, candidate.assetId, candidate.purpose);
+   *  Example: `settings.requireCampaignImage('banner', { assetId, purpose: 'cover' }) // throws INVALID_BODY` */
+  requireCampaignImage(slot: CampaignImageSlot, candidate: CampaignImageCandidate): void {
+    const expected = PURPOSE_OF_SLOT[slot];
+    if (candidate.purpose === expected) return;
+    throw new InvalidCampaignCoverError(this.access.campaignIdOf(), slot, candidate, expected);
   }
 }

@@ -71,7 +71,7 @@ describe('RecompressImagesService', () => {
   it('the processor is asked for the opaque WebP within the side of the purpose', async () => {
     await serviceWith().run(RUN);
 
-    expect(processor.resizes).toEqual([{ maxSide: 8192, square: false, opaqueAsWebp: true }]);
+    expect(processor.resizes).toEqual([{ maxSide: 8192, opaqueAsWebp: true }]);
   });
 
   it('a PNG with transparency (the processor keeps it PNG) is skipped without a write', async () => {

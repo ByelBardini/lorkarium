@@ -83,3 +83,26 @@ describe('updateCampaignRequestDto token settings', () => {
     expect(issuePathsOf({ playersCreateTokens: 'sim' })).toEqual(['playersCreateTokens']);
   });
 });
+
+describe('updateCampaignRequestDto photo and banner', () => {
+  const PHOTO = '7c2e4a1b-9d3f-4b6a-8e5c-2f1a0b9c8d7e';
+
+  it('accepts only photoAssetId as the one field to change', () => {
+    expect(updateCampaignRequestDto.parse({ photoAssetId: PHOTO })).toEqual({
+      photoAssetId: PHOTO,
+    });
+  });
+
+  it('accepts bannerAssetId null, which removes the banner and is not an empty body', () => {
+    expect(updateCampaignRequestDto.parse({ bannerAssetId: null })).toEqual({
+      bannerAssetId: null,
+    });
+  });
+
+  it.each(['photoAssetId', 'bannerAssetId'])(
+    'refuses a %s that is not a uuid on its path',
+    (key) => {
+      expect(issuePathsOf({ [key]: 'x' })).toEqual([key]);
+    },
+  );
+});

@@ -8,7 +8,7 @@ O lado React das regras de desempenho: o que impede painel, lista e sala de re-r
    - `board-store`: `withoutTokens` devolve o próprio `dragged` quando ninguém dos ids está sendo arrastado (um `tokensMoved` sem arraste não troca o objeto);
    - `board-interaction-store`: o estado inicial e o `dropPreview` usam o mesmo `NO_PREVIEWS` (`board-pointer-intents.ts`), então largar as prévias duas vezes não muda nada;
    - a casa sob o ponteiro não é estado: é o ref `hover` (`HoverCellRef`, `hover.current`), escrito pelo `afterIntent` sem notificar ninguém; só o colar (`use-edit-shortcuts.ts`) o lê;
-   - `open-tables-store`: `campaignUpdated` que não muda nome, capa nem chaves dos tokens mantém o mesmo array `tables`.
+   - `open-tables-store`: `campaignUpdated` que não muda nome, capa, foto nem chaves dos tokens mantém o mesmo array `tables`.
 
    Campo novo em store que um evento comum reescreve com o mesmo valor: passe pelo `changedPatchOf`. Valor recalculado (array ou objeto novo com o mesmo conteúdo) conta como mudança: devolva a referência antiga quando nada mudar.
 

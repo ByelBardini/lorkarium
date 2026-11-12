@@ -194,6 +194,8 @@ export function vharnRenamed(
       playersDeleteTokens: VHARN.playersDeleteTokens,
       limits: VHARN.limits,
       cover: { kind: 'image', assetId: 'e1d2c3b4-a596-4877-8899-aabbccddeeff' },
+      photoAssetId: null,
+      bannerAssetId: null,
     },
     at: AT,
     ...overrides,

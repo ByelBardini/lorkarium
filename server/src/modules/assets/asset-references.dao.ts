@@ -20,6 +20,8 @@ type AssetForeignKey = Readonly<{ table: PgTable; column: AnyPgColumn }>;
 // constraints of the database.
 const ASSET_FOREIGN_KEYS: readonly AssetForeignKey[] = [
   { table: campaigns, column: campaigns.coverAssetId },
+  { table: campaigns, column: campaigns.photoAssetId },
+  { table: campaigns, column: campaigns.bannerAssetId },
   { table: scenes, column: scenes.backgroundAssetId },
   { table: tokens, column: tokens.imageAssetId },
   { table: tokens, column: tokens.auraImageAssetId },

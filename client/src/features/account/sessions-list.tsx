@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { sinceLabel } from '@/lib/since-label';
 import { accountFailureMessage } from './account-messages';
+import { SettingsRow } from './settings-row';
 import { failureOf, useAccountFetcher, useOnSettled } from './use-account-fetcher';
 
 export type SessionsListProps = Readonly<{
@@ -44,24 +45,17 @@ export function SessionsList({ sessions, now, onNotice }: SessionsListProps): Re
     fetcher.send({ intent: 'session-revoke', input: { sessionId } });
   };
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h3 id={titleId} className="text-[15px] font-medium text-foreground">
-          Onde você está conectado
-        </h3>
-        {ordered.length > 1 && (
-          <RevokeOthersButton
-            busy={fetcher.busy}
-            onConfirm={() => fetcher.send({ intent: 'sessions-revoke-others' })}
-          />
-        )}
-      </div>
+    <SettingsRow
+      title="Onde você está conectado"
+      titleId={titleId}
+      description="Cada navegador ou app em que você entrou. Saia dos que você não reconhece."
+    >
       {failure && (
         <Alert variant="destructive" className="px-3.5 py-3 text-sm">
           {accountFailureMessage(failure)}
         </Alert>
       )}
-      <ul aria-labelledby={titleId} className="flex flex-col">
+      <ul aria-labelledby={titleId} className="flex flex-col gap-2">
         {ordered.map((session) => (
           <SessionRow
             key={session.id}
@@ -72,7 +66,13 @@ export function SessionsList({ sessions, now, onNotice }: SessionsListProps): Re
           />
         ))}
       </ul>
-    </div>
+      {ordered.length > 1 && (
+        <RevokeOthersButton
+          busy={fetcher.busy}
+          onConfirm={() => fetcher.send({ intent: 'sessions-revoke-others' })}
+        />
+      )}
+    </SettingsRow>
   );
 }
 
@@ -94,11 +94,13 @@ function SessionRow({ session, now, revoking, onRevoke }: SessionRowProps): Reac
   const Icon = session.formFactor === 'mobile' ? SmartphoneIcon : LaptopIcon;
   const label = deviceLabel(session);
   return (
-    <li className="flex flex-wrap items-center gap-3 border-b border-divider py-3 last:border-b-0">
-      <Icon aria-hidden="true" className="size-5 text-muted-foreground" />
+    <li className="flex flex-wrap items-center gap-4 border border-divider bg-card px-4 py-3">
+      <span className="grid size-10 shrink-0 place-items-center bg-muted">
+        <Icon aria-hidden="true" className="size-5 text-muted-foreground" />
+      </span>
       <div className="mr-auto flex min-w-0 flex-col">
-        <span className="text-[15px] text-foreground">{label}</span>
-        <span className="text-[13px] text-muted-foreground">
+        <span className="text-base text-foreground">{label}</span>
+        <span className="text-sm text-muted-foreground">
           ativo {sinceLabel(session.lastSeenAt, now)}
         </span>
       </div>
@@ -129,7 +131,13 @@ function RevokeOthersButton({
   const [open, setOpen] = useState(false);
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      <Button variant="outline" size="lg" disabled={busy} onClick={() => setOpen(true)}>
+      <Button
+        variant="outline"
+        size="lg"
+        disabled={busy}
+        onClick={() => setOpen(true)}
+        className="self-start"
+      >
         Sair de todos os outros
       </Button>
       <AlertDialogContent>

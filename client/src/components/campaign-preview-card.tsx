@@ -77,7 +77,7 @@ export function CampaignPreviewCard(props: CampaignPreviewCardProps): React.JSX.
 function PreviewCover({ campaign }: Readonly<{ campaign: CampaignPreview }>): React.JSX.Element {
   return (
     <div className="relative">
-      <CampaignCover cover={campaign.cover} className="aspect-[16/10] w-full" />
+      <CampaignCover cover={campaign.cover} format="cover" className="w-full" />
       <span className="absolute top-2.5 left-2.5 rounded-sm bg-panel/85 px-2 py-1 text-[10px] font-bold tracking-[0.12em] text-primary uppercase">
         Mestre
       </span>

@@ -371,22 +371,45 @@ describe('campaign settings page', () => {
   });
 
   describe('cover image', () => {
+    // A file would open the crop first, whose real area never reports in jsdom (the crop is
+    // proven in campaign-image-fields.spec.tsx); a link goes straight and enters the draft the same way.
     it('an image sent with purpose "cover" enters the bar and goes in the body', async () => {
       const form = await openSettings();
-      const png = new File([new Uint8Array(1024)], 'capa', { type: 'image/png' });
+      const cover = within(form).getByRole('group', { name: 'Capa' });
 
-      await userEvent.upload(within(form).getByLabelText('Arquivo de imagem'), png);
+      await userEvent.click(within(cover).getByRole('button', { name: 'Usar link de imagem' }));
+      await userEvent.type(
+        within(cover).getByLabelText('Link da imagem'),
+        'https://x.com/capa.png',
+      );
+      await userEvent.click(within(cover).getByRole('button', { name: 'Usar link' }));
 
       expect(await within(bar()).findByRole('status')).toHaveTextContent(
         'Você tem alterações não salvas.',
       );
       expect(deps.assets.sent).toMatchObject([
-        { kind: 'upload', campaignId: VHARN.id, purpose: 'cover' },
+        { kind: 'link', campaignId: VHARN.id, purpose: 'cover' },
       ]);
       await save();
       await waitFor(() =>
         expect(lastUpdateInput()).toEqual({ cover: { kind: 'image', assetId: LYRA_PORTRAIT.id } }),
       );
+    });
+  });
+
+  describe('photo image', () => {
+    it('a photo link goes with purpose "campaign_photo" and saves as photoAssetId', async () => {
+      const form = await openSettings();
+      const photo = within(form).getByRole('group', { name: 'Foto' });
+
+      await userEvent.click(within(photo).getByRole('button', { name: 'Usar link de imagem' }));
+      await userEvent.type(within(photo).getByLabelText('Link da imagem'), 'https://x.com/f.png');
+      await userEvent.click(within(photo).getByRole('button', { name: 'Usar link' }));
+      await within(bar()).findByRole('status');
+      await save();
+
+      expect(deps.assets.sent).toMatchObject([{ kind: 'link', purpose: 'campaign_photo' }]);
+      await waitFor(() => expect(lastUpdateInput()).toEqual({ photoAssetId: LYRA_PORTRAIT.id }));
     });
   });
 

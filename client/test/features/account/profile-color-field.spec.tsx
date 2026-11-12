@@ -29,7 +29,14 @@ describe('ProfileColorField', () => {
   function renderField(value: MemberColorDto): void {
     render(
       <SavedColorsProvider api={new SavedColorsApiFake()} userId="bia">
-        <ProfileColorField value={value} onChange={onChange} />
+        <span id="color-title">Sua cor no mapa</span>
+        <ProfileColorField
+          value={value}
+          onChange={onChange}
+          labelledBy="color-title"
+          describedBy="color-hint"
+        />
+        <p id="color-hint">Pinta seu ping no mapa.</p>
       </SavedColorsProvider>,
     );
   }

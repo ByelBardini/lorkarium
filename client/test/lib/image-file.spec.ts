@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { animatesImage, imageAcceptOf, imageFileProblem, imageOfClipboard } from '@/lib/image-file';
+import {
+  animatesImage,
+  imageAcceptOf,
+  imageFileProblem,
+  imageOfClipboard,
+  isFramedPurpose,
+} from '@/lib/image-file';
 
 const MB = 1024 * 1024;
 
@@ -76,6 +82,22 @@ describe('animatesImage', () => {
     'a %s image stays still',
     (purpose) => {
       expect(animatesImage(purpose)).toBe(false);
+    },
+  );
+});
+
+describe('isFramedPurpose', () => {
+  it.each(['campaign_photo', 'cover', 'campaign_banner'] as const)(
+    'a %s image is framed before it goes',
+    (purpose) => {
+      expect(isFramedPurpose(purpose)).toBe(true);
+    },
+  );
+
+  it.each(['token', 'background', 'aura', 'library_image'] as const)(
+    'a %s image goes as it is',
+    (purpose) => {
+      expect(isFramedPurpose(purpose)).toBe(false);
     },
   );
 });

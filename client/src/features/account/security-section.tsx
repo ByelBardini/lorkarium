@@ -1,15 +1,18 @@
 import type { AccountSecurityDto, AccountSessionDto } from '@lorkarium/contracts';
+import { KeyRoundIcon, MailIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { sinceLabel } from '@/lib/since-label';
 import type { Clipboard } from '@/services/clipboard';
 import { accountFailureMessage } from './account-messages';
 import { ChangeEmailDialog } from './change-email-dialog';
 import { ChangePasswordDialog } from './change-password-dialog';
 import { SectionHeading } from './section-heading';
+import { passwordLine } from './security-lines';
+import { SecurityOverview } from './security-overview';
 import { SecurityRow, type SecurityDialog } from './security-row';
 import { SessionsList } from './sessions-list';
+import { SettingsLayout } from './settings-layout';
 import { RecoveryCodesRegenerateDialog, TwoFactorDisableDialog } from './two-factor-disable-dialog';
 import { TwoFactorRow } from './two-factor-row';
 import { TwoFactorSetupDialog } from './two-factor-setup-dialog';
@@ -37,14 +40,22 @@ export function SecuritySection(props: SecuritySectionProps): React.JSX.Element 
     setNotice(message);
   };
   return (
-    <section aria-labelledby={titleId} className="flex flex-col gap-6 border-t border-divider pt-8">
+    <section aria-labelledby={titleId} className="flex flex-col gap-6">
       <SectionHeading id={titleId} title="Conta e segurança">
         Só você vê esta parte.
       </SectionHeading>
-      <p role="status" className="text-sm text-label empty:hidden">
+      <p role="status" className="text-[15px] text-label empty:hidden">
         {notice}
       </p>
-      <div className="flex flex-col">
+      <SettingsLayout
+        aside={
+          <SecurityOverview
+            security={props.security}
+            devices={props.sessions.length}
+            now={props.now}
+          />
+        }
+      >
         <EmailRow
           security={props.security}
           onChange={() => setDialog('email')}
@@ -52,6 +63,8 @@ export function SecuritySection(props: SecuritySectionProps): React.JSX.Element 
         />
         <SecurityRow
           label="Senha"
+          description="Trocar a senha tira a conta de todos os outros aparelhos."
+          icon={KeyRoundIcon}
           value={passwordLine(props.security.passwordChangedAt, props.now)}
         >
           <Button variant="outline" size="lg" onClick={() => setDialog('password')}>
@@ -59,8 +72,8 @@ export function SecuritySection(props: SecuritySectionProps): React.JSX.Element 
           </Button>
         </SecurityRow>
         <TwoFactorRow twoFactor={props.security.twoFactor} onOpen={setDialog} />
-      </div>
-      <SessionsList sessions={props.sessions} now={props.now} onNotice={setNotice} />
+        <SessionsList sessions={props.sessions} now={props.now} onNotice={setNotice} />
+      </SettingsLayout>
       {dialog === 'password' && (
         <ChangePasswordDialog
           onClose={close}
@@ -95,11 +108,6 @@ export function SecuritySection(props: SecuritySectionProps): React.JSX.Element 
   );
 }
 
-function passwordLine(changedAt: string | null, now: Date): string {
-  if (changedAt === null) return 'Ainda é a senha da criação da conta.';
-  return `Trocada ${sinceLabel(changedAt, now)}`;
-}
-
 type EmailRowProps = Readonly<{
   security: AccountSecurityDto;
   onChange: () => void;
@@ -116,7 +124,7 @@ function EmailRow({ security, onChange, onNotice }: EmailRowProps): React.JSX.El
     <>
       <span className="break-all">{security.email}</span>
       {security.pendingEmail && (
-        <span className="block text-[13px] text-muted-foreground">
+        <span className="block text-sm text-muted-foreground">
           Aguardando confirmação em {security.pendingEmail}
         </span>
       )}
@@ -128,7 +136,12 @@ function EmailRow({ security, onChange, onNotice }: EmailRowProps): React.JSX.El
     </>
   );
   return (
-    <SecurityRow label="E-mail" value={value}>
+    <SecurityRow
+      label="E-mail"
+      description="Onde chegam os avisos da conta. Ninguém da mesa vê."
+      icon={MailIcon}
+      value={value}
+    >
       {security.pendingEmail && (
         <Button
           variant="ghost"

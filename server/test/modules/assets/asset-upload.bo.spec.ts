@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   animationFor,
   dedicatedEndpointOf,
+  frameFor,
   isMasterOnlyAssetPurpose,
   isProtectedAssetPurpose,
   opaqueAsWebpFor,
@@ -10,7 +11,7 @@ import {
   requireSize,
   requireWoff2,
 } from '../../../src/modules/assets/asset-upload.bo';
-import { AssetTooLargeError } from '../../../src/modules/assets/assets.error';
+import { AssetTooLargeError, InvalidCropError } from '../../../src/modules/assets/assets.error';
 
 const MIB = 1024 * 1024;
 const LIMIT = 20 * MIB;
@@ -23,17 +24,22 @@ const SIDES = {
   background: 4096,
   token: 1024,
   cover: 1600,
+  campaign_photo: 512,
+  campaign_banner: 1800,
   condition: 256,
   aura: 512,
+};
+const CROP = { x: 10, y: 0, w: 50, h: 100 } as const;
+const FRAMES = {
+  campaign_photo: { width: 1, height: 1 },
+  cover: { width: 2, height: 1 },
+  campaign_banner: { width: 3, height: 1 },
 };
 const ANIMATION = { maxFrames: 120, maxDecodedPixels: 16_000_000 };
 
 describe('resizeFor', () => {
-  it('a condition image is kept as a square of at most 256 px', () => {
-    expect(resizeFor('condition', SIDES)).toEqual({ maxSide: 256, square: true });
-  });
-
   it.each([
+    ['condition', 256],
     ['token', 1024],
     ['background', 4096],
     ['library_image', 4096],
@@ -42,10 +48,67 @@ describe('resizeFor', () => {
     ['sheet_image', 4096],
     ['sheet_template_asset', 4096],
     ['cover', 1600],
+    ['campaign_photo', 512],
+    ['campaign_banner', 1800],
     ['aura', 512],
-  ] as const)('a %s image keeps its shape, up to %i px', (purpose, maxSide) => {
-    expect(resizeFor(purpose, SIDES)).toEqual({ maxSide, square: false });
+  ] as const)('a %s image is kept up to %i px', (purpose, maxSide) => {
+    expect(resizeFor(purpose, SIDES)).toEqual({ maxSide });
   });
+});
+
+describe('frameFor', () => {
+  it('a campaign banner is cut 3:1 inside the picked rectangle', () => {
+    expect(frameFor('campaign_banner', CROP, FRAMES)).toEqual({
+      aspect: { width: 3, height: 1 },
+      crop: CROP,
+    });
+  });
+
+  it('a campaign photo is cut 1:1 inside the picked rectangle', () => {
+    expect(frameFor('campaign_photo', CROP, FRAMES)).toEqual({
+      aspect: { width: 1, height: 1 },
+      crop: CROP,
+    });
+  });
+
+  it('a cover with no rectangle is cut 2:1 at the centre', () => {
+    expect(frameFor('cover', null, FRAMES)).toEqual({
+      aspect: { width: 2, height: 1 },
+      crop: null,
+    });
+  });
+
+  it('a campaign photo with no rectangle (a link) is cut 1:1 at the centre', () => {
+    expect(frameFor('campaign_photo', null, FRAMES)).toEqual({
+      aspect: { width: 1, height: 1 },
+      crop: null,
+    });
+  });
+
+  it('a condition is cut 1:1 at the centre', () => {
+    expect(frameFor('condition', null, FRAMES)).toEqual({
+      aspect: { width: 1, height: 1 },
+      crop: null,
+    });
+  });
+
+  it('a rectangle for a token is refused citing the purpose and the framed ones', () => {
+    expect(() => frameFor('token', CROP, FRAMES)).toThrow(InvalidCropError);
+    expect(() => frameFor('token', CROP, FRAMES)).toThrow(
+      'crop 10,0,50,100 sent for purpose token; expected campaign_photo, cover or campaign_banner',
+    );
+  });
+
+  it('a rectangle for a condition is refused: its square is always the centre', () => {
+    expect(() => frameFor('condition', CROP, FRAMES)).toThrow(InvalidCropError);
+  });
+
+  it.each(['token', 'background', 'aura', 'library_map'] as const)(
+    'a %s with no rectangle keeps its own shape',
+    (purpose) => {
+      expect(frameFor(purpose, null, FRAMES)).toBeNull();
+    },
+  );
 });
 
 describe('animationFor', () => {

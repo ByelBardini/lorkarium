@@ -6,6 +6,13 @@ import { buildRoutes } from '@/app/router';
 import { memberColorCss } from '@/lib/member-color';
 import { TEST_NOW, testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
+import {
+  BANNER_URL,
+  COVER_URL,
+  imageSourcesIn,
+  PHOTO_URL,
+  withDistinctImages,
+} from '../../support/campaign-image-fixtures';
 import { detailOf, QUELM, VHARN } from '../../support/campaigns-api-fake';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -178,6 +185,14 @@ describe('campaign detail dialog', () => {
   });
 
   describe('header', () => {
+    it('a campaign with a photo, a cover and a banner shows the photo', async () => {
+      const dialog = await openDetailOf(withDistinctImages(VHARN));
+      const sources = imageSourcesIn(dialog);
+      expect(sources).toContain(PHOTO_URL);
+      expect(sources).not.toContain(COVER_URL);
+      expect(sources).not.toContain(BANNER_URL);
+    });
+
     it('shows the status badge', async () => {
       const dialog = await openDetailOf(VHARN);
       expect(dialog).toHaveTextContent('Recrutando');

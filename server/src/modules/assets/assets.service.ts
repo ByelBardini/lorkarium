@@ -1,5 +1,6 @@
 import type { AssetReadPolicyPort } from './asset-read-policy.port';
 import {
+  ASSET_FRAME,
   ASSET_MAX_BYTES,
   ASSET_MAX_SIDE,
   AURA_ANIMATION_LIMITS,
@@ -23,6 +24,7 @@ import type { AssetReferencesDao } from './asset-references.dao';
 import {
   animationFor,
   dedicatedEndpointOf,
+  frameFor,
   isMasterOnlyAssetPurpose,
   isProtectedAssetPurpose,
   opaqueAsWebpFor,
@@ -53,7 +55,12 @@ import {
 } from './assets.mapper';
 import type { AssetPo } from './assets.po';
 import type { FetchRefusal, ImageFetcherPort } from './image-fetcher.port';
-import type { ImageProcessorPort, NormalizedImage, NormalizeOptions } from './image-processor.port';
+import type {
+  ImageCrop,
+  ImageProcessorPort,
+  NormalizedImage,
+  NormalizeOptions,
+} from './image-processor.port';
 
 /** The DAOs of the transaction that keeps a file within the storage of the table's owner. */
 export type AssetKeepScope = Readonly<{
@@ -98,6 +105,14 @@ type TableOfUser = Readonly<{ campaignId: string; userId: string }>;
 
 type Incoming = TableOfUser & Readonly<{ purpose: AssetPurposeDto }>;
 
+/** A file sent to the generic route; `crop` (percent of the upright image) only for a purpose
+ *  with a frame. */
+export type UploadedFile = Readonly<{
+  bytes: Uint8Array;
+  purpose: AssetPurposeDto;
+  crop?: ImageCrop | null;
+}>;
+
 /** The asset use cases. Every image is decoded and rewritten before it is kept (a map or a
  *  background no larger than the owner's plan allows), the kept bytes must fit the owner's
  *  storage, the object goes to the S3 **before** its row (a row without its object would break
@@ -107,11 +122,7 @@ type Incoming = TableOfUser & Readonly<{ purpose: AssetPurposeDto }>;
 export class AssetsService {
   constructor(private readonly deps: AssetsServiceDeps) {}
 
-  async upload(
-    userId: string,
-    campaignId: string,
-    file: Readonly<{ bytes: Uint8Array; purpose: AssetPurposeDto }>,
-  ): Promise<AssetDto> {
+  async upload(userId: string, campaignId: string, file: UploadedFile): Promise<AssetDto> {
     await this.refuseDedicated(userId, campaignId, `upload ${file.purpose}`, file.purpose);
     return this.uploadFor(userId, campaignId, file);
   }
@@ -171,12 +182,13 @@ export class AssetsService {
   private async uploadFor(
     userId: string,
     campaignId: string,
-    file: Readonly<{ bytes: Uint8Array; purpose: AssetPurposeDto }>,
+    file: UploadedFile,
   ): Promise<AssetDto> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     if (isMasterOnlyAssetPurpose(file.purpose)) access.requireMaster(`upload a ${file.purpose}`);
     requireSize(file.bytes.byteLength, ASSET_MAX_BYTES);
-    const kept = keptAs(file.purpose, await this.sidesOf({ campaignId, userId }));
+    const sides = await this.sidesOf({ campaignId, userId });
+    const kept = keptAs(file.purpose, sides, file.crop ?? null);
     const normalized = await this.deps.processor.normalize(file.bytes, kept);
     if (!normalized.ok) throw new UnsupportedImageError(normalized.refusal.detail);
     return this.keep({ campaignId, userId, purpose: file.purpose }, normalized.image);
@@ -322,11 +334,17 @@ export class AssetsService {
 }
 
 // The budget key is left out when the purpose never animates, so the processor refuses a GIF.
-function keptAs(purpose: AssetPurposeDto, sides: SideLimits): NormalizeOptions {
+function keptAs(
+  purpose: AssetPurposeDto,
+  sides: SideLimits,
+  crop: ImageCrop | null = null,
+): NormalizeOptions {
   const resize = resizeFor(purpose, sides);
+  const frame = frameFor(purpose, crop, ASSET_FRAME);
   const animation = animationFor(purpose, AURA_ANIMATION_LIMITS);
   return {
     ...resize,
+    ...(frame ? { frame } : {}),
     ...(animation ? { animation } : {}),
     ...(outlineFor(purpose) ? { outline: true } : {}),
     ...(opaqueAsWebpFor(purpose) ? { opaqueAsWebp: true } : {}),

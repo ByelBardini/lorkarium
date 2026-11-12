@@ -3,6 +3,7 @@ import {
   storageKeyOf,
   toAssetDto,
   toAssetOutlineDto,
+  toImageCrop,
   toNewAssetPo,
 } from '../../../src/modules/assets/assets.mapper';
 import { LYRA_PORTRAIT_ID, lyraPortraitPo } from '../../support/assets-factories';
@@ -96,5 +97,15 @@ describe('assets mapper', () => {
 
   it('the outline DTO of an image without one is null', () => {
     expect(toAssetOutlineDto(lyraPortraitPo({ sightOutline: null }))).toEqual({ outline: null });
+  });
+
+  it('the four crop fields of the upload query become the rectangle in percent', () => {
+    const query = { purpose: 'cover', cropX: 0, cropY: 12.5, cropW: 100, cropH: 50 } as const;
+
+    expect(toImageCrop(query)).toEqual({ x: 0, y: 12.5, w: 100, h: 50 });
+  });
+
+  it('an upload query with no crop field has no rectangle', () => {
+    expect(toImageCrop({ purpose: 'campaign_banner' })).toBeNull();
   });
 });

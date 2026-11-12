@@ -30,12 +30,15 @@ const VHARN_TABLE = {
   campaignId: VHARN.id,
   name: 'Vharn',
   cover: VHARN.cover,
+  photoAssetId: null,
 };
 const QUELM_TABLE = {
   campaignId: QUELM.id,
   name: 'Quelm',
   cover: QUELM.cover,
+  photoAssetId: null,
 };
+const VHARN_PHOTO_ID = 'f0f0f0f0-0000-4000-8000-000000000001';
 const MORE_TABLES = [1, 2, 3, 4].map((n) => ({
   campaignId: `a1000000-0000-4000-8000-00000000000${n}`,
   name: `Mesa ${n}`,
@@ -282,6 +285,27 @@ describe('open tables store', () => {
     expect(store.getState().tables[0]?.cover).toEqual({ kind: 'drawn', drawing: 0, tone: 2 });
   });
 
+  it('opening a table with a photo keeps the photo in the list and in the storage', () => {
+    store.getState().restore(ANA.id);
+
+    store.getState().open({ ...VHARN_TABLE, photoAssetId: VHARN_PHOTO_ID });
+
+    expect(store.getState().tables[0]?.photoAssetId).toBe(VHARN_PHOTO_ID);
+    expect(stored()).toEqual({
+      userId: ANA.id,
+      tables: [{ ...VHARN_TABLE, photoAssetId: VHARN_PHOTO_ID }],
+    });
+  });
+
+  it('a table stored without a photo (an older tab) reopens with no photo', () => {
+    const { campaignId, name, cover } = VHARN_TABLE;
+    storeWith({ userId: ANA.id, tables: [{ campaignId, name, cover }] });
+
+    store.getState().restore(ANA.id);
+
+    expect(store.getState().tables[0]?.photoAssetId).toBeNull();
+  });
+
   describe('campaign changed by the master', () => {
     beforeEach(() => {
       store.getState().restore(ANA.id);
@@ -300,6 +324,19 @@ describe('open tables store', () => {
         userId: ANA.id,
         tables: [{ ...VHARN_TABLE, ...renamed }, QUELM_TABLE],
       });
+    });
+
+    it('campaignUpdated with a new photo swaps the photo of that table and stores it', () => {
+      const event = vharnRenamed({ version: 2 });
+      const photo = { ...event, campaign: { ...event.campaign, photoAssetId: VHARN_PHOTO_ID } };
+
+      api.emitTo(VHARN.id, { kind: 'campaignUpdated', event: photo });
+
+      expect(store.getState().tables.map((table) => table.photoAssetId)).toEqual([
+        VHARN_PHOTO_ID,
+        null,
+      ]);
+      expect(stored()).toMatchObject({ tables: [{ photoAssetId: VHARN_PHOTO_ID }, QUELM_TABLE] });
     });
 
     it('the limits of a table are the route campaign ones until a campaignUpdated comes', () => {

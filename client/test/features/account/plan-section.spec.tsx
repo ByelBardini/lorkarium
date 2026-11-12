@@ -16,7 +16,9 @@ describe('"Seu plano" in Minha conta', () => {
   });
 
   async function openPlan(): Promise<HTMLElement> {
-    const router = createMemoryRouter(buildRoutes(deps), { initialEntries: ['/account'] });
+    const router = createMemoryRouter(buildRoutes(deps), {
+      initialEntries: ['/account?aba=plano'],
+    });
     render(<RouterProvider router={router} />);
     return screen.findByRole('region', { name: 'Seu plano' });
   }
@@ -163,8 +165,10 @@ describe('"Seu plano" in Minha conta', () => {
       'Não deu para carregar seu plano.',
     );
     expect(within(section).queryByRole('table')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Apelido')).toHaveValue('Ana');
-    expect(screen.getByRole('region', { name: 'Conta e segurança' })).toBeVisible();
+    await userEvent.click(screen.getByRole('tab', { name: 'Segurança' }));
+    expect(await screen.findByRole('region', { name: 'Conta e segurança' })).toBeVisible();
+    await userEvent.click(screen.getByRole('tab', { name: 'Perfil' }));
+    expect(await screen.findByLabelText('Apelido')).toHaveValue('Ana');
   });
 
   it('offline says so, and "Tentar de novo" loads the plan once it answers', async () => {

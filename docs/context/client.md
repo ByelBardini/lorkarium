@@ -45,7 +45,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Abas de grid na sala: escopo do comando, `watch`, `scene-tabs-store`, `SceneTabs`              | [`grid-tabs.md`](client/grid-tabs.md)                           |
 | Personagem: store `character:*`, token ligado composto, ligar a personagem, fichas             | [`characters.md`](client/characters.md)                         |
 | Ping no mapa: cor por pessoa, segurar/Alt+clique, pulso do anel, seta na borda                 | [`pings.md`](client/pings.md)                                   |
-| Minha conta: perfil, foto, barra, senha, e-mail, sessões, 2FA, link do e-mail, Seu plano       | [`account.md`](client/account.md)                               |
+| Minha conta em abas (`?aba=`): perfil, dados, segurança, 2FA, link do e-mail, Seu plano        | [`account.md`](client/account.md)                               |
 | Backoffice: moldura, Usuários, busca/filtros na URL, convidar, menus e diálogos das contas     | [`backoffice.md`](client/backoffice.md)                         |
 | Dados: rede, stores, 3D (conta e adaptador), e o índice da aba "Dados"                         | [`dice.md`](client/dice.md)                                     |
 | Aba "Dados": bandeja, salvas em etiquetas, histórico em linhas, aviso sobre o tabuleiro        | [`dice-tab.md`](client/dice-tab.md)                             |
@@ -57,6 +57,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Menu dos campos de texto no app desktop: `isDesktopShell`, itens, `FieldEditing`, raiz         | [`text-field-menu.md`](client/text-field-menu.md)               |
 | Versão nova depois do deploy: impressão do build, aviso, recarga segura                        | [`app-update.md`](client/app-update.md)                         |
 | Cor personalizada: canvas, ladrilho, painel, `PaletteColorField`, cores salvas da conta        | [`color-picker.md`](client/color-picker.md)                     |
+| Escolher imagem: `ImagePicker`, arquivo, link, recorte da foto, capa e banner                  | [`image-picker.md`](client/image-picker.md)                     |
 | Controles pelo plano: `usePlanLimits`, `countGate`/`featureGate`, botões e recursos desligados | [`plans/client-controles.md`](plans/client-controles.md)        |
 | Testes: Vitest em jsdom, setup, `testDependencies()`, fakes do `test/support/`                 | [`testes.md`](client/testes.md)                                 |
 | Armadilhas gerais do client (router, Radix, React Compiler, jsdom, Playwright)                 | [`armadilhas.md`](client/armadilhas.md)                         |
@@ -75,7 +76,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - `src/index.css` — tokens do tema (único, escuro) e as fontes self-host (`@fontsource-variable`)
 - `src/components/ui/` — componentes shadcn (`button`, `input`, `label`, `checkbox`, `alert`, `textarea`, `radio-group`, `dialog`, `alert-dialog` (confirmação destrutiva, `role="alertdialog"`; gerado pelo `shadcn add` com `--overwrite` e o `button.tsx` do projeto restaurado), `sheet`, `dropdown-menu`, `tooltip`, `context-menu`, `popover`, `tabs`, `switch` (escrito à mão sobre o `radix-ui`), `select` (gerado e reescrito: `position="popper"`, portal da janela por `usePortalContainer`, sem sombra; no lugar do `<select>` nativo, cuja lista aberta o navegador pinta clara)), já ajustados ao design system
 - `src/components/brand-mark.tsx` — `BrandMark` (logo `full`, `compact` ou `icon` = o cristal; sempre anunciado "LORKARIUM") e `BrandIcon` (o cristal decorativo, sem nome)
-- `src/components/image-picker.tsx` — `ImagePicker` (área de soltar/colar + botões), sobre `use-image-sender.ts` (`useImageSender`: envio de arquivo e link) e `image-source-buttons.tsx` (`ImageSourceButtons`, `ImageLinkField`, `ImageSendNotice`); detalhe em [`client/board.md`](client/board.md)
+- `src/components/image-picker.tsx` e `image-crop/` (recorte) — [`client/image-picker.md`](client/image-picker.md)
 - `src/components/signed-out-redirect.tsx` — `SignedOutRedirect` (sessão caída fora do loader: `signedOut` + `/login?next=<caminho e query>`, `replace`), usado pelo diálogo da biblioteca e pelo `ErrorBoundary` de "Minha conta"
 - `src/components/range-field.tsx` — `RangeField` (um lado de alcance na unidade da cena, com "= N casas" embaixo; `placeholder` e `onBlur` opcionais), usado pela visão e pela luz do token e pelo painel de luzes
 - `src/components/segment-field.tsx` — `SegmentField` (escolha entre 2–3 segmentos lado a lado, `radiogroup` do Radix, `mark` e `disabled` por opção, `hint`; `fill` faz os segmentos dividirem a linha); o `choice-field.tsx` é a versão círculo + texto
@@ -95,7 +96,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - `src/lib/safe-redirect.ts` — `safeRedirectTarget(next)`: só caminho interno; `//x`, `/\x`, URL absoluta, `javascript:`, vazio e `/login` viram `/`
 - `src/lib/greeting.ts` — `GREETINGS` (10 saudações) e `greetingFor(nome, sorteio ∈ [0, 1))`; fora do intervalo → `RangeError`
 - `src/lib/overline-date.ts` — `formatOverlineDate(data)` → "Quarta, 14 de outubro"
-- `src/lib/{campaign-status,content-warnings,campaign-tags,campaign-cover}.ts` — rótulo e tom do status, avisos e sugestões de tag, `addTag`/`removeLastTag`, `fallbackCoverOf(id)` ([`client/campaign-parts.md`](client/campaign-parts.md))
+- `src/lib/{campaign-status,content-warnings,campaign-tags,campaign-cover}.ts` — rótulo e tom do status, avisos e sugestões de tag, `addTag`/`removeLastTag`, `fallbackCoverOf(id)`, `campaignImageOf(campaign, format)` ([`client/campaign-parts.md`](client/campaign-parts.md))
 - `src/lib/campaign-code.ts` — `formatCampaignCode('VHRN7K2Q')` → `'VHRN-7K2Q'` e `maskCampaignCode(digitado)` (máscara do campo: só letras e dígitos, caixa alta, até 8, hífen depois do 4º; quem valida continua sendo o DTO)
 - `src/lib/search-text.ts` — `searchText('Ossuário')` → `'ossuario'`: o texto de busca sem acento nem caixa (mesas e biblioteca)
 - `src/lib/folder-tree.ts` — árvore, árvore filtrada pela busca e `canDrop` da biblioteca; `edited-label.ts` — "editado há 3 dias" (ver [`client/library.md`](client/library.md))

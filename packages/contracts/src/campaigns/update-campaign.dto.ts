@@ -21,7 +21,8 @@ function clearableCampaignText(maxLength: number) {
 }
 
 /** Body of `PATCH /api/campaigns/:campaignId` (master only): every field optional, at least one.
- *  `password`: absent keeps it, `null` removes it, a text replaces it.
+ *  `password`, `photoAssetId` and `bannerAssetId`: absent keeps it, `null` removes it, a value
+ *  replaces it.
  *
  *  Example: `updateCampaignRequestDto.parse({ name: 'Vharn', password: null })` */
 export const updateCampaignRequestDto = z
@@ -34,6 +35,8 @@ export const updateCampaignRequestDto = z
     contentWarnings: contentWarningsDto.optional(),
     tags: campaignTagsDto.optional(),
     cover: campaignCoverDto.optional(),
+    photoAssetId: z.uuid().nullable().optional(),
+    bannerAssetId: z.uuid().nullable().optional(),
     password: campaignPasswordDto.nullable().optional(),
     playersCreateTokens: z.boolean().optional(),
     playersDeleteTokens: z.boolean().optional(),

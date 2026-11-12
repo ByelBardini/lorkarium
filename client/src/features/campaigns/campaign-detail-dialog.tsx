@@ -61,7 +61,8 @@ function DetailHeader({ campaign, readerId, onClose }: DetailHeaderProps): React
   return (
     <div className="flex items-start gap-4 sm:gap-5">
       <CampaignCover
-        cover={campaign.cover}
+        {...campaign}
+        format="photo"
         className="size-20 shrink-0 border border-divider sm:size-28"
       />
       <DialogHeader className="min-w-0 flex-1 gap-1.5">

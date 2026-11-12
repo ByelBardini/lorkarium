@@ -6,7 +6,8 @@ export type AssetErrorCode =
   | 'LINK_BLOCKED'
   | 'LINK_UNREACHABLE'
   | 'LINK_NOT_IMAGE'
-  | 'RATE_LIMITED';
+  | 'RATE_LIMITED'
+  | 'INVALID_BODY';
 
 /** Every refusal of the assets module, with the code the edges translate into a status. */
 export class AssetError extends Error {
@@ -84,5 +85,18 @@ export class LinkNotImageError extends AssetError {
 export class AssetRateLimitedError extends AssetError {
   constructor(readonly retryAfterSeconds: number) {
     super('RATE_LIMITED', `too many images sent; retry after ${retryAfterSeconds} s`);
+  }
+}
+
+/** A crop rectangle sent for a purpose the server never cuts to an aspect of its own. */
+export class InvalidCropError extends AssetError {
+  constructor(
+    readonly purpose: string,
+    crop: Readonly<{ x: number; y: number; w: number; h: number }>,
+    framed: readonly string[],
+  ) {
+    const rectangle = [crop.x, crop.y, crop.w, crop.h].join(',');
+    const expected = `${framed.slice(0, -1).join(', ')} or ${framed.at(-1)}`;
+    super('INVALID_BODY', `crop ${rectangle} sent for purpose ${purpose}; expected ${expected}`);
   }
 }

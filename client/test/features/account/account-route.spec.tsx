@@ -26,8 +26,8 @@ describe('account route (/account)', () => {
     return router;
   }
 
-  async function openAccount(): Promise<ReturnType<typeof createMemoryRouter>> {
-    const router = renderAt();
+  async function openAccount(path = '/account'): Promise<ReturnType<typeof createMemoryRouter>> {
+    const router = renderAt(path);
     await screen.findByRole('heading', { name: 'Minha conta', level: 1 });
     return router;
   }
@@ -206,6 +206,66 @@ describe('account route (/account)', () => {
     const router = renderAt();
     expect(await screen.findByRole('heading', { name: 'Bem-vindo de volta' })).toBeInTheDocument();
     expect(router.state.location.search).toBe('?next=%2Faccount');
+  });
+
+  describe('abas', () => {
+    function tabs(): HTMLElement[] {
+      return within(screen.getByRole('tablist', { name: 'Seções da conta' })).getAllByRole('tab');
+    }
+
+    it('opens on Perfil, dice included, with Segurança and Plano beside it', async () => {
+      await openAccount();
+      expect(tabs().map((tab) => tab.textContent)).toEqual(['Perfil', 'Segurança', 'Plano']);
+      expect(screen.getByRole('tab', { name: 'Perfil' })).toHaveAttribute('aria-selected', 'true');
+      const form = screen.getByRole('form', { name: 'Perfil' });
+      expect(within(form).getByRole('group', { name: 'Seus dados' })).toBeVisible();
+      expect(within(form).getByRole('switch', { name: 'Dados 3D' })).toBeVisible();
+      expect(screen.queryByRole('region', { name: 'Conta e segurança' })).toBeNull();
+    });
+
+    it('a tab goes into ?aba= and shows its section without loading the account again', async () => {
+      const router = await openAccount();
+      const loads = deps.profileApi.answers.callsOf('get').length;
+
+      await userEvent.click(screen.getByRole('tab', { name: 'Segurança' }));
+
+      expect(await screen.findByRole('region', { name: 'Conta e segurança' })).toBeVisible();
+      expect(router.state.location.search).toBe('?aba=seguranca');
+      expect(screen.queryByRole('form', { name: 'Perfil' })).toBeNull();
+      expect(deps.profileApi.answers.callsOf('get')).toHaveLength(loads);
+    });
+
+    it('Perfil again leaves /account without a query', async () => {
+      const router = await openAccount('/account?aba=plano');
+      await userEvent.click(screen.getByRole('tab', { name: 'Perfil' }));
+      expect(await screen.findByLabelText('Apelido')).toBeVisible();
+      expect(router.state.location.search).toBe('');
+    });
+
+    it('an unknown ?aba=, like the old dados, opens Perfil', async () => {
+      await openAccount('/account?aba=dados');
+      expect(screen.getByRole('tab', { name: 'Perfil' })).toHaveAttribute('aria-selected', 'true');
+      expect(nickname()).toHaveValue('Ana');
+    });
+
+    it('a nickname edited in Perfil survives Plano, marks its tab, and the bar still saves it', async () => {
+      await openAccount();
+      await userEvent.clear(nickname());
+      await userEvent.type(nickname(), 'Bia');
+
+      await userEvent.click(screen.getByRole('tab', { name: 'Plano' }));
+      await screen.findByRole('region', { name: 'Seu plano' });
+      expect(screen.getByRole('tab', { name: 'Perfil (alterações não salvas)' })).toBeVisible();
+      expect(screen.getByRole('tab', { name: 'Plano' })).toBeVisible();
+
+      await userEvent.click(screen.getByRole('tab', { name: /^Perfil/ }));
+      expect(await screen.findByLabelText('Apelido')).toHaveValue('Bia');
+      const bar = screen.getByRole('region', { name: 'Alterações do perfil' });
+      await userEvent.click(within(bar).getByRole('button', { name: 'Salvar alterações' }));
+      expect(await screen.findByText('Tudo salvo.')).toBeInTheDocument();
+      expect(deps.profileApi.answers.callsOf('update')).toEqual([{ name: 'Bia' }]);
+      expect(screen.getByRole('tab', { name: 'Perfil' })).toBeVisible();
+    });
   });
 
   describe('foto', () => {

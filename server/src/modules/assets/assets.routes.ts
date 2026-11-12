@@ -26,6 +26,7 @@ import {
   AssetRateLimitedError,
   type AssetErrorCode,
 } from './assets.error';
+import { toImageCrop } from './assets.mapper';
 import type { AssetsService, RevalidatedAsset } from './assets.service';
 import { withPlanLimitReply } from '../plans/plan-limit-response';
 
@@ -45,6 +46,7 @@ const STATUS_BY_CODE: Readonly<Record<AssetErrorCode, number>> = {
   LINK_UNREACHABLE: 422,
   LINK_NOT_IMAGE: 422,
   RATE_LIMITED: 429,
+  INVALID_BODY: 400,
 };
 
 // Public text only: the internal message cites links, addresses and ids and stays in the log.
@@ -57,6 +59,7 @@ const PUBLIC_MESSAGE: Readonly<Record<AssetErrorCode, string>> = {
   LINK_UNREACHABLE: 'The link could not be downloaded',
   LINK_NOT_IMAGE: 'The link does not lead to an image',
   RATE_LIMITED: 'Too many images sent',
+  INVALID_BODY: 'This image cannot be cropped',
 };
 
 /** HTTP edge of assets: send a file (raw body), import a link and read an image back, all for
@@ -83,11 +86,12 @@ function registerSendRoutes(app: FastifyInstance, service: AssetsService): void 
   const rateLimitConfig = sendRateLimit((request) => userOf(request).id);
   const options = { onRequest: guard, config: { rateLimit: rateLimitConfig } };
   app.post(UPLOAD_URL, { ...options, bodyLimit: ASSET_MAX_BYTES }, async (request, reply) => {
-    const { purpose } = uploadAssetQueryDto.parse(request.query);
+    const query = uploadAssetQueryDto.parse(request.query);
     const bytes = new Uint8Array(request.body as Buffer);
     const asset = await service.upload(userOf(request).id, campaignIdOf(request), {
       bytes,
-      purpose,
+      purpose: query.purpose,
+      crop: toImageCrop(query),
     });
     return reply.code(201).send({ asset } satisfies AssetResponseDto);
   });

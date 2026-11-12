@@ -12,6 +12,7 @@ import { memberColorCss } from '@/lib/member-color';
 import type { ProfileApi } from '@/services/profile-api';
 import type { SessionStore } from '@/stores/session-store';
 import { accountFailureMessage } from './account-messages';
+import { SettingsRow } from './settings-row';
 import { failureOf, useAccountFetcher } from './use-account-fetcher';
 import type { ProfileDraft } from './use-profile-draft';
 import { useDiceTextureUpload, type ProfileImageUpload } from './use-profile-image-upload';
@@ -39,21 +40,21 @@ export function DiceAppearanceField(props: DiceAppearanceFieldProps): React.JSX.
     numberColor: draft.values.diceNumberColor,
   });
   return (
-    <fieldset className="flex flex-col gap-3" aria-busy={upload.sending || removal.busy}>
-      <legend className="mb-1 text-[13px] font-medium text-label">Seus dados</legend>
-      <div className="flex flex-wrap items-start gap-5">
+    <SettingsRow
+      title="Seus dados"
+      group
+      busy={upload.sending || removal.busy}
+      description="Uma textura para os seus dados · PNG, JPEG, WebP ou GIF (fica parado) até 5 MB. Sem textura, o dado usa a sua cor no mapa."
+    >
+      <div className="flex flex-wrap items-center gap-6">
         <DicePreview color={draft.values.color} textureId={textureId} numberColor={numberColor} />
-        <div className="flex max-w-sm min-w-0 flex-1 flex-col gap-2">
+        <div className="flex max-w-sm min-w-0 flex-1 flex-col gap-3">
           <ImageSourceButtons
             sender={textureSenderOf(upload, failureOf(removal.settled))}
             hasImage={textureId !== null}
             removeLabel="Tirar textura"
             onRemove={() => removal.send({ intent: 'dice-texture-remove' })}
           />
-          <p className="text-[13px] text-placeholder">
-            Uma textura para os seus dados · PNG, JPEG, WebP ou GIF (fica parado) até 5 MB. Sem
-            textura, o dado usa a sua cor no mapa.
-          </p>
           {textureId !== null && (
             <NumberColorField
               value={numberColor}
@@ -62,7 +63,7 @@ export function DiceAppearanceField(props: DiceAppearanceFieldProps): React.JSX.
           )}
         </div>
       </div>
-    </fieldset>
+    </SettingsRow>
   );
 }
 
@@ -90,7 +91,7 @@ function NumberColorField({ value, onChange }: NumberColorFieldProps): React.JSX
   return (
     <div role="group" aria-labelledby={labelId} className="flex items-center gap-3">
       <CustomColorTile value={value} onPick={onChange} className="size-9" scope="account" />
-      <span id={labelId} className="text-[13px] font-medium text-label">
+      <span id={labelId} className="text-[15px] font-medium text-label">
         Cor do número
       </span>
     </div>
@@ -114,7 +115,7 @@ function DicePreview({ color, textureId, numberColor }: DicePreviewProps): React
       viewBox="0 0 100 100"
       role="img"
       aria-label="Prévia do seu dado"
-      className="size-24 shrink-0"
+      className="size-32 shrink-0"
     >
       {textureId !== null && (
         <defs>

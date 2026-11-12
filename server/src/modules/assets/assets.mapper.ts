@@ -4,15 +4,26 @@ import {
   type AssetOutlineResponseDto,
   type AssetPurposeDto,
   type SheetTemplateAssetDto,
+  type UploadAssetQueryDto,
 } from '@lorkarium/contracts';
 import type { AssetPo, NewAssetPo } from './assets.po';
-import type { NormalizedImage } from './image-processor.port';
+import type { ImageCrop, NormalizedImage } from './image-processor.port';
 
 /** The S3 key of an asset: its id alone, never the name the file had (§8.5).
  *
  *  Example: `storageKeyOf(id) // 'assets/<id>'` */
 export function storageKeyOf(assetId: string): string {
   return `assets/${assetId}`;
+}
+
+/** The crop rectangle of the upload query, in percent of the upright image; `null` = none sent
+ *  (the DTO already refused a partial one).
+ *
+ *  Example: `toImageCrop({ purpose: 'cover', cropX: 0, cropY: 10, cropW: 100, cropH: 50 }) // { x: 0, y: 10, w: 100, h: 50 }` */
+export function toImageCrop(query: UploadAssetQueryDto): ImageCrop | null {
+  const { cropX: x, cropY: y, cropW: w, cropH: h } = query;
+  if (x === undefined || y === undefined || w === undefined || h === undefined) return null;
+  return { x, y, w, h };
 }
 
 export type StoredImage = Readonly<{

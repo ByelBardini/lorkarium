@@ -67,7 +67,9 @@ async function imageOf32(background: Rgb): Promise<Buffer> {
 const processor = new SharpImageProcessor();
 const TOKEN = { maxSide: 1024 };
 const BACKGROUND = { maxSide: 4096 };
-const CONDITION = { maxSide: 256, square: true };
+const SQUARE = { width: 1, height: 1 };
+const BANNER = { width: 3, height: 1 };
+const CONDITION = { maxSide: 256, frame: { aspect: SQUARE, crop: null } };
 
 describe('SharpImageProcessor.normalize', () => {
   it('a 300×200 PNG with alpha stays a 300×200 PNG with four channels', async () => {
@@ -237,7 +239,7 @@ describe('SharpImageProcessor.normalize output format by purpose and alpha', () 
   });
 });
 
-describe('SharpImageProcessor.normalize with square', () => {
+describe('SharpImageProcessor.normalize with a 1:1 frame and no crop', () => {
   it('a 600×300 PNG with alpha comes out a 256×256 PNG that keeps its alpha', async () => {
     const image = keptOf(
       await processor.normalize(await imageOf(600, 300, 'png', true), CONDITION),
@@ -273,19 +275,85 @@ describe('SharpImageProcessor.normalize with square', () => {
     expect((await sharp(image.bytes).metadata()).orientation).toBeUndefined();
   });
 
-  it.each([
-    ['without square', { maxSide: 1024 }],
-    ['with square false', { maxSide: 1024, square: false }],
-  ])('%s a 4096×2048 image stays rectangular at 1024×512', async (_, options) => {
-    const image = keptOf(await processor.normalize(await imageOf(4096, 2048, 'png'), options));
+  it.each([['without a frame', { maxSide: 1024 }]])(
+    '%s a 4096×2048 image stays rectangular at 1024×512',
+    async (_, options) => {
+      const image = keptOf(await processor.normalize(await imageOf(4096, 2048, 'png'), options));
 
-    expect([image.width, image.height]).toEqual([1024, 512]);
-  });
+      expect([image.width, image.height]).toEqual([1024, 512]);
+    },
+  );
 
-  it('a GIF kept square with no budget is a PNG too', async () => {
+  it('a GIF framed 1:1 with no budget is a PNG too', async () => {
     const image = keptOf(await processor.normalize(await imageOf(16, 16, 'gif'), CONDITION));
 
     expect(image).toMatchObject({ mimeType: 'image/png', width: 16, height: 16 });
+  });
+});
+
+// 200×100 stored, red on the left half: EXIF orientation 6 turns it upright to 100×200, red on top.
+async function redTopWhenUpright(): Promise<Uint8Array> {
+  const red = await sharp({ create: { width: 100, height: 100, channels: 3, background: RED } })
+    .png()
+    .toBuffer();
+  const stored = await sharp({ create: { width: 200, height: 100, channels: 3, background: BLUE } })
+    .composite([{ input: red, left: 0, top: 0 }])
+    .jpeg()
+    .toBuffer();
+  return new Uint8Array(await sharp(stored).withMetadata({ orientation: 6 }).toBuffer());
+}
+
+function isRed(pixel: Rgb): boolean {
+  return pixel.r > 200 && pixel.g < 60 && pixel.b < 60;
+}
+
+describe('SharpImageProcessor.normalize with a frame', () => {
+  it('an 800×400 PNG framed 1:1 with no crop comes out 400×400 under a 512 limit', async () => {
+    const options = { maxSide: 512, frame: { aspect: SQUARE, crop: null } };
+
+    const image = keptOf(await processor.normalize(await imageOf(800, 400, 'png'), options));
+
+    expect([image.width, image.height]).toEqual([400, 400]);
+  });
+
+  it('a 4000×3000 JPEG framed 3:1 comes out 1800×600 under an 1800 limit', async () => {
+    const options = { maxSide: 1800, frame: { aspect: BANNER, crop: null } };
+
+    const image = keptOf(await processor.normalize(await imageOf(4000, 3000, 'jpeg'), options));
+
+    expect([image.width, image.height]).toEqual([1800, 600]);
+  });
+
+  it('the crop is read on the upright image: the top half of an EXIF 6 JPEG is all red', async () => {
+    const crop = { x: 0, y: 0, w: 100, h: 50 };
+    const options = { maxSide: 512, frame: { aspect: SQUARE, crop } };
+
+    const image = keptOf(await processor.normalize(await redTopWhenUpright(), options));
+
+    expect([image.width, image.height]).toEqual([100, 100]);
+    expect(isRed(await pixelAt(image.bytes, 5, 5))).toBe(true);
+    expect(isRed(await pixelAt(image.bytes, 94, 94))).toBe(true);
+  });
+
+  it('a 300×100 PNG framed 3:1 under a 1800 limit stays 300×100, never enlarged', async () => {
+    const options = { maxSide: 1800, frame: { aspect: BANNER, crop: null } };
+
+    const image = keptOf(await processor.normalize(await imageOf(300, 100, 'png'), options));
+
+    expect([image.width, image.height]).toEqual([300, 100]);
+  });
+
+  it('a crop on the right half of a 300×100 PNG keeps the blue end, not the red middle', async () => {
+    const options = {
+      maxSide: 256,
+      frame: { aspect: SQUARE, crop: { x: 50, y: 0, w: 50, h: 100 } },
+    };
+
+    const image = keptOf(await processor.normalize(await redMiddleStripe(), options));
+
+    expect([image.width, image.height]).toEqual([100, 100]);
+    expect(await pixelAt(image.bytes, 99, 50)).toEqual(BLUE);
+    expect(await pixelAt(image.bytes, 0, 50)).toEqual(RED);
   });
 });
 

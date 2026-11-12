@@ -37,3 +37,35 @@ describe('useCampaignSettingsDraft · player token rights', () => {
     expect(result.current.update).toBeNull();
   });
 });
+
+describe('useCampaignSettingsDraft · photo and banner', () => {
+  const PHOTO_ID = '1b2c3d4e-5f60-4a71-8b92-a3b4c5d6e7f8';
+  const BANNER_ID = '9e8d7c6b-5a49-4382-9716-05f4e3d2c1b0';
+
+  it('starts at the confirmed photo and banner, clean', () => {
+    const { result } = draftOf({ photoAssetId: PHOTO_ID, bannerAssetId: null });
+    expect(result.current.values.photoAssetId).toBe(PHOTO_ID);
+    expect(result.current.values.bannerAssetId).toBeNull();
+    expect(result.current.dirty).toBe(false);
+    expect(result.current.update).toBeNull();
+  });
+
+  it('a new photo goes in the PATCH as photoAssetId', () => {
+    const { result } = draftOf();
+    act(() => result.current.change({ photoAssetId: PHOTO_ID }));
+    expect(result.current.update).toEqual({ photoAssetId: PHOTO_ID });
+  });
+
+  it('"Usar a capa" on a confirmed banner sends bannerAssetId null', () => {
+    const { result } = draftOf({ bannerAssetId: BANNER_ID });
+    act(() => result.current.change({ bannerAssetId: null }));
+    expect(result.current.update).toEqual({ bannerAssetId: null });
+  });
+
+  it('the same photo chosen again: clean, nothing to save', () => {
+    const { result } = draftOf({ photoAssetId: PHOTO_ID });
+    act(() => result.current.change({ photoAssetId: PHOTO_ID }));
+    expect(result.current.dirty).toBe(false);
+    expect(result.current.update).toBeNull();
+  });
+});
