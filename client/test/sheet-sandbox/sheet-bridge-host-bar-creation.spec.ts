@@ -104,10 +104,24 @@ describe('sheet bridge host: bars.create', () => {
     expect(codesOf(harness)).toEqual(['RATE_LIMITED']);
   });
 
-  it('a hex color is INVALID_MESSAGE and nothing is sent', async () => {
+  it('a hex color is sent like a palette name', async () => {
     const harness = await declared();
 
     await harness.frameSends(create({ label: 'Fôlego', max: 6, color: '#ff0000' }));
+
+    expect({
+      codes: codesOf(harness),
+      colors: harness.api.barCreations.map((c) => c.input.bar.color),
+    }).toEqual({
+      codes: [],
+      colors: ['#ff0000'],
+    });
+  });
+
+  it('a color neither in the palette nor hex is INVALID_MESSAGE and nothing is sent', async () => {
+    const harness = await declared();
+
+    await harness.frameSends(create({ label: 'Fôlego', max: 6, color: 'purple' }));
 
     expect({ codes: codesOf(harness), sent: harness.api.barCreations }).toEqual({
       codes: ['INVALID_MESSAGE'],

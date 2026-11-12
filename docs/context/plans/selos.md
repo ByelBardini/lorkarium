@@ -22,20 +22,21 @@ A troca no backoffice avisa as mesas vivas: plano e **papel global** (`changeRol
 
 `planSealOf(holder)` → `PlanSealLook | null`, o mais alto: **Dono do Lorkarium > Admin > Amigo do Dono > Lenda > Narrador > Apoiador**. O Apoiador é um plano (`apoiador`), o mais baixo dos selos; o Grátis não tem selo. `PlanSealHolder` = `{ plan, admin, lorkariumOwner }`; `sealHolderOfAccount(conta)` tira o `admin` do `role` (`/me`, backoffice). `PLAN_NAMES` = os cinco planos.
 
-| Selo          | `kind`            | Nome acessível        | Cor      | Ícone (`plan-seal-icons.tsx`; o mapa por `kind` em `plan-seal-icon-map.ts`) |
-| ------------- | ----------------- | --------------------- | -------- | --------------------------------------------------------------------------- |
-| Dono          | `lorkarium_owner` | "Dono do Lorkarium"   | `bone`   | a logo (`LorkariumOwnerSealIcon`)                                           |
-| Admin         | `admin`           | "Administrador"       | `ember`  | espada erguida (`AdminSealIcon`)                                            |
-| Amigo do Dono | `amigo_do_dono`   | "Plano Amigo do Dono" | `rose`   | cálice (`AmigoDoDonoSealIcon`)                                              |
-| Lenda         | `lenda`           | "Plano Lenda"         | `gold`   | brasão (`LendaSealIcon`)                                                    |
-| Narrador      | `narrador`        | "Plano Narrador"      | `steel`  | pena (`NarradorSealIcon`)                                                   |
-| Apoiador      | `apoiador`        | "Apoiador"            | `violet` | chama (`ApoiadorSealIcon`)                                                  |
+| Selo          | `kind`            | Nome acessível      | Cor      | Ícone (`plan-seal-icons.tsx`; o mapa por `kind` em `plan-seal-icon-map.ts`) |
+| ------------- | ----------------- | ------------------- | -------- | --------------------------------------------------------------------------- |
+| Dono          | `lorkarium_owner` | "Dono do Lorkarium" | `bone`   | a logo (`LorkariumOwnerSealIcon`)                                           |
+| Admin         | `admin`           | "Administrador"     | `ember`  | espada erguida (`AdminSealIcon`)                                            |
+| Amigo do Dono | `amigo_do_dono`   | "Amigo do Dono"     | `rose`   | cálice (`AmigoDoDonoSealIcon`)                                              |
+| Lenda         | `lenda`           | "Plano Lenda"       | `gold`   | brasão (`LendaSealIcon`)                                                    |
+| Narrador      | `narrador`        | "Plano Narrador"    | `steel`  | pena (`NarradorSealIcon`)                                                   |
+| Apoiador      | `apoiador`        | "Apoiador"          | `violet` | chama (`ApoiadorSealIcon`)                                                  |
 
 ## Onde aparece
 
 - `PlanSeal holder` (`components/plan-seal.tsx`): só o símbolo, na cor do selo (estilo inline de `memberColorCss`), da altura do texto (`size-[1.05em]`), `role="img"` com o nome acessível e o mesmo nome no `title`; `data-seal` = o `kind`. Nada para Grátis.
 - `UserHandle username seal` (`components/user-handle.tsx`): o `@username` com o símbolo colado à direita, na mesma linha. Todo @ mostrado como identificação passa por ele: cartão do membro (`member-card-popover.tsx`), prévia "Como a galera te vê", a linha "Nome de usuário" do Perfil, o menu da conta (linha nova com o @ acima do e-mail) e a linha do backoffice. O @ dentro de uma frase (avisos, títulos de diálogo, "Você está conectado como @…") fica em texto.
-- Onde a tela não mostra o @, o símbolo vai colado ao nome: as linhas de "Na mesa" (`NickLine`), "Participantes" do detalhe da mesa (o `campaignMemberDto` não tem @) e o título de "Seu plano" (o `PlanSection` recebe `account` = o perfil, para `admin`/`lorkariumOwner`).
+- Onde a tela não mostra o @, o símbolo vai colado ao nome: as linhas de "Na mesa" (`NickLine`), "Participantes" do detalhe da mesa (o `campaignMemberDto` não tem @).
+- "Seu plano" de `/account` não usa o `PlanSeal`: desenha o ícone grande pelo `PLAN_SEAL_ICONS` no `PlanCard` e um pequeno, decorativo, no cabeçalho de cada coluna da grade (ver [`../client/account.md`](../client/account.md), Seu plano).
 - A coluna "Plano" do backoffice escreve o plano gravado em palavras ("Lenda", "Apoiador"); o selo único foi para o lado do @.
 - A coroa "Dono"/"Mestre" da mesa (`master-row.tsx`) é outra coisa (o dono da campanha) e não mudou.
 - Provado em `client/test/lib/plan-seal.spec.ts` (a precedência inteira), `components/plan-seal.spec.tsx`, `components/plan-seal-icon-map.spec.tsx` (todo ícone, traço e grade), `components/user-handle.spec.tsx` e nos specs das telas.

@@ -185,9 +185,9 @@ describe('createSheetBarRequestDto', () => {
     }));
   it('keeps a palette color', () =>
     expect(request({ label: 'MP', max: 3, color: 'moss' }).data?.bar.color).toBe('moss'));
-  it('refuses a hex color citing it and the palette', () =>
-    expect(issue({ label: 'MP', max: 3, color: '#ff0000' })).toBe(
-      'bar color "#ff0000"; expected one of gold, steel, ember, moss, ash',
+  it('refuses a color neither in the palette nor a hex, citing it and the palette', () =>
+    expect(issue({ label: 'MP', max: 3, color: 'purple' })).toBe(
+      'bar color "purple"; expected one of gold, steel, ember, moss, ash or a hex #rrggbb',
     ));
   it.each([
     ['a blank label', { label: '  ', max: 3 }],

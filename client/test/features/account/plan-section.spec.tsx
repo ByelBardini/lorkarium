@@ -48,7 +48,8 @@ describe('"Seu plano" in Minha conta', () => {
     expect(current).toHaveTextContent('Narrador');
     expect(current).toHaveTextContent('Seu plano');
     expect(cellOf(table, 'Grids por mesa', 'Grátis')).toHaveTextContent('5');
-    expect(cellOf(table, 'Grids por mesa', 'Narrador')).toHaveTextContent('20');
+    expect(cellOf(table, 'Grids por mesa', 'Narrador')).toHaveTextContent('20×4');
+    expect(within(table).queryByRole('columnheader', { name: /Amigo do Dono/ })).toBeNull();
     expect(cellOf(table, 'Armazenamento', 'Lenda')).toHaveTextContent('10 GB');
     expect(cellOf(table, 'Duplicar grid', 'Grátis')).toHaveTextContent('não');
     expect(within(section).getByText('2 de 5 mesas')).toBeVisible();
@@ -75,12 +76,12 @@ describe('"Seu plano" in Minha conta', () => {
     const section = await openPlan();
 
     expect(within(section).getByRole('heading', { name: 'Amigo do Dono', level: 3 })).toBeVisible();
-    expect(within(section).getByText(/sem limite de plano/i)).toBeVisible();
+    expect(within(section).getByText(/não têm limite de plano/i)).toBeVisible();
     expect(within(section).getByText('3 mesas')).toBeVisible();
     expect(within(section).getByText('1,5 GB')).toBeVisible();
   });
 
-  it('an admin keeps the stored plan name but has no plan limit', async () => {
+  it('an admin sees the Administrador card, never the stored Grátis', async () => {
     deps.profileApi.profile = { ...deps.profileApi.profile, admin: true };
     deps.accountPlanApi.plan = accountPlanOf('free', {
       limitsOf: 'amigo_do_dono',
@@ -89,20 +90,21 @@ describe('"Seu plano" in Minha conta', () => {
     const section = await openPlan();
     const table = within(section).getByRole('table', { name: 'Limites por plano' });
 
+    expect(within(section).getByRole('heading', { name: 'Administrador', level: 3 })).toBeVisible();
+    expect(within(section).queryByRole('heading', { name: 'Grátis' })).toBeNull();
     expect(within(section).getByText(/administrador.*sem limite de plano/i)).toBeVisible();
     expect(within(table).getByRole('columnheader', { current: true })).toHaveTextContent(
-      'Amigo do Dono',
+      'Limites especiais',
     );
+    expect(within(table).queryByRole('columnheader', { name: /Amigo do Dono/ })).toBeNull();
     expect(within(section).getByText('1 mesa')).toBeVisible();
   });
 
-  it('the one seal sits beside the name of the plan', async () => {
+  it('the card shows the big seal and the plan own sentence', async () => {
     deps.accountPlanApi.plan = accountPlanOf('lenda');
     const section = await openPlan();
-    const heading = within(section).getByRole('heading', { name: 'Lenda', level: 3 });
-    expect(heading.nextElementSibling).toBe(
-      within(section).getByRole('img', { name: 'Plano Lenda' }),
-    );
+    expect(within(section).getByRole('img', { name: 'Plano Lenda' })).toBeVisible();
+    expect(within(section).getByText(/em escala épica/)).toBeVisible();
   });
 
   it('an Apoiador sees its name and seal, the Grátis numbers and the customizations open', async () => {
@@ -119,13 +121,17 @@ describe('"Seu plano" in Minha conta', () => {
     expect(within(section).getByText(/personalizações da conta.*liberadas/i)).toBeVisible();
   });
 
-  it('the Dono do Lorkarium on Grátis shows its seal and why there is no plan limit', async () => {
+  it('the Dono do Lorkarium stored on Grátis sees the Dono card, never Grátis', async () => {
     deps.profileApi.profile = { ...deps.profileApi.profile, lorkariumOwner: true };
     deps.accountPlanApi.plan = accountPlanOf('free', { limitsOf: 'amigo_do_dono' });
     const section = await openPlan();
 
     expect(await within(section).findByRole('img', { name: 'Dono do Lorkarium' })).toBeVisible();
-    expect(within(section).getByText(/dono do lorkarium: sem limite de plano/i)).toBeVisible();
+    expect(
+      within(section).getByRole('heading', { name: 'Dono do Lorkarium', level: 3 }),
+    ).toBeVisible();
+    expect(within(section).queryByRole('heading', { name: 'Grátis' })).toBeNull();
+    expect(within(section).getByText(/sem limite de plano/i)).toBeVisible();
   });
 
   it('Grátis shows no seal', async () => {
