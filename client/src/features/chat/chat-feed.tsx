@@ -10,13 +10,7 @@ import { useRevealClock } from '@/features/dice/use-reveal-clock';
 import { ChatMessageRow } from './chat-message-row';
 import { EMPTY_CONVERSATION } from './chat-messages';
 import type { ChatPeople } from './use-chat-people';
-import {
-  chatVoiceKeyOf,
-  useChatTokenFaces,
-  type ChatTokenFace,
-  type ChatTokenFaces,
-  type ChatVoice,
-} from './use-chat-token';
+import { chatFaceOf, chatVoicesOf, useChatTokenFaces, type ChatTokenFaces } from './use-chat-token';
 
 export type ChatFeedProps = Readonly<{
   /** The conversation's name, for the log's label. */
@@ -45,7 +39,7 @@ export function ChatFeed(props: ChatFeedProps): React.JSX.Element {
   const items = chatFeedOf({ ...props, unreadCount });
   const { now } = useRevealClock(props.rolls, props.diceClock);
   const scroller = useFollowBottom(items.length);
-  const voices = useMemo(() => voicesOf(props.messages), [props.messages]);
+  const voices = useMemo(() => chatVoicesOf(props.messages), [props.messages]);
   const faces = useChatTokenFaces(props.tabs, voices);
   return (
     <div
@@ -83,25 +77,9 @@ function FeedItem({ item, now, people, viewerNames, faces }: FeedItemProps): Rea
       continued={item.continued}
       people={people}
       viewerNames={viewerNames}
-      face={faceOf(faces, item.message)}
+      face={chatFaceOf(faces, item.message)}
     />
   );
-}
-
-// One voice per token spoken as, however many lines it has.
-function voicesOf(messages: readonly ChatMessage[]): ChatVoice[] {
-  const voices = new Map<string, ChatVoice>();
-  for (const { event } of messages) {
-    if (event.speaker.kind !== 'token') continue;
-    const { sceneId, tokenId } = event.speaker;
-    voices.set(chatVoiceKeyOf(sceneId, tokenId), { sceneId, tokenId });
-  }
-  return [...voices.values()];
-}
-
-function faceOf(faces: ChatTokenFaces, { event }: ChatMessage): ChatTokenFace | null {
-  if (event.speaker.kind !== 'token') return null;
-  return faces.get(chatVoiceKeyOf(event.speaker.sceneId, event.speaker.tokenId)) ?? null;
 }
 
 function UnreadDivider(): React.JSX.Element {
