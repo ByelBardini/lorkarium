@@ -120,7 +120,7 @@ function SceneGroupRow({ group, ...props }: SceneGroupRowProps) {
   const holdsSelected = group.tokens.some(({ id }) => props.selectedIds.includes(id));
   const open = opened || holdsSelected;
   return (
-    <li className="border-b border-divider py-2 last:border-b-0">
+    <li className="border-b border-divider px-0.5 py-2 last:border-b-0">
       <TokenGroupLine
         label={group.label}
         tokens={group.tokens}
@@ -156,7 +156,9 @@ const SceneTokenRow = memo(function SceneTokenRow(props: SceneTokenRowProps) {
       className={
         compact
           ? 'py-1 pl-2'
-          : 'border-b border-divider py-2 [contain-intrinsic-size:auto_3.5rem] [content-visibility:auto] last:border-b-0'
+          : // `content-visibility` clips the paint at the row's edge: the 2px side ring of the
+            // avatar (an outer shadow) needs the `px-0.5` to show whole.
+            'border-b border-divider px-0.5 py-2 [contain-intrinsic-size:auto_3.5rem] [content-visibility:auto] last:border-b-0'
       }
     >
       <TokenLine
