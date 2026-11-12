@@ -53,10 +53,10 @@ export type ChatPanelProps = Readonly<{
   initialConversation?: ChatConversationKey;
 }>;
 
-/** The "Chat" tab of the room: the strip of conversations, the feed of the one chosen and the
- *  composer. While it is on screen its conversation is the store's active one (read at once);
- *  gone, every conversation counts unread again. With the chat in another window (`window`
- *  detached) the tab only offers to bring it back.
+/** The chat of a table, in the room's drawer and in the detached window: the strip of
+ *  conversations, the feed of the one chosen and the composer. While it is on screen its
+ *  conversation is the store's active one (read at once); gone, every conversation counts unread
+ *  again. With the chat in another window (`window` detached) it only offers to bring it back.
  *
  *  Example: `<ChatPanel campaignId={campaign.id} role={campaign.myRole} sessionStore={deps.sessionStore} openTables={openTables} presence={presence} board={board} services={deps} />` */
 export function ChatPanel(props: ChatPanelProps): React.JSX.Element | null {
