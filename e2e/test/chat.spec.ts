@@ -177,6 +177,65 @@ test('detached window: popup menus and sending work, changing the room tab keeps
   await expect(admin.getByText('Chat aberto em outra janela', { exact: true })).toHaveCount(0);
 });
 
+test('another panel tab: Bia on "Combate" sees the new message in the bar, a gold whisper and the tab title; the drawer survives F5 and the bar stays in focus mode', async ({
+  newPlayerPage,
+}) => {
+  test.setTimeout(150_000);
+  const { bia, caio } = await openChatTable(newPlayerPage, true);
+  if (!caio) throw new Error('expected Caio at the chat table');
+  await collapseChat(bia);
+  await bia.getByRole('tab', { name: 'Combate', exact: true }).click();
+
+  await sendChat(caio, 'Vou abrir a porta.');
+  const preview = bia
+    .getByRole('list', { name: 'Mensagens novas' })
+    .getByRole('button', { name: 'Caio: Vou abrir a porta.' });
+  await expect(preview).toBeVisible();
+  await expect(chatBarOf(bia)).toContainText('Caio: Vou abrir a porta.');
+  await expect(
+    chatBarOf(bia).getByRole('button', { name: 'Abrir chat' }),
+  ).toHaveAccessibleDescription('1 mensagem não lida');
+  await expect(bia).toHaveTitle(/^\(1\) Lorkarium · Mesa chat \d+$/);
+  await preview.click();
+  await expect(chatFeedOf(bia)).toHaveAccessibleName('Mensagens: Mesa');
+  await expect(bia).toHaveTitle(/^Lorkarium · Mesa chat \d+$/);
+  await collapseChat(bia);
+
+  await sendChat(caio, '/w Bia Cuidado com o ogro.');
+  const notices = bia.getByRole('list', { name: 'Avisos importantes' });
+  const whisper = notices.getByRole('button', { name: /Cuidado com o ogro\./ });
+  await expect(whisper).toContainText('Sussurro na Mesa');
+  await expect(bia).toHaveTitle(/^\(1!\) Lorkarium · Mesa chat \d+$/);
+  await whisper.click();
+  await expect(chatFeedOf(bia)).toContainText('Cuidado com o ogro.');
+  await expect(notices).toHaveCount(0);
+  await expect(bia).toHaveTitle(/^Lorkarium · Mesa chat \d+$/);
+
+  await expectDrawerSurvivesReload(bia);
+
+  await collapseChat(bia);
+  await boardOf(bia).focus();
+  await bia.keyboard.press('f');
+  await expect(bia.getByRole('region', { name: 'Topo da sala' })).toBeHidden();
+  await sendChat(caio, 'Ainda estão aí?');
+  await expect(chatBarOf(bia)).toContainText('Caio: Ainda estão aí?');
+});
+
+// Two steps down (↓) keep the height inside the board on any viewport: going up could hit the
+// 60% ceiling, and the reload would then prove the ceiling, not the remembered height.
+async function expectDrawerSurvivesReload(page: Page): Promise<void> {
+  const handle = chatDrawerOf(page).getByRole('separator', { name: 'Altura do chat' });
+  const before = Number(await handle.getAttribute('aria-valuenow'));
+  await handle.focus();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  const height = String(before - 48);
+  await expect(handle).toHaveAttribute('aria-valuenow', height);
+  await page.reload();
+  await expect(chatDrawerOf(page).getByRole('combobox', { name: 'Mensagem' })).toBeVisible();
+  await expect(handle).toHaveAttribute('aria-valuenow', height);
+}
+
 async function expectMatchingRoll(
   admin: Page,
   bia: Page,
