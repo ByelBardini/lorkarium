@@ -32,10 +32,7 @@ describe('2FA on the account (/account)', () => {
   }
 
   function twoFactorLine(): HTMLElement {
-    const label = screen.getByText('Verificação em duas etapas (2FA)');
-    const row = label.parentElement;
-    if (!row) throw new Error('the 2FA label has no row around it');
-    return row;
+    return screen.getByRole('group', { name: 'Verificação em duas etapas (2FA)' });
   }
 
   async function startSetup(): Promise<HTMLElement> {

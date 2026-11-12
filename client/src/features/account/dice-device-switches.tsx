@@ -1,8 +1,8 @@
 import { useId } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useDicePreferences, type DicePreferencesStore } from '@/stores/dice-preferences-store';
+import { SettingsRow } from './settings-row';
 
 type DeviceSwitchProps = Readonly<{
   label: string;
@@ -14,22 +14,20 @@ type DeviceSwitchProps = Readonly<{
 function DeviceSwitch(props: DeviceSwitchProps): React.JSX.Element {
   const id = useId();
   return (
-    <div className="flex max-w-md items-start justify-between gap-4">
-      <div className="flex flex-col gap-1">
-        <Label htmlFor={id} className="text-[13px] font-medium text-label">
-          {props.label}
-        </Label>
-        <p id={`${id}-hint`} className="text-[13px] text-placeholder">
-          {props.hint}
-        </p>
-      </div>
+    <SettingsRow
+      title={props.label}
+      titleFor={id}
+      description={props.hint}
+      descriptionId={`${id}-hint`}
+    >
       <Switch
         id={id}
         checked={props.checked}
         aria-describedby={`${id}-hint`}
         onCheckedChange={props.onCheckedChange}
+        className="self-start"
       />
-    </div>
+    </SettingsRow>
   );
 }
 
@@ -37,7 +35,7 @@ export type DiceDeviceSwitchesProps = Readonly<{
   dicePreferences: StoreApi<DicePreferencesStore>;
 }>;
 
-/** "Dados 3D" and "Som dos dados" in "Minha conta": whether this device rolls the dice over the
+/** "Dados 3D" and "Som dos dados" in "Minha conta", one row each: whether this device rolls the dice over the
  *  window and plays their knocks. Both are kept on the device, not in the profile, so they change
  *  at once, outside the bar of changes. With 3D off, three.js never loads and the result still
  *  waits the same time.
@@ -49,7 +47,7 @@ export function DiceDeviceSwitches({
   const threeD = useDicePreferences(dicePreferences, (state) => state.threeD);
   const sound = useDicePreferences(dicePreferences, (state) => state.sound);
   return (
-    <div className="flex flex-col gap-4">
+    <>
       <DeviceSwitch
         label="Dados 3D"
         hint="Os dados rolam sobre a tela. Vale só neste aparelho; desligado, o resultado aparece no mesmo tempo."
@@ -62,6 +60,6 @@ export function DiceDeviceSwitches({
         checked={sound}
         onCheckedChange={(checked) => dicePreferences.getState().setSound(checked)}
       />
-    </div>
+    </>
   );
 }

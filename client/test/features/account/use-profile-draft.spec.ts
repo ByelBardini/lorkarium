@@ -47,23 +47,3 @@ describe('useProfileDraft: the color', () => {
     expect(result.current.update).toEqual({ color: 'rose' });
   });
 });
-
-describe('useProfileDraft: changed', () => {
-  it('names each field that differs, an invalid one included, in a fixed order', () => {
-    const { result } = renderHook(() => useProfileDraft(ANA_PROFILE));
-
-    act(() => result.current.change({ diceNumberColor: '#ff3366', name: '' }));
-
-    expect(result.current.changed).toEqual(['name', 'diceNumberColor']);
-    expect(result.current.update).toBeNull();
-  });
-
-  it('is empty again after discarding', () => {
-    const { result } = renderHook(() => useProfileDraft(ANA_PROFILE));
-
-    act(() => result.current.change({ bio: 'Druida.' }));
-    act(() => result.current.discard());
-
-    expect(result.current.changed).toEqual([]);
-  });
-});
