@@ -11,6 +11,7 @@ import {
   type ReorderDocumentTabsRequestDto,
   type UpdateDocumentTabContentRequestDto,
   type UpdateDocumentTabRequestDto,
+  type PlanLimits,
 } from '@lorkarium/contracts';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import { viewerAccessOf } from '../campaigns/member-access';
@@ -38,7 +39,7 @@ type StructuralInput = Readonly<{ actionId: string; expectedVersion: number }>;
 type TabsScope = DocumentScope & Readonly<{ tabs: DocumentTabsBo<DocumentTabSummaryPo> }>;
 /** Checks the change against the tabs (throwing before anything is written) and returns the
  *  write, which answers the tab it touched, if any, for the receipt. */
-type Change = (scope: TabsScope) => () => Promise<string | undefined>;
+type Change = (scope: TabsScope, limits: PlanLimits) => () => Promise<string | undefined>;
 
 /** The tabs of a document: read one, create, rename/hide, reorder, delete and save a body.
  *  Structural changes bump the document version; a body bumps only its own tab.
@@ -68,8 +69,8 @@ export class DocumentTabsService {
     documentId: string,
     input: CreateDocumentTabRequestDto,
   ): Promise<DocumentWriteResponseDto> {
-    return this.structural(requester, documentId, input, 'tab-create', (scope) => {
-      const position = scope.tabs.requireCreate();
+    return this.structural(requester, documentId, input, 'tab-create', (scope, limits) => {
+      const position = scope.tabs.requireCreate(limits);
       return async () => {
         const tab = await scope.daos.tabs.insert({
           id: this.deps.newId(),
@@ -183,12 +184,12 @@ export class DocumentTabsService {
     targetId: string = documentId,
   ): Promise<DocumentWriteResponseDto> {
     const result = await this.deps.transaction(async (daos) => {
-      const access = await this.steps.lockedAccess(daos, requester);
+      const { access, limits } = await this.steps.lockedTable(daos, requester);
       const scope = await this.tabsScope(daos, access, documentId);
       const fingerprint = commandFingerprint(operation, targetId, input);
       const previous = await this.steps.previous(daos, requester, input.actionId, fingerprint);
       if (previous) return this.replay(scope, previous);
-      const apply = change(scope);
+      const apply = change(scope, limits);
       scope.document.requireVersion(input.expectedVersion);
       const tabId = await apply();
       const row = await this.steps.bumpDocument(scope);

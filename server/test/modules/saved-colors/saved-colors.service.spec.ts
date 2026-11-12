@@ -7,6 +7,7 @@ import {
   SavedColorsTransactionRunnerFake,
   savedColorPo,
 } from '../../support/saved-colors-fakes';
+import { planAccount } from '../../support/plan-account-fakes';
 
 const MAX_SAVED = 2;
 
@@ -63,6 +64,26 @@ describe('SavedColorsService.save', () => {
     });
     expect(colors.journal).toEqual(['lock', 'list', 'rollback']);
     expect(colors.rows).toHaveLength(2);
+  });
+
+  it('Bia on free is refused a saved color, read under the lock, and nothing is inserted', async () => {
+    const { service, colors } = serviceOver();
+    colors.account = planAccount({ plan: 'free' });
+
+    await expect(service.save(BIA_ID, '#336699')).rejects.toMatchObject({
+      code: 'PLAN_LIMIT',
+      resource: 'customColor',
+      limit: 0,
+      plan: 'free',
+    });
+    expect(colors.journal).toEqual(['lock', 'rollback']);
+  });
+
+  it('Bia on Apoiador saves a color', async () => {
+    const { service, colors } = serviceOver();
+    colors.account = planAccount({ plan: 'apoiador' });
+
+    expect(await service.save(BIA_ID, '#336699')).toEqual({ colors: ['#336699'] });
   });
 });
 

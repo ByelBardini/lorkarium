@@ -1,5 +1,6 @@
 import { lightsCreatedDto, type LightDto } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import {
   recordEventsOf,
@@ -206,6 +207,9 @@ describe('map lights over Socket.IO', () => {
 
   describe('a custom color', () => {
     const CUSTOM = '#336699';
+
+    // A test account is born free, and a hex light needs a plan with customColor.
+    beforeEach(() => setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono'));
 
     async function paintedTorch(ana: RealtimeClient): Promise<LightDto> {
       const torch = await createdBy(ana, live.vharn.id);

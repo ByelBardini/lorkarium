@@ -34,6 +34,18 @@ export function createSessionStore(): StoreApi<SessionStore> {
 
 export const sessionStore: StoreApi<SessionStore> = createSessionStore();
 
+/** The plan of the signed-in account: the stored plan (the seal), the effective limits and whether
+ *  it may customize (custom color, dice texture, animated photo). */
+export type AccountLimits = Pick<AuthUserDto, 'plan' | 'limits' | 'customization'>;
+
+/** The plan of the signed-in account as the last `/me` (or login) gave it; `null` signed out or
+ *  before the boot answers. Returns the user itself, so a selector keeps its identity.
+ *
+ *  Example: `useStore(sessionStore, selectAccountLimits)?.limits.maxCampaigns // 1 on free` */
+export function selectAccountLimits(state: SessionStore): AccountLimits | null {
+  return state.session.status === 'authenticated' ? state.session.user : null;
+}
+
 /** React view of the session (re-renders on change).
  *
  *  Example: `const session = useSession(sessionStore)` */

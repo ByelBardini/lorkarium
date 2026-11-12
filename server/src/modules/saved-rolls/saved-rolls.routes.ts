@@ -25,13 +25,16 @@ import { InvalidDiceExpressionError } from '../dice/dice.error';
 import type { SavedRollFoldersService } from './saved-roll-folders.service';
 import {
   SavedRollFolderNotFoundError,
+  SavedRollFoldersLimitError,
   SavedRollNotFoundError,
   SavedRollsError,
+  SavedRollsLimitError,
   SavedRollsRateLimitedError,
   type SavedRollsErrorCode,
 } from './saved-rolls.error';
 import type { SavedRollOwner } from './saved-rolls.mapper';
 import type { SavedRollsService } from './saved-rolls.service';
+import { withPlanLimitReply } from '../plans/plan-limit-response';
 
 const SAVED_ROLLS_URL = '/campaigns/:campaignId/saved-rolls';
 const SAVED_ROLL_URL = `${SAVED_ROLLS_URL}/:savedRollId`;
@@ -54,14 +57,15 @@ const STATUS_BY_CODE: Readonly<Record<SavedRollsErrorCode, number>> = {
 
 // Public text only: the internal message cites ids and stays in the log. The dice expression
 // (`InvalidDiceExpressionError`, of the dice module) is the exception: it is the person's own
-// text, and the reason tells which piece to fix.
+// text, and the reason tells which piece to fix. The two ceilings say the error's own limit
+// (`limitMessageOf`); their entries here are the fallback.
 const PUBLIC_MESSAGE: Readonly<Record<SavedRollsErrorCode, string>> = {
   SAVED_ROLL_NOT_FOUND: 'Saved roll not found',
   SAVED_ROLL_NAME_TAKEN: 'You already have a saved roll with this name',
-  SAVED_ROLLS_LIMIT: 'You already keep 50 saved rolls at this table',
+  SAVED_ROLLS_LIMIT: 'You already keep the most saved rolls this table allows',
   SAVED_ROLL_FOLDER_NOT_FOUND: 'Saved roll folder not found',
   SAVED_ROLL_FOLDER_NAME_TAKEN: 'You already have a folder with this name',
-  SAVED_ROLL_FOLDERS_LIMIT: 'You already keep 50 folders at this table',
+  SAVED_ROLL_FOLDERS_LIMIT: 'You already keep the most folders this table allows',
   RATE_LIMITED: 'Too many changes in a row',
 };
 
@@ -75,7 +79,7 @@ export function savedRollsRoutes(
 ): (app: FastifyInstance) => Promise<void> {
   return async (app: FastifyInstance): Promise<void> => {
     await app.register(rateLimit, { global: false, errorResponseBuilder: rateLimitedError });
-    app.setErrorHandler(replyWithApiError);
+    app.setErrorHandler(withPlanLimitReply(replyWithApiError));
     const { requireAuth, userOf } = app.authGuards;
     // One limiter (one store) for every write route, keyed by the signed-in user.
     const writes = app.rateLimit(
@@ -176,7 +180,17 @@ function savedRollsErrorBody(error: SavedRollsError): ApiErrorDto {
     const { code, retryAfterSeconds } = error;
     return { code, message: PUBLIC_MESSAGE.RATE_LIMITED, retryAfterSeconds };
   }
-  return { code: error.code, message: PUBLIC_MESSAGE[error.code] };
+  return { code: error.code, message: limitMessageOf(error) ?? PUBLIC_MESSAGE[error.code] };
+}
+
+function limitMessageOf(error: SavedRollsError): string | null {
+  if (error instanceof SavedRollsLimitError) {
+    return `You already keep ${error.limit} saved rolls at this table`;
+  }
+  if (error instanceof SavedRollFoldersLimitError) {
+    return `You already keep ${error.limit} folders at this table`;
+  }
+  return null;
 }
 
 function domainReplyOf(error: unknown): SavedRollsReply | null {

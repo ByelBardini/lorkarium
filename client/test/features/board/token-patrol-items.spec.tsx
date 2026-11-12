@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { TokenDto } from '@lorkarium/contracts';
+import { PLAN_LIMITS, type PlanLimits, type TokenDto } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
 import { boardCommandFailureMessage } from '@/features/board/board-messages';
@@ -13,6 +13,7 @@ import { createBoardStore, type BoardStore } from '@/stores/board-store';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { PATROL_STARTED_AT, squarePatrol } from '../../support/patrol-fixtures';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
+import { onTablePlan } from '../../support/table-plan';
 import {
   BIA_AT_TABLE,
   KAEL_ID,
@@ -46,19 +47,27 @@ describe('TokenContextMenu, "Patrulha…" and "Patrulhando" (master)', () => {
     closed = 0;
   });
 
-  function openOn(tokenId: string, tokens: TokenDto[], viewer = vharnBoard().viewer): void {
+  function openOn(
+    tokenId: string,
+    tokens: TokenDto[],
+    viewer = vharnBoard().viewer,
+    limits: PlanLimits = VHARN.limits,
+  ): void {
     board.getState().apply({ kind: 'board', state: vharnBoard({ tokens, viewer }) });
     render(
-      <TokenContextMenu
-        request={{ tokenId, x: 120, y: 80 }}
-        board={board}
-        interaction={interaction}
-        onApplyCondition={() => undefined}
-        onChangeImage={() => undefined}
-        onChangeAura={() => undefined}
-        onEditPatrol={(id) => edited.push(id)}
-        onClose={() => (closed += 1)}
-      />,
+      onTablePlan(
+        limits,
+        <TokenContextMenu
+          request={{ tokenId, x: 120, y: 80 }}
+          board={board}
+          interaction={interaction}
+          onApplyCondition={() => undefined}
+          onChangeImage={() => undefined}
+          onChangeAura={() => undefined}
+          onEditPatrol={(id) => edited.push(id)}
+          onClose={() => (closed += 1)}
+        />,
+      ),
     );
   }
 
@@ -138,5 +147,37 @@ describe('TokenContextMenu, "Patrulha…" and "Patrulhando" (master)', () => {
 
     expect(screen.queryByRole('menuitem', { name: 'Patrulha…' })).toBeNull();
     expect(patrolling()).toBeNull();
+  });
+
+  describe('on a free table (no patrol in the plan)', () => {
+    it('a token with no route has "Patrulha…" and "Patrulhando" off, with "Disponível no Narrador"', () => {
+      openOn(KAEL_ID, [kael()], vharnBoard().viewer, PLAN_LIMITS.free);
+
+      const draw = screen.getByRole('menuitem', { name: 'Patrulha…' });
+      expect(draw).toHaveAttribute('aria-disabled', 'true');
+      expect(draw).toHaveAccessibleDescription('Disponível no Narrador');
+      expect(patrolling()).toHaveAttribute('aria-disabled', 'true');
+      expect(patrolling()).toHaveAccessibleDescription('Disponível no Narrador');
+    });
+
+    it('a route kept from a paid plan cannot start, but still opens in the editor', () => {
+      openOn(KAEL_ID, [kael({ patrol: PAUSED })], vharnBoard().viewer, PLAN_LIMITS.free);
+
+      expect(patrolling()).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByRole('menuitem', { name: 'Patrulha…' })).not.toHaveAttribute(
+        'aria-disabled',
+      );
+    });
+
+    it('a patrol still running may be paused', async () => {
+      openOn(KAEL_ID, [kael({ patrol: RUNNING })], vharnBoard().viewer, PLAN_LIMITS.free);
+
+      await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Patrulhando' }));
+
+      expect(commands.sentAs('setTokenPatrolsActive')[0]?.fields).toEqual({
+        tokenIds: [KAEL_ID],
+        active: false,
+      });
+    });
   });
 });

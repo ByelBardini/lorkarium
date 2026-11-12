@@ -65,6 +65,10 @@ export class SheetTemplatesDaoFake implements TemplateOperations {
     return this.rows.find((row) => row.campaignId === campaignId && row.id === templateId);
   }
 
+  async countOfCampaign(campaignId: string): Promise<number> {
+    return this.rows.filter((row) => row.campaignId === campaignId).length;
+  }
+
   async insert(input: NewSheetTemplatePo): Promise<SheetTemplatePo> {
     this.journal.push('insert');
     const row = sheetTemplatePo({ ...input, id: input.id ?? TORMENTA_ID });
@@ -111,8 +115,10 @@ export class SheetTemplatesHarness {
   readonly uses = new TemplateUseCounterFake();
   readonly assets = new AssetsDaoFake(this.journal);
   readonly requester = { campaignId: VHARN_ID, userId: ANA_ID };
+  /** Vharn; its owner's plan is `campaigns.owner` (no plan limit until a spec sets one). */
+  readonly campaigns = new LibraryCampaignsDaoFake(this.journal, [campaignPo({ id: VHARN_ID })]);
   readonly daos: SheetTemplateDaos = {
-    campaigns: new LibraryCampaignsDaoFake(this.journal, [campaignPo({ id: VHARN_ID })]),
+    campaigns: this.campaigns,
     folders: new SceneFoldersDaoFake(this.journal, [
       sceneFolderPo({ id: ATO_1_ID, campaignId: VHARN_ID, name: 'Sistemas' }),
       sceneFolderPo({ id: QUELM_FOLDER_ID, campaignId: QUELM_ID, name: 'Quelm' }),

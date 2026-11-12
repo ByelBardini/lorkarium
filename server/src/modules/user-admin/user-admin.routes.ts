@@ -5,6 +5,7 @@ import {
   sendMailSampleRequestDto,
   type MailSamplesResponseDto,
   type SendMailSampleResponseDto,
+  updateUserPlanRequestDto,
   updateUserRoleRequestDto,
   type AdminDirectoryResponseDto,
   type AdminUserResponseDto,
@@ -24,6 +25,7 @@ import {
   type UserAdminErrorCode,
 } from './user-admin.error';
 import type { AdminActor, UserAdminService } from './user-admin.service';
+import { withPlanLimitReply } from '../plans/plan-limit-response';
 
 // Each test is a real e-mail: a handful in a row is a test, more is a mailer being abused.
 const MAIL_TESTS_PER_10_MINUTES = 30;
@@ -57,7 +59,7 @@ export function userAdminRoutes(
 ): (app: FastifyInstance) => Promise<void> {
   return async (app: FastifyInstance): Promise<void> => {
     await app.register(rateLimit, { global: false, errorResponseBuilder: rateLimitedError });
-    app.setErrorHandler(replyWithApiError);
+    app.setErrorHandler(withPlanLimitReply(replyWithApiError));
     registerMailTestRoutes(app, mailTest);
     const admin = { preHandler: app.authGuards.requireRole('admin') };
     app.get('/admin/users', admin, async () => {
@@ -71,6 +73,7 @@ export function userAdminRoutes(
       } satisfies AdminUserResponseDto;
     });
     registerStandingRoutes(app, service);
+    registerPlanRoutes(app, service);
     registerDeletionRoutes(app, service);
   };
 }
@@ -84,6 +87,16 @@ function registerStandingRoutes(app: FastifyInstance, service: UserAdminService)
   app.post('/admin/users/:userId/reactivate', admin, async (request) => {
     const { actor, userId } = audited(app, request, 'reactivate');
     return { user: await service.reactivate(actor, userId) } satisfies AdminUserResponseDto;
+  });
+}
+
+// No self-action guard: the admin changing their own plan gains nothing (no plan limit).
+function registerPlanRoutes(app: FastifyInstance, service: UserAdminService): void {
+  const admin = { preHandler: app.authGuards.requireRole('admin') };
+  app.patch('/admin/users/:userId/plan', admin, async (request) => {
+    const { plan } = updateUserPlanRequestDto.parse(request.body);
+    const { userId } = audited(app, request, 'change the plan of');
+    return { user: await service.changePlan(userId, plan) } satisfies AdminUserResponseDto;
   });
 }
 

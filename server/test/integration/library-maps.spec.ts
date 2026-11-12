@@ -6,7 +6,7 @@ import {
   type CampaignLibraryDto,
   type LibraryMapSummaryDto,
 } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { AssetsDao } from '../../src/modules/assets/assets.dao';
 import { SceneFoldersDao } from '../../src/modules/library/scene-folders.dao';
 import { newAssetPo } from '../support/assets-factories';
@@ -14,9 +14,12 @@ import { silence } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
 import type { SignedInUser } from '../support/sign-in';
 import type { Table } from '../support/tables';
+import { setAccountPlan } from '../support/account-plans';
 import { useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Vharn as it was before the plans: its owner has no plan limit.
+beforeEach(() => setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono'));
 
 const mapsUrl = (table: Table = live.vharn): string => `/api/campaigns/${table.id}/library-maps`;
 const mapUrl = (mapId: string, table: Table = live.vharn): string => `${mapsUrl(table)}/${mapId}`;

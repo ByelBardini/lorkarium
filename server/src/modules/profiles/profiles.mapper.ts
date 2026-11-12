@@ -20,6 +20,9 @@ export function toProfileDto(row: ProfileRow): ProfileDto {
     diceTextureId: row.diceTextureId,
     diceNumberColor: row.diceNumberColor,
     memberSince: row.createdAt.toISOString(),
+    plan: row.plan,
+    admin: row.role === 'admin',
+    lorkariumOwner: row.lorkariumOwner,
   };
 }
 

@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
-import type { TokenAuraDto } from '@lorkarium/contracts';
+import { PLAN_LIMITS, type TokenAuraDto } from '@lorkarium/contracts';
 import { AuraEditor } from '@/features/tokens/aura-editor';
 import {
   auraFormOf,
@@ -13,6 +13,7 @@ import { AssetsApiFake } from '../../support/assets-api-fake';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { fireAura, goldAura, runeAura } from '../../support/aura-fixtures';
 import { pickCustomColor } from '../../support/pick-custom-color';
+import { onTablePlan } from '../../support/table-plan';
 
 const METERS = { cellDistance: 1.5, cellUnit: 'm' };
 
@@ -179,5 +180,30 @@ describe('AuraEditor', () => {
     await pickKind('Imagem');
 
     expect(screen.getByText('Escolha a imagem da aura.')).toBeInTheDocument();
+  });
+
+  describe('on a free table (aura of color only)', () => {
+    it('offers only Nenhuma and Cor: Efeito and Imagem are off, with where they are', () => {
+      render(onTablePlan(PLAN_LIMITS.free, <Harness />));
+
+      expect(screen.getByRole('radio', { name: 'Cor' })).toBeEnabled();
+      expect(screen.getByRole('radio', { name: 'Efeito' })).toBeDisabled();
+      expect(screen.getByRole('radio', { name: 'Imagem' })).toBeDisabled();
+      expect(kindGroup()).toHaveAccessibleDescription('Efeito e Imagem: Disponível no Narrador');
+    });
+
+    it('an effect aura kept from a paid plan keeps Efeito; Imagem stays off', () => {
+      render(onTablePlan(PLAN_LIMITS.free, <Harness aura={fireAura()} />));
+
+      expect(screen.getByRole('radio', { name: 'Efeito' })).toBeEnabled();
+      expect(screen.getByRole('radio', { name: 'Imagem' })).toBeDisabled();
+    });
+
+    it('a Narrador table offers every kind, with no hint', () => {
+      render(onTablePlan(PLAN_LIMITS.narrador, <Harness />));
+
+      expect(screen.getByRole('radio', { name: 'Imagem' })).toBeEnabled();
+      expect(kindGroup()).not.toHaveAccessibleDescription();
+    });
   });
 });

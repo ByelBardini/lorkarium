@@ -4,13 +4,14 @@ import {
   PROFILE_NAME_MAX_LENGTH,
 } from '@lorkarium/contracts';
 import { OFFLINE_MESSAGE, UNEXPECTED_MESSAGE } from '@/features/campaigns/campaign-messages';
+import { planLimitMessage } from '@/lib/plan-limit-message';
 import type { AccountSecurityFailure } from '@/services/account-security-api';
 import type { ProfileFailure } from '@/services/profile-api';
 
 /** Every refusal the account screen can show. */
 export type AccountFailure = ProfileFailure | AccountSecurityFailure;
 
-type MessageKind = Exclude<AccountFailure['kind'], 'rate_limited'>;
+type MessageKind = Exclude<AccountFailure['kind'], 'rate_limited' | 'plan_limit'>;
 
 const MESSAGE_BY_KIND: Readonly<Record<MessageKind, string>> = {
   invalid: 'Confira os campos e tente de novo.',
@@ -41,6 +42,7 @@ const MESSAGE_BY_KIND: Readonly<Record<MessageKind, string>> = {
  *
  *  Example: `accountFailureMessage({ kind: 'email_taken' }) // 'Esse e-mail já está em uso.'` */
 export function accountFailureMessage(failure: AccountFailure): string {
+  if (failure.kind === 'plan_limit') return planLimitMessage(failure.planLimit);
   if (failure.kind === 'rate_limited') {
     return `Muitas tentativas. Tente de novo em ${failure.retryAfterSeconds} s.`;
   }

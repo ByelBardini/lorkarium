@@ -1,12 +1,13 @@
-import type {
-  AcceptInvitationRequestDto,
-  AuthUserDto,
-  InvitationInspectResponseDto,
+import {
+  PLAN_LIMITS,
+  type AcceptInvitationRequestDto,
+  type AuthUserDto,
+  type InvitationInspectResponseDto,
 } from '@lorkarium/contracts';
 import type { AccountLinksApi, AccountLinksResult } from '@/services/account-links-api';
 import { ScriptedAnswers } from './scripted-answers';
 
-/** The account an accepted invitation creates, unless scripted: Marina, nickname = @. */
+/** The account an accepted invitation creates, unless scripted: Marina, nickname = @, born free. */
 export const MARINA: AuthUserDto = {
   id: '6b5a4c3d-2e1f-4a0b-9c8d-7e6f5a4b3c2d',
   username: 'marina',
@@ -15,6 +16,10 @@ export const MARINA: AuthUserDto = {
   role: 'user',
   color: 'violet',
   avatarId: null,
+  plan: 'free',
+  lorkariumOwner: false,
+  limits: PLAN_LIMITS.free,
+  customization: false,
 };
 
 type Answers = {

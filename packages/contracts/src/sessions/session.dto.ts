@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { memberColorDto } from '../account/username.dto';
 import { campaignInfoDto, campaignRoleDto } from '../campaigns/campaign.dto';
 import { realtimeAckFailureDto, stateVersionDto } from '../http/realtime-ack.dto';
+import { userPlanDto } from '../plans/user-plan.dto';
 
 /** Socket.IO path: under `/api` like every route, so the Vite proxy and production share it. */
 export const REALTIME_PATH = '/api/socket.io';
@@ -36,7 +37,9 @@ export type SessionCommandDto = z.infer<typeof sessionCommandDto>;
 
 /** A member of the table; `awaySince` is when every tab of theirs stood still (null: active).
  *  `name` is the nickname, `username` the @, `color` the effective one (chosen or drawn).
- *  `juggernaut`: an admin in juggernaut mode (`role` is `master`), listed only while online. */
+ *  `juggernaut`: an admin in juggernaut mode (`role` is `master`), listed only while online.
+ *  `plan` is the account's stored plan, `admin` the global role and `lorkariumOwner` the Dono do
+ *  Lorkarium: what the table's one seal is picked from (the limits ride in the campaign). */
 export const sessionMemberDto = z.strictObject({
   userId: z.uuid(),
   name: z.string(),
@@ -46,6 +49,9 @@ export const sessionMemberDto = z.strictObject({
   bio: z.string().nullable(),
   role: campaignRoleDto,
   juggernaut: z.boolean(),
+  plan: userPlanDto,
+  admin: z.boolean(),
+  lorkariumOwner: z.boolean(),
   online: z.boolean(),
   awaySince: z.iso.datetime().nullable(),
 });
@@ -82,7 +88,8 @@ export const sessionMemberLeftDto = z.strictObject({
 
 export type SessionMemberLeftDto = z.infer<typeof sessionMemberLeftDto>;
 
-/** `session:memberUpdated`: a member saved nickname, color, bio or photo; the member is the whole
+/** `session:memberUpdated`: a member saved nickname, color, bio or photo (or the backoffice
+ *  changed their plan or global role); the member is the whole
  *  row read again by the server, and the version moves like any roster change (§5.5).
  *
  *  Example: `sessionMemberUpdatedDto.parse(event).member.color // 'rose'` */
@@ -95,8 +102,8 @@ export const sessionMemberUpdatedDto = z.strictObject({
 
 export type SessionMemberUpdatedDto = z.infer<typeof sessionMemberUpdatedDto>;
 
-/** `session:campaignUpdated`: the master saved the campaign settings or a new join code; the
- *  campaign is read again after the write, and the version moves like any roster change (§5.5).
+/** `session:campaignUpdated`: the master saved the campaign settings or a new join code, or the
+ *  backoffice changed the owner's plan (new `limits`); the campaign is read again after the write, and the version moves like any roster change (§5.5).
  *
  *  Example: `sessionCampaignUpdatedDto.parse(event).campaign.name // 'Os Sinos de Vharn'` */
 export const sessionCampaignUpdatedDto = z.strictObject({

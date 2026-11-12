@@ -6,6 +6,8 @@ import type {
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf } from '../campaigns/member-access';
+import { CustomColorPlanBo } from '../plans/custom-color-plan.bo';
+import { effectiveLimitsOf } from '../plans/plan-limits.bo';
 import { AuthoredAccessBo } from '../scenes/authored-access.bo';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import {
@@ -81,7 +83,11 @@ export class EffectAreasService {
       async ({ daos, scene }) => {
         const rules = this.rulesFor(scene);
         rules.admit(await daos.effectAreas.countOfScene(scene.id), shapes.length);
-        for (const shape of shapes) rules.place(areaOfShape(shape));
+        const limits = effectiveLimitsOf(scene.owner);
+        for (const shape of shapes) {
+          rules.place(areaOfShape(shape));
+          CustomColorPlanBo.requirePaletteUnlessAllowed(shape.color, limits);
+        }
         const rows = shapes.map((shape) => toNewEffectAreaPo(scene.id, userId, shape));
         return (await daos.effectAreas.insertMany(rows)).map(toEffectAreaDto);
       },
@@ -109,12 +115,15 @@ export class EffectAreasService {
       async (locked) => {
         const rows = await effectAreasIn(locked, campaignId, ids);
         const rules = this.rulesFor(locked.scene);
+        const limits = effectiveLimitsOf(locked.scene.owner);
         rows.forEach((row, index) => {
           const reshape = command.reshapes[index];
           if (!reshape) return;
           author.requireEdit('reshape', ownershipOf(row));
           rules.requireShape(row.id, reshape.expect, shapeOfRow(row));
           rules.place(areaOfShape(reshape.shape));
+          // Stretching an area that wears a hex of before keeps it on any plan.
+          CustomColorPlanBo.requirePaletteUnlessHeld([reshape.shape.color], [row.color], limits);
         });
         await locked.daos.effectAreas.reshapeMany(locked.scene.id, reshapes);
       },

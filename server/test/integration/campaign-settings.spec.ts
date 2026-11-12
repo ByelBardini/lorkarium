@@ -19,6 +19,7 @@ import { atTable } from '../support/live-table';
 import type { RealtimeClient } from '../support/realtime-client';
 import { signUpAndLogin, type SignedInUser } from '../support/sign-in';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
+import { setAccountPlan } from '../support/account-plans';
 
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000';
 
@@ -49,6 +50,8 @@ describe('campaign settings HTTP edge', () => {
     app = await buildApp({ env, db: connection.db });
     baseUrl = await app.listen({ port: 0, host: '127.0.0.1' });
     anaUser = await signUpAndLogin(app, connection.db, 'Ana');
+    // Owns more than one table: the plan without a ceiling of tables keeps this spec as before.
+    await setAccountPlan(connection.db, anaUser.id, 'amigo_do_dono');
     caioUser = await signUpAndLogin(app, connection.db, 'Caio');
     ana = anaUser.token;
     biaUser = await signUpAndLogin(app, connection.db, 'Bia');

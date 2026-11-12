@@ -1,6 +1,6 @@
 import type { LibraryMapsApi, LibraryMapsResult } from '@/services/library-maps-api';
 import type { LibraryIntent } from './library-intents';
-import { libraryMapFailureMessage } from './library-messages';
+import { libraryMapRefusalMessage } from './library-messages';
 
 /** The library intents that go to the maps' routes. */
 export type MapIntent = Extract<
@@ -32,11 +32,11 @@ export async function runMapIntent(
 ): Promise<MapIntentAnswer> {
   const answer = await sendMapIntent(api, campaignId, intent);
   if (answer.ok) return { ok: true, createdId: null };
-  const { kind } = answer.failure;
+  const { failure } = answer;
   return {
     ok: false,
-    message: libraryMapFailureMessage(kind),
-    signedOut: kind === 'unauthenticated',
+    message: libraryMapRefusalMessage(failure),
+    signedOut: failure.kind === 'unauthenticated',
   };
 }
 

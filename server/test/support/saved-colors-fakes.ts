@@ -1,3 +1,4 @@
+import type { UserPlanPo } from '../../src/modules/auth/users.po';
 import type { SavedColorPo } from '../../src/modules/saved-colors/saved-colors.po';
 import type {
   SavedColorWriteDao,
@@ -5,6 +6,7 @@ import type {
   SavedColorsTransactionRunner,
 } from '../../src/modules/saved-colors/saved-colors.service';
 import { BIA_ID } from './campaigns-factories';
+import { planAccount } from './plan-account-fakes';
 
 const FAKE_DATE = new Date('2026-11-08T12:00:00Z');
 
@@ -15,14 +17,17 @@ export function savedColorPo(color: SavedColorPo['color']): SavedColorPo {
   return { userId: BIA_ID, color, createdAt: FAKE_DATE };
 }
 
-/** The list of one account in memory, newest first; `journal` records each call in order. */
+/** The list of one account in memory, newest first; `journal` records each call in order, and
+ *  `account` is the plan the lock answers (`amigo_do_dono` unless set). */
 export class SavedColorsDaoFake implements SavedColorWriteDao, SavedColorsWriteOutsideTx {
   readonly journal: string[] = [];
+  account: UserPlanPo = planAccount();
 
   constructor(public rows: SavedColorPo[] = []) {}
 
-  async lockOwner(): Promise<void> {
+  async lockOwner(): Promise<UserPlanPo | undefined> {
     this.journal.push('lock');
+    return this.account;
   }
 
   async listOf(): Promise<SavedColorPo[]> {

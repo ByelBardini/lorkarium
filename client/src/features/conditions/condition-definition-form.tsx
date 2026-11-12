@@ -3,6 +3,8 @@ import { LoaderCircleIcon } from 'lucide-react';
 import { useId, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { FormField } from '@/components/form-field';
 import { ImagePicker } from '@/components/image-picker';
+import { featureGate } from '@/features/plans/plan-gate';
+import { usePlanLimits } from '@/features/plans/use-plan-limits';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -223,10 +225,14 @@ type ImageFieldProps = Readonly<{
 }>;
 
 // The image covers the disc where the icon goes; the icon stays saved as its fallback.
+// A condition that already has its image keeps it on a plan without them (and may drop it).
 function ImageField({ value, images, onChange }: ImageFieldProps): React.JSX.Element {
+  const gate = featureGate(usePlanLimits().table, (limits) => limits.conditionImage);
+  const locked = !gate.open && value === null;
   return (
     <div className="flex flex-col gap-1">
       <ImagePicker
+        disabled={locked}
         campaignId={images.campaignId}
         purpose="condition"
         assets={images.assets}
@@ -235,7 +241,9 @@ function ImageField({ value, images, onChange }: ImageFieldProps): React.JSX.Ele
         label="Imagem"
         removeLabel="Voltar ao ícone"
       />
-      <p className="text-[13px] text-muted-foreground">O ícone aparece se a imagem não carregar.</p>
+      <p className="text-[13px] text-muted-foreground">
+        {locked ? gate.hint : 'O ícone aparece se a imagem não carregar.'}
+      </p>
     </div>
   );
 }

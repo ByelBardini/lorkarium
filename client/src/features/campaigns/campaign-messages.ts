@@ -1,4 +1,5 @@
 import { MAX_OPEN_TABLES } from '@lorkarium/contracts';
+import { planLimitMessage } from '@/lib/plan-limit-message';
 import type { CampaignsFailure, CampaignsFailureKind } from '@/services/campaigns-api';
 import type { TableSessionFailure } from '@/services/table-session-api';
 import type { DeletedTableNotice } from '@/stores/open-tables-store';
@@ -26,11 +27,12 @@ export function failureMessage(kind: CampaignsFailureKind): string {
   return UNEXPECTED_MESSAGE;
 }
 
-/** The message of a refused command of the master (save, new code, delete): the wait of a rate
- *  limit and the refused fields have their own words.
+/** The message of a refused command (save, new code, delete, create, join, role): the wait of a
+ *  rate limit, the refused fields and the plan that ran out have their own words.
  *
  *  Example: `commandFailureMessage({ kind: 'rate_limited', retryAfterSeconds: 30 }) // 'Muitas tentativas. Tente de novo em 30 s.'` */
 export function commandFailureMessage(failure: CampaignsFailure): string {
+  if (failure.kind === 'plan_limit') return planLimitMessage(failure.planLimit);
   if (failure.kind === 'rate_limited') {
     return `Muitas tentativas. Tente de novo em ${failure.retryAfterSeconds} s.`;
   }

@@ -1,5 +1,5 @@
 import { BOARD_EVENTS, sceneActivateAckDto } from '@lorkarium/contracts';
-import { boardFailureOf, type BoardCommandFailure, type BoardScope } from './board-command-sender';
+import { ackFailureOf, type BoardCommandFailure, type BoardScope } from './board-command-sender';
 import type { RealtimeTransport } from './realtime-transport';
 
 export type SceneActivationResult =
@@ -45,5 +45,5 @@ function activationResultOf(answer: unknown): SceneActivationResult {
   const parsed = sceneActivateAckDto.safeParse(answer);
   if (!parsed.success) return { ok: false, failure: 'unexpected' };
   if (parsed.data.ok) return { ok: true };
-  return { ok: false, failure: boardFailureOf(parsed.data.error.code) };
+  return { ok: false, failure: ackFailureOf(parsed.data.error) };
 }

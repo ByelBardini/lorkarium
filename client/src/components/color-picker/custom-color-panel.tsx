@@ -5,9 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { contrastRatioOf } from '@/lib/color-contrast';
 import { hexFromTyped } from '@/lib/custom-color';
+import { planLimitMessage } from '@/lib/plan-limit-message';
 import type { SavedColorsFailure } from '@/services/saved-colors-api';
 import { useSavedColors } from '@/stores/saved-colors-store';
 import { HexColorCanvas } from './hex-color-canvas';
+import { useCustomColorLock } from './custom-color-locks';
 import { SavedColorGrid } from './saved-color-grid';
 import { useSavedColorsStore } from './use-saved-colors-store';
 
@@ -37,7 +39,9 @@ export function CustomColorPanel({
   const saved = useSavedColorList();
   const parsed = draft.parsed;
   const isFull = saved.colors.length >= SAVED_COLORS_MAX;
-  const canSave = parsed !== null && !isFull && !saved.colors.includes(parsed);
+  // Saving is the account's customization, whoever's table the color is for.
+  const saveLock = useCustomColorLock('account');
+  const canSave = parsed !== null && !isFull && !saved.colors.includes(parsed) && saveLock === null;
   return (
     <div className="flex flex-col gap-3">
       <HexColorCanvas color={draft.shown} onDraft={draft.drag} />
@@ -56,6 +60,7 @@ export function CustomColorPanel({
           variant="outline"
           className="flex-1"
           disabled={!canSave}
+          title={saveLock ?? undefined}
           onClick={() => {
             if (parsed !== null) void saved.save(parsed);
           }}
@@ -196,6 +201,8 @@ function problemMessageOf(problem: SavedColorsFailure): string {
   switch (problem.kind) {
     case 'saved_colors_limit':
       return LIMIT_MESSAGE;
+    case 'plan_limit':
+      return planLimitMessage(problem.planLimit);
     case 'rate_limited':
       return `Muitas alterações seguidas. Tente de novo em ${problem.retryAfterSeconds} s.`;
     case 'offline':

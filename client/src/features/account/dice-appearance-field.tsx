@@ -89,7 +89,7 @@ function NumberColorField({ value, onChange }: NumberColorFieldProps): React.JSX
   const labelId = useId();
   return (
     <div role="group" aria-labelledby={labelId} className="flex items-center gap-3">
-      <CustomColorTile value={value} onPick={onChange} className="size-9" />
+      <CustomColorTile value={value} onPick={onChange} className="size-9" scope="account" />
       <span id={labelId} className="text-[13px] font-medium text-label">
         Cor do número
       </span>

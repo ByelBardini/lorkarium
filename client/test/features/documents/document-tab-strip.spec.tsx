@@ -1,9 +1,11 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { PLAN_LIMITS, type PlanLimits } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
 import { DocumentTabStrip } from '@/features/documents/document-tab-strip';
+import { TablePlanLimitsProvider } from '@/features/plans/plan-limits-providers';
 import { isBlankDocumentContent } from '@/lib/document-blank';
 import {
   createDocumentEditorStore,
@@ -20,9 +22,11 @@ import {
   ITEMS_TAB_ID,
   documentFixture,
   documentTabFixture,
+  tabSummaryFixture,
   documentText,
   threeTabs,
 } from '../../support/documents-fixtures';
+import { testDependencies } from '../../support/app-dependencies';
 import { InteractionClockFake } from '../../support/interaction-clock-fake';
 
 type Viewer = 'master' | 'owner' | 'reader';
@@ -54,7 +58,7 @@ function TabStripHarness({ store }: Readonly<{ store: StoreApi<DocumentEditorSta
   );
 }
 
-async function strip(viewer: Viewer, tabs = threeTabs()) {
+async function strip(viewer: Viewer, tabs = threeTabs(), limits?: PlanLimits) {
   const api = new DocumentsApiFake();
   // The server never lists "Segredos" to a player.
   const listed = viewer === 'master' ? tabs : tabs.filter((tab) => tab.visibility !== 'masters');
@@ -67,7 +71,17 @@ async function strip(viewer: Viewer, tabs = threeTabs()) {
     newActionId: () => DOCUMENT_ACTION_ID,
   });
   await store.getState().load();
-  render(<TabStripHarness store={store} />);
+  const harness = <TabStripHarness store={store} />;
+  if (!limits) render(harness);
+  else
+    render(
+      <TablePlanLimitsProvider
+        openTables={testDependencies().openTables}
+        campaign={{ id: DOCUMENT_CAMPAIGN_ID, limits }}
+      >
+        {harness}
+      </TablePlanLimitsProvider>,
+    );
   return { api, store };
 }
 const tabNames = (): string[] =>
@@ -191,5 +205,27 @@ describe('document tab strip', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Nova aba' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('no máximo 200 abas');
     expect(screen.queryByRole('textbox', { name: 'Nome da aba' })).not.toBeInTheDocument();
+  });
+
+  describe('the table plan', () => {
+    const fiveTabs = () => [
+      ...threeTabs(),
+      tabSummaryFixture({ id: '4d4d4d4d-1e1e-4f2f-8a3a-b4b4b4b4b4b4', name: 'Quarta' }),
+      tabSummaryFixture({ id: '5d5d5d5d-1e1e-4f2f-8a3a-b4b4b4b4b4b4', name: 'Quinta' }),
+    ];
+
+    it('a free table at 5 tabs turns "Nova aba" off, with the plan sentence', async () => {
+      await strip('master', fiveTabs(), PLAN_LIMITS.free);
+      const create = screen.getByRole('button', { name: 'Nova aba' });
+      expect(create).toBeDisabled();
+      expect(create).toHaveAccessibleDescription(
+        'Esta mesa usa o plano Grátis, que permite até 5 abas por documento. O Narrador libera 30.',
+      );
+    });
+
+    it('a free table below 5 tabs still creates', async () => {
+      await strip('master', threeTabs(), PLAN_LIMITS.free);
+      expect(screen.getByRole('button', { name: 'Nova aba' })).toBeEnabled();
+    });
   });
 });

@@ -21,24 +21,39 @@ import {
   type UpdateSheetValuesRequestDto,
 } from '@lorkarium/contracts';
 import type { z } from 'zod';
-import { callApi, callUpload, errorCodeOf, parseOk, type ApiCall } from './api-call';
+import {
+  callApi,
+  callUpload,
+  errorCodeOf,
+  parseOk,
+  planLimitFailureOf,
+  type ApiCall,
+  type PlanLimitFailure,
+} from './api-call';
 import { assetUrlOf } from './assets-api';
 import type { HttpMethod, HttpResponse, HttpTransport } from './http-transport';
 
-export type SheetsFailure = Readonly<{
-  kind:
-    | 'action_reused'
-    | 'member_not_found'
-    | 'forbidden'
-    | 'not_found'
-    | 'unauthenticated'
-    | 'invalid'
-    | 'too_large'
-    | 'unsupported_image'
-    | 'rate_limited'
-    | 'offline'
-    | 'unexpected';
-}>;
+export type SheetsFailure =
+  | Readonly<{
+      kind:
+        | 'action_reused'
+        | 'member_not_found'
+        | 'forbidden'
+        | 'not_found'
+        | 'unauthenticated'
+        | 'invalid'
+        | 'too_large'
+        | 'unsupported_image'
+        | 'rate_limited'
+        | 'offline'
+        | 'unexpected';
+    }>
+  /** The table owner's plan ran out (NPC sheets, storage, bars of a token): 403 `PLAN_LIMIT`. */
+  | PlanLimitFailure;
+
+/** A refusal named by its code or status alone. */
+type SheetRefusalKind = Exclude<SheetsFailure['kind'], 'plan_limit'>;
+
 export type SheetsResult<T> =
   Readonly<{ ok: true; value: T }> | Readonly<{ ok: false; failure: SheetsFailure }>;
 
@@ -111,18 +126,18 @@ export type SheetBarCreationResult =
   | Readonly<{ ok: true; value: CreateSheetBarResponseDto }>
   | Readonly<{ ok: false; failure: SheetsFailure; refusal: ApiErrorDto | null }>;
 
-const REFUSAL_BY_CODE: Readonly<Record<string, SheetsFailure['kind']>> = {
+const REFUSAL_BY_CODE: Readonly<Record<string, SheetRefusalKind>> = {
   SHEET_ACTION_REUSED: 'action_reused',
   MEMBER_NOT_FOUND: 'member_not_found',
 };
-const REFUSAL_BY_STATUS: Readonly<Record<number, SheetsFailure['kind']>> = {
+const REFUSAL_BY_STATUS: Readonly<Record<number, SheetRefusalKind>> = {
   400: 'invalid',
   401: 'unauthenticated',
   403: 'forbidden',
   404: 'not_found',
 };
 // 415 is a type with no parser and 422 a file that does not decode: the same refusal to the user.
-const UPLOAD_REFUSAL_BY_STATUS: Readonly<Record<number, SheetsFailure['kind']>> = {
+const UPLOAD_REFUSAL_BY_STATUS: Readonly<Record<number, SheetRefusalKind>> = {
   ...REFUSAL_BY_STATUS,
   413: 'too_large',
   415: 'unsupported_image',
@@ -257,8 +272,11 @@ function barRefusalOf(response: HttpResponse): SheetBarCreationResult {
 
 function uploadedOf(call: ApiCall): SheetsResult<AssetDto> {
   if (call.kind === 'offline') return failed('offline');
-  if (call.kind === 'refused')
+  if (call.kind === 'refused') {
+    const planLimit = planLimitFailureOf(call.response);
+    if (planLimit) return { ok: false, failure: planLimit };
     return failed(UPLOAD_REFUSAL_BY_STATUS[call.response.status] ?? 'unexpected');
+  }
   return parseOk(assetResponseDto, call.body, (parsed) => parsed.asset);
 }
 
@@ -278,10 +296,12 @@ function sheetPathOf(campaignId: string, sheetId?: string): string {
   const base = `${campaignPathOf(campaignId)}/sheets`;
   return sheetId === undefined ? base : `${base}/${encodeURIComponent(sheetId)}`;
 }
-function failed(kind: SheetsFailure['kind']): SheetsResult<never> {
+function failed(kind: SheetRefusalKind): SheetsResult<never> {
   return { ok: false, failure: { kind } };
 }
 function refused(response: HttpResponse): SheetsResult<never> {
+  const planLimit = planLimitFailureOf(response);
+  if (planLimit) return { ok: false, failure: planLimit };
   const code = errorCodeOf(response);
   const byCode = code === null ? undefined : REFUSAL_BY_CODE[code];
   return failed(byCode ?? REFUSAL_BY_STATUS[response.status] ?? 'unexpected');

@@ -7,6 +7,8 @@ import type {
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
+import type { UsersDao } from '../auth/users.dao';
+import { PlanLimitsBo, effectiveLimitsOf } from '../plans/plan-limits.bo';
 import { DEFAULT_CONDITIONS } from '../conditions/condition-rules.bo';
 import type { ConditionsDao } from '../conditions/conditions.dao';
 import type { ScenesDao } from '../scenes/scenes.dao';
@@ -29,9 +31,11 @@ import {
 import type { CampaignPo } from './campaigns.po';
 import type { PresenceReaderPort } from './presence-reader.port';
 
-/** The DAOs a transaction hands out, bound to the open `tx`. */
+/** The DAOs a transaction hands out, bound to the open `tx`; `owners` locks the creator's row so
+ *  two creations of the same account count its tables one after the other. */
 export type CampaignWriteDaos = Readonly<{
-  campaigns: Pick<CampaignsDao, 'insert' | 'setActiveScene'>;
+  owners: Pick<UsersDao, 'lockForPlan'>;
+  campaigns: Pick<CampaignsDao, 'insert' | 'setActiveScene' | 'countOwnedBy'>;
   members: Pick<CampaignMembersDao, 'insert'>;
   scenes: Pick<ScenesDao, 'insert'>;
   conditions: Pick<ConditionsDao, 'insertDefinitions'>;
@@ -141,6 +145,7 @@ export class CampaignsService {
     const row = toNewCampaignPo(input, { ownerId: userId, joinCode, passwordHash });
     try {
       return await this.deps.transaction(async (daos) => {
+        await requireRoomForAnotherTable(daos, userId);
         const campaign = await daos.campaigns.insert(row);
         const joinedAt = this.deps.clock.now();
         await daos.members.insert({ campaignId: campaign.id, userId, role: 'master', joinedAt });
@@ -154,4 +159,13 @@ export class CampaignsService {
       throw error;
     }
   }
+}
+
+/** Refuses `PLAN_LIMIT` when the owner's plan has no room for one more table. The owner's row is
+ *  locked first, so the count of a concurrent creation waits for this one to commit. */
+async function requireRoomForAnotherTable(daos: CampaignWriteDaos, ownerId: string): Promise<void> {
+  const owner = await daos.owners.lockForPlan(ownerId);
+  if (!owner) throw new Error(`campaign owner ${ownerId}: expected an existing account`);
+  const owned = await daos.campaigns.countOwnedBy(ownerId);
+  PlanLimitsBo.requireRoom('campaigns', owned, 1, effectiveLimitsOf(owner));
 }

@@ -28,6 +28,8 @@ import { InsufficientBarError, SheetError } from '../sheets/sheets.error';
 import { TokenError } from '../tokens/tokens.error';
 import { WallError } from '../walls/walls.error';
 import { BoardError, CommandRateLimitedError } from './board.error';
+import { planLimitErrorBody } from '../plans/plan-limit-response';
+import { PlanLimitError } from '../plans/plans.error';
 
 export type CommandOk = Extract<BoardCommandAckDto, { ok: true }>;
 export type CampaignCommand = Readonly<{ campaignId: string }>;
@@ -151,6 +153,7 @@ async function openTableUserOf(
 
 function toAckError(deps: CommandEdgeDeps, error: unknown): ApiErrorDto {
   if (error instanceof ZodError) return invalidBodyError(error);
+  if (error instanceof PlanLimitError) return planLimitErrorBody(error);
   if (error instanceof CommandRateLimitedError) {
     const { retryAfterSeconds } = error;
     return {

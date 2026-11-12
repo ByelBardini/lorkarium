@@ -42,6 +42,32 @@ describe('UserMenu', () => {
     expect(initials).toHaveStyle({ backgroundColor: '#5cc8c0' });
   });
 
+  it('open, the menu shows the @ with the one seal glued to it, above the e-mail', async () => {
+    renderMenu({ ...ANA, plan: 'lenda' });
+    await userEvent.click(screen.getByRole('button', { name: /Ana/ }));
+
+    const menu = await screen.findByRole('menu');
+    const seal = within(menu).getByRole('img', { name: 'Plano Lenda' });
+    expect(within(menu).getByText(`@${ANA.username}`).nextElementSibling).toBe(seal);
+    expect(within(menu).queryByRole('img', { name: 'Apoiador' })).toBeNull();
+  });
+
+  it('an admin account shows the Admin seal in the menu, whatever the plan', async () => {
+    renderMenu({ ...ANA, role: 'admin', plan: 'lenda' });
+    await userEvent.click(screen.getByRole('button', { name: /Ana/ }));
+
+    const menu = await screen.findByRole('menu');
+    expect(within(menu).getByRole('img', { name: 'Administrador' })).toBeInTheDocument();
+  });
+
+  it('a free account shows no seal in the menu', async () => {
+    renderMenu({ ...ANA, plan: 'free' });
+    await userEvent.click(screen.getByRole('button', { name: /Ana/ }));
+
+    const menu = await screen.findByRole('menu');
+    expect(menu.querySelector('[data-seal]')).toBeNull();
+  });
+
   it('"Minha conta" in the menu leads to /account', async () => {
     renderMenu();
     await userEvent.click(screen.getByRole('button', { name: /Ana/ }));

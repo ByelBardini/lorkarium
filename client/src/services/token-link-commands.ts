@@ -1,6 +1,6 @@
 import { BOARD_EVENTS, addPlayersAckDto } from '@lorkarium/contracts';
 import {
-  boardFailureOf,
+  ackFailureOf,
   type BoardCommandFailure,
   type BoardCommandResult,
   type BoardCommandSender,
@@ -63,7 +63,7 @@ export class RealtimeTokenLinkCommands implements TokenLinkCommands {
     if (!answer.answered) return { ok: false, failure: 'offline' };
     const parsed = addPlayersAckDto.safeParse(answer.ack);
     if (!parsed.success) return { ok: false, failure: 'unexpected' };
-    if (!parsed.data.ok) return { ok: false, failure: boardFailureOf(parsed.data.error.code) };
+    if (!parsed.data.ok) return { ok: false, failure: ackFailureOf(parsed.data.error) };
     const { version, createdIds, skippedMemberIds } = parsed.data;
     return { ok: true, version, createdIds, skippedMemberIds };
   }

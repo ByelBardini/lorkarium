@@ -1,4 +1,10 @@
-import { errorCodeOf, retryAfterOf, type ApiCall } from './api-call';
+import {
+  errorCodeOf,
+  planLimitFailureOf,
+  retryAfterOf,
+  type ApiCall,
+  type PlanLimitFailure,
+} from './api-call';
 import type { HttpResponse } from './http-transport';
 
 /** The outcome of an account call: the value, or the failure the screen turns into a message. */
@@ -46,6 +52,18 @@ export function commandFailureOf<F>(
   const code = errorCodeOf(call.response);
   const named = code === null ? undefined : byCode[code];
   return named ?? statusFailureOf(call.response);
+}
+
+/** `commandFailureOf` for a command the plan can refuse (a customization of the account): the
+ *  plan's refusal first, with its ceiling, then the route's codes and the status.
+ *
+ *  Example: `planAwareFailureOf(call, { SAVED_COLORS_LIMIT: { kind: 'saved_colors_limit' } })` */
+export function planAwareFailureOf<F>(
+  call: RefusedOrOffline,
+  byCode: FailureByCode<F>,
+): F | AccountCommonFailure | PlanLimitFailure {
+  const planLimit = call.kind === 'refused' ? planLimitFailureOf(call.response) : null;
+  return planLimit ?? commandFailureOf(call, byCode);
 }
 
 function statusFailureOf(response: HttpResponse): AccountCommonFailure {

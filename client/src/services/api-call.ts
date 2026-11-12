@@ -1,4 +1,4 @@
-import { apiErrorDto } from '@lorkarium/contracts';
+import { PLAN_LIMIT_CODE, apiErrorDto, type PlanLimitDto } from '@lorkarium/contracts';
 import type { z } from 'zod';
 import {
   NetworkUnavailableError,
@@ -89,4 +89,16 @@ export function retryAfterOf(response: HttpResponse): number {
 export function errorCodeOf(response: HttpResponse): string | null {
   const body = apiErrorDto.safeParse(response.body);
   return body.success ? body.data.code : null;
+}
+
+/** A refusal for passing the plan (`PLAN_LIMIT`), with what the sentence needs. */
+export type PlanLimitFailure = Readonly<{ kind: 'plan_limit'; planLimit: PlanLimitDto }>;
+
+/** The plan refusal of a response, or `null` for any other one; every service checks it first.
+ *
+ *  Example: `planLimitFailureOf(response) ?? failureByStatus(response)` */
+export function planLimitFailureOf(response: HttpResponse): PlanLimitFailure | null {
+  const body = apiErrorDto.safeParse(response.body);
+  if (!body.success || body.data.code !== PLAN_LIMIT_CODE || !body.data.planLimit) return null;
+  return { kind: 'plan_limit', planLimit: body.data.planLimit };
 }

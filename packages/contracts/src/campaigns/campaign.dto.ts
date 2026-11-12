@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { memberColorDto } from '../account/username.dto';
+import { planLimitsDto } from '../plans/plan-limits.dto';
+import { userPlanDto } from '../plans/user-plan.dto';
 import { campaignCoverDto } from './campaign-cover.dto';
 import { campaignTagsDto } from './campaign-tags.dto';
 
@@ -39,7 +41,9 @@ export const contentWarningsDto = z
 /** The campaign as anyone in it sees it, without what depends on who reads it; the payload of
  *  `session:campaignUpdated`. `ownerId` is the creator, the one fixed master (`masterName` is
  *  theirs); co-masters are other `master` members. `playersCreateTokens`/`playersDeleteTokens` are the table settings
- *  that open creating, editing and deleting their own tokens to players (game-core `token-rights`). */
+ *  that open creating, editing and deleting their own tokens to players (game-core `token-rights`).
+ *  `limits` are the owner's effective ones (an admin owner gets `amigo_do_dono`'s): they hold for
+ *  every member, and the client only anticipates them. */
 export const campaignInfoDto = z.strictObject({
   id: z.uuid(),
   name: z.string(),
@@ -55,6 +59,7 @@ export const campaignInfoDto = z.strictObject({
   tags: campaignTagsDto,
   playersCreateTokens: z.boolean(),
   playersDeleteTokens: z.boolean(),
+  limits: planLimitsDto,
 });
 
 export type CampaignInfoDto = z.infer<typeof campaignInfoDto>;
@@ -71,14 +76,18 @@ export const campaignSummaryDto = campaignInfoDto.extend({
 
 export type CampaignSummaryDto = z.infer<typeof campaignSummaryDto>;
 
-/** A participant in the detail modal: the nickname, the effective color, the photo and whether
- *  they have the campaign open right now. */
+/** A participant in the detail modal: the nickname, the effective color, the photo, the plan
+ *  seal (the stored `plan`, the global role `admin` and the Dono do Lorkarium
+ *  `lorkariumOwner`) and whether they have the campaign open right now. */
 export const campaignMemberDto = z.strictObject({
   userId: z.uuid(),
   name: z.string(),
   role: campaignRoleDto,
   color: memberColorDto,
   avatarId: z.uuid().nullable(),
+  plan: userPlanDto,
+  admin: z.boolean(),
+  lorkariumOwner: z.boolean(),
   online: z.boolean(),
 });
 

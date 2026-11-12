@@ -5,6 +5,7 @@ import {
 } from '../../../src/modules/conditions/conditions.service';
 import { ClockFake } from '../../support/auth-fakes';
 import { CharacterPublisherFake, CharactersDaoFake } from '../../support/characters-fakes';
+import { planAccount } from '../../support/plan-account-fakes';
 import { ANA_ID } from '../../support/auth-factories';
 import { CampaignMembersDaoFake, CampaignsDaoFake } from '../../support/campaigns-fakes';
 import {
@@ -35,6 +36,7 @@ describe('ConditionsService', () => {
   let assets: AssetsDaoFake;
   let publisher: BoardPublisherFake;
   let service: ConditionsService;
+  let characters: CharactersDaoFake;
   let abencoado: string;
 
   beforeEach(() => {
@@ -60,13 +62,14 @@ describe('ConditionsService', () => {
         lyraPortraitPo({ id: QUELM_MAP_ID, campaignId: QUELM_ID, purpose: 'condition' }),
       ],
     );
+    characters = new CharactersDaoFake(scenes.journal, [], { [VHARN_ID]: 2 });
     const transaction = new ConditionTransactionRunnerFake(
       scenes,
       tokens,
       conditions,
       combat,
       assets,
-      new CharactersDaoFake(scenes.journal, [], { [VHARN_ID]: 2 }),
+      characters,
     );
     service = new ConditionsService({
       members,
@@ -302,6 +305,36 @@ describe('ConditionsService', () => {
       });
       expect(scenes.journal).toEqual([]);
       expect(assets.lookups).toEqual([]);
+    });
+
+    it('at a free table an image is PLAN_LIMIT conditionImage: nothing saved, looked up nor published', async () => {
+      characters.owners.set(VHARN_ID, planAccount({ plan: 'free' }));
+
+      await expect(service.define(ANA_ID, VHARN_ID, sangrando(GOTA_ART_ID))).rejects.toMatchObject({
+        code: 'PLAN_LIMIT',
+        resource: 'conditionImage',
+        limit: 0,
+        plan: 'free',
+      });
+      expect(scenes.journal).toEqual(['lock characters']);
+      expect(assets.lookups).toEqual([]);
+      expect(publisher.published).toBe(0);
+    });
+
+    it('at a free table the same condition without an image is defined', async () => {
+      characters.owners.set(VHARN_ID, planAccount({ plan: 'free' }));
+
+      await service.define(ANA_ID, VHARN_ID, sangrando(null));
+
+      expect(conditions.definitions.filter(({ name }) => name === 'Sangrando')).toHaveLength(2);
+    });
+
+    it('at a free table owned by an admin an image is defined: the admin has no plan limit', async () => {
+      characters.owners.set(VHARN_ID, planAccount({ role: 'admin', plan: 'free' }));
+
+      await service.define(ANA_ID, VHARN_ID, sangrando(GOTA_ART_ID));
+
+      expect(conditions.definitions.at(-1)).toMatchObject({ imageAssetId: GOTA_ART_ID });
     });
   });
 

@@ -61,6 +61,7 @@ export function ConditionColorField({
           onPick={onChange}
           legibleOn={CARD_COLOR}
           className="size-6 ring-offset-background"
+          scope="table"
         />
       </RadioGroupPrimitive.Root>
     </fieldset>

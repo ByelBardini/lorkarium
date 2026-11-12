@@ -9,6 +9,7 @@ import {
   campaignCoverDto,
   type CampaignCoverDto,
   type CampaignInfoDto,
+  type PlanLimits,
 } from '@lorkarium/contracts';
 import { z } from 'zod';
 import { useStore } from 'zustand';
@@ -59,6 +60,9 @@ export type OpenTable = Omit<OpenTableRef, 'cover'> &
     /** The players' token keys from the last `session:campaignUpdated`; `null` until one comes
      *  (the route's campaign answers then: an F5 restores tables without it). */
     tokenRights: TableTokenRights | null;
+    /** The owner's effective plan limits from the last `session:campaignUpdated` (a plan changed
+     *  in the backoffice comes this way); `null` until one comes, like `tokenRights`. */
+    limits: PlanLimits | null;
     presence: StoreApi<TablePresenceStore>;
     board: StoreApi<BoardStore>;
     /** The table stream (one version per table): the characters — the cards, the dock and
@@ -264,6 +268,7 @@ class OpenTablesActions {
     const parts = {
       cover,
       tokenRights: null,
+      limits: null,
       presence,
       board,
       characters,
@@ -369,6 +374,18 @@ export function useOpenTables<T>(
   return useStore(store, selector);
 }
 
+/** The plan limits in force on a table (its owner's, effective): live from the store once a
+ *  `session:campaignUpdated` came, the route's campaign until then.
+ *
+ *  Example: `useOpenTables(openTables, (state) => selectTableLimits(state, campaign)).maxScenes` */
+export function selectTableLimits(
+  state: OpenTablesState,
+  campaign: Pick<CampaignInfoDto, 'id' | 'limits'>,
+): PlanLimits {
+  const table = state.tables.find(({ campaignId }) => campaignId === campaign.id);
+  return table?.limits ?? campaign.limits;
+}
+
 type TableStores = Readonly<{
   presence: StoreApi<TablePresenceStore>;
   board: StoreApi<BoardStore>;
@@ -383,9 +400,10 @@ function retitled(table: OpenTable, campaign: CampaignInfoDto): OpenTable {
     name: campaign.name,
     cover: campaign.cover,
     tokenRights: tableTokenRightsOf(campaign),
+    limits: campaign.limits,
   };
-  const { name, cover, tokenRights } = table;
-  const same = JSON.stringify({ name, cover, tokenRights }) === JSON.stringify(shown);
+  const { name, cover, tokenRights, limits } = table;
+  const same = JSON.stringify({ name, cover, tokenRights, limits }) === JSON.stringify(shown);
   return same ? table : { ...table, ...shown };
 }
 

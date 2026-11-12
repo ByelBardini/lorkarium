@@ -16,7 +16,15 @@ import {
   type UpdateCampaignRequestInput,
   type UpdateMemberRoleRequestDto,
 } from '@lorkarium/contracts';
-import { callApi, errorCodeOf, parseOk, retryAfterOf, type ApiCall } from './api-call';
+import {
+  callApi,
+  errorCodeOf,
+  parseOk,
+  planLimitFailureOf,
+  retryAfterOf,
+  type ApiCall,
+  type PlanLimitFailure,
+} from './api-call';
 import type { HttpResponse, HttpTransport } from './http-transport';
 
 export type CampaignsFailure =
@@ -35,7 +43,9 @@ export type CampaignsFailure =
   | Readonly<{ kind: 'password_invalid' }>
   | Readonly<{ kind: 'rate_limited'; retryAfterSeconds: number }>
   | Readonly<{ kind: 'offline' }>
-  | Readonly<{ kind: 'unexpected' }>;
+  | Readonly<{ kind: 'unexpected' }>
+  /** The owner's plan ran out (tables owned, players, masters, spectators): 403 `PLAN_LIMIT`. */
+  | PlanLimitFailure;
 
 export type CampaignsFailureKind = CampaignsFailure['kind'];
 
@@ -221,6 +231,8 @@ function failureOf(response: HttpResponse): CampaignsFailure {
     return { kind: 'rate_limited', retryAfterSeconds: retryAfterOf(response) };
   }
   if (response.status === 403) {
+    const planLimit = planLimitFailureOf(response);
+    if (planLimit) return planLimit;
     return FAILURE_BY_FORBIDDEN_CODE[errorCodeOf(response) ?? ''] ?? { kind: 'unexpected' };
   }
   if (response.status === 409) {

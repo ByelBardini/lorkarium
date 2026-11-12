@@ -6,6 +6,7 @@ import {
   type DiceRolledDto,
 } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import {
   recordEventsOf,
@@ -71,6 +72,7 @@ describe('dice:roll', () => {
   });
 
   it('a roll of someone with a custom color carries that hex in the appearance', async () => {
+    await setAccountPlan(live.connection.db, live.bia.id, 'narrador');
     const saved = await live.http(live.bia, {
       method: 'PATCH',
       url: '/api/account/profile',

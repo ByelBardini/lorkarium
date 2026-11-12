@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  campaignInfoDto,
   campaignMemberDto,
   campaignSummaryDto,
   contentWarningsDto,
 } from '../../src/campaigns/campaign.dto';
+import { publicCampaignDto } from '../../src/campaigns/public-campaign.dto';
+import { PLAN_LIMITS } from '../../src/plans/plan-limits';
 
 const VHARN = '3b1e9a52-6c4d-4f8a-9e2b-1a7c5d3f8e10';
 
@@ -24,6 +27,7 @@ const SUMMARY = {
   tags: ['sandbox'],
   playersCreateTokens: false,
   playersDeleteTokens: false,
+  limits: PLAN_LIMITS.free,
   lastEnteredAt: null,
 } as const;
 
@@ -52,13 +56,21 @@ describe('campaignSummaryDto', () => {
 });
 
 describe('contentWarningsDto', () => {
+  it("carries the owner's limits and refuses a summary without them", () => {
+    expect(campaignSummaryDto.parse(SUMMARY).limits.maxScenes).toBe(5);
+    expect(campaignSummaryDto.safeParse({ ...SUMMARY, limits: undefined }).success).toBe(false);
+  });
+
   it('refuses a warning outside the fixed list', () => {
     expect(contentWarningsDto.safeParse(['spiders']).success).toBe(false);
   });
 });
 
 describe('campaignMemberDto', () => {
-  const MEMBER = { userId: VHARN, name: 'Ana', role: 'master', color: 'gold', avatarId: null };
+  const MEMBER = {
+    ...{ userId: VHARN, name: 'Ana', role: 'master', color: 'gold', avatarId: null },
+    ...{ plan: 'lenda', admin: false, lorkariumOwner: false },
+  } as const;
 
   it('requires online', () => {
     expect(campaignMemberDto.safeParse(MEMBER).success).toBe(false);
@@ -66,5 +78,40 @@ describe('campaignMemberDto', () => {
 
   it('accepts a member with online', () => {
     expect(campaignMemberDto.parse({ ...MEMBER, online: false }).online).toBe(false);
+  });
+
+  it('carries the plan seals and refuses a plan outside the grid', () => {
+    const member = { ...MEMBER, online: false };
+    expect(campaignMemberDto.parse(member)).toMatchObject({ plan: 'lenda' });
+    expect(campaignMemberDto.safeParse({ ...member, plan: 'pro' }).success).toBe(false);
+  });
+
+  it('carries whether the member is a global admin, and refuses a member that does not say', () => {
+    const member = { ...MEMBER, online: false };
+    expect(campaignMemberDto.parse({ ...member, admin: true }).admin).toBe(true);
+    expect(campaignMemberDto.safeParse({ ...member, admin: undefined }).success).toBe(false);
+    const withoutOwner = { ...member, lorkariumOwner: undefined };
+    expect(campaignMemberDto.safeParse(withoutOwner).success).toBe(false);
+  });
+});
+
+describe('publicCampaignDto', () => {
+  // The summary's info fields, without the limits nor what depends on the reader.
+  const info = campaignInfoDto
+    .omit({ limits: true })
+    .parse(
+      Object.fromEntries(
+        Object.entries(SUMMARY).filter(([key]) => key in campaignInfoDto.shape && key !== 'limits'),
+      ),
+    );
+  const CARD = {
+    ...info,
+    ...{ myRole: null, hasPassword: false, masterUsername: 'ana' },
+    ...{ masterOnline: false, playersOnline: 0 },
+  };
+
+  it("leaves the owner's limits out of the explore card", () => {
+    expect(publicCampaignDto.parse(CARD)).toEqual(CARD);
+    expect(publicCampaignDto.safeParse({ ...CARD, limits: PLAN_LIMITS.free }).success).toBe(false);
   });
 });

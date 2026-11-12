@@ -1,6 +1,13 @@
 import type { SheetTemplateSummaryDto } from '@lorkarium/contracts';
-import { ContextMenuItem, ContextMenuSeparator } from '@/components/ui/context-menu';
+import { useId } from 'react';
+import {
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+} from '@/components/ui/context-menu';
+import { planHintIdOf } from '@/features/plans/plan-gate';
 import { DeleteConfirmDialog } from './delete-scene-dialog';
+import { useLibraryPlanGates } from './library-plan-gates';
 import type { MenuActions, TreeMaster } from './library-tree-menu';
 
 type CreateItemsProps = Readonly<{ master: TreeMaster; folderId: string | null }>;
@@ -9,6 +16,8 @@ type CreateItemsProps = Readonly<{ master: TreeMaster; folderId: string | null }
  *
  *  Example: `<CreateItems master={master} folderId={folder.id} />` */
 export function CreateItems({ master, folderId }: CreateItemsProps) {
+  const templateGate = useLibraryPlanGates().sheetTemplate;
+  const hintId = useId();
   return (
     <>
       <ContextMenuItem disabled={!master.live} onSelect={() => master.createItem(folderId)}>
@@ -18,11 +27,17 @@ export function CreateItems({ master, folderId }: CreateItemsProps) {
         <>
           <ContextMenuSeparator />
           <ContextMenuItem
-            disabled={!master.live}
+            disabled={!master.live || !templateGate.open}
+            aria-describedby={planHintIdOf(templateGate, hintId)}
             onSelect={() => master.importSheetTemplate?.(folderId)}
           >
             Importar modelo…
           </ContextMenuItem>
+          {!templateGate.open && (
+            <ContextMenuLabel id={hintId} className="max-w-56 text-xs font-normal">
+              {templateGate.hint}
+            </ContextMenuLabel>
+          )}
         </>
       )}
     </>

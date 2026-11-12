@@ -86,6 +86,59 @@ describe('actions of each account', () => {
     expect(rowOf('@pedrinho')).toHaveTextContent('Ativo');
   });
 
+  describe('Plano', () => {
+    async function pickPlan(person: string, plan: string): Promise<void> {
+      await userEvent.click(screen.getByRole('button', { name: `Ações de ${person}` }));
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Plano' }));
+      await userEvent.click(await screen.findByRole('menuitemradio', { name: plan }));
+    }
+
+    it('the "Plano" submenu marks the current plan of the account', async () => {
+      await userEvent.click(screen.getByRole('button', { name: 'Ações de Bia' }));
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Plano' }));
+
+      expect(await screen.findByRole('menuitemradio', { name: 'Grátis' })).toBeChecked();
+      expect(screen.getByRole('menuitemradio', { name: 'Lenda' })).not.toBeChecked();
+    });
+
+    it('"Plano → Lenda" calls changePlan and the row shows the new seal', async () => {
+      await pickPlan('Bia', 'Lenda');
+
+      expect(await screen.findByText('@biaflor agora está no plano Lenda.')).toHaveAttribute(
+        'role',
+        'status',
+      );
+      expect(deps.userAdminApi.answers.callsOf('changePlan')).toEqual([
+        { userId: bia(new Date()).id, plan: 'lenda' },
+      ]);
+      expect(within(rowOf('@biaflor')).getByRole('img', { name: 'Plano Lenda' })).toBeVisible();
+    });
+
+    it('the Apoiador is picked in "Plano" like any plan, and the menu has no Apoiador item', async () => {
+      await pickPlan('Bia', 'Apoiador');
+
+      expect(await screen.findByText('@biaflor agora está no plano Apoiador.')).toBeInTheDocument();
+      expect(deps.userAdminApi.answers.callsOf('changePlan')).toEqual([
+        { userId: bia(new Date()).id, plan: 'apoiador' },
+      ]);
+      expect(within(rowOf('@biaflor')).getByRole('img', { name: 'Apoiador' })).toBeVisible();
+      await userEvent.click(screen.getByRole('button', { name: 'Ações de Bia' }));
+      expect(screen.queryByRole('menuitem', { name: /Apoiador/ })).toBeNull();
+    });
+
+    it('a refusal shows the alert of the line and the plan stays the old one', async () => {
+      deps.userAdminApi.answers.answer('changePlan', { ok: false, failure: { kind: 'not_found' } });
+
+      await pickPlan('Bia', 'Narrador');
+
+      expect(
+        await screen.findByText('Essa conta ou convite não existe mais. Recarregue a lista.'),
+      ).toBeInTheDocument();
+      expect(rowOf('@biaflor')).toHaveTextContent('Grátis');
+      expect(within(rowOf('@biaflor')).queryByRole('img', { name: 'Plano Narrador' })).toBeNull();
+    });
+  });
+
   describe('Excluir usuário', () => {
     it('blocked: names the tables and offers to suspend instead, without "Excluir"', async () => {
       deps.userAdminApi.answers.answer('deletionCheck', {

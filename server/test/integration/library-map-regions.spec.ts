@@ -1,12 +1,15 @@
 import { libraryMapChangedDto, mapRegionDto, type MapRegionDto } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { MapRegionsOverHttp, NEW_REGION } from '../support/library-map-regions-http';
 import { CITY_GEOMETRY, KINGDOM_GEOMETRY } from '../support/library-maps-factories';
 import { eventPayload, silence } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
+import { setAccountPlan } from '../support/account-plans';
 import { useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Vharn as it was before the plans: its owner has no plan limit.
+beforeEach(() => setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono'));
 const atlas = new MapRegionsOverHttp(live);
 
 const MISSING_ID = '00000000-0000-4000-8000-000000000000';

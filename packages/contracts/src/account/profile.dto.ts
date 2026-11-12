@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { userPlanDto } from '../plans/user-plan.dto';
 import { diceNumberColorDto } from './dice-texture.dto';
 import { memberColorDto } from './username.dto';
 
@@ -18,7 +19,8 @@ export const profileBioDto = z
 
 /** The signed-in person's own profile. `color` is the effective one; `colorChoice` is `null` when
  *  the color is the automatic one drawn from the id. The dice appearance rides along: the texture
- *  (`null` = the profile color) and the number color (`null` = automatic contrast).
+ *  (`null` = the profile color) and the number color (`null` = automatic contrast). `plan`,
+ *  `admin` (the global role) and `lorkariumOwner` (the Dono do Lorkarium) pick the seal.
  *
  *  Example: `profileDto.parse(body.profile).colorChoice // null` */
 export const profileDto = z.strictObject({
@@ -32,6 +34,9 @@ export const profileDto = z.strictObject({
   diceTextureId: z.uuid().nullable(),
   diceNumberColor: diceNumberColorDto.nullable(),
   memberSince: z.iso.datetime(),
+  plan: userPlanDto,
+  admin: z.boolean(),
+  lorkariumOwner: z.boolean(),
 });
 
 export type ProfileDto = z.infer<typeof profileDto>;

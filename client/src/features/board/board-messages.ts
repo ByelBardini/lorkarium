@@ -12,6 +12,8 @@ import {
 } from '@/features/campaigns/campaign-messages';
 import { cellsText, positionText } from '@/lib/cells-text';
 import { facingLabel } from '@/lib/facing-label';
+import { planLimitMessage } from '@/lib/plan-limit-message';
+import type { BoardFailureCode } from '@/services/board-command-sender';
 import type { BoardCommandFailure } from '@/services/table-board-commands';
 import type { BoardStatus } from '@/stores/board-store';
 import type { TablePresenceState } from '@/stores/table-presence-store';
@@ -56,7 +58,7 @@ export function connectionStatusLine(
   return '';
 }
 
-const COMMAND_FAILURE_MESSAGE: Readonly<Record<BoardCommandFailure, string>> = {
+const COMMAND_FAILURE_MESSAGE: Readonly<Record<BoardFailureCode, string>> = {
   forbidden: 'Só o mestre pode fazer isso.',
   not_found: NOT_MEMBER_MESSAGE,
   scene_not_found: 'Esse grid não está mais aberto pra você.',
@@ -125,10 +127,12 @@ export function effectAreaReshapedAnnouncement(kind: string, size: string): stri
   return `${kind} agora tem ${size}.`;
 }
 
-/** Why the server refused a board command, as the person reads it.
+/** Why the server refused a board command, as the person reads it (a plan refusal names the
+ *  ceiling and the plan that frees more).
  *
  *  Example: `boardCommandFailureMessage('forbidden') // 'Só o mestre pode fazer isso.'` */
 export function boardCommandFailureMessage(failure: BoardCommandFailure): string {
+  if (typeof failure === 'object') return planLimitMessage(failure.planLimit);
   return COMMAND_FAILURE_MESSAGE[failure];
 }
 

@@ -1,4 +1,4 @@
-import type { AdminDirectoryResponseDto, AdminUserDto } from '@lorkarium/contracts';
+import type { AdminDirectoryResponseDto, AdminUserDto, UserPlan } from '@lorkarium/contracts';
 import { PlusIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -13,7 +13,7 @@ import {
   type DirectoryRow,
 } from '@/lib/user-directory';
 import type { Clipboard } from '@/services/clipboard';
-import { adminFailureMessage } from './admin-messages';
+import { adminFailureMessage, planChangedNotice } from './admin-messages';
 import { InviteSheet } from './invite-sheet';
 import { InvitationRowMenu, UserRowMenu, type UserRowCommand } from './row-menus';
 import { UsersDialog, type OpenDialog } from './users-dialog';
@@ -64,9 +64,15 @@ export function UsersPage({
       quick.run({ intent: 'reactivate', userId: user.id }, `O acesso de @${user.username} voltou.`);
     else setDialog({ kind: command, user });
   };
+  const changePlan = (user: AdminUserDto, plan: UserPlan): void =>
+    quick.run({ intent: 'plan', userId: user.id, plan }, planChangedNotice(user.username, plan));
   const actionsOf = (row: DirectoryRow): React.ReactNode =>
     row.kind === 'user' ? (
-      <UserRowMenu user={row.user} onCommand={(command) => openUser(command, row.user)} />
+      <UserRowMenu
+        user={row.user}
+        onCommand={(command) => openUser(command, row.user)}
+        onPlan={(plan) => changePlan(row.user, plan)}
+      />
     ) : (
       <InvitationRowMenu
         invitation={row.invitation}

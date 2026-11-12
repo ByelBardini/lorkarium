@@ -53,7 +53,7 @@ export function ProfileColorField({ value, onChange }: ProfileColorFieldProps): 
             className="size-8 border-2 border-transparent data-checked:border-foreground"
           />
         ))}
-        <CustomColorTile value={value} onPick={onChange} className="size-8" />
+        <CustomColorTile value={value} onPick={onChange} className="size-8" scope="account" />
       </RadioGroup>
       <p id={hintId} className="text-[13px] text-placeholder">
         Pinta seu ping no mapa e suas iniciais. Sem escolha, vale a cor que o Lorkarium sorteou.

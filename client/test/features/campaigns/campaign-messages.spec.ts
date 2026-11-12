@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   closedTableMessage,
+  commandFailureMessage,
   juggernautFailureMessage,
 } from '@/features/campaigns/campaign-messages';
 import { VHARN } from '../../support/campaigns-api-fake';
@@ -26,5 +27,14 @@ describe('juggernautFailureMessage', () => {
     [{ kind: 'not_found' } as const, 'Essa mesa não existe ou você não participa dela.'],
   ])('a refusal %o reads "%s"', (failure, message) => {
     expect(juggernautFailureMessage(failure)).toBe(message);
+  });
+});
+
+describe('commandFailureMessage', () => {
+  it('a plan refusal reads the sentence of the plan, not the generic one', () => {
+    const planLimit = { resource: 'players', limit: 6, plan: 'free' } as const;
+    expect(commandFailureMessage({ kind: 'plan_limit', planLimit })).toBe(
+      'Esta mesa usa o plano Grátis, que permite até 6 jogadores. O Narrador libera 10.',
+    );
   });
 });

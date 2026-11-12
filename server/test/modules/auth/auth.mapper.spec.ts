@@ -1,3 +1,4 @@
+import { PLAN_LIMITS } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   recoveryCodeIndexOf,
@@ -14,7 +15,7 @@ const AVATAR_ID = '9b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e';
 describe('toAuthUserDto', () => {
   it('a full user row becomes the client view: e-mail opened with the id, no hash nor createdAt', () => {
     const row = userPo({ name: 'Ana', email: 'ana@mesa.com', role: 'admin', avatarId: AVATAR_ID });
-    expect(toAuthUserDto(row, new DataCipherFake())).toEqual({
+    expect(toAuthUserDto(row, new DataCipherFake(), null)).toEqual({
       id: ANA_ID,
       username: 'ana',
       name: 'Ana',
@@ -23,17 +24,51 @@ describe('toAuthUserDto', () => {
       // stableHash(ANA_ID) % 8 = 6: the automatic color, the same index the ping drew before.
       color: 'teal',
       avatarId: AVATAR_ID,
+      plan: 'free',
+      lorkariumOwner: false,
+      limits: PLAN_LIMITS.amigo_do_dono,
+      customization: true,
     });
+  });
+
+  it('a free user carries its plan, the free limits and no customization', () => {
+    const dto = toAuthUserDto(userPo({ plan: 'free' }), new DataCipherFake(), null);
+    expect(dto).toMatchObject({ plan: 'free', customization: false });
+    expect(dto.limits).toEqual(PLAN_LIMITS.free);
+  });
+
+  it('the Apoiador opens the customizations with the table limits of free', () => {
+    const dto = toAuthUserDto(userPo({ plan: 'apoiador' }), new DataCipherFake(), null);
+    expect(dto).toMatchObject({ plan: 'apoiador', customization: true });
+    expect(dto.limits).toEqual(PLAN_LIMITS.apoiador);
+    expect(dto.limits.customColor).toBe(false);
+  });
+
+  it('a lenda user carries the lenda limits', () => {
+    const dto = toAuthUserDto(userPo({ plan: 'lenda' }), new DataCipherFake(), null);
+    expect(dto.limits).toEqual(PLAN_LIMITS.lenda);
+  });
+
+  it('the account of OWNER_USERNAME is the Dono do Lorkarium: no plan limit, customization open', () => {
+    const dto = toAuthUserDto(userPo({ plan: 'free' }), new DataCipherFake(), 'ana');
+    expect(dto).toMatchObject({ plan: 'free', lorkariumOwner: true, customization: true });
+    expect(dto.limits).toEqual(PLAN_LIMITS.amigo_do_dono);
+  });
+
+  it('another @ in OWNER_USERNAME leaves the account as its plan says', () => {
+    const dto = toAuthUserDto(userPo({ plan: 'free' }), new DataCipherFake(), 'byel');
+    expect(dto).toMatchObject({ lorkariumOwner: false, customization: false });
+    expect(dto.limits).toEqual(PLAN_LIMITS.free);
   });
 
   it('a chosen color wins over the drawn one', () => {
     const row = userPo({ color: 'moss' });
-    expect(toAuthUserDto(row, new DataCipherFake()).color).toBe('moss');
+    expect(toAuthUserDto(row, new DataCipherFake(), null).color).toBe('moss');
   });
 
   it('an e-mail sealed for another account does not open', () => {
     const row = { ...userPo(), emailCipher: 'sealed:user-email:someone-else:ana@mesa.com' };
-    expect(() => toAuthUserDto(row, new DataCipherFake())).toThrow(/user-email/);
+    expect(() => toAuthUserDto(row, new DataCipherFake(), null)).toThrow(/user-email/);
   });
 });
 

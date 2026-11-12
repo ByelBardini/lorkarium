@@ -19,6 +19,7 @@ import { CampaignError, CampaignNotFoundError } from '../campaigns/campaigns.err
 import { SceneError, SceneNotFoundError } from '../scenes/scenes.error';
 import { FolderNotFoundError, LibraryError, type LibraryErrorCode } from './library.error';
 import type { LibraryRequester, LibraryService } from './library.service';
+import { withPlanLimitReply } from '../plans/plan-limit-response';
 
 const LIBRARY_URL = '/campaigns/:campaignId/scenes';
 const LIBRARY_SCENE_URL = `${LIBRARY_URL}/:sceneId`;
@@ -49,7 +50,7 @@ const PUBLIC_MESSAGE: Readonly<Record<LibraryErrorCode, string>> = {
  *  Example: `app.register(libraryRoutes(service), { prefix: '/api' })` */
 export function libraryRoutes(service: LibraryService): (app: FastifyInstance) => Promise<void> {
   return async (app: FastifyInstance): Promise<void> => {
-    app.setErrorHandler(replyWithApiError);
+    app.setErrorHandler(withPlanLimitReply(replyWithApiError));
     registerSceneRoutes(app, service);
     registerFolderRoutes(app, service);
   };

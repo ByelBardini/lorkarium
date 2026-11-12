@@ -123,6 +123,7 @@ describe('CampaignMembersDao on Postgres', () => {
         role: 'master',
         owner: true,
         juggernaut: false,
+        account: { role: 'user', plan: 'free', lorkariumOwner: false },
       },
       {
         userId: biaId,
@@ -134,6 +135,7 @@ describe('CampaignMembersDao on Postgres', () => {
         role: 'player',
         owner: false,
         juggernaut: false,
+        account: { role: 'user', plan: 'free', lorkariumOwner: false },
       },
     ]);
   });

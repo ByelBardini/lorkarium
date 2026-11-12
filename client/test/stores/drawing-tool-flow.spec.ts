@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { BoardCommandFailure } from '@/services/board-command-sender';
 import type { EditEntry } from '@/lib/edit-history';
 import { DEFAULT_DRAWING_STYLE, type DrawingStyle } from '@/lib/drawing-style';
 import { sendSketch, type SketchContext } from '@/stores/drawing-tool-flow';
@@ -29,7 +30,7 @@ describe('sendSketch', () => {
     return {
       scopeOf: () => VHARN_GRID,
       commands,
-      describeRefusal: (failure: string) => `recusado: ${failure}`,
+      describeRefusal: (failure: BoardCommandFailure) => `recusado: ${String(failure)}`,
       recordEdit: (entry: EditEntry) => recorded.push(entry),
     };
   }

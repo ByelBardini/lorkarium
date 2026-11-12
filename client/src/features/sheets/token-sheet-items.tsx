@@ -36,7 +36,12 @@ export function TokenSheetItems(props: TokenSheetItemsProps): React.JSX.Element 
       <OpenSheetItems room={room} sheets={read.sheets} />
       {props.isMaster && (
         <>
-          <NewSheetItems room={room} holder={{ tokenId: props.token.id }} holderName={props.name} />
+          <NewSheetItems
+            room={room}
+            holder={{ tokenId: props.token.id }}
+            holderName={props.name}
+            npc={props.token.characterId === null}
+          />
           <ManageSheetsItems room={room} sheets={read.sheets} />
         </>
       )}

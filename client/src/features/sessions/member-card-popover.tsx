@@ -1,9 +1,10 @@
 import type { SessionMemberDto } from '@lorkarium/contracts';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { UserAvatar } from '@/components/user-avatar';
+import { UserHandle } from '@/components/user-handle';
 
 /** The nickname on the "Na mesa" tab as a button that opens the member's card: avatar,
- *  nickname, @ and the "Sobre você" bio (no bio, no line). Esc or a click outside closes it.
+ *  nickname, the @ with the seal symbol and the "Sobre você" bio (no bio, no line). Esc or a click outside closes it.
  *
  *  Example: `<MemberCardPopover member={bia} />` */
 export function MemberCardPopover({
@@ -28,7 +29,11 @@ export function MemberCardPopover({
           />
           <div className="flex min-w-0 flex-col">
             <span className="truncate font-display text-base text-foreground">{member.name}</span>
-            <span className="truncate text-xs text-muted-foreground">{`@${member.username}`}</span>
+            <UserHandle
+              username={member.username}
+              seal={member}
+              className="text-xs text-muted-foreground"
+            />
           </div>
         </div>
         {member.bio && (

@@ -64,6 +64,9 @@ describe('sessions mapper', () => {
           bio: null,
           role: 'master',
           juggernaut: false,
+          plan: 'free',
+          admin: false,
+          lorkariumOwner: false,
           online: true,
           awaySince: null,
         },
@@ -76,6 +79,9 @@ describe('sessions mapper', () => {
           bio: null,
           role: 'player',
           juggernaut: false,
+          plan: 'free',
+          admin: false,
+          lorkariumOwner: false,
           online: true,
           awaySince: null,
         },
@@ -88,6 +94,9 @@ describe('sessions mapper', () => {
           bio: null,
           role: 'player',
           juggernaut: false,
+          plan: 'free',
+          admin: false,
+          lorkariumOwner: false,
           online: false,
           awaySince: null,
         },
@@ -110,6 +119,9 @@ describe('sessions mapper', () => {
         bio: null,
         role: 'player',
         juggernaut: false,
+        plan: 'free',
+        admin: false,
+        lorkariumOwner: false,
         online: true,
         awaySince: null,
       },
@@ -121,6 +133,29 @@ describe('sessions mapper', () => {
     const ana = campaignMemberRow({ colorChoice: 'rose', avatarId: PHOTO_ID, bio: 'Mestre' });
     const [member] = toSessionStateDto(VHARN_ID, [ana], presenceRoster({ version: 1 }), AT).members;
     expect(member).toMatchObject({ color: 'rose', avatarId: PHOTO_ID, bio: 'Mestre' });
+  });
+
+  it('each member carries the seal fields: Bia lenda, an admin with its stored plan', () => {
+    const bia = campaignMemberRow({
+      ...{ userId: BIA_ID, name: 'Bia', role: 'player' },
+      account: { role: 'user', plan: 'lenda', lorkariumOwner: false },
+    });
+    const root = campaignMemberRow({
+      account: { role: 'admin', plan: 'free', lorkariumOwner: false },
+    });
+    const roster = presenceRoster({ version: 1 });
+
+    const state = toSessionStateDto(VHARN_ID, [root, bia], roster, AT);
+
+    expect(state.members).toMatchObject([
+      { userId: ANA_ID, plan: 'free', admin: true },
+      { userId: BIA_ID, plan: 'lenda', admin: false },
+    ]);
+    expect(toMemberUpdatedDto(VHARN_ID, bia, roster, AT).member).toMatchObject({
+      plan: 'lenda',
+      admin: false,
+      lorkariumOwner: false,
+    });
   });
 
   it('memberUpdated carries the member read again with the online state and the roster version', () => {
@@ -191,6 +226,9 @@ describe('sessions mapper', () => {
       expect(members.find(({ userId }) => userId === DUDA_ID)).toMatchObject({
         role: 'spectator',
         juggernaut: false,
+        plan: 'free',
+        admin: false,
+        lorkariumOwner: false,
         online: true,
       });
     });

@@ -69,6 +69,9 @@ import {
   requireAssetsOf,
   tokenAccessOf,
   tokenIn,
+  tokenPlanHoldOf,
+  tokenPlanOf,
+  tokenPlanSentOf,
   tokensIn,
   withConditions,
   type TokenRightsReader,
@@ -156,8 +159,9 @@ export class TokensService {
     const saved = await this.inGrid(access, command.sceneId, async ({ daos, scene }) => {
       const rules = tokenRulesOf(scene, memberIds, this.deps);
       const row = newTokenRowOf(scene.id, rules, { ...command, controllerIds }, userId);
+      tokenPlanOf(scene).requireNew(tokenPlanSentOf(command));
       rules.admit(await daos.tokens.countOfScene(scene.id), 1);
-      await admitBlockersOf(daos, scene.id, rules, command.blocksSight ? 1 : 0);
+      await admitBlockersOf(daos, scene, rules, command.blocksSight ? 1 : 0);
       await requireAssetsOf(daos, campaignId, lookAssetIdsOf(command));
       // A token just created carries no condition: nothing to read back for it.
       return { row: await daos.tokens.insert(row), conditions: [] };
@@ -182,7 +186,8 @@ export class TokensService {
       const { row: found } = await pausedIfOf(locked.daos, locked.scene.id, stored, now, resized);
       const rules = tokenRulesOf(locked.scene, memberIds, this.deps);
       rules.place(found.token, command);
-      await admitBlockersOf(locked.daos, locked.scene.id, rules, blockersTurnedOn(found, command));
+      tokenPlanOf(locked.scene).requireChange(tokenPlanHoldOf(found), tokenPlanSentOf(command));
+      await admitBlockersOf(locked.daos, locked.scene, rules, blockersTurnedOn(found, command));
       const update = toTokenUpdatePo(command, rules.controllers(command.controllerIds));
       return this.updateIn(locked, found, withShownForm(found.token, update), command);
     });

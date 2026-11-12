@@ -1,3 +1,4 @@
+import type { PlanLimits } from '@lorkarium/contracts';
 import {
   cell,
   patrolFits,
@@ -6,6 +7,7 @@ import {
   type SceneSize,
   type TokenPatrol,
 } from '@lorkarium/game-core';
+import { PlanLimitsBo } from '../plans/plan-limits.bo';
 import {
   OutOfSceneError,
   TokenPatrolLimitError,
@@ -47,6 +49,8 @@ export type TokenPatrolState = Readonly<{
   scene: SceneSize;
   /** Patrols a grid keeps running at most (`TOKEN_PATROLS_RUNNING_MAX`, passed in). */
   runningLimit: number;
+  /** The table's effective limits (its owner's plan): `maxPatrols` running per grid. */
+  plan: PlanLimits;
 }>;
 
 /** Where a token stands now: a running patrol puts it where its timeline is (the destination of
@@ -68,7 +72,7 @@ export function patrolPoseNowOf(token: PatrolledToken, now: Date): PatrolPoseNow
  *  saving or removing pauses it where it is now, and a start keeps the grid at its ceiling of
  *  running patrols. No clock: `now` comes in.
  *
- *  Example: `new TokenPatrolBo({ scene, runningLimit: 30 }).start([kael], 29, now)` */
+ *  Example: `new TokenPatrolBo({ scene, runningLimit: 30, plan }).start([kael], 29, now)` */
 export class TokenPatrolBo {
   constructor(private readonly state: TokenPatrolState) {}
 
@@ -87,10 +91,12 @@ export class TokenPatrolBo {
   }
 
   /** The patrols that start, all or nothing: one without a route is TOKEN_PATROL_NOT_FOUND, a
-   *  route that no longer fits the token is OUT_OF_SCENE, and passing the ceiling with the
-   *  `running` ones is TOKEN_PATROL_LIMIT. The ones already running are left out. */
+   *  route that no longer fits the token is OUT_OF_SCENE, passing the table's plan with the
+   *  `running` ones is PLAN_LIMIT `patrols` and passing the technical ceiling TOKEN_PATROL_LIMIT.
+   *  The ones already running are left out. */
   start(tokens: readonly PatrolledToken[], running: number, now: Date): PatrolWrite[] {
     const starting = tokens.filter((token) => this.startable(token));
+    PlanLimitsBo.requireRoom('patrols', running, starting.length, this.state.plan);
     if (running + starting.length > this.state.runningLimit) {
       throw new TokenPatrolLimitError(running, starting.length, this.state.runningLimit);
     }

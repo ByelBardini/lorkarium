@@ -22,7 +22,7 @@ A migração copia o `content`/`schema_version` de cada documento numa aba "Gera
 - `visibleTo()` exige leitura do documento; `requireVisible(tabId)` → `DOCUMENT_TAB_NOT_FOUND` para aba inexistente **ou oculta** (nunca `FORBIDDEN`).
 - `requireEdit(tabId)` (renomear, conteúdo): visível primeiro, depois edição (mestre ou dono) → leitor de documento público recebe `FORBIDDEN` só em aba que vê.
 - `requireVisibilityChange(tabId)`: visível e `requireManage` (só mestre; dono → `FORBIDDEN`).
-- `requireCreate()`: edição; total + 1 acima do limite → `DOCUMENT_TAB_LIMIT` ("would have 201 tabs; expected at most 200"); devolve a posição seguinte à maior.
+- `requireCreate(limits)`: edição; total + 1 acima do limite técnico → `DOCUMENT_TAB_LIMIT` ("would have 201 tabs; expected at most 200"), igual para todo plano; abaixo dele, o plano do dono (`limits`, lido na trava) → 403 `PLAN_LIMIT` `documentTabs` (5 no Grátis); devolve a posição seguinte à maior. O documento novo nasce com uma aba e sempre cabe.
 - `requireDelete(tabId)`: edição; a única aba do documento → `DOCUMENT_TAB_LAST`. Um documento pode ficar só com abas `masters` (o jogador recebe `tabs: []`).
 - `mergedOrder(visibleOrder)`: id fora das visíveis (de outro documento ou oculto) → `DOCUMENT_TAB_NOT_FOUND` citando o id. As casas das abas pedidas recebem a ordem pedida, em sequência; aba oculta **ou omitida** fica na casa dela (A, B oculta, C + `[C, A]` → C, B, A). Posições renumeradas de 0 sem buraco.
 

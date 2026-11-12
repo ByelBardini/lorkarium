@@ -1,5 +1,6 @@
 import { drawingsCreatedDto, type DrawingDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import {
   recordEventsOf,
   type EventRecorder,
@@ -88,6 +89,7 @@ describe('drawings over Socket.IO', () => {
   });
 
   it('custom colors reach the table in lowercase, come in the sync and survive a restart', async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
     const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
     const bia = await live.atTable(live.bia, live.vharn);
 
@@ -102,6 +104,7 @@ describe('drawings over Socket.IO', () => {
   });
 
   it('a drawing with a custom color on Quelm is not in the snapshot of Vharn', async () => {
+    await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
     const caio = await live.atTable(live.caio, live.quelm);
     await send(caio, 'drawing:createMany', createOn(live.quelm.id, [CUSTOM_CIRCLE]));
 

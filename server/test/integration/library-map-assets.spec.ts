@@ -3,6 +3,7 @@ import type { LightMyRequestResponse } from 'fastify';
 import { describe, expect, it } from 'vitest';
 import { LibraryMapsDao } from '../../src/modules/library-maps/library-maps.dao';
 import type { LibraryMapPo } from '../../src/modules/library-maps/library-maps.po';
+import { setAccountPlan } from '../support/account-plans';
 import { pngOf } from '../support/images';
 import { newLibraryMapPo } from '../support/library-maps-factories';
 import { envelope, send } from '../support/live-table';
@@ -56,6 +57,8 @@ function expectHidden(response: LightMyRequestResponse): void {
 
 describe('the image of a library map', () => {
   it('is cut to 8192 px on its largest side, keeping the proportion', async () => {
+    // The free plan keeps 4096 px (assets-plan-limit.spec.ts); the technical side needs more.
+    await setAccountPlan(live.connection.db, live.ana.id, 'narrador');
     const response = await sendMapImage(live.ana, live.vharn, await pngOf(10000, 5000));
 
     expect(response.statusCode, response.body).toBe(201);

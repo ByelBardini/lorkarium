@@ -67,6 +67,11 @@ export class SceneLibraryBo<
    *  enter its own subtree or would push the subtree past the depth limit.
    *
    *  Example: `library.requireMove(masmorraId, ato2Id)` */
+  /** How many grids the table has, what its owner's plan counts (`scenes`). */
+  get gridCount(): number {
+    return this.state.scenes.length;
+  }
+
   requireMove(folderId: string, parentId: string | null): void {
     this.requireFolder(folderId);
     if (parentId !== null) this.requireOutside(folderId, parentId);

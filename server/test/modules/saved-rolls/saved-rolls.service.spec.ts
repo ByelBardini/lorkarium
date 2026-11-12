@@ -18,6 +18,7 @@ import {
   savedRollFolderPo,
   savedRollPo,
 } from '../../support/saved-rolls-fakes';
+import { planAccount } from '../../support/plan-account-fakes';
 
 const BIA = { campaignId: VHARN_ID, userId: BIA_ID };
 const CAIO = { campaignId: VHARN_ID, userId: CAIO_ID };
@@ -97,6 +98,39 @@ describe('SavedRollsService.create', () => {
 
     await expect(saving).rejects.toMatchObject({ code: 'SAVED_ROLLS_LIMIT' });
     expect(journal).toEqual(['lock', 'count']);
+  });
+
+  it('at a free table, Bia with 5 kept: the 6th is PLAN_LIMIT savedRolls and nothing is inserted', async () => {
+    const { service, journal, rolls } = setup(rollsOfBia(5));
+    rolls.tablePlans.set(VHARN_ID, planAccount({ plan: 'free' }));
+
+    const saving = service.create(BIA, { name: 'Mais uma', parts: ATTACK });
+
+    await expect(saving).rejects.toMatchObject({
+      code: 'PLAN_LIMIT',
+      resource: 'savedRolls',
+      limit: 5,
+      plan: 'free',
+    });
+    expect(journal).toEqual(['lock', 'count']);
+  });
+
+  it('at a free table, Bia with 4 kept saves the 5th', async () => {
+    const { service, journal, rolls } = setup(rollsOfBia(4));
+    rolls.tablePlans.set(VHARN_ID, planAccount({ plan: 'free' }));
+
+    await service.create(BIA, { name: 'Quinta', parts: ATTACK });
+
+    expect(journal).toEqual(['lock', 'count', 'insert:Quinta', 'commit']);
+  });
+
+  it('the free table of an admin keeps the technical ceiling: the 6th is saved', async () => {
+    const { service, journal, rolls } = setup(rollsOfBia(5));
+    rolls.tablePlans.set(VHARN_ID, planAccount({ role: 'admin', plan: 'free' }));
+
+    await service.create(BIA, { name: 'Sexta', parts: ATTACK });
+
+    expect(journal).toContain('insert:Sexta');
   });
 
   it('"2d" is INVALID_DICE_EXPRESSION citing piece 1, before the transaction', async () => {
@@ -231,6 +265,15 @@ describe('SavedRollsService and folders', () => {
     const out = await service.update(BIA, ACERTO_ID, { folderId: null });
 
     expect([moved.folderId, out.folderId]).toEqual([MAGIAS_ID, null]);
+  });
+
+  it('at a free table, Bia past the plan (7 kept) still edits one of them', async () => {
+    const { service, rolls } = setup(rollsOfBia(7));
+    rolls.tablePlans.set(VHARN_ID, planAccount({ plan: 'free' }));
+
+    const edited = await service.update(BIA, 'roll-of-bia-0', { name: 'Renomeada' });
+
+    expect(edited.name).toBe('Renomeada');
   });
 
   it('moving to a folder of someone else finds nothing and nothing is written', async () => {

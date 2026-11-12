@@ -47,7 +47,7 @@ export function ImageDetails(props: ImageDetailsProps): React.JSX.Element {
     const result = await props.presentations.present(props.campaignId, image.id);
     if (result.ok) props.store?.getState().apply(result.value);
     else {
-      setFailure(libraryFailureMessage(result.failure.kind));
+      setFailure(libraryFailureMessage(result.failure));
       await props.store?.getState().sync();
     }
     setPresenting(false);

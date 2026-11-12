@@ -9,11 +9,12 @@ import type { AssetsDao } from '../assets/assets.dao';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
-import type { CampaignsDao } from '../campaigns/campaigns.dao';
+import type { CampaignWithOwnerPo, CampaignsDao } from '../campaigns/campaigns.dao';
 import { CampaignNotFoundError } from '../campaigns/campaigns.error';
 import { viewerAccessOf } from '../campaigns/member-access';
 import type { DocumentsDao } from '../documents/documents.dao';
 import type { LibraryPublisherPort } from '../library/library-publisher.port';
+import { PlanLimitsBo, effectiveLimitsOf } from '../plans/plan-limits.bo';
 import type { LibraryRequester } from '../library/library.service';
 import { SceneLibraryBo } from '../library/scene-library.bo';
 import type { SceneFoldersDao } from '../library/scene-folders.dao';
@@ -30,12 +31,13 @@ import type { MapLinkTargetsDao } from './map-link-targets.dao';
 import { readMapRegions } from './map-region-links.service';
 
 export type LibraryMapDaos = Readonly<{
-  campaigns: Pick<CampaignsDao, 'lockById' | 'findById'>;
+  campaigns: Pick<CampaignsDao, 'lockWithOwner' | 'findById'>;
   members: Pick<CampaignMembersDao, 'findMembership'>;
   assets: Pick<AssetsDao, 'findInCampaign'>;
   folders: Pick<SceneFoldersDao, 'listOfCampaign'>;
   maps: Pick<
     LibraryMapsDao,
+    | 'countOfCampaign'
     | 'insert'
     | 'findInCampaign'
     | 'findMainOfCampaign'
@@ -74,22 +76,26 @@ export type LibraryMapServiceDeps = Readonly<{
 type MainSwitch = Readonly<{ row: LibraryMapRow; changed: boolean }>;
 
 /** The master's edit of the maps: refuses anyone else before locking, then runs the work with the
- *  campaign locked, in one transaction.
+ *  campaign locked, in one transaction; the work gets the locked row with its owner's plan.
  *
  *  Example: `await editAsMaster(deps, requester, 'edit map', (daos, access) => save(daos, access))` */
 export async function editAsMaster<T>(
   deps: Pick<LibraryMapServiceDeps, 'read' | 'transaction'>,
   requester: LibraryRequester,
   action: string,
-  work: (daos: LibraryMapDaos, access: CampaignAccessBo) => Promise<T>,
+  work: (
+    daos: LibraryMapDaos,
+    access: CampaignAccessBo,
+    campaign: CampaignWithOwnerPo,
+  ) => Promise<T>,
 ): Promise<T> {
   const { userId, campaignId } = requester;
   const access = await viewerAccessOf(deps.read.members, campaignId, userId);
   access.requireMaster(action);
   return deps.transaction(async (daos) => {
-    const campaign = await daos.campaigns.lockById(campaignId);
+    const campaign = await daos.campaigns.lockWithOwner(campaignId);
     if (!campaign) throw new CampaignNotFoundError({ campaignId, userId });
-    return work(daos, access);
+    return work(daos, access, campaign);
   });
 }
 
@@ -121,8 +127,9 @@ export class LibraryMapsService {
     requester: LibraryRequester,
     input: CreateLibraryMapRequestDto,
   ): Promise<LibraryMapSummaryDto> {
-    const saved = await this.edit(requester, 'create a map', async (daos) => {
+    const saved = await this.edit(requester, 'create a map', async (daos, campaign) => {
       const { campaignId } = requester;
+      await this.requireMapRoom(daos, campaign);
       await this.requireFreeAsset(daos, campaignId, input.assetId);
       const folderId = input.folderId ?? null;
       await this.requireFolder(daos, campaignId, folderId);
@@ -232,9 +239,16 @@ export class LibraryMapsService {
   private async edit<T>(
     requester: LibraryRequester,
     action: string,
-    work: (daos: LibraryMapDaos) => Promise<T>,
+    work: (daos: LibraryMapDaos, campaign: CampaignWithOwnerPo) => Promise<T>,
   ): Promise<T> {
-    return editAsMaster(this.deps, requester, action, work);
+    return editAsMaster(this.deps, requester, action, (daos, _access, campaign) =>
+      work(daos, campaign),
+    );
+  }
+
+  private async requireMapRoom(daos: LibraryMapDaos, campaign: CampaignWithOwnerPo): Promise<void> {
+    const stored = await daos.maps.countOfCampaign(campaign.id);
+    PlanLimitsBo.requireRoom('libraryMaps', stored, 1, effectiveLimitsOf(campaign.owner));
   }
 
   private async requireFreeAsset(

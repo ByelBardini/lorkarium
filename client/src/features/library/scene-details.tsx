@@ -13,6 +13,9 @@ import { DeleteConfirmDialog } from './delete-scene-dialog';
 import { liveLabel, sceneDeletionText, sceneMeta } from './library-messages';
 import { SceneThumbnail } from './scene-thumbnail';
 import type { LibrarySubmit } from './use-library-submit';
+import { PlanGateHint } from '@/features/plans/plan-gate-hint';
+import { planHintIdOf } from '@/features/plans/plan-gate';
+import { useLibraryPlanGates } from './library-plan-gates';
 
 type Visibility = LibrarySceneDto['visibility'];
 
@@ -147,6 +150,8 @@ function NameField({ scene, submit, live, now, focusName }: PickedProps): React.
 function MasterActions(props: PickedProps & Readonly<{ isGroup: boolean }>): React.JSX.Element {
   const { scene, submit, live, isGroup } = props;
   const [confirming, setConfirming] = useState(false);
+  const copy = useLibraryPlanGates().duplicate;
+  const copyHintId = useId();
   return (
     <div className="mt-auto flex flex-col gap-2">
       {scene.visibility === 'private' && !isGroup && (
@@ -172,7 +177,8 @@ function MasterActions(props: PickedProps & Readonly<{ isGroup: boolean }>): Rea
           variant="ghost"
           size="sm"
           className="flex-1"
-          disabled={!live}
+          disabled={!live || !copy.open}
+          aria-describedby={planHintIdOf(copy, copyHintId)}
           onClick={() => void submit({ intent: 'duplicateScene', sceneId: scene.id })}
         >
           Duplicar
@@ -192,6 +198,7 @@ function MasterActions(props: PickedProps & Readonly<{ isGroup: boolean }>): Rea
           Leva o grupo pra outro grid antes de excluir este.
         </span>
       )}
+      <PlanGateHint id={copyHintId} gate={copy} className="text-center" />
       {confirming && (
         <DeleteConfirmDialog
           title={`Excluir ${scene.name}?`}

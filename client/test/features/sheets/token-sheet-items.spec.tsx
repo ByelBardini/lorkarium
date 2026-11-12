@@ -1,7 +1,7 @@
 import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import type { TokenDto } from '@lorkarium/contracts';
+import { PLAN_LIMITS, type TokenDto } from '@lorkarium/contracts';
 import { TokenSheetItems } from '@/features/sheets/token-sheet-items';
 import {
   DropdownMenu,
@@ -23,6 +23,7 @@ import {
   sheetCreatedAs,
   sheetRoom,
 } from '../../support/sheet-room-harness';
+import { detailOf, VHARN } from '../../support/campaigns-api-fake';
 import { kael } from '../../support/table-session-fixtures';
 
 const SPELLS = lyraSummary({ id: GOBLIN_SHEET_ID, name: 'Magias de Lyra' });
@@ -171,5 +172,48 @@ describe('sheet items of a free token', () => {
     expect(await screen.findByRole('menuitem', { name: 'Abrir ficha' })).toBeInTheDocument();
     expect(deps.sheetsApi.ofTokenCalls).toEqual([kael().id]);
     expect(deps.sheetsApi.ofCharacterCalls).toEqual([]);
+  });
+
+  describe('NPC sheets and the table plan', () => {
+    // Ten sheets held by loose tokens: the free table's ceiling.
+    const npcSheets = Array.from({ length: 10 }, (_, index) =>
+      lyraSummary({
+        id: `6a6a6a6a-1b1b-4c2c-8d3d-${String(index).padStart(12, '0')}`,
+        name: `NPC ${index}`,
+        tokenId: kael().id,
+        memberId: null,
+      }),
+    );
+
+    it('a free table with 10 NPC sheets offers no template, only the plan sentence', async () => {
+      const { deps, renderItems } = sheetRoom(detailOf(VHARN, { limits: PLAN_LIMITS.free }));
+      libraryWithTormenta(deps, npcSheets);
+      renderItems(<TokenMenu token={kael()} isMaster />);
+      await openMenu('Kael');
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Nova ficha' }));
+      const refusal = await screen.findByRole('menuitem', {
+        name: /^Esta mesa usa o plano Grátis, que permite até 10 fichas de NPC\./,
+      });
+      expect(refusal).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.queryByRole('menuitem', { name: 'Ficha Tormenta' })).not.toBeInTheDocument();
+    });
+
+    it('a linked token gives its character the sheet: no NPC ceiling', async () => {
+      const { deps, renderItems } = sheetRoom(detailOf(VHARN, { limits: PLAN_LIMITS.free }));
+      libraryWithTormenta(deps, npcSheets);
+      renderItems(<TokenMenu token={linkedLyra()} isMaster />);
+      await openMenu();
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Nova ficha' }));
+      expect(await screen.findByRole('menuitem', { name: 'Ficha Tormenta' })).toBeInTheDocument();
+    });
+
+    it('a free table below 10 NPC sheets still offers the templates', async () => {
+      const { deps, renderItems } = sheetRoom(detailOf(VHARN, { limits: PLAN_LIMITS.free }));
+      libraryWithTormenta(deps, npcSheets.slice(1));
+      renderItems(<TokenMenu token={kael()} isMaster />);
+      await openMenu('Kael');
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Nova ficha' }));
+      expect(await screen.findByRole('menuitem', { name: 'Ficha Tormenta' })).toBeInTheDocument();
+    });
   });
 });

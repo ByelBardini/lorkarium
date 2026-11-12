@@ -11,8 +11,10 @@ import type { ClockPort } from '../auth/clock.port';
 import type { DataCipherPort } from '../auth/data-cipher.port';
 import type { SessionEndedPort } from '../auth/session-ended.port';
 import type { MailerPort } from '../account-security/mailer.port';
+import type { ProfileChangedPort } from '../profiles/profile-changed.port';
 import { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { MailSamplesService } from './mail-samples.service';
+import type { OwnerLimitsPort } from './owner-limits.port';
 import type { RevokedSeatsPort } from './revoked-seats.port';
 import { UserAdminDao } from './user-admin.dao';
 import { userAdminRoutes } from './user-admin.routes';
@@ -26,6 +28,10 @@ export type UserAdminModuleOptions = Readonly<{
   memberships: Readonly<{ forgetUser(userId: string): void }>;
   /** The campaigns module's `JuggernautService`: tells the tables what the demotion revoked. */
   juggernauts: RevokedSeatsPort;
+  /** The live session service: a changed plan or role reaches the tables' rosters. */
+  profiles: ProfileChangedPort;
+  /** The campaigns module's settings service: a changed plan reaches the owner's tables. */
+  ownedTables: OwnerLimitsPort;
   storage: Pick<AssetStoragePort, 'remove'>;
   notices: Pick<SecurityNoticesService, 'send'>;
   cipher: DataCipherPort;

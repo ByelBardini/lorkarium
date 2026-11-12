@@ -1,6 +1,6 @@
 import { BOARD_EVENTS, pingAckDto } from '@lorkarium/contracts';
 import {
-  boardFailureOf,
+  ackFailureOf,
   type BoardCommandFailure,
   type BoardCommandSender,
   type BoardScope,
@@ -33,6 +33,6 @@ export class RealtimePingCommands implements PingCommands {
     const parsed = pingAckDto.safeParse(answer.ack);
     if (!parsed.success) return { ok: false, failure: 'unexpected' };
     if (parsed.data.ok) return { ok: true };
-    return { ok: false, failure: boardFailureOf(parsed.data.error.code) };
+    return { ok: false, failure: ackFailureOf(parsed.data.error) };
   }
 }

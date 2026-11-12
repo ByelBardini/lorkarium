@@ -13,9 +13,11 @@ import {
   SessionEndedFake,
 } from '../../support/auth-fakes';
 import { authSessionPo, userPo } from '../../support/auth-factories';
+import { ProfileChangedFake } from '../../support/profiles-fakes';
 import {
   AdminSeatsFake,
   MembershipsForgetFake,
+  OwnerLimitsFake,
   RevokedSeatsFake,
   StorageRemoveFake,
   UserAdminDaoFake,
@@ -38,6 +40,8 @@ describe('UserAdminService', () => {
   let adminSeats: AdminSeatsFake;
   let juggernauts: RevokedSeatsFake;
   let invitations: InvitationsDaoFake;
+  let profiles: ProfileChangedFake;
+  let ownedTables: OwnerLimitsFake;
   let service: UserAdminService;
 
   beforeEach(() => {
@@ -66,6 +70,8 @@ describe('UserAdminService', () => {
     adminSeats = new AdminSeatsFake(journal);
     juggernauts = new RevokedSeatsFake(journal);
     invitations = new InvitationsDaoFake();
+    profiles = new ProfileChangedFake(journal);
+    ownedTables = new OwnerLimitsFake(journal);
     sessionEnded.whenEnded = (sessionId) => journal.push(`ended ${sessionId}`);
     const daos: UserAdminWriteDaos = {
       accounts,
@@ -85,11 +91,45 @@ describe('UserAdminService', () => {
       sessionEnded,
       memberships,
       juggernauts,
+      profiles,
+      ownedTables,
       storage,
       notices: new SecurityNoticesService(mailer, () => undefined),
       cipher: new DataCipherFake(),
       clock: new ClockFake(NOW),
       appPublicUrl: 'https://mesa.example.com',
+    });
+  });
+
+  describe('changePlan', () => {
+    it('saves the plan, then tells the live tables of Bia her seal and those she owns their limits', async () => {
+      const user = await service.changePlan(BIA_ID, 'lenda');
+
+      expect(user).toMatchObject({ id: BIA_ID, plan: 'lenda' });
+      expect((await accounts.findAccount(BIA_ID))?.plan).toBe('lenda');
+      expect(journal).toEqual(['commit', `profileChanged:${BIA_ID}`, `limits ${BIA_ID}`]);
+    });
+
+    it('the admin changes their own plan: no SELF_ACTION', async () => {
+      const user = await service.changePlan(ADMIN.id, 'narrador');
+
+      expect(user).toMatchObject({ id: ADMIN.id, role: 'admin', plan: 'narrador' });
+    });
+
+    it('the same plan again saves and tells no table', async () => {
+      await service.changePlan(BIA_ID, 'free');
+
+      expect(journal).toEqual(['commit']);
+    });
+
+    it('an unknown account is USER_NOT_FOUND and nobody is told', async () => {
+      const missing = '99999999-9999-4999-8999-999999999999';
+
+      await expect(service.changePlan(missing, 'lenda')).rejects.toMatchObject({
+        code: 'USER_NOT_FOUND',
+      });
+      expect(profiles.told).toEqual([]);
+      expect(ownedTables.told).toEqual([]);
     });
   });
 
@@ -155,7 +195,13 @@ describe('UserAdminService', () => {
 
       await service.changeRole(ADMIN, BIA_ID, 'user');
 
-      expect(journal).toEqual([`revoke ${BIA_ID}`, 'commit', `announce ${BIA_ID}`]);
+      expect(journal).toEqual([
+        `revoke ${BIA_ID}`,
+        'commit',
+        `announce ${BIA_ID}`,
+        `profileChanged:${BIA_ID}`,
+        `limits ${BIA_ID}`,
+      ]);
       expect(juggernauts.announced).toEqual([{ userId: BIA_ID, seats: SEATS }]);
     });
 
@@ -224,6 +270,19 @@ describe('UserAdminService', () => {
   });
 
   describe('changeRole', () => {
+    it('a new role tells the live tables of Bia her seal and those she owns their limits', async () => {
+      await service.changeRole(ADMIN, BIA_ID, 'admin');
+
+      expect(journal).toEqual(['commit', `profileChanged:${BIA_ID}`, `limits ${BIA_ID}`]);
+    });
+
+    it('the same role again tells no table', async () => {
+      await service.changeRole(ADMIN, BIA_ID, 'user');
+
+      expect(profiles.told).toEqual([]);
+      expect(ownedTables.told).toEqual([]);
+    });
+
     it('making admin stores the role and tells the account, naming nobody', async () => {
       const user = await service.changeRole(ADMIN, BIA_ID, 'admin');
       expect(user.role).toBe('admin');

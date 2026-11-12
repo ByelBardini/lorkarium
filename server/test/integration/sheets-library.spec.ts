@@ -7,7 +7,8 @@ import {
   type CampaignLibraryDto,
   type SheetDto,
 } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { linkToPlayerCharacter, lyraPoisonedAtVharn } from '../support/characters';
 import { eventPayload, send, silence } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
@@ -16,6 +17,8 @@ import type { Table } from '../support/tables';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// These tables create several templates: Ana's plan sets no limit here.
+beforeEach(() => setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono'));
 const CODE = { files: [{ path: 'index.html', content: '<p></p>' }] };
 
 function sheetsUrl(table: Table = live.vharn): string {

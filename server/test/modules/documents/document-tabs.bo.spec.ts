@@ -1,3 +1,4 @@
+import { PLAN_LIMITS } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import { CampaignAccessBo } from '../../../src/modules/campaigns/campaign-access.bo';
 import { DocumentAccessBo } from '../../../src/modules/documents/document-access.bo';
@@ -13,6 +14,7 @@ const A = '0a0a0a0a-0a0a-4a0a-8a0a-0a0a0a0a0a0a';
 const B = '0b0b0b0b-0b0b-4b0b-8b0b-0b0b0b0b0b0b';
 const C = '0c0c0c0c-0c0c-4c0c-8c0c-0c0c0c0c0c0c';
 const FOREIGN = '0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f';
+const UNLIMITED = PLAN_LIMITS.amigo_do_dono;
 type Reader = 'ana' | 'bia' | 'caio';
 const READERS: Record<Reader, Readonly<{ userId: string; role: 'master' | 'player' }>> = {
   ana: { userId: ANA_ID, role: 'master' },
@@ -46,10 +48,10 @@ function positionsOf(order: readonly { id: string; position: number }[]): string
 
 describe('DocumentTabsBo', () => {
   it('the owner creating a third tab gets position 2', () => {
-    expect(tabsFor('bia', [tab(A, 0), tab(C, 1)]).requireCreate()).toBe(2);
+    expect(tabsFor('bia', [tab(A, 0), tab(C, 1)]).requireCreate(UNLIMITED)).toBe(2);
   });
   it('a new tab goes after the highest position even when positions have gaps', () => {
-    expect(tabsFor('ana', [tab(A, 0), tab(C, 7)]).requireCreate()).toBe(8);
+    expect(tabsFor('ana', [tab(A, 0), tab(C, 7)]).requireCreate(UNLIMITED)).toBe(8);
   });
   it('the master may hide a tab from the players', () => {
     expect(tabsFor('ana').requireVisibilityChange(C)).toMatchObject({ id: C });
@@ -84,12 +86,30 @@ describe('DocumentTabsBo', () => {
   });
   it('the 200th tab passes and the 201st is refused with DOCUMENT_TAB_LIMIT', () => {
     const tabs = (count: number) => Array.from({ length: count }, (_, i) => tab(`${i}`, i));
-    expect(tabsFor('ana', tabs(199)).requireCreate()).toBe(199);
-    expect(() => tabsFor('ana', tabs(200)).requireCreate()).toThrow(
+    expect(tabsFor('ana', tabs(199)).requireCreate(UNLIMITED)).toBe(199);
+    expect(() => tabsFor('ana', tabs(200)).requireCreate(UNLIMITED)).toThrow(
       expect.objectContaining({
         code: 'DOCUMENT_TAB_LIMIT',
         message: expect.stringContaining('would have 201 tabs; expected at most 200'),
       }),
+    );
+  });
+  it('on a free table the 5th tab passes and the 6th is PLAN_LIMIT documentTabs', () => {
+    const tabs = (count: number) => Array.from({ length: count }, (_, i) => tab(`${i}`, i));
+    expect(tabsFor('bia', tabs(4)).requireCreate(PLAN_LIMITS.free)).toBe(4);
+    expect(() => tabsFor('bia', tabs(5)).requireCreate(PLAN_LIMITS.free)).toThrow(
+      expect.objectContaining({ code: 'PLAN_LIMIT', resource: 'documentTabs', limit: 5 }),
+    );
+  });
+  it('past the technical 200 the lenda table still gets DOCUMENT_TAB_LIMIT, not the plan', () => {
+    const tabs = Array.from({ length: 200 }, (_, i) => tab(`${i}`, i));
+    expect(() => tabsFor('ana', tabs).requireCreate(PLAN_LIMITS.lenda)).toThrow(
+      expect.objectContaining({ code: 'DOCUMENT_TAB_LIMIT' }),
+    );
+  });
+  it('a reader who may not edit is FORBIDDEN before any plan count', () => {
+    expect(() => tabsFor('caio', [tab(A, 0)]).requireCreate(PLAN_LIMITS.free)).toThrow(
+      expect.objectContaining({ code: 'FORBIDDEN' }),
     );
   });
   it('deleting the only tab of the document is refused with DOCUMENT_TAB_LAST', () => {
@@ -114,7 +134,7 @@ describe('DocumentTabsBo', () => {
     );
   });
   it('a reader without ownership creating a tab in a public document gets FORBIDDEN', () => {
-    expect(() => tabsFor('caio').requireCreate()).toThrow(
+    expect(() => tabsFor('caio').requireCreate(UNLIMITED)).toThrow(
       expect.objectContaining({ code: 'FORBIDDEN' }),
     );
   });

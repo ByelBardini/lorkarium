@@ -1,4 +1,4 @@
-import { DEFAULT_CONDITION_NAMES } from '@lorkarium/contracts';
+import { DEFAULT_CONDITION_NAMES, PLAN_LIMITS } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   ConditionRulesBo,
@@ -183,5 +183,33 @@ describe('ConditionRulesBo', () => {
         rules.requireStacksWithin({ id: 'active-cego', maxStacks: null }, 1),
       ).not.toThrow();
     });
+  });
+});
+
+describe('ConditionRulesBo.requireImageInPlan', () => {
+  const rules = new ConditionRulesBo();
+  const ART = 'c1a2b3d4-0000-4000-8000-000000000001';
+  const OTHER_ART = 'c1a2b3d4-0000-4000-8000-000000000002';
+
+  it('free: a new image is PLAN_LIMIT conditionImage, limit 0', () => {
+    expect(() => rules.requireImageInPlan(ART, null, PLAN_LIMITS.free)).toThrow(
+      expect.objectContaining({ code: 'PLAN_LIMIT', resource: 'conditionImage', limit: 0 }),
+    );
+  });
+
+  it('free: swapping the image for another is refused too', () => {
+    expect(() => rules.requireImageInPlan(OTHER_ART, ART, PLAN_LIMITS.free)).toThrow(
+      expect.objectContaining({ code: 'PLAN_LIMIT', plan: 'free' }),
+    );
+  });
+
+  it('free: no image, or the image it already had, passes', () => {
+    expect(() => rules.requireImageInPlan(null, null, PLAN_LIMITS.free)).not.toThrow();
+    expect(() => rules.requireImageInPlan(null, ART, PLAN_LIMITS.free)).not.toThrow();
+    expect(() => rules.requireImageInPlan(ART, ART, PLAN_LIMITS.free)).not.toThrow();
+  });
+
+  it('narrador: a new image passes', () => {
+    expect(() => rules.requireImageInPlan(ART, null, PLAN_LIMITS.narrador)).not.toThrow();
   });
 });

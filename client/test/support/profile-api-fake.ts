@@ -18,6 +18,9 @@ export const ANA_PROFILE: ProfileDto = {
   diceTextureId: null,
   diceNumberColor: null,
   memberSince: '2026-10-01T12:00:00.000Z',
+  plan: ANA.plan,
+  admin: ANA.role === 'admin',
+  lorkariumOwner: ANA.lorkariumOwner,
 };
 
 /** The id the server gives the next photo sent. */

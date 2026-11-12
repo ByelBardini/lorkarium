@@ -1,6 +1,7 @@
 import { and, asc, desc, eq } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
-import { users } from '../auth/users.po';
+import { PLAN_ACCOUNT_COLUMNS } from '../auth/users.dao';
+import { users, type UserPlanPo } from '../auth/users.po';
 import { accountSavedColors, type SavedColorPo } from './saved-colors.po';
 
 /** The colors one account keeps: every query is keyed by the account, so a color of someone else
@@ -9,16 +10,18 @@ export class SavedColorsDao {
   constructor(private readonly db: DatabaseExecutor) {}
 
   /** Locks the account until the transaction ends, so two saves of the same account count one
-   *  after the other. `NO KEY UPDATE`: the `FOR KEY SHARE` of a row of another table that points
+   *  after the other, and answers its plan (the customizations follow it); `undefined` without
+   *  the account. `NO KEY UPDATE`: the `FOR KEY SHARE` of a row of another table that points
    *  at the account still goes through. Call it on a DAO built with the `tx`.
    *
-   *  Example: `await colors.lockOwner(biaId)` */
-  async lockOwner(userId: string): Promise<void> {
-    await this.db
-      .select({ id: users.id })
+   *  Example: `const account = await colors.lockOwner(biaId) // { role, plan, lorkariumOwner }` */
+  async lockOwner(userId: string): Promise<UserPlanPo | undefined> {
+    const [row] = await this.db
+      .select(PLAN_ACCOUNT_COLUMNS)
       .from(users)
       .where(eq(users.id, userId))
       .for('no key update');
+    return row;
   }
 
   /** The colors of the account, most recent first.

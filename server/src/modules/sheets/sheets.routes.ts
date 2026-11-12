@@ -34,6 +34,7 @@ import {
   SheetTemplateNotFoundError,
   type SheetErrorCode,
 } from './sheets.error';
+import { withPlanLimitReply } from '../plans/plan-limit-response';
 
 const TEMPLATES = '/campaigns/:campaignId/sheet-templates';
 const TEMPLATE = `${TEMPLATES}/:templateId`;
@@ -86,7 +87,7 @@ export type SheetServices = Readonly<{
  *  Example: `await app.register(sheetsRoutes({ templates, sheets, barCreation }), { prefix: '/api' })` */
 export function sheetsRoutes(services: SheetServices): (app: FastifyInstance) => Promise<void> {
   return async (app) => {
-    app.setErrorHandler(sheetErrorReply);
+    app.setErrorHandler(withPlanLimitReply(sheetErrorReply));
     app.addHook('onSend', async (_request, reply, payload) => {
       reply.header('cache-control', 'private, no-store');
       return payload;

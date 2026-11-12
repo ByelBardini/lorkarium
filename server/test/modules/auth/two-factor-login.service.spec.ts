@@ -9,7 +9,7 @@ import {
   SessionTokenFake,
   UsersDaoFake,
 } from '../../support/auth-fakes';
-import { ANA_ID, userPo } from '../../support/auth-factories';
+import { ANA_ID, authPlanFieldsOf, userPo } from '../../support/auth-factories';
 import {
   RecoveryCodesDaoFake,
   TotpFake,
@@ -27,7 +27,12 @@ class SessionStarterFake implements Pick<AuthService, 'startSession'> {
   async startSession(row: UserPo, persistent: boolean, userAgent?: string): Promise<IssuedSession> {
     this.started.push({ userId: row.id, persistent, ...(userAgent ? { userAgent } : {}) });
     const user = { id: row.id, username: row.username, name: row.name, email: 'ana@mesa.com' };
-    const extra = { role: row.role, color: 'teal' as const, avatarId: null };
+    const extra = {
+      role: row.role,
+      color: 'teal' as const,
+      avatarId: null,
+      ...authPlanFieldsOf(row),
+    };
     return { user: { ...user, ...extra }, token: 'session-token', expiresAt: NOW, persistent };
   }
 }

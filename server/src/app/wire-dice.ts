@@ -7,6 +7,7 @@ import { CryptoDiceRandom } from '../infrastructure/dice-random/crypto-dice-rand
 import type { ClockPort } from '../modules/auth/clock.port';
 import { CommandRateLimitedError } from '../modules/board/board.error';
 import type { MembershipReader } from '../modules/campaigns/cached-memberships';
+import { CampaignsDao } from '../modules/campaigns/campaigns.dao';
 import { createDiceModule } from '../modules/dice/dice.plugin';
 import { ProfilesDao } from '../modules/profiles/profiles.dao';
 import { CommandRateGuard } from '../realtime/command-rate-guard';
@@ -34,6 +35,7 @@ export function wireDice(realtime: Realtime, wiring: DiceWiring): void {
   );
   const dice = createDiceModule({
     members,
+    tables: new CampaignsDao(db),
     profiles: new ProfilesDao(db),
     physics: new CannonDicePhysics(random),
     random,

@@ -26,6 +26,7 @@ import {
 } from './account-links.error';
 import type { InvitationsService, Inviter } from './invitations.service';
 import type { PasswordResetsService } from './password-resets.service';
+import { withPlanLimitReply } from '../plans/plan-limit-response';
 
 // Spec §8.4: links an admin issues, per admin; the public routes, per IP.
 const ADMIN_LINKS_PER_10_MINUTES = 20;
@@ -74,7 +75,7 @@ export function accountLinksRoutes(
 ): (app: FastifyInstance) => Promise<void> {
   return async (app: FastifyInstance): Promise<void> => {
     await app.register(rateLimit, { global: false, errorResponseBuilder: rateLimitedError });
-    app.setErrorHandler(replyWithApiError);
+    app.setErrorHandler(withPlanLimitReply(replyWithApiError));
     registerInvitationAdminRoutes(app, services.invitations);
     registerPasswordResetAdminRoute(app, services.passwordResets);
     registerInvitationPublicRoutes(app, services.invitations);

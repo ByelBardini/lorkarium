@@ -48,7 +48,7 @@ describe('CombatPanel', () => {
       scopeOf: () => VHARN_GRID,
       commands,
       describeRefusal: (failure) =>
-        failure === 'combat_active' ? 'Já há um combate nesta cena.' : failure,
+        failure === 'combat_active' ? 'Já há um combate nesta cena.' : String(failure),
     });
   });
 
