@@ -106,7 +106,7 @@ Personalizações da conta (plano **da pessoa**, não do dono da mesa): o `Profi
 ## Client: selo e backoffice
 
 - Um selo só por conta (Dono > Admin > Amigo do Dono > Lenda > Narrador > Apoiador), símbolo próprio no traço da logo colado ao @ (`UserHandle`) ou ao nome: [`plans/selos.md`](plans/selos.md).
-- "Seu plano" (última seção de `/account`: plano gravado com o símbolo, uso, personalizações e a tabela da grade com a coluna dos limites efetivos): [`client/account.md`](client/account.md), Seu plano.
+- "Seu plano" (última seção de `/account`: cartão do plano com o selo grande — Dono e admin veem quem são, não o plano gravado —, personalizações, uso e a grade dos planos abertos, com a coluna do Amigo do Dono só para quem o tem e "Limites especiais" para Dono e admin): [`client/account.md`](client/account.md), Seu plano.
 - O backoffice troca o plano (o Apoiador incluído) pelo submenu "Plano" da linha (`changePlan` do `user-admin-api.ts`); detalhe em [`client/backoffice.md`](client/backoffice.md).
 
 ## Client: frase da recusa e limites no estado
