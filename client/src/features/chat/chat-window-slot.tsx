@@ -34,7 +34,7 @@ export function OpenWindowButton({
   slot,
 }: Readonly<{ slot: Extract<ChatWindowSlot, { kind: 'docked' }> }>): React.JSX.Element {
   return (
-    <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+    <div className="flex flex-wrap items-center justify-end gap-2">
       {slot.notice !== null && (
         <p role="status" className="text-xs text-muted-foreground">
           {slot.notice}

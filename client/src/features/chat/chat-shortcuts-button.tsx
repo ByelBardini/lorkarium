@@ -16,7 +16,7 @@ export function ChatShortcutsButton({ atTable, canRoll }: ChatShortcutsButtonPro
   return (
     <div
       data-testid="composer-hint"
-      className="flex items-center text-[11px] text-muted-foreground"
+      className="ml-auto flex items-center text-[11px] text-muted-foreground"
     >
       <Popover>
         <PopoverTrigger asChild>
