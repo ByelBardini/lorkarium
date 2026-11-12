@@ -145,6 +145,8 @@ describe('the home of the table', () => {
     expect(activeKey()).toBeNull();
   });
 
+  const REENTRY_WAIT = { timeout: 5000 };
+
   it('leaving the table and entering again opens the main map again', async () => {
     const router = await enterRoom();
     backToBoard();
@@ -154,9 +156,11 @@ describe('the home of the table', () => {
     const readsBefore = mainReads();
     await act(() => router.navigate(TABLE_PATH));
     // The room mounts again before it reads the main map: wait for each step, not for both in 1 s.
-    await screen.findByRole('region', { name: 'Topo da sala' });
-    await waitFor(() => expect(mainReads()).toBeGreaterThan(readsBefore));
-    await waitFor(() => expect(activeKey()).toBe(MAP_KEY));
+    // On a loaded CI runner the remount of the whole room (chat dock and sound included) took
+    // more than the default 1 s per step (PR #90): the steps get room, the assertions stay.
+    await screen.findByRole('region', { name: 'Topo da sala' }, REENTRY_WAIT);
+    await waitFor(() => expect(mainReads()).toBeGreaterThan(readsBefore), REENTRY_WAIT);
+    await waitFor(() => expect(activeKey()).toBe(MAP_KEY), REENTRY_WAIT);
   });
 
   it('a table with no main map keeps a plain title and opens nothing', async () => {
