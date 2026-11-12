@@ -51,7 +51,7 @@ describe('ProfilePreview', () => {
   it('the preview shows the one seal the others see, glued to the @', () => {
     renderPreview('gold', { ...FREE, plan: 'amigo_do_dono' });
 
-    const seal = screen.getByRole('img', { name: 'Plano Amigo do Dono' });
+    const seal = screen.getByRole('img', { name: 'Amigo do Dono' });
     expect(screen.getByText('@ana').nextElementSibling).toBe(seal);
     expect(screen.queryByRole('img', { name: 'Apoiador' })).toBeNull();
   });
