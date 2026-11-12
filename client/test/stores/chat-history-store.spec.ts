@@ -380,6 +380,56 @@ describe('chat history store', () => {
       expect(heard).toEqual(['table Oi, mesa.', `direct:${BIA} Oi, mesa.`]);
     });
 
+    it.each([
+      [
+        'a whisper to the viewer',
+        true,
+        chatSent({ channel: { kind: 'table', whisperTo: ANA.id } }),
+      ],
+      ['an @ of the viewer', true, chatSent({ text: '@Ana cura?' })],
+      [
+        'an @ of the viewer in a direct',
+        true,
+        chatSent({ channel: directBetween(ANA.id, BIA), text: '@ana vem' }),
+      ],
+      ['a plain line', false, chatSent({ text: 'Vou abrir' })],
+      ['a longer name than the viewer’s', false, chatSent({ text: '@Anabela vem' })],
+      ['a direct without a mention', false, chatSent({ channel: directBetween(ANA.id, BIA) })],
+      [
+        'a whisper to someone else',
+        false,
+        chatSent({ channel: { kind: 'table', whisperTo: CAIO } }),
+      ],
+    ])('%s is heard with calls = %s', (_case, calls, event) => {
+      const heard: boolean[] = [];
+      store.getState().onNewMessage((_message, _key, called) => heard.push(called));
+
+      receive(event);
+
+      expect(heard).toEqual([calls]);
+    });
+
+    it('a whisper to the viewer in the conversation on screen still calls them', () => {
+      const heard: boolean[] = [];
+      store.getState().setActive('table');
+      store.getState().onNewMessage((_message, _key, called) => heard.push(called));
+
+      receive(chatSent({ channel: { kind: 'table', whisperTo: ANA.id } }));
+
+      expect(heard).toEqual([true]);
+      expect(conversation('table')?.mentioned).toBe(false);
+    });
+
+    it('while the viewer is unknown nothing calls them', () => {
+      const heard: boolean[] = [];
+      viewer = null;
+      store.getState().onNewMessage((_message, _key, called) => heard.push(called));
+
+      receive(chatSent({ channel: { kind: 'table', whisperTo: ANA.id }, text: '@Ana' }));
+
+      expect(heard).toEqual([false]);
+    });
+
     it('stops hearing after unsubscribing', () => {
       const heard: string[] = [];
       const stop = store.getState().onNewMessage((message) => heard.push(message.event.text));
