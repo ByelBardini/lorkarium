@@ -44,7 +44,7 @@ export function PublicCampaignRow({
   };
   return (
     <li className="flex flex-col overflow-hidden rounded-md border border-border bg-card transition-colors hover:border-primary/40">
-      <CampaignCover cover={campaign.cover} className="aspect-[300/140] w-full" />
+      <CampaignCover {...campaign} format="cover" className="w-full" />
       <div className="flex flex-1 flex-col gap-3 p-4">
         <CampaignText campaign={campaign} readerId={readerId} />
         <RowAction campaign={campaign} onDetails={() => setDetailsOpen(true)}>

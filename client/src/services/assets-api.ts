@@ -41,6 +41,10 @@ export type AssetOutlineResult =
   | Readonly<{ ok: true; outline: SightOutlineDto | null }>
   | Readonly<{ ok: false; failure: AssetsFailure }>;
 
+/** The part of the image (upright, after the EXIF orientation) to keep, in percent (0..100) of
+ *  its width and height: the server cuts it in the proportion of the purpose's format. */
+export type ImageCropRect = Readonly<{ x: number; y: number; width: number; height: number }>;
+
 /** The silhouette of an image, as the sight of a blocking token reads it. Never throws. */
 export interface AssetOutlineApi {
   outlineOf(assetId: string): Promise<AssetOutlineResult>;
@@ -48,7 +52,12 @@ export interface AssetOutlineApi {
 
 /** Sending images to a table: the file itself or a link the server downloads. Never throws. */
 export interface AssetsApi {
-  upload(campaignId: string, file: Blob, purpose: AssetPurposeDto): Promise<AssetsResult>;
+  upload(
+    campaignId: string,
+    file: Blob,
+    purpose: AssetPurposeDto,
+    crop?: ImageCropRect,
+  ): Promise<AssetsResult>;
   importLink(campaignId: string, url: string, purpose: AssetPurposeDto): Promise<AssetsResult>;
 }
 
@@ -79,12 +88,18 @@ export function assetUrlOf(assetId: string): string {
 
 /** `AssetsApi` over HTTP: validates every answer by the contracts DTO.
  *
- *  Example: `const result = await new HttpAssetsApi(transport).upload(campaignId, file, 'token')` */
+ *  Example: `await new HttpAssetsApi(transport).upload(campaignId, file, 'campaign_photo', crop)` */
 export class HttpAssetsApi implements RoomAssetsApi {
   constructor(private readonly transport: HttpTransport) {}
 
-  async upload(campaignId: string, file: Blob, purpose: AssetPurposeDto): Promise<AssetsResult> {
-    const path = `/campaigns/${encodeURIComponent(campaignId)}/assets?purpose=${purpose}`;
+  async upload(
+    campaignId: string,
+    file: Blob,
+    purpose: AssetPurposeDto,
+    crop?: ImageCropRect,
+  ): Promise<AssetsResult> {
+    const query = uploadQueryOf(purpose, crop);
+    const path = `/campaigns/${encodeURIComponent(campaignId)}/assets?${query}`;
     return answerOf(await callUpload(this.transport, path, file));
   }
 
@@ -105,6 +120,17 @@ export class HttpAssetsApi implements RoomAssetsApi {
     const parsed = parseOk(assetOutlineResponseDto, call.body, (body) => body.outline);
     return parsed.ok ? { ok: true, outline: parsed.value } : parsed;
   }
+}
+
+// The names of `uploadAssetQueryDto`: all four or none.
+function uploadQueryOf(purpose: AssetPurposeDto, crop: ImageCropRect | undefined): string {
+  const query = new URLSearchParams({ purpose });
+  if (!crop) return query.toString();
+  query.set('cropX', String(crop.x));
+  query.set('cropY', String(crop.y));
+  query.set('cropW', String(crop.width));
+  query.set('cropH', String(crop.height));
+  return query.toString();
 }
 
 function answerOf(call: ApiCall): AssetsResult {

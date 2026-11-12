@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ImagePicker } from '@/components/image-picker';
 import { AssetsApiFake, LYRA_PORTRAIT } from '../support/assets-api-fake';
 import { VHARN } from '../support/campaigns-api-fake';
+import { CENTER_STRIP, fakeCropAreaReporting } from '../support/crop-area-fake';
 
 const MB = 1024 * 1024;
 
@@ -39,6 +40,7 @@ function Harness({ assets, onChange, initial = null, removeLabel, purpose }: Har
         setValue(asset?.id ?? null);
         onChange(asset);
       }}
+      cropArea={fakeCropAreaReporting(CENTER_STRIP)}
     />
   );
 }
@@ -267,6 +269,49 @@ describe('ImagePicker', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(message);
     expect(screen.getByLabelText('Link da imagem')).toHaveValue('https://x.com/a');
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('a file for the campaign photo opens "Recortar a foto da mesa"; "Enviar" sends it framed', async () => {
+    render(<Harness assets={assets} onChange={onChange} purpose="campaign_photo" />);
+    const png = fileOf('image/png');
+
+    await userEvent.upload(screen.getByLabelText('Arquivo de imagem'), png);
+    expect(screen.getByRole('dialog', { name: 'Recortar a foto da mesa' })).toBeInTheDocument();
+    expect(assets.sent).toEqual([]);
+    await userEvent.click(screen.getByRole('button', { name: 'Recorte de teste' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(assets.sent).toEqual([
+      {
+        kind: 'upload',
+        campaignId: VHARN.id,
+        file: png,
+        purpose: 'campaign_photo',
+        crop: CENTER_STRIP,
+      },
+    ]);
+    expect(onChange).toHaveBeenCalledWith(LYRA_PORTRAIT);
+  });
+
+  it('cancelling the crop of a pasted banner sends nothing and keeps the picker as it was', async () => {
+    render(<Harness assets={assets} onChange={onChange} purpose="campaign_banner" />);
+    const area = screen.getByRole('group', { name: 'Área da imagem' });
+
+    const paste = createEvent.paste(area);
+    Object.defineProperty(paste, 'clipboardData', {
+      value: { files: filesOf(fileOf('image/png')) },
+    });
+
+    act(() => {
+      fireEvent(area, paste);
+    });
+    expect(screen.getByRole('dialog', { name: 'Recortar o banner da mesa' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(assets.sent).toEqual([]);
     expect(onChange).not.toHaveBeenCalled();
   });
 });

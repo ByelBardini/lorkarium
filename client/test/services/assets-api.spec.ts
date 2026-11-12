@@ -35,6 +35,16 @@ describe('HttpAssetsApi', () => {
     ]);
   });
 
+  it('upload with a crop sends the rectangle in percent as cropX, cropY, cropW and cropH', async () => {
+    transport.respondWith(201, { asset: ASSET });
+    const crop = { x: 12.5, y: 0, width: 50, height: 100 };
+
+    await api.upload(VHARN.id, pngFile(), 'campaign_photo', crop);
+
+    const query = 'purpose=campaign_photo&cropX=12.5&cropY=0&cropW=50&cropH=100';
+    expect(transport.requests[0]?.path).toBe(`/campaigns/${VHARN.id}/assets?${query}`);
+  });
+
   it('importLink posts the link and the purpose as JSON', async () => {
     transport.respondWith(201, { asset: ASSET });
 

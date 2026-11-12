@@ -95,7 +95,12 @@ function OpenTableLink({ table, expanded, onNavigate }: OpenTableLinkProps): Rea
   const link = (
     <ContextMenuTrigger asChild>
       <NavLink to={to} end onClick={onNavigate} className={railLinkClass(active, expanded)}>
-        <CampaignCover cover={table.cover} className="h-6 w-8 shrink-0" />
+        <CampaignCover
+          cover={table.cover}
+          photoAssetId={table.photoAssetId}
+          format="photo"
+          className="size-6 shrink-0"
+        />
         <span className={expanded ? 'flex min-w-0 flex-col leading-tight' : 'sr-only'}>
           <span className="truncate">{table.name}</span>
           <span className="text-xs font-normal text-muted-foreground">{presence}</span>

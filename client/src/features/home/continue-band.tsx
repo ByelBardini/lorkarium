@@ -8,7 +8,7 @@ import { EnterCampaignButton } from '@/features/campaigns/enter-campaign-button'
 
 export type ContinueBandProps = Readonly<{ campaign: CampaignSummaryDto; readerId: string }>;
 
-/** "Continuar": the campaign the user entered last, with a large cover and a way straight in.
+/** "Continuar": the campaign the user entered last, with its 3:1 banner and a way straight in.
  *  A band separated by hairlines, not a floating card.
  *
  *  Example: `{candidate && <ContinueBand campaign={candidate} readerId={user.id} />}` */
@@ -16,10 +16,11 @@ export function ContinueBand({ campaign, readerId }: ContinueBandProps): React.J
   return (
     <section
       aria-labelledby="continue-band-title"
-      className="flex flex-col border-y border-border sm:flex-row"
+      className="flex flex-col border-y border-border lg:flex-row lg:items-center"
     >
-      <CampaignCover cover={campaign.cover} className="h-40 sm:h-auto sm:min-h-48 sm:w-2/5" />
-      <div className="flex flex-1 flex-col justify-center gap-4 py-6 sm:px-8">
+      {/* Not stretched by the row: a stretched height would beat the 3:1 of the banner. */}
+      <CampaignCover {...campaign} format="banner" className="w-full lg:w-1/2 lg:shrink-0" />
+      <div className="flex flex-1 flex-col justify-center gap-4 py-6 lg:px-8">
         <p className="text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">
           <span id="continue-band-title">Continuar</span>
         </p>

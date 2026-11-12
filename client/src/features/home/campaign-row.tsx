@@ -25,7 +25,8 @@ export function CampaignRow({ campaign, readerId }: CampaignRowProps): React.JSX
         className="group flex items-center gap-4 py-3 text-foreground no-underline hover:text-foreground hover:no-underline"
       >
         <CampaignCover
-          cover={campaign.cover}
+          {...campaign}
+          format="photo"
           className="size-16 shrink-0 opacity-80 transition-opacity group-hover:opacity-100"
         />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
