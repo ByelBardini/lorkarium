@@ -114,14 +114,14 @@ const CLICKS = {
   },
   addcost(b) {
     const first = sortedBars()[0];
-    addItem(`${b.dataset.addcost}.custos`, {
+    addItem(`hab.${b.dataset.addcost}.custos`, {
       bar: tableBar('MP') ? 'MP' : first ? first.label : '',
       v: '',
     });
   },
   rmcost(b) {
-    const [base, costId] = b.dataset.rmcost.split('|');
-    removeItem(`${base}.custos`, costId);
+    const [habId, costId] = b.dataset.rmcost.split(':');
+    removeItem(`hab.${habId}.custos`, costId);
   },
   use: (b) => useSkill(b.dataset.use),
   fold(b) {

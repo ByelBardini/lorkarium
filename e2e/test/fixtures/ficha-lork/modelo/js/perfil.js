@@ -97,7 +97,7 @@ const pgPerfil = () => `
     <div class="stat"><span class="eyebrow">CD</span><b id="st-cd">—</b><small id="st-cd-sub"></small></div>
     <div class="stat"><span class="eyebrow">Bônus de treino</span><b id="st-tb">+2</b><small>Perícias treinadas</small></div>
   </div>
-  <section class="blk"><div class="blk-hd"><h2 class="h2">Barras</h2><p class="hint">As barras do personagem na mesa. O máximo de HP, MP, EN e Essência segue as contas dos Atributos.</p></div>
+  <section class="blk"><div class="blk-hd"><h2 class="h2">Barras</h2><p class="hint">As barras do personagem na mesa. O máximo de HP, MP, EN e ES segue as contas dos Atributos.</p></div>
     <div class="bars" id="bars"></div></section>
   <section class="blk"><div class="blk-hd"><h2 class="h2">Descrição mental</h2><p class="hint">Como ele tende a agir.</p></div>${rich('', 'f.mental', 'Temperamento, manias, medos, o que o move…', 'tall')}</section>
   <section class="blk"><div class="blk-hd"><h2 class="h2">Descrição física</h2><p class="hint">O que não está na imagem: modo de se portar, cicatrizes, trejeitos.</p></div>${rich('', 'f.fisica', 'Como ele anda, fala, se veste…', 'tall')}</section>`;

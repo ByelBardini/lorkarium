@@ -37,8 +37,7 @@ const pgOrigem = () => `
     'Qual é a sua raça?',
     rich('Descrição', 'origem.raca.desc', 'Descreva sua raça', 'tall') +
       rich('Efeitos', 'origem.raca.vant', 'Área do Mestre', 'tall') +
-      rich('Desvantagens', 'origem.raca.desv', 'Área do Mestre', 'tall') +
-      skillBox('origem.raca'),
+      rich('Desvantagens', 'origem.raca.desv', 'Área do Mestre', 'tall'),
     true,
   )}
   ${originBlock(
@@ -46,8 +45,7 @@ const pgOrigem = () => `
     'original',
     'O que te torna único?',
     rich('Descrição', 'origem.original.desc', 'Descreva seu original', 'tall') +
-      rich('Efeito', 'origem.original.efeito', 'Área do Mestre', 'tall') +
-      skillBox('origem.original'),
+      rich('Efeito', 'origem.original.efeito', 'Área do Mestre', 'tall'),
   )}
   ${originBlock(
     'Classe',
@@ -55,8 +53,7 @@ const pgOrigem = () => `
     'O que você faz?',
     rich('Descrição', 'origem.classe.desc', 'Descreva sua classe', 'tall') +
       `<div class="panel class-panel">${classBases()}<span class="vsep" aria-hidden="true"></span>${cdField()}</div>` +
-      rich('Efeito', 'origem.classe.efeito', 'Área do Mestre', 'tall') +
-      skillBox('origem.classe'),
+      rich('Efeito', 'origem.classe.efeito', 'Área do Mestre', 'tall'),
   )}`;
 
 /* CA = a da armadura em uso; CD = a da classe; nulas enquanto não há como calcular */
