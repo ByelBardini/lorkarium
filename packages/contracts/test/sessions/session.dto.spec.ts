@@ -119,6 +119,8 @@ describe('the campaign events', () => {
     masterName: 'Ana',
     memberCount: 2,
     cover: { kind: 'drawn', drawing: 0, tone: 1 },
+    photoAssetId: null,
+    bannerAssetId: null,
     contentWarnings: [],
     tags: [],
     playersCreateTokens: false,

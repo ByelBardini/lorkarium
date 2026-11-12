@@ -23,6 +23,8 @@ const SUMMARY = {
   masterName: 'Ana',
   memberCount: 1,
   cover: { kind: 'drawn', drawing: 1, tone: 2 },
+  photoAssetId: null,
+  bannerAssetId: null,
   contentWarnings: ['horror'],
   tags: ['sandbox'],
   playersCreateTokens: false,
@@ -95,6 +97,27 @@ describe('campaignMemberDto', () => {
   });
 });
 
+describe('campaignSummaryDto photo and banner', () => {
+  const PHOTO = '7c2e4a1b-9d3f-4b6a-8e5c-2f1a0b9c8d7e';
+
+  it('carries the photo id and a null banner', () => {
+    const summary = { ...SUMMARY, photoAssetId: PHOTO, bannerAssetId: null };
+
+    expect(campaignSummaryDto.parse(summary)).toEqual(summary);
+  });
+
+  it.each(['photoAssetId', 'bannerAssetId'])('refuses a %s that is not a uuid', (key) => {
+    expect(campaignSummaryDto.safeParse({ ...SUMMARY, [key]: 'x' }).success).toBe(false);
+  });
+
+  it.each(['photoAssetId', 'bannerAssetId'])('refuses a summary without %s', (key) => {
+    const without: Record<string, unknown> = { ...SUMMARY };
+    delete without[key];
+
+    expect(campaignSummaryDto.safeParse(without).success).toBe(false);
+  });
+});
+
 describe('publicCampaignDto', () => {
   // The summary's info fields, without the limits nor what depends on the reader.
   const info = campaignInfoDto
@@ -109,6 +132,13 @@ describe('publicCampaignDto', () => {
     ...{ myRole: null, hasPassword: false, masterUsername: 'ana' },
     ...{ masterOnline: false, playersOnline: 0 },
   };
+
+  it('carries the photo and the banner of the explore card', () => {
+    const PHOTO = '7c2e4a1b-9d3f-4b6a-8e5c-2f1a0b9c8d7e';
+    const card = { ...CARD, photoAssetId: PHOTO, bannerAssetId: null };
+
+    expect(publicCampaignDto.parse(card)).toEqual(card);
+  });
 
   it("leaves the owner's limits out of the explore card", () => {
     expect(publicCampaignDto.parse(CARD)).toEqual(CARD);

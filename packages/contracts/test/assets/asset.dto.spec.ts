@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ASSET_FRAME,
   ASSET_MAX_SIDE,
   assetOutlineResponseDto,
   assetPurposeDto,
@@ -72,6 +73,106 @@ describe('uploadAssetQueryDto', () => {
     const result = uploadAssetQueryDto.safeParse({ purpose: 'icon' });
 
     expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['purpose']);
+  });
+});
+
+function cropIssuesOf(query: Record<string, string>): string[] {
+  const result = uploadAssetQueryDto.safeParse(query);
+  if (result.success) return [];
+  return result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`);
+}
+
+describe('uploadAssetQueryDto crop rectangle', () => {
+  it('turns the four crop texts of the query string into numbers', () => {
+    const query = { purpose: 'campaign_photo', cropX: '10', cropY: '0', cropW: '50', cropH: '100' };
+
+    expect(uploadAssetQueryDto.parse(query)).toEqual({
+      purpose: 'campaign_photo',
+      cropX: 10,
+      cropY: 0,
+      cropW: 50,
+      cropH: 100,
+    });
+  });
+
+  it('accepts a query without any crop: the file is kept whole', () => {
+    expect(uploadAssetQueryDto.parse({ purpose: 'cover' })).toEqual({ purpose: 'cover' });
+  });
+
+  it('accepts a rectangle from the left edge to the right edge', () => {
+    const query = { purpose: 'cover', cropX: '0', cropY: '25', cropW: '100', cropH: '50' };
+
+    expect(cropIssuesOf(query)).toEqual([]);
+  });
+
+  it('accepts a rectangle whose sum passes 100 only by float rounding', () => {
+    const query = {
+      purpose: 'cover',
+      cropX: '33.3333334',
+      cropY: '0',
+      cropW: '66.6666667',
+      cropH: '100',
+    };
+
+    expect(cropIssuesOf(query)).toEqual([]);
+  });
+
+  it('refuses an incomplete rectangle citing the fields received and the four expected', () => {
+    const query = { purpose: 'campaign_photo', cropX: '10', cropY: '0' };
+
+    expect(cropIssuesOf(query)).toEqual([
+      expect.stringMatching(/cropX, cropY.*cropX, cropY, cropW and cropH/),
+    ]);
+  });
+
+  it.each([
+    ['a width of 0', { cropW: '0' }, 'cropW'],
+    ['a height of 0', { cropH: '0' }, 'cropH'],
+    ['a negative x', { cropX: '-1' }, 'cropX'],
+    ['a y above 100', { cropY: '101' }, 'cropY'],
+    ['a width that is not a number', { cropW: 'metade' }, 'cropW'],
+  ])('refuses %s on its path', (_name, override, path) => {
+    const query = {
+      purpose: 'cover',
+      cropX: '0',
+      cropY: '0',
+      cropW: '50',
+      cropH: '50',
+      ...override,
+    };
+
+    expect(cropIssuesOf(query)).toEqual([expect.stringMatching(new RegExp(`^${path}: `))]);
+  });
+
+  it('refuses a rectangle that passes the right edge citing the sum', () => {
+    const query = { purpose: 'cover', cropX: '60', cropY: '0', cropW: '50', cropH: '50' };
+
+    expect(cropIssuesOf(query)).toEqual([expect.stringMatching(/^cropW: .*110.*at most 100/)]);
+  });
+
+  it('refuses a rectangle that passes the bottom edge citing the sum', () => {
+    const query = { purpose: 'cover', cropX: '0', cropY: '70', cropW: '50', cropH: '40' };
+
+    expect(cropIssuesOf(query)).toEqual([expect.stringMatching(/^cropH: .*110.*at most 100/)]);
+  });
+});
+
+describe('campaign image purposes', () => {
+  it.each([
+    ['campaign_photo', 512],
+    ['campaign_banner', 1800],
+    ['cover', 1600],
+  ] as const)('%s is an asset purpose kept up to %i px', (purpose, side) => {
+    expect(assetPurposeDto.parse(purpose)).toBe(purpose);
+    expect(ASSET_MAX_SIDE[purpose]).toBe(side);
+  });
+
+  it('frames the photo 1:1, the cover 2:1 and the banner 3:1', () => {
+    expect(ASSET_FRAME).toEqual({
+      campaign_photo: { width: 1, height: 1 },
+      cover: { width: 2, height: 1 },
+      campaign_banner: { width: 3, height: 1 },
+    });
   });
 });
 
