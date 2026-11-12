@@ -2,7 +2,7 @@ import { UnsavedChangesBar } from '@/components/unsaved-changes-bar';
 import type { ProfileEditor } from './use-profile-editor';
 
 export type ProfileFormProps = Readonly<{
-  /** The form's name ("Perfil", "Dados"). */
+  /** The form's name ("Perfil"). */
   label: string;
   editor: ProfileEditor;
   children: React.ReactNode;
@@ -10,7 +10,7 @@ export type ProfileFormProps = Readonly<{
 
 /** A form over the shared profile draft, with the unsaved-changes bar pinned at its bottom.
  *
- *  Example: `<ProfileForm label="Dados" editor={editor}><DiceAppearanceField … /></ProfileForm>` */
+ *  Example: `<ProfileForm label="Perfil" editor={editor}><AvatarField … /></ProfileForm>` */
 export function ProfileForm({ label, editor, children }: ProfileFormProps): React.JSX.Element {
   const { draft, save } = editor;
   return (

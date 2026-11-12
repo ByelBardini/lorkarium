@@ -40,7 +40,7 @@ export async function restoreOwnProfile(page: Page, profile: OwnProfile): Promis
 }
 
 /** A tab of "Minha conta", as `?aba=` names it. */
-export type AccountTabName = 'perfil' | 'dados' | 'seguranca' | 'plano';
+export type AccountTabName = 'perfil' | 'seguranca' | 'plano';
 
 /** Opens "Minha conta" on a tab (Perfil by default) and waits for its heading.
  *

@@ -12,6 +12,7 @@ import type { ProfileApi } from '@/services/profile-api';
 import type { SessionStore } from '@/stores/session-store';
 import { accountFailureMessage, type AccountFailure } from './account-messages';
 import { failureOf, useAccountFetcher } from './use-account-fetcher';
+import { SettingsRow } from './settings-row';
 import { useAvatarUpload, type ProfileImageUpload } from './use-profile-image-upload';
 
 export type AvatarFieldProps = Readonly<{
@@ -35,32 +36,27 @@ export function AvatarField({
   const removalFailure = failureOf(removal.settled);
   const hintId = useId();
   return (
-    <fieldset className="flex flex-col gap-3" aria-busy={upload.sending || removal.busy}>
-      <legend className="mb-1 text-[13px] font-medium text-label">Foto</legend>
-      <div className="flex flex-wrap items-center gap-5">
+    <SettingsRow
+      title="Foto"
+      group
+      busy={upload.sending || removal.busy}
+      descriptionId={hintId}
+      description="Arraste para o círculo, escolha ou use um link · PNG, JPEG, WebP ou GIF (animado também) até 5 MB. Sem foto, usamos suas iniciais na sua cor."
+    >
+      <div className="flex flex-wrap items-center gap-6">
         <AvatarDropArea profile={profile} hintId={hintId} onFile={upload.send} />
-        <div className="flex flex-col items-start gap-2">
-          <AvatarButtons
-            hasPhoto={profile.avatarId !== null}
-            sending={upload.sending}
-            removing={removal.busy}
-            onFile={upload.send}
-            onRemove={() => removal.send({ intent: 'avatar-remove' })}
-            onLink={() => setLinking(true)}
-          />
-          {linking && (
-            <div className="w-full max-w-sm">
-              <ImageLinkField sender={linkSenderOf(upload)} onDone={() => setLinking(false)} />
-            </div>
-          )}
-          <p id={hintId} className="max-w-prose text-[13px] text-placeholder">
-            Arraste para o círculo, escolha ou use um link · PNG, JPEG, WebP ou GIF (animado também)
-            até 5 MB. Sem foto, usamos suas iniciais na sua cor.
-          </p>
-        </div>
+        <AvatarButtons
+          hasPhoto={profile.avatarId !== null}
+          sending={upload.sending}
+          removing={removal.busy}
+          onFile={upload.send}
+          onRemove={() => removal.send({ intent: 'avatar-remove' })}
+          onLink={() => setLinking(true)}
+        />
       </div>
+      {linking && <ImageLinkField sender={linkSenderOf(upload)} onDone={() => setLinking(false)} />}
       <AvatarFailure failure={upload.failure ?? removalFailure} />
-    </fieldset>
+    </SettingsRow>
   );
 }
 
@@ -100,7 +96,7 @@ function AvatarDropArea({ profile, hintId, onFile }: DropAreaProps): React.JSX.E
         avatarId={profile.avatarId}
         size="xl"
         alt="Sua foto"
-        className="size-24 text-3xl"
+        className="size-32 text-4xl"
       />
       {over && (
         <span className="absolute inset-0 grid place-items-center rounded-full bg-black/70 text-sm font-medium text-foreground">
@@ -134,7 +130,7 @@ function linkSenderOf(upload: ProfileImageUpload): ImageSender {
 function AvatarButtons(props: AvatarButtonsProps): React.JSX.Element {
   const busy = props.sending || props.removing;
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col items-start gap-2">
       <label
         className={cn(
           buttonVariants({ variant: 'outline', size: 'lg' }),
@@ -178,7 +174,7 @@ function AvatarButtons(props: AvatarButtonsProps): React.JSX.Element {
 function AvatarFailure({ failure }: Readonly<{ failure: AccountFailure | null }>) {
   if (!failure) return null;
   return (
-    <p role="alert" className="text-[13px] text-destructive-text">
+    <p role="alert" className="text-sm text-destructive-text">
       {accountFailureMessage(failure)}
     </p>
   );

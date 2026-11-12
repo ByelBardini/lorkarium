@@ -26,26 +26,26 @@ export function ProfilePreview(props: ProfilePreviewProps): React.JSX.Element {
   const shownName = props.name.trim() || 'Sem apelido';
   const bio = props.bio.trim();
   return (
-    <aside aria-labelledby={titleId} className="flex flex-col gap-4 border-l border-divider pl-6">
+    <aside aria-labelledby={titleId} className="flex flex-col gap-5">
       <h3
         id={titleId}
         className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase"
       >
         Como a galera te vê
       </h3>
-      <div className="flex items-center gap-3">
-        <UserAvatar name={shownName} color={props.color} avatarId={props.avatarId} size="lg" />
+      <div className="flex items-center gap-4">
+        <UserAvatar name={shownName} color={props.color} avatarId={props.avatarId} size="xl" />
         <div className="min-w-0">
-          <p className="truncate font-display text-xl font-semibold">{shownName}</p>
+          <p className="truncate font-display text-2xl font-semibold">{shownName}</p>
           <UserHandle
             username={props.username}
             seal={props.seal}
-            className="text-sm text-muted-foreground"
+            className="text-[15px] text-muted-foreground"
           />
         </div>
       </div>
-      <p className="text-sm text-muted-foreground">{memberSinceLabel(props.memberSince)}</p>
-      {bio && <p className="max-w-prose text-sm text-label">{bio}</p>}
+      <p className="text-[15px] text-muted-foreground">{memberSinceLabel(props.memberSince)}</p>
+      {bio && <p className="max-w-prose text-[15px]/relaxed text-label">{bio}</p>}
       <PingIllustration name={shownName} color={props.color} />
     </aside>
   );
@@ -74,7 +74,7 @@ function PingIllustration({ name, color }: Readonly<{ name: string; color: Membe
           {name.slice(0, 12)}
         </text>
       </svg>
-      <figcaption className="text-[13px] text-placeholder">Seu ping no mapa</figcaption>
+      <figcaption className="text-sm text-placeholder">Seu ping no mapa</figcaption>
     </figure>
   );
 }

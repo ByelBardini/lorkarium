@@ -19,8 +19,8 @@ export type ProfileSave = Readonly<{
 /** The draft of the profile and its save, one for the whole page. */
 export type ProfileEditor = Readonly<{ draft: ProfileDraft; save: ProfileSave }>;
 
-/** The profile draft shared by the "Perfil" and "Dados" tabs: an edit in one survives the switch
- *  to the other, and either bar saves both in one PATCH.
+/** The profile draft and its save, kept by the page rather than the "Perfil" tab: an edit
+ *  survives a visit to "Segurança" or "Plano" and is still there for the bar.
  *
  *  Example: `const editor = useProfileEditor(profile); <ProfileForm editor={editor} label="Perfil">…</ProfileForm>` */
 export function useProfileEditor(profile: ProfileDto): ProfileEditor {
