@@ -1,6 +1,6 @@
 # Client — chat da mesa
 
-Índice: [`../client.md`](../client.md). Contrato (`chat:send`, `chat:sent`, limites): [`../contracts/chat.md`](../contracts/chat.md). A janela está em [`chat-janela.md`](chat-janela.md).
+Índice: [`../client.md`](../client.md). Contrato (`chat:send`, `chat:sent`, limites): [`../contracts/chat.md`](../contracts/chat.md). A janela está em [`chat-janela.md`](chat-janela.md); o som de menção e sussurro em [`chat-som.md`](chat-som.md).
 
 Nada é gravado no server: o histórico vive só no client, por mesa aberta, no `sessionStorage` (como as rolagens). Quem chega depois começa vazio.
 
