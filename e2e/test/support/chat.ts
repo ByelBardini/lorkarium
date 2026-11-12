@@ -46,9 +46,13 @@ export function chatDrawerOf(page: Page): Locator {
  * Example: `await openChatDrawer(bia)` */
 export async function openChatDrawer(page: Page): Promise<void> {
   await expect(boardOf(page)).toBeVisible();
-  if ((await chatDrawerOf(page).count()) === 0)
-    await chatBarOf(page).getByRole('button', { name: 'Abrir chat', exact: true }).click();
-  await expect(chatDrawerOf(page).getByRole('combobox', { name: 'Mensagem' })).toBeVisible();
+  const open = chatBarOf(page).getByRole('button', { name: 'Abrir chat', exact: true });
+  const composer = chatDrawerOf(page).getByRole('combobox', { name: 'Mensagem' });
+  // A chat coming back from its window reopens the drawer a moment later: wait for either one,
+  // or the bar's "Trazer de volta" reads as "no drawer" and the click waits for a bar that left.
+  await expect(open.or(composer)).toBeVisible();
+  if ((await composer.count()) === 0) await open.click();
+  await expect(composer).toBeVisible();
 }
 
 /** "Recolher chat": the drawer closes and the bar is back at the foot of the board.
