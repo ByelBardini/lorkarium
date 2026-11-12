@@ -54,6 +54,11 @@ describe('plan grid texts', () => {
     expect(row?.cellOf(PLAN_LIMITS.narrador)).toBe('sim');
   });
 
+  it('the marks come before the numbers', () => {
+    const labels = PLAN_GRID_ROWS.map((row) => row.label);
+    expect(labels.indexOf('Duplicar grid')).toBeLessThan(labels.indexOf('Mesas como dono'));
+  });
+
   it('the Apoiador column keeps the table limits of Grátis', () => {
     const tableRows = PLAN_GRID_ROWS.filter((line) => !line.label.startsWith('Personalizações'));
     for (const row of tableRows)

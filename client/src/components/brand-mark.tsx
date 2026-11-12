@@ -37,7 +37,10 @@ function Wordmark({ compact }: Readonly<{ compact: boolean }>): React.JSX.Elemen
   );
 }
 
-function BrandIcon({ className }: Readonly<{ className: string }>): React.JSX.Element {
+/** The crystal of the logo alone, decorative (no name).
+ *
+ *  Example: `<BrandIcon className="size-8" />` */
+export function BrandIcon({ className }: Readonly<{ className: string }>): React.JSX.Element {
   return (
     <svg
       viewBox="0 0 120 120"

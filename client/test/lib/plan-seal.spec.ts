@@ -27,13 +27,21 @@ describe('planSealOf', () => {
   it.each([
     ['narrador', 'Narrador', 'steel'],
     ['lenda', 'Lenda', 'gold'],
-    ['amigo_do_dono', 'Amigo do Dono', 'rose'],
   ] as const)('%s gives the "%s" seal in %s', (plan, label, color) => {
     expect(planSealOf({ ...PLAIN, plan })).toEqual({
       kind: plan,
       label,
       accessibleName: `Plano ${label}`,
       color,
+    });
+  });
+
+  it('the Amigo do Dono is named without "Plano", in rose', () => {
+    expect(planSealOf({ ...PLAIN, plan: 'amigo_do_dono' })).toEqual({
+      kind: 'amigo_do_dono',
+      label: 'Amigo do Dono',
+      accessibleName: 'Amigo do Dono',
+      color: 'rose',
     });
   });
 

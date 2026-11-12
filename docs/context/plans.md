@@ -106,7 +106,7 @@ Personalizações da conta (plano **da pessoa**, não do dono da mesa): o `Profi
 ## Client: selo e backoffice
 
 - Um selo só por conta (Dono > Admin > Amigo do Dono > Lenda > Narrador > Apoiador), símbolo próprio no traço da logo colado ao @ (`UserHandle`) ou ao nome: [`plans/selos.md`](plans/selos.md).
-- "Seu plano" (última seção de `/account`: plano gravado com o símbolo, uso, personalizações e a tabela da grade com a coluna dos limites efetivos): [`client/account.md`](client/account.md), Seu plano.
+- "Seu plano" (última seção de `/account`: cartão do plano com o selo grande — Dono e admin veem quem são, não o plano gravado —, personalizações, uso e a grade dos planos abertos, com a coluna do Amigo do Dono só para quem o tem e "Limites especiais" para Dono e admin): [`client/account.md`](client/account.md), Seu plano.
 - O backoffice troca o plano (o Apoiador incluído) pelo submenu "Plano" da linha (`changePlan` do `user-admin-api.ts`); detalhe em [`client/backoffice.md`](client/backoffice.md).
 
 ## Client: frase da recusa e limites no estado
@@ -131,5 +131,5 @@ Personalizações da conta (plano **da pessoa**, não do dono da mesa): o `Profi
 
 ## Ponta a ponta (e2e)
 
-- `e2e/test/plans.spec.ts`, grupo `plans` (~50 s com o boot: `--project=plans --workers=1`): o admin põe a Bia no Grátis pelo backoffice e a home dela desabilita "Nova mesa" com "Seu plano Grátis permite até 1 mesa como dono. …"; o admin a põe na Lenda e o símbolo do selo no cartão dela na tela do Caio (aberto na aba "Na mesa") troca de nome acessível, "Plano Amigo do Dono" por "Plano Lenda", sem recarregar; na mesa Grátis com 5 grids o card "Grid" do "Novo item" fica desabilitado com a frase do plano e o `POST …/scenes` dá 403 `PLAN_LIMIT` (`scenes`, 5, `free`); o Caio (`amigo_do_dono`) cria a 2ª mesa. Cada teste devolve a Bia ao `amigo_do_dono` no `afterEach`.
+- `e2e/test/plans.spec.ts`, grupo `plans` (~50 s com o boot: `--project=plans --workers=1`): o admin põe a Bia no Grátis pelo backoffice e a home dela desabilita "Nova mesa" com "Seu plano Grátis permite até 1 mesa como dono. …"; o admin a põe na Lenda e o símbolo do selo no cartão dela na tela do Caio (aberto na aba "Na mesa") troca de nome acessível, "Amigo do Dono" por "Plano Lenda", sem recarregar; na mesa Grátis com 5 grids o card "Grid" do "Novo item" fica desabilitado com a frase do plano e o `POST …/scenes` dá 403 `PLAN_LIMIT` (`scenes`, 5, `free`); o Caio (`amigo_do_dono`) cria a 2ª mesa. Cada teste devolve a Bia ao `amigo_do_dono` no `afterEach`.
 - Bia e Caio nascem `amigo_do_dono` no seed (`DevPlayersSeedService`, também o do banco `_e2e`) e o admin do e2e não tem limite: os outros specs não sentem o plano. Spec que precise de outro plano usa `setPlanOf(admin, 'bia', 'free')` (`e2e/test/support/plans.ts`, `PATCH /api/admin/users/:id/plan` com o cookie do admin) e devolve o plano no fim.
