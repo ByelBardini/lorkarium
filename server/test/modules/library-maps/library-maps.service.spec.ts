@@ -333,3 +333,33 @@ describe('LibraryMapsService.detail regions', () => {
     expect(h.linkTargets.lookups).toEqual([]);
   });
 });
+
+describe("LibraryMapsService.create and the owner's plan", () => {
+  const free = { role: 'user', plan: 'free', lorkariumOwner: false } as const;
+
+  it('a free table with 1 map refuses the 2nd as PLAN_LIMIT libraryMaps, saving nothing', async () => {
+    const { h, service } = harnessWith(masmorra());
+    h.campaigns.owner = free;
+    await expect(service.create(ana, NEW_MAP)).rejects.toMatchObject({
+      code: 'PLAN_LIMIT',
+      resource: 'libraryMaps',
+      stored: 1,
+      limit: 1,
+      plan: 'free',
+    });
+    expect(h.journal).toEqual(['lock']);
+  });
+
+  it('a free table creates its first map', async () => {
+    const { h, service } = harnessWith();
+    h.campaigns.owner = free;
+    await expect(service.create(ana, NEW_MAP)).resolves.toMatchObject({ name: 'Mundo' });
+  });
+
+  it('the maps of another table do not count for Vharn', async () => {
+    const other = '8b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e';
+    const { h, service } = harnessWith(masmorra({ campaignId: other }));
+    h.campaigns.owner = free;
+    await expect(service.create(ana, NEW_MAP)).resolves.toMatchObject({ name: 'Mundo' });
+  });
+});

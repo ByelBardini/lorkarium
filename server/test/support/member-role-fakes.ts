@@ -15,7 +15,7 @@ import type {
   MemberSeatNotice,
   MemberSeatPort,
 } from '../../src/modules/campaigns/member-seat.port';
-import type { CampaignMembersDaoFake } from './campaigns-fakes';
+import type { CampaignMembersDaoFake, CampaignsDaoFake } from './campaigns-fakes';
 
 /** Writes `forget:<campaignId>:<userId>` to `journal` (share the members fake's `writes`, so
  *  a spec reads updateRole → forget → tell in one list).
@@ -61,12 +61,13 @@ export class MemberSeatFake implements MemberSeatPort {
   }
 }
 
-/** Runs the role's work on the members fake and the seat fake, then writes `commit` to the
+/** Runs the role's work on the campaigns, members and seat fakes, then writes `commit` to the
  *  members' `writes`, like the real transaction.
  *
- *  Example: `new MemberRoleTransactionRunnerFake(members, new MemberSeatFake(members.writes)).run` */
+ *  Example: `new MemberRoleTransactionRunnerFake(campaigns, members, new MemberSeatFake(members.writes)).run` */
 export class MemberRoleTransactionRunnerFake {
   constructor(
+    private readonly campaigns: CampaignsDaoFake,
     private readonly members: CampaignMembersDaoFake,
     private readonly seat: MemberSeatPort,
   ) {}
@@ -74,7 +75,8 @@ export class MemberRoleTransactionRunnerFake {
   readonly run: MemberRoleTransactionRunner = async <T>(
     work: (daos: MemberRoleWriteDaos) => Promise<T>,
   ): Promise<T> => {
-    const result = await work({ members: this.members, seat: this.seat });
+    const daos = { campaigns: this.campaigns, members: this.members, seat: this.seat };
+    const result = await work(daos);
     this.members.writes.push('commit');
     return result;
   };

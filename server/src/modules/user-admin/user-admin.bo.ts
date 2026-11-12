@@ -2,7 +2,12 @@ import { SelfActionError, type BlockingCampaign } from './user-admin.error';
 
 /** What an admin does to an account; the name goes in the refusal and in the audit log. */
 export type AdminAction =
-  'change the role of' | 'suspend' | 'reactivate' | 'send a new-password link to' | 'delete';
+  | 'change the role of'
+  | 'change the plan of'
+  | 'suspend'
+  | 'reactivate'
+  | 'send a new-password link to'
+  | 'delete';
 
 /** An admin never acts on their own account (and so the last admin can never be removed).
  *

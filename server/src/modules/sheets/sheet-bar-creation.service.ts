@@ -1,7 +1,7 @@
-import {
-  MAX_BARS_PER_TOKEN,
-  type CreateSheetBarRequestDto,
-  type CreateSheetBarResponseDto,
+import type {
+  CreateSheetBarRequestDto,
+  CreateSheetBarResponseDto,
+  PlanLimits,
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
@@ -9,6 +9,7 @@ import { CampaignNotFoundError } from '../campaigns/campaigns.error';
 import { viewerAccessOf } from '../campaigns/member-access';
 import type { CharacterPublisherPort } from '../characters/character-publisher.port';
 import type { LibraryRequester } from '../library/library.service';
+import { effectiveLimitsOf } from '../plans/plan-limits.bo';
 import { publishCharactersChange } from '../tokens/character-writes';
 import { publishTokenChange } from '../tokens/token-veil';
 import { giveManifestBars, type GivenManifestBars } from './manifest-bar-writes';
@@ -36,6 +37,8 @@ export type SheetBarCreationServiceDeps = Readonly<{
 /** The sheet as one who edits it reaches its holder. */
 type HeldSheet = Readonly<{ sheet: SheetRow; place: SheetHolderPlacePo }>;
 type Created = Readonly<{ answer: CreateSheetBarResponseDto; given: GivenManifestBars }>;
+/** The requester's access at the table and the table's limits, both read under its lock. */
+type LockedTable = Readonly<{ access: CampaignAccessBo; limits: PlanLimits }>;
 
 /** `bars.create`: a sheet whose template declares `character:bars` creates on its holder a bar
  *  it lacks (by label, no case or accents), full, after its bars, under the cap. A bar already
@@ -51,11 +54,12 @@ export class SheetBarCreationService {
     input: CreateSheetBarRequestDto,
   ): Promise<CreateSheetBarResponseDto> {
     const made = await this.deps.transaction(async (daos): Promise<Created> => {
-      const access = await this.lockedAccess(daos, requester);
-      const rules = new SheetBarCreationBo(sheetId, MAX_BARS_PER_TOKEN);
+      const { access, limits } = await this.lockedTable(daos, requester);
+      const rules = new SheetBarCreationBo(sheetId, limits);
       const { sheet, place } = await this.heldSheet(daos, access, sheetId, rules);
       const template = { manifest: { permissions: [], bars: [input.bar], assets: [] } };
-      const given = await giveManifestBars(daos, { access, place, template, mainSheets: null });
+      const gift = { access, place, template, mainSheets: null, limits };
+      const given = await giveManifestBars(daos, gift);
       const bars = await this.barsOf(daos, sheet.campaignId, place);
       const barId = rules.barIdOf(input.bar.label, bars, given.skippedBars);
       const created = given.characters !== null || given.token !== null;
@@ -65,15 +69,13 @@ export class SheetBarCreationService {
     return made.answer;
   }
 
-  // Locks the table, then reads the membership again under the lock.
-  private async lockedAccess(
-    daos: SheetDaos,
-    requester: LibraryRequester,
-  ): Promise<CampaignAccessBo> {
+  // Locks the table with its owner's plan, then reads the membership again under the lock.
+  private async lockedTable(daos: SheetDaos, requester: LibraryRequester): Promise<LockedTable> {
     await viewerAccessOf(this.deps.read.members, requester.campaignId, requester.userId);
-    if (!(await daos.campaigns.lockById(requester.campaignId)))
-      throw new CampaignNotFoundError(requester);
-    return viewerAccessOf(daos.members, requester.campaignId, requester.userId);
+    const table = await daos.campaigns.lockWithOwner(requester.campaignId);
+    if (!table) throw new CampaignNotFoundError(requester);
+    const access = await viewerAccessOf(daos.members, requester.campaignId, requester.userId);
+    return { access, limits: effectiveLimitsOf(table.owner) };
   }
 
   // Edit rights first, then the manifest, then a holder: a sheet nobody holds has no bars.

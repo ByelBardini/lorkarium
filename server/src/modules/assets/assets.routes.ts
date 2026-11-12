@@ -27,6 +27,7 @@ import {
   type AssetErrorCode,
 } from './assets.error';
 import type { AssetsService } from './assets.service';
+import { withPlanLimitReply } from '../plans/plan-limit-response';
 
 // Spec §8.4: keyed by the signed-in user; each send decodes an image, so it is the costly route.
 const SENDS_PER_MINUTE = 20;
@@ -68,7 +69,7 @@ export function assetsRoutes(service: AssetsService): (app: FastifyInstance) => 
     app.addContentTypeParser([...ASSET_MIME_TYPES], { parseAs: 'buffer' }, (_req, body, done) =>
       done(null, body),
     );
-    app.setErrorHandler(replyWithApiError);
+    app.setErrorHandler(withPlanLimitReply(replyWithApiError));
     registerSendRoutes(app, service);
     registerReadRoute(app, service);
     registerOutlineRoute(app, service);

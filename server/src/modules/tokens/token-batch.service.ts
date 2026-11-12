@@ -36,6 +36,8 @@ import {
   newTokenRowOf,
   requireAssetsOf,
   leaveCombat,
+  tokenPlanOf,
+  tokenPlanSentOf,
   tokensIn,
   withConditions,
   type TokenRightsReader,
@@ -99,9 +101,11 @@ export class TokenBatchService {
     const saved = await inLockedGrid(this.deps.transaction, address, async ({ daos, scene }) => {
       const rules = this.rulesFor(scene, memberIds);
       const rows = copies.map((token) => newTokenRowOf(scene.id, rules, token, userId));
+      const plan = tokenPlanOf(scene);
+      for (const copy of copies) plan.requireNew(tokenPlanSentOf(copy));
       rules.admit(await daos.tokens.countOfScene(scene.id), rows.length);
       const blockers = copies.filter(({ blocksSight }) => blocksSight).length;
-      await admitBlockersOf(daos, scene.id, rules, blockers);
+      await admitBlockersOf(daos, scene, rules, blockers);
       await requireAssetsOf(daos, campaignId, copies.flatMap(lookAssetIdsOf));
       const created = await daos.tokens.insertMany(rows);
       const pasted = created.map(({ token }, index) => ({

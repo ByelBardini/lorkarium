@@ -1,11 +1,14 @@
 import { and, asc, desc, eq, getTableColumns, inArray, ne, sql } from 'drizzle-orm';
+import { lorkariumOwnerSql } from '../../database/lorkarium-owner-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { users, type UserPo } from '../auth/users.po';
 import { campaignMembers } from '../campaigns/campaign-members.po';
 import { campaigns } from '../campaigns/campaigns.po';
 
-/** An account row with how many tables it is a member of. */
-export type AccountListingRow = UserPo & Readonly<{ campaignCount: number }>;
+/** An account row with how many tables it is a member of and whether it is the Dono do
+ *  Lorkarium (`lorkariumOwnerSql`). */
+export type AccountListingRow = UserPo &
+  Readonly<{ campaignCount: number; lorkariumOwner: boolean }>;
 
 /** A table the account owns, with how many other people are members of it. */
 export type OwnedCampaignRow = Readonly<{ id: string; name: string; otherMembers: number }>;
@@ -13,6 +16,7 @@ export type OwnedCampaignRow = Readonly<{ id: string; name: string; otherMembers
 const listingColumns = {
   ...getTableColumns(users),
   campaignCount: sql<number>`count(${campaignMembers.campaignId})::int`,
+  lorkariumOwner: lorkariumOwnerSql(users.username),
 };
 
 /** The backoffice's reads and writes over `users` (the auth table) and the tables an account owns. */
@@ -41,6 +45,10 @@ export class UserAdminDao {
 
   async setRole(userId: string, role: UserPo['role']): Promise<void> {
     await this.db.update(users).set({ role }).where(eq(users.id, userId));
+  }
+
+  async setPlan(userId: string, plan: UserPo['plan']): Promise<void> {
+    await this.db.update(users).set({ plan }).where(eq(users.id, userId));
   }
 
   async setSuspendedAt(userId: string, suspendedAt: Date | null): Promise<void> {

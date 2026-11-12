@@ -1,5 +1,6 @@
 import type { UserPo } from '../../src/modules/auth/users.po';
 import type { RevokedAdminSeat } from '../../src/modules/campaigns/campaign-members.dao';
+import type { OwnerLimitsPort } from '../../src/modules/user-admin/owner-limits.port';
 import type { RevokedSeatsPort } from '../../src/modules/user-admin/revoked-seats.port';
 import type {
   AccountListingRow,
@@ -11,14 +12,20 @@ import type {
  *  `deleted` keeps the ids removed. */
 export class UserAdminDaoFake implements Pick<
   UserAdminDao,
-  'listAccounts' | 'findAccount' | 'setRole' | 'setSuspendedAt' | 'lockOwnedCampaigns' | 'delete'
+  | 'listAccounts'
+  | 'findAccount'
+  | 'setRole'
+  | 'setPlan'
+  | 'setSuspendedAt'
+  | 'lockOwnedCampaigns'
+  | 'delete'
 > {
   readonly deleted: string[] = [];
   readonly owned = new Map<string, OwnedCampaignRow[]>();
   private readonly rows: AccountListingRow[];
 
-  constructor(rows: ReadonlyArray<UserPo & { campaignCount?: number }>) {
-    this.rows = rows.map((row) => ({ campaignCount: 0, ...row }));
+  constructor(rows: ReadonlyArray<UserPo & { campaignCount?: number; lorkariumOwner?: boolean }>) {
+    this.rows = rows.map((row) => ({ campaignCount: 0, lorkariumOwner: false, ...row }));
   }
 
   async listAccounts(): Promise<AccountListingRow[]> {
@@ -31,6 +38,10 @@ export class UserAdminDaoFake implements Pick<
 
   async setRole(userId: string, role: UserPo['role']): Promise<void> {
     this.patch(userId, { role });
+  }
+
+  async setPlan(userId: string, plan: UserPo['plan']): Promise<void> {
+    this.patch(userId, { plan });
   }
 
   async setSuspendedAt(userId: string, suspendedAt: Date | null): Promise<void> {
@@ -100,5 +111,20 @@ export class RevokedSeatsFake implements RevokedSeatsPort {
   async announceRevoked(userId: string, seats: readonly RevokedAdminSeat[]): Promise<void> {
     this.announced.push({ userId, seats });
     this.journal.push(`announce ${userId}`);
+  }
+}
+
+/** Records each owner whose tables were told their new limits and writes `limits <ownerId>` to
+ *  `journal`, to read that it happened after the commit.
+ *
+ *  Example: `new OwnerLimitsFake(journal).told // [biaId]` */
+export class OwnerLimitsFake implements OwnerLimitsPort {
+  readonly told: string[] = [];
+
+  constructor(private readonly journal: string[]) {}
+
+  async ownerLimitsChanged(ownerId: string): Promise<void> {
+    this.told.push(ownerId);
+    this.journal.push(`limits ${ownerId}`);
   }
 }

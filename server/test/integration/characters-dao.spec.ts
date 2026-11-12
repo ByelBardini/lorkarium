@@ -1,8 +1,9 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DatabaseConnection } from '../../src/database/database';
 import { runInTransaction } from '../../src/database/transaction';
 import { UsersDao } from '../../src/modules/auth/users.dao';
+import { users as usersTable } from '../../src/modules/auth/users.po';
 import { CampaignMembersDao } from '../../src/modules/campaigns/campaign-members.dao';
 import { campaignMembers } from '../../src/modules/campaigns/campaign-members.po';
 import { CampaignsDao } from '../../src/modules/campaigns/campaigns.dao';
@@ -13,6 +14,7 @@ import type { CharacterBarInputPo } from '../../src/modules/characters/character
 import { scenes } from '../../src/modules/scenes/scenes.po';
 import { newUserPo } from '../support/auth-factories';
 import { newCampaignPo } from '../support/campaigns-factories';
+import { setAccountPlan } from '../support/account-plans';
 import { CountingQueryLog } from '../support/query-count';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
@@ -38,6 +40,7 @@ describe('CharactersDao on Postgres', () => {
   let quelmId: string;
   let biaId: string;
   let caioId: string;
+  let anaId: string;
   const queries = new CountingQueryLog();
 
   function newCharacter(
@@ -65,7 +68,7 @@ describe('CharactersDao on Postgres', () => {
   beforeEach(async () => {
     await truncateAllTables(connection.db);
     const users = new UsersDao(connection.db);
-    const anaId = (await users.insert(newUserPo())).id;
+    anaId = (await users.insert(newUserPo())).id;
     biaId = (await users.insert(newUserPo({ email: 'bia@mesa.com', name: 'Bia' }))).id;
     caioId = (await users.insert(newUserPo({ email: 'caio@mesa.com', name: 'Caio' }))).id;
     const campaigns = new CampaignsDao(connection.db);
@@ -278,7 +281,11 @@ describe('CharactersDao on Postgres', () => {
       const bumped = await runInTransaction(connection.db, async (tx) => {
         const locked = new CharactersDao(tx);
         const first = await locked.lockVersion(vharnId);
-        return [first, await locked.bumpVersion(vharnId), await locked.bumpVersion(vharnId)];
+        return [
+          first?.version,
+          await locked.bumpVersion(vharnId),
+          await locked.bumpVersion(vharnId),
+        ];
       });
 
       expect(bumped).toEqual([0, 1, 2]);
@@ -291,6 +298,47 @@ describe('CharactersDao on Postgres', () => {
 
       expect(await dao.lockVersion(missing)).toBeUndefined();
       expect(await dao.versionOf(missing)).toBeUndefined();
+    });
+
+    it("lockVersion reads the plan of each table's own owner: Ana narrador at Vharn, Caio lenda at Quelm", async () => {
+      await setAccountPlan(connection.db, anaId, 'narrador');
+      await setAccountPlan(connection.db, caioId, 'lenda');
+
+      const [vharn, quelm] = await runInTransaction(connection.db, async (tx) => {
+        const locked = new CharactersDao(tx);
+        return [await locked.lockVersion(vharnId), await locked.lockVersion(quelmId)];
+      });
+
+      expect(vharn).toEqual({
+        version: 0,
+        owner: { role: 'user', plan: 'narrador', lorkariumOwner: false },
+      });
+      expect(quelm?.owner.plan).toBe('lenda');
+    });
+
+    it("lockVersion locks the table only: the owner's row stays free to update", async () => {
+      let release = (): void => {};
+      const held = new Promise<void>((resolve) => (release = resolve));
+      let locked = false;
+      const first = runInTransaction(connection.db, async (tx) => {
+        await new CharactersDao(tx).lockVersion(vharnId);
+        locked = true;
+        await held;
+      });
+      while (!locked) await new Promise((resolve) => setTimeout(resolve, 10));
+
+      const touched = runInTransaction(connection.db, async (tx) => {
+        await tx.execute(sql`SET LOCAL lock_timeout = '200ms'`);
+        await tx.update(usersTable).set({ name: 'Ana B' }).where(eq(usersTable.id, anaId));
+      });
+
+      const outcome = await touched.then(
+        () => 'free',
+        () => 'waited',
+      );
+      release();
+      await first;
+      expect(outcome).toBe('free');
     });
   });
 });

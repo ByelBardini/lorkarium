@@ -1,3 +1,5 @@
+import type { PlanLimits } from '@lorkarium/contracts';
+import { PlanLimitsBo } from '../plans/plan-limits.bo';
 import type { DocumentAccessBo } from './document-access.bo';
 import {
   DocumentTabLastError,
@@ -32,7 +34,7 @@ function byPosition<T extends DocumentTabState>(tabs: readonly T[]): T[] {
 /** Who sees, creates, renames, reorders, hides and deletes each tab of one document; a tab the
  *  reader cannot see is always DOCUMENT_TAB_NOT_FOUND, never FORBIDDEN.
  *
- *  Example: `new DocumentTabsBo(document, tabs, 200).requireCreate() // next position` */
+ *  Example: `new DocumentTabsBo(document, tabs, 200).requireCreate(limits) // next position` */
 export class DocumentTabsBo<T extends DocumentTabState> {
   constructor(
     private readonly document: DocumentAccessBo,
@@ -58,12 +60,14 @@ export class DocumentTabsBo<T extends DocumentTabState> {
     this.document.requireManage();
     return found;
   }
-  /** The position of the new tab, after the highest one. */
-  requireCreate(): number {
+  /** The position of the new tab, after the highest one. Past the technical ceiling it is
+   *  DOCUMENT_TAB_LIMIT for every plan; under it, the owner's plan may refuse (`documentTabs`). */
+  requireCreate(limits: PlanLimits): number {
     this.document.requireEdit();
     const wouldHave = this.tabs.length + 1;
     if (wouldHave > this.limit)
       throw new DocumentTabLimitError(this.document.idOf(), wouldHave, this.limit);
+    PlanLimitsBo.requireRoom('documentTabs', this.tabs.length, 1, limits);
     return Math.max(-1, ...this.tabs.map((tab) => tab.position)) + 1;
   }
   requireDelete(tabId: string): T {

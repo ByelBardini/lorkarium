@@ -23,7 +23,8 @@ import type {
 import type { DocumentAssetPo } from '../../src/modules/documents/document-assets.po';
 import { ClockFake } from './auth-fakes';
 import { LibraryImagesHarness } from './library-images-fakes';
-import { CAIO_ID, VHARN_ID, campaignMemberPo } from './campaigns-factories';
+import { LibraryCampaignsDaoFake } from './library-fakes';
+import { CAIO_ID, VHARN_ID, campaignMemberPo, campaignPo } from './campaigns-factories';
 import { ANA_ID } from './auth-factories';
 
 export const DOCUMENT_ID = 'd5da6333-8507-466c-9286-ab78e39bdd0c';
@@ -244,8 +245,11 @@ export class DocumentsHarness {
   readonly tabs = new DocumentTabsDaoFake(this.journal);
   readonly assets = new DocumentAssetsDaoFake(this.journal);
   readonly requester = { campaignId: VHARN_ID, userId: ANA_ID };
+  /** Vharn; its owner's plan is `campaigns.owner` (no plan limit until a spec sets one). */
+  readonly campaigns = new LibraryCampaignsDaoFake(this.journal, [campaignPo({ id: VHARN_ID })]);
   readonly daos: DocumentDaos = {
     ...this.library.daos,
+    campaigns: this.campaigns,
     documents: this.documents,
     tabs: this.tabs,
     assets: this.assets,

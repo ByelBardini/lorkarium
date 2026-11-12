@@ -22,7 +22,9 @@ import {
   type GridLockDaos,
   type SceneTransaction,
 } from '../scenes/locked-scene';
-import type { ScenePo } from '../scenes/scenes.po';
+import { CustomColorPlanBo } from '../plans/custom-color-plan.bo';
+import { effectiveLimitsOf } from '../plans/plan-limits.bo';
+import type { AddressedSceneRow } from '../scenes/scenes.dao';
 import { LightRulesBo } from './light-rules.bo';
 import type { LightsDao } from './lights.dao';
 import { LightNotFoundError } from './lights.error';
@@ -105,7 +107,10 @@ export class LightsService {
       { campaignId, sceneId: command.sceneId, access },
       async (locked) => {
         const rules = this.rulesFor(locked.scene);
-        for (const placement of command.lights) rules.place(sceneLightOfPlacement(placement));
+        for (const placement of command.lights) {
+          rules.place(sceneLightOfPlacement(placement));
+          CustomColorPlanBo.requirePaletteUnlessAllowed(placement.color, rules.plan);
+        }
         const stored = await locked.daos.lights.listOfScene(locked.scene.id);
         rules.admit(stored.length, command.lights.length);
         const rows = command.lights.map((placement) => toNewLightPo(locked.scene.id, placement));
@@ -158,7 +163,11 @@ export class LightsService {
     const saved = await this.changeEach(
       { campaignId, sceneId: command.sceneId, access },
       changes,
-      (rules, row, change) => rules.requireColor(row.id, change.expect, colorOfLight(row)),
+      (rules, row, change) => {
+        rules.requireColor(row.id, change.expect, colorOfLight(row));
+        // A light that wears a hex of before keeps it on any plan; a new hex follows the plan.
+        CustomColorPlanBo.requirePaletteUnlessHeld([change.color], [row.color], rules.plan);
+      },
       (lights, sceneId) => lights.setColors(sceneId, changes.map(toLightColorPo)),
     );
     this.deps.publisher.lightColorsChanged({
@@ -258,9 +267,11 @@ export class LightsService {
     return access;
   }
 
-  private rulesFor(scene: ScenePo): LightRulesBo {
+  // The table's plan comes with the grid lock: its owner's, never a cached one.
+  private rulesFor(scene: AddressedSceneRow): LightRulesBo {
     const sceneSize = { widthCells: scene.widthCells, heightCells: scene.heightCells };
-    return new LightRulesBo({ scene: sceneSize, limit: this.deps.limit });
+    const plan = effectiveLimitsOf(scene.owner);
+    return new LightRulesBo({ scene: sceneSize, limit: this.deps.limit, plan });
   }
 }
 

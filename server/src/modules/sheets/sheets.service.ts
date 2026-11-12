@@ -10,6 +10,7 @@ import {
   type TokenSheetsResponseDto,
   type UpdateSheetRequestDto,
   type UpdateSheetValuesRequestDto,
+  type PlanLimits,
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
@@ -22,6 +23,7 @@ import type { CharacterPublisherPort } from '../characters/character-publisher.p
 import { commandFingerprint } from '../documents/document-writes.service';
 import type { LibraryPublisherPort } from '../library/library-publisher.port';
 import type { LibraryRequester } from '../library/library.service';
+import { effectiveLimitsOf } from '../plans/plan-limits.bo';
 import type { SceneFoldersDao } from '../library/scene-folders.dao';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import { publishCharactersChange } from '../tokens/character-writes';
@@ -34,6 +36,7 @@ import {
 } from './sheet-holder.service';
 import { keepMainSheet, type MainSheetDaos, type SavedMainSheets } from './main-sheet-writes';
 import { giveManifestBars, type ManifestBarDaos, type SavedTokenBars } from './manifest-bar-writes';
+import { requireNpcSheetRoom } from './npc-sheet-room';
 import { SheetItemBo } from './sheet-item.bo';
 import type { SheetPublisherPort } from './sheet-publisher.port';
 import type { SheetTemplatesDao } from './sheet-templates.dao';
@@ -59,13 +62,14 @@ export type SheetDaos = SheetHolderDaos &
   MainSheetDaos &
   ManifestBarDaos &
   Readonly<{
-    campaigns: Pick<CampaignsDao, 'lockById'>;
+    campaigns: Pick<CampaignsDao, 'lockById' | 'lockWithOwner'>;
     members: Pick<CampaignMembersDao, 'findMembership'>;
     sheets: Pick<
       SheetsDao,
       | 'find'
       | 'listOfToken'
       | 'listOfCharacter'
+      | 'countHeldByTokens'
       | 'characterPlacesOf'
       | 'characterPlaceOfUser'
       | 'insert'
@@ -127,6 +131,8 @@ type Saved = Readonly<{
   skippedBars?: readonly string[];
 }>;
 type WriteInput = UpdateSheetValuesRequestDto | UpdateSheetRequestDto;
+/** The table locked for a write: what the requester may do and the limits of the owner's plan. */
+type LockedTable = Readonly<{ access: CampaignAccessBo; limits: PlanLimits }>;
 /** What a write is, for the receipt, what it takes of the requester (checked on a replay too)
  *  and whether the library shows what it changes. */
 type WriteKind = Readonly<{
@@ -146,7 +152,8 @@ const MANAGE_WRITE: WriteKind = {
 };
 
 /** The sheets of the library: read, create (nobody's, a token's or a character's), write values,
- *  manage and delete. Every write locks the table, keeps an idempotent receipt per `actionId`,
+ *  manage and delete; a sheet a token comes to hold counts against the owner's plan
+ *  (`npcSheets`). Every write locks the table, keeps an idempotent receipt per `actionId`,
  *  commits, and only then tells the table `sheet:changed` (without values), `library:changed`
  *  when the library line changed and `character:changed` when a character's main sheet did.
  *
@@ -205,12 +212,12 @@ export class SheetsService {
     input: CreateSheetRequestDto,
   ): Promise<SheetWriteResponseDto> {
     const result = await this.deps.transaction(async (daos) => {
-      const access = await this.lockedAccess(daos, requester);
+      const { access, limits } = await this.lockedTable(daos, requester);
       access.requireMaster('create a sheet');
       const fingerprint = commandFingerprint('sheet-create', null, input);
       const previous = await this.previous(daos, requester, input.actionId, fingerprint);
       if (previous) return this.replay(daos, access, previous);
-      const saved = await this.inserted(daos, access, input);
+      const saved = await this.inserted(daos, { access, limits }, input);
       const command = { actionId: input.actionId, fingerprint, operation: 'create' } as const;
       return this.recorded(daos, requester, access, command, saved);
     });
@@ -219,7 +226,7 @@ export class SheetsService {
 
   private async inserted(
     daos: SheetDaos,
-    access: CampaignAccessBo,
+    { access, limits }: LockedTable,
     input: CreateSheetRequestDto,
   ): Promise<Saved> {
     const campaignId = access.campaignIdOf();
@@ -227,6 +234,7 @@ export class SheetsService {
     const template = await this.templateOf(daos, campaignId, input.templateId);
     await this.requireFolder(daos, campaignId, folderId);
     const holder = await this.deps.holders.resolve(daos, campaignId, input.holder ?? null);
+    await requireNpcSheetRoom(daos, { campaignId, from: null, to: holder }, limits);
     const columns = toHolderColumns(holder);
     const sheet = await daos.sheets.insert({
       ...{ campaignId, templateId: input.templateId, name: input.name, folderId },
@@ -235,7 +243,7 @@ export class SheetsService {
     });
     const move = { from: null, to: columns.characterId };
     const mainSheets = await keepMainSheet(daos, campaignId, sheet.id, move);
-    const gift = { access, place: holder, template, mainSheets };
+    const gift = { access, place: holder, template, mainSheets, limits };
     return { sheet, ...(await giveManifestBars(daos, gift)) };
   }
 
@@ -270,10 +278,12 @@ export class SheetsService {
     input: UpdateSheetRequestDto,
   ): Promise<SheetWriteResponseDto> {
     const { campaignId } = requester;
-    return this.write(requester, sheetId, input, MANAGE_WRITE, async ({ daos, sheet, access }) => {
+    return this.write(requester, sheetId, input, MANAGE_WRITE, async (scope, limits) => {
+      const { daos, sheet, access } = scope;
       if (input.templateId) await this.templateOf(daos, campaignId, input.templateId);
       if (input.folderId !== undefined) await this.requireFolder(daos, campaignId, input.folderId);
       const holder = await this.holderChangeOf(daos, campaignId, input);
+      await requireNpcSheetRoom(daos, { campaignId, from: sheet.tokenId, to: holder }, limits);
       const from = sheet.characterId;
       const saved = await daos.sheets.update(campaignId, sheetId, {
         ...toSheetChangesPo(input, holder),
@@ -284,7 +294,7 @@ export class SheetsService {
       const mainSheets = await keepMainSheet(daos, campaignId, sheetId, move);
       if (!holder) return { sheet: saved, characters: mainSheets };
       const template = await this.templateOf(daos, campaignId, saved.templateId);
-      const gift = { access, place: holder, template, mainSheets };
+      const gift = { access, place: holder, template, mainSheets, limits };
       return { sheet: saved, ...(await giveManifestBars(daos, gift)) };
     });
   }
@@ -306,7 +316,7 @@ export class SheetsService {
     input: DeleteSheetRequestDto,
   ): Promise<void> {
     const result = await this.deps.transaction(async (daos): Promise<Applied<void>> => {
-      const access = await this.lockedAccess(daos, requester);
+      const { access } = await this.lockedTable(daos, requester);
       const fingerprint = commandFingerprint('sheet-delete', sheetId, input);
       if (await this.previous(daos, requester, input.actionId, fingerprint))
         return { value: undefined, changed: null, library: false, characters: null };
@@ -329,32 +339,31 @@ export class SheetsService {
     sheetId: string,
     input: WriteInput,
     kind: WriteKind,
-    save: (scope: SheetScope) => Promise<Saved>,
+    save: (scope: SheetScope, limits: PlanLimits) => Promise<Saved>,
   ): Promise<SheetWriteResponseDto> {
     const result = await this.deps.transaction(async (daos) => {
-      const access = await this.lockedAccess(daos, requester);
+      const { access, limits } = await this.lockedTable(daos, requester);
       const scope = await this.scopeOf(daos, access, sheetId);
       kind.authorize(scope.rules);
       const fingerprint = commandFingerprint(`sheet-${kind.operation}`, sheetId, input);
       const previous = await this.previous(daos, requester, input.actionId, fingerprint);
       if (previous) return this.replay(daos, access, previous);
       const command = { actionId: input.actionId, fingerprint, operation: kind.operation };
-      const saved = await save(scope);
+      const saved = await save(scope, limits);
       const applied = await this.recorded(daos, requester, access, command, saved);
       return { ...applied, library: kind.library };
     });
     return this.published(requester.campaignId, result);
   }
 
-  // Locks the table, then reads the membership again under the lock.
-  private async lockedAccess(
-    daos: SheetDaos,
-    requester: LibraryRequester,
-  ): Promise<CampaignAccessBo> {
+  // Locks the table (reading the owner's plan with it), then reads the membership again under
+  // the lock.
+  private async lockedTable(daos: SheetDaos, requester: LibraryRequester): Promise<LockedTable> {
     await viewerAccessOf(this.deps.read.members, requester.campaignId, requester.userId);
-    if (!(await daos.campaigns.lockById(requester.campaignId)))
-      throw new CampaignNotFoundError(requester);
-    return viewerAccessOf(daos.members, requester.campaignId, requester.userId);
+    const table = await daos.campaigns.lockWithOwner(requester.campaignId);
+    if (!table) throw new CampaignNotFoundError(requester);
+    const access = await viewerAccessOf(daos.members, requester.campaignId, requester.userId);
+    return { access, limits: effectiveLimitsOf(table.owner) };
   }
 
   /** The sheet as the requester may read it; another table's and unreadable ones are

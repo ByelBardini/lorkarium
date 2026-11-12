@@ -43,6 +43,7 @@ describe('readEnv', () => {
       trustProxyHops: 0,
       clientDistDir: null,
       accessLog: null,
+      ownerUsername: null,
     });
   });
 
@@ -290,6 +291,22 @@ describe('readEnv, TRUST_PROXY', () => {
       );
     },
   );
+});
+
+describe('readEnv, OWNER_USERNAME', () => {
+  it('absent means nobody is the Dono do Lorkarium', () => {
+    expect(readEnv({ ...REQUIRED }).ownerUsername).toBeNull();
+  });
+
+  it('the @ is trimmed and lowercased, without the leading @', () => {
+    expect(readEnv({ ...REQUIRED, OWNER_USERNAME: ' Byel ' }).ownerUsername).toBe('byel');
+  });
+
+  it('a value out of the @ format is refused citing it and the format', () => {
+    expect(() => readEnv({ ...REQUIRED, OWNER_USERNAME: '@byel' })).toThrow(
+      /OWNER_USERNAME .*a-z 0-9 \. _.*"@byel"/,
+    );
+  });
 });
 
 describe('readEnv, CLIENT_DIST_DIR', () => {

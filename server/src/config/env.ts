@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { usernameDto } from '@lorkarium/contracts';
 import { z } from 'zod';
 
 // Enforced only in production: a local dev box may seed admin@admin.com / admin.
@@ -30,6 +31,7 @@ const ENV_KEYS = [
   'ACCESS_LOG_S3_BUCKET',
   'ACCESS_LOG_S3_ACCESS_KEY_ID',
   'ACCESS_LOG_S3_SECRET_ACCESS_KEY',
+  'OWNER_USERNAME',
 ] as const;
 
 const ACCESS_LOG_KEYS = [
@@ -163,6 +165,8 @@ const envSchema = z
       .string()
       .min(S3_SECRET_MIN_LENGTH, { error: `must have at least ${S3_SECRET_MIN_LENGTH} characters` })
       .optional(),
+    // The @ and not the e-mail: the e-mail is sealed at rest, the @ is what a query can compare.
+    OWNER_USERNAME: usernameDto.optional(),
   })
   .superRefine(requireAdminPair)
   .superRefine(requireStrongAdminPasswordInProduction)
@@ -220,6 +224,8 @@ export type Env = Readonly<{
   /** The write-only bucket of the access log (Marco Civil, art. 15), on the endpoint and region of
    *  `storage`; null = no access log (only outside production). */
   accessLog: StorageConfig | null;
+  /** The @ (no leading @) of the Dono do Lorkarium: no plan limit and its own seal; null = nobody. */
+  ownerUsername: string | null;
 }>;
 
 export class InvalidEnvError extends Error {
@@ -369,6 +375,7 @@ function toEnv(parsed: ParsedEnv): Env {
     trustProxyHops: parsed.TRUST_PROXY,
     clientDistDir: parsed.CLIENT_DIST_DIR ?? null,
     accessLog: toAccessLogConfig(parsed),
+    ownerUsername: parsed.OWNER_USERNAME ?? null,
   };
 }
 

@@ -1,4 +1,14 @@
-import { and, asc, count, eq, getTableColumns, inArray, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  eq,
+  getTableColumns,
+  inArray,
+  isNotNull,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import { hiddenByFolderSql } from '../../database/hidden-by-folder-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
@@ -102,6 +112,16 @@ export class SheetsDao {
       eq(tokenSheets.campaignId, campaignId),
       eq(tokenSheets.templateId, templateId),
     );
+    const [row] = await this.db.select({ total: count() }).from(tokenSheets).where(where);
+    return row?.total ?? 0;
+  }
+
+  /** The NPC sheets of the table: the ones a token holds (a character's do not count, nor the
+   *  ones without a holder), what the owner's plan limits.
+   *
+   *  Example: `await dao.countHeldByTokens(campaignId) // 10` */
+  async countHeldByTokens(campaignId: string): Promise<number> {
+    const where = and(eq(tokenSheets.campaignId, campaignId), isNotNull(tokenSheets.tokenId));
     const [row] = await this.db.select({ total: count() }).from(tokenSheets).where(where);
     return row?.total ?? 0;
   }

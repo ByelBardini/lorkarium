@@ -11,8 +11,15 @@ import {
   type SheetTemplateAssetDto,
   type SheetTemplateAssetMimeTypeDto,
 } from '@lorkarium/contracts';
+import type { ClockPort } from '../auth/clock.port';
+import type { UsersDao } from '../auth/users.dao';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
+import type { CampaignsDao } from '../campaigns/campaigns.dao';
+import { CampaignNotFoundError } from '../campaigns/campaigns.error';
 import { memberAccessOf } from '../campaigns/member-access';
+import { PlanLimitsBo, effectiveLimitsOf } from '../plans/plan-limits.bo';
+import { looseCutoffOf, planSidesOf } from './asset-quota.bo';
+import type { AssetReferencesDao } from './asset-references.dao';
 import {
   animationFor,
   dedicatedEndpointOf,
@@ -22,6 +29,7 @@ import {
   requireSize,
   requireWoff2,
   resizeFor,
+  type SideLimits,
 } from './asset-upload.bo';
 import type { AssetStoragePort, StoredObject } from './asset-storage.port';
 import type { AssetsDao } from './assets.dao';
@@ -45,9 +53,26 @@ import type { AssetPo } from './assets.po';
 import type { FetchRefusal, ImageFetcherPort } from './image-fetcher.port';
 import type { ImageProcessorPort, NormalizedImage, NormalizeOptions } from './image-processor.port';
 
+/** The DAOs of the transaction that keeps a file within the storage of the table's owner. */
+export type AssetKeepScope = Readonly<{
+  campaigns: Pick<CampaignsDao, 'lockWithOwner'>;
+  owners: Pick<UsersDao, 'lockForPlan'>;
+  references: Pick<AssetReferencesDao, 'usageOfOwner'>;
+  assets: Pick<AssetsDao, 'insert'>;
+}>;
+
+export type AssetKeepTransactionRunner = <T>(
+  work: (scope: AssetKeepScope) => Promise<T>,
+) => Promise<T>;
+
 export type AssetsServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership'>;
-  assets: Pick<AssetsDao, 'insert' | 'findById'>;
+  assets: Pick<AssetsDao, 'findById'>;
+  /** The plan of the table's owner, unlocked: it only decides the sides before decoding. */
+  tableOwners: Pick<CampaignsDao, 'findOwnerPlan'>;
+  /** Where the storage quota is counted and the row written, under the table's and owner's locks. */
+  keeping: AssetKeepTransactionRunner;
+  clock: ClockPort;
   storage: AssetStoragePort;
   processor: ImageProcessorPort;
   fetcher: ImageFetcherPort;
@@ -63,11 +88,14 @@ export type OpenedAsset = Readonly<{
   cacheControl?: string;
 }>;
 
-type Incoming = Readonly<{ campaignId: string; userId: string; purpose: AssetPurposeDto }>;
+type TableOfUser = Readonly<{ campaignId: string; userId: string }>;
 
-/** The asset use cases. Every image is decoded and rewritten before it is kept, the object goes
- *  to the S3 **before** its row (a row without its object would break the table; an object
- *  without its row is only garbage), and only a member of the campaign sends or reads.
+type Incoming = TableOfUser & Readonly<{ purpose: AssetPurposeDto }>;
+
+/** The asset use cases. Every image is decoded and rewritten before it is kept (a map or a
+ *  background no larger than the owner's plan allows), the kept bytes must fit the owner's
+ *  storage, the object goes to the S3 **before** its row (a row without its object would break
+ *  the table; an object without its row is only garbage), and only a member sends or reads.
  *
  *  Example: `await assetsService.upload(user.id, campaignId, { bytes, purpose: 'token' })` */
 export class AssetsService {
@@ -104,7 +132,8 @@ export class AssetsService {
     if (file.mimeType === SHEET_TEMPLATE_FONT_MIME_TYPE)
       return toSheetTemplateAssetDto(await this.keepFont({ campaignId, userId }, file.bytes));
     requireSize(file.bytes.byteLength, ASSET_MAX_BYTES);
-    const normalized = await this.deps.processor.normalize(file.bytes, keptAs(purpose));
+    const kept = keptAs(purpose, ASSET_MAX_SIDE);
+    const normalized = await this.deps.processor.normalize(file.bytes, kept);
     if (!normalized.ok) throw new UnsupportedImageError(normalized.refusal.detail);
     const row = await this.keepRow({ campaignId, userId, purpose }, normalized.image);
     return toSheetTemplateAssetDto(row);
@@ -118,11 +147,11 @@ export class AssetsService {
     requireSize(bytes.byteLength, SHEET_TEMPLATE_FONT_MAX_BYTES);
     requireWoff2(bytes);
     const assetId = this.deps.newId();
-    await this.deps.storage.put(storageKeyOf(assetId), bytes, SHEET_TEMPLATE_FONT_MIME_TYPE);
     const { campaignId, userId } = owner;
-    return this.deps.assets.insert(
-      toNewFontAssetPo({ assetId, campaignId, ownerId: userId, bytes }),
-    );
+    return this.keepWithin(owner, bytes.byteLength, async (rows) => {
+      await this.deps.storage.put(storageKeyOf(assetId), bytes, SHEET_TEMPLATE_FONT_MIME_TYPE);
+      return rows.insert(toNewFontAssetPo({ assetId, campaignId, ownerId: userId, bytes }));
+    });
   }
 
   async uploadDocumentImage(
@@ -141,7 +170,8 @@ export class AssetsService {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     if (isMasterOnlyAssetPurpose(file.purpose)) access.requireMaster(`upload a ${file.purpose}`);
     requireSize(file.bytes.byteLength, ASSET_MAX_BYTES);
-    const normalized = await this.deps.processor.normalize(file.bytes, keptAs(file.purpose));
+    const kept = keptAs(file.purpose, await this.sidesOf({ campaignId, userId }));
+    const normalized = await this.deps.processor.normalize(file.bytes, kept);
     if (!normalized.ok) throw new UnsupportedImageError(normalized.refusal.detail);
     return this.keep({ campaignId, userId, purpose: file.purpose }, normalized.image);
   }
@@ -182,7 +212,8 @@ export class AssetsService {
     const fetched = await this.deps.fetcher.fetch(link.url);
     if (!fetched.ok) throw linkErrorOf(link.url, fetched.refusal);
     requireSize(fetched.image.bytes.byteLength, ASSET_MAX_BYTES);
-    const image = await this.normalizeLinked(link.url, fetched.image.bytes, link.purpose);
+    const kept = keptAs(link.purpose, await this.sidesOf({ campaignId, userId }));
+    const image = await this.normalizeLinked(link.url, fetched.image.bytes, kept);
     return this.keep({ campaignId, userId, purpose: link.purpose }, image);
   }
 
@@ -225,9 +256,9 @@ export class AssetsService {
   private async normalizeLinked(
     url: string,
     bytes: Uint8Array,
-    purpose: AssetPurposeDto,
+    kept: NormalizeOptions,
   ): Promise<NormalizedImage> {
-    const normalized = await this.deps.processor.normalize(bytes, keptAs(purpose));
+    const normalized = await this.deps.processor.normalize(bytes, kept);
     if (!normalized.ok) throw new LinkNotImageError(url);
     return normalized.image;
   }
@@ -238,16 +269,41 @@ export class AssetsService {
 
   private async keepRow(incoming: Incoming, image: NormalizedImage): Promise<AssetPo> {
     const assetId = this.deps.newId();
-    await this.deps.storage.put(storageKeyOf(assetId), image.bytes, image.mimeType);
-    return this.deps.assets.insert(
-      toNewAssetPo({ ...incoming, ownerId: incoming.userId, assetId, image }),
-    );
+    return this.keepWithin(incoming, image.bytes.byteLength, async (rows) => {
+      await this.deps.storage.put(storageKeyOf(assetId), image.bytes, image.mimeType);
+      return rows.insert(toNewAssetPo({ ...incoming, ownerId: incoming.userId, assetId, image }));
+    });
+  }
+
+  // The sides follow the owner's plan; read unlocked, as only the quota decides a write.
+  private async sidesOf(table: TableOfUser): Promise<SideLimits> {
+    const owner = await this.deps.tableOwners.findOwnerPlan(table.campaignId);
+    if (!owner) throw new CampaignNotFoundError(table);
+    return planSidesOf(ASSET_MAX_SIDE, effectiveLimitsOf(owner));
+  }
+
+  // After normalizing (the kept bytes count) and before the object goes out. The owner's lock
+  // serializes every upload of their tables, so two never fit the same remaining space.
+  private async keepWithin(
+    table: TableOfUser,
+    bytes: number,
+    store: (rows: AssetKeepScope['assets']) => Promise<AssetPo>,
+  ): Promise<AssetPo> {
+    return this.deps.keeping(async (scope) => {
+      const locked = await scope.campaigns.lockWithOwner(table.campaignId);
+      if (!locked) throw new CampaignNotFoundError(table);
+      const owner = (await scope.owners.lockForPlan(locked.ownerId)) ?? locked.owner;
+      const cutoff = looseCutoffOf(this.deps.clock.now());
+      const used = await scope.references.usageOfOwner(locked.ownerId, cutoff);
+      PlanLimitsBo.requireRoom('storage', used, bytes, effectiveLimitsOf(owner));
+      return store(scope.assets);
+    });
   }
 }
 
 // The budget key is left out when the purpose never animates, so the processor refuses a GIF.
-function keptAs(purpose: AssetPurposeDto): NormalizeOptions {
-  const resize = resizeFor(purpose, ASSET_MAX_SIDE);
+function keptAs(purpose: AssetPurposeDto, sides: SideLimits): NormalizeOptions {
+  const resize = resizeFor(purpose, sides);
   const animation = animationFor(purpose, AURA_ANIMATION_LIMITS);
   return {
     ...resize,

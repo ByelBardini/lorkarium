@@ -15,7 +15,7 @@ import {
   SessionTokenFake,
   UsersDaoFake,
 } from '../../support/auth-fakes';
-import { userPo } from '../../support/auth-factories';
+import { authPlanFieldsOf, userPo } from '../../support/auth-factories';
 
 const NOW = new Date('2026-10-24T12:00:00Z');
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
@@ -35,6 +35,7 @@ class SessionStarterFake {
       role: row.role,
       color: 'gold' as const,
       avatarId: null,
+      ...authPlanFieldsOf(row),
     };
     return { user, token: 'session-token', expiresAt: NOW, persistent };
   }

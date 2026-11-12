@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { CampaignJoinService } from '../../../src/modules/campaigns/campaign-join.service';
 import { ClockFake, PasswordHasherFake } from '../../support/auth-fakes';
+import { CampaignJoinTransactionRunnerFake } from '../../support/campaign-join-fakes';
 import { ANA_ID } from '../../support/auth-factories';
 import { CampaignMembersDaoFake, CampaignsDaoFake } from '../../support/campaigns-fakes';
 import { BIA_ID, campaignMemberPo, campaignPo } from '../../support/campaigns-factories';
@@ -14,6 +15,7 @@ describe('CampaignJoinService', () => {
   let members: CampaignMembersDaoFake;
   let hasher: PasswordHasherFake;
   let clock: ClockFake;
+  let transaction: CampaignJoinTransactionRunnerFake;
   let service: CampaignJoinService;
 
   beforeEach(() => {
@@ -21,7 +23,11 @@ describe('CampaignJoinService', () => {
     members = new CampaignMembersDaoFake(campaigns, { [ANA_ID]: 'Ana', [BIA_ID]: 'Bia' });
     hasher = new PasswordHasherFake();
     clock = new ClockFake(NOW);
-    service = new CampaignJoinService({ campaigns, members, hasher, clock });
+    transaction = new CampaignJoinTransactionRunnerFake(campaigns, members);
+    service = new CampaignJoinService({
+      ...{ campaigns, members, hasher, clock },
+      transaction: transaction.run,
+    });
   });
 
   function biasCampaign(passwordHash: string | null = null): void {
@@ -105,6 +111,79 @@ describe('CampaignJoinService', () => {
     biasCampaign();
     await service.enter(BIA_ID, 'vharn');
     expect(members.entered).toEqual([{ campaignId: 'vharn', userId: BIA_ID, at: NOW }]);
+  });
+
+  describe("the spectators of the owner's plan", () => {
+    function spectators(campaignId: string, count: number): void {
+      for (let index = 0; index < count; index += 1) {
+        const userId = `${campaignId}-spectator-${index}`;
+        members.rows.push(campaignMemberPo({ campaignId, userId, role: 'spectator' }));
+      }
+    }
+
+    function freeOwner(): void {
+      campaigns.ownerPlans.set(BIA_ID, {
+        role: 'user',
+        plan: 'free',
+        lorkariumOwner: false,
+      });
+    }
+
+    it('a third spectator of a free table is refused with PLAN_LIMIT spectators and writes no row', async () => {
+      biasCampaign();
+      freeOwner();
+      spectators('vharn', 2);
+      await expect(service.join(ANA_ID, { code: 'VHRN7K2Q' })).rejects.toMatchObject({
+        code: 'PLAN_LIMIT',
+        ...{ resource: 'spectators', stored: 2, adding: 1, limit: 2, plan: 'free' },
+      });
+      expect(members.rows).toHaveLength(3);
+    });
+
+    it('the same ceiling holds for the entry from "Explorar mesas"', async () => {
+      campaigns.rows.push(campaignPo({ id: 'vharn', ownerId: BIA_ID, visibility: 'public' }));
+      members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: BIA_ID, role: 'master' }));
+      freeOwner();
+      spectators('vharn', 2);
+      await expect(service.joinPublic(ANA, 'vharn', {})).rejects.toMatchObject({
+        code: 'PLAN_LIMIT',
+        resource: 'spectators',
+      });
+    });
+
+    it('with one spectator, the second takes the last seat of a free table', async () => {
+      biasCampaign();
+      freeOwner();
+      spectators('vharn', 1);
+      const summary = await service.join(ANA_ID, { code: 'VHRN7K2Q' });
+      expect(summary.myRole).toBe('spectator');
+      expect(members.rows).toHaveLength(3);
+    });
+
+    it('the count runs under the lock of the table, in the transaction of the seat', async () => {
+      biasCampaign();
+      await service.join(ANA_ID, { code: 'VHRN7K2Q' });
+      expect(campaigns.writes).toEqual(['lock:vharn']);
+      expect(transaction.runs).toBe(1);
+    });
+
+    it('a member of a full table enters again: nothing is counted nor locked', async () => {
+      biasCampaign();
+      freeOwner();
+      spectators('vharn', 2);
+      const summary = await service.join('vharn-spectator-0', { code: 'VHRN7K2Q' });
+      expect(summary.myRole).toBe('spectator');
+      expect(transaction.runs).toBe(0);
+    });
+
+    it('the spectators of another table do not count against this one', async () => {
+      biasCampaign();
+      freeOwner();
+      spectators('quelm', 5);
+      await expect(service.join(ANA_ID, { code: 'VHRN7K2Q' })).resolves.toMatchObject({
+        myRole: 'spectator',
+      });
+    });
   });
 
   describe('joinPublic (Explorar mesas, no code)', () => {

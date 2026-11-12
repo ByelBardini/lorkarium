@@ -1,4 +1,5 @@
 import {
+  PLAN_LIMITS,
   campaignDetailDto,
   campaignInfoDto,
   createCampaignRequestDto,
@@ -99,6 +100,7 @@ describe('campaigns mapper', () => {
       tags: [],
       playersCreateTokens: false,
       playersDeleteTokens: false,
+      limits: PLAN_LIMITS.free,
       lastEnteredAt: '2026-10-13T22:30:00.000Z',
     });
   });
@@ -192,22 +194,17 @@ describe('campaigns mapper', () => {
 
   it('each participant carries the user id, the drawn color when none was chosen and no photo', () => {
     expect(detailFor('player').members).toEqual([
-      { userId: ANA_ID, name: 'Ana', role: 'master', color: 'teal', avatarId: null, online: false },
       {
-        userId: BIA_ID,
-        name: 'Ágata',
-        role: 'player',
-        color: 'moss',
-        avatarId: null,
-        online: false,
+        ...{ userId: ANA_ID, name: 'Ana', role: 'master', color: 'teal', avatarId: null },
+        ...{ plan: 'free', admin: false, lorkariumOwner: false, online: false },
       },
       {
-        userId: CAIO_ID,
-        name: 'Bia',
-        role: 'player',
-        color: 'bone',
-        avatarId: null,
-        online: false,
+        ...{ userId: BIA_ID, name: 'Ágata', role: 'player', color: 'moss', avatarId: null },
+        ...{ plan: 'free', admin: false, lorkariumOwner: false, online: false },
+      },
+      {
+        ...{ userId: CAIO_ID, name: 'Bia', role: 'player', color: 'bone', avatarId: null },
+        ...{ plan: 'free', admin: false, lorkariumOwner: false, online: false },
       },
     ]);
   });
@@ -388,6 +385,57 @@ describe('the campaign settings in the mapper', () => {
   });
 });
 
+describe("the plan in the mapper: the members' seals and the owner's limits", () => {
+  const LENDA_ANA = campaignMemberRow({
+    account: { role: 'user', plan: 'lenda', lorkariumOwner: false },
+  });
+  const ADMIN_BIA = campaignMemberRow({
+    ...{ userId: BIA_ID, name: 'Bia', role: 'player' },
+    account: { role: 'admin', plan: 'free', lorkariumOwner: false },
+  });
+
+  it('each participant carries the stored plan and whether they are admin', () => {
+    const detail = toCampaignDetailDto(detailView({ members: [LENDA_ANA, ADMIN_BIA] }));
+    expect(detail.members).toMatchObject([
+      { userId: ANA_ID, plan: 'lenda', admin: false },
+      { userId: BIA_ID, plan: 'free', admin: true },
+    ]);
+  });
+
+  it("the detail and its info carry the owner's limits, not a player's", () => {
+    const detail = toCampaignDetailDto(detailView({ members: [LENDA_ANA, ADMIN_BIA] }));
+    expect(detail.limits).toEqual(PLAN_LIMITS.lenda);
+    expect(toCampaignInfoDto(detail).limits).toEqual(PLAN_LIMITS.lenda);
+  });
+
+  it("a free owner's table has 5 grids at most", () => {
+    expect(detailFor('player').limits.maxScenes).toBe(5);
+  });
+
+  it('a table whose owner is an admin gets the limits of amigo_do_dono', () => {
+    const adminAna = campaignMemberRow({
+      account: { role: 'admin', plan: 'free', lorkariumOwner: false },
+    });
+    const detail = toCampaignDetailDto(detailView({ members: [adminAna] }));
+    expect(detail.limits).toEqual(PLAN_LIMITS.amigo_do_dono);
+  });
+
+  it("a listing row's summary carries its owner's limits", () => {
+    const row = campaignListingRow({
+      owner: { role: 'user', plan: 'narrador', lorkariumOwner: false },
+    });
+    expect(toCampaignSummaryDto(row).limits).toEqual(PLAN_LIMITS.narrador);
+  });
+
+  it('the explore card leaves the limits out and passes the strict DTO', () => {
+    const row = { campaign: campaignPo({ visibility: 'public' }), masterIds: [ANA_ID] };
+    const owned = { masterName: 'Ana', masterUsername: 'ana', memberCount: 1, myRole: null };
+    const card = toPublicCampaignDto({ ...row, ...owned }, false, NOBODY_ONLINE);
+    expect(card).not.toHaveProperty('limits');
+    expect(publicCampaignDto.safeParse(card).success).toBe(true);
+  });
+});
+
 describe('orderedMembers', () => {
   it('keeps each member id and puts the master first, then names in pt-BR order', () => {
     expect(orderedMembers(MEMBERS)).toMatchObject([
@@ -438,6 +486,9 @@ describe('the role change in the mapper', () => {
       role: 'player',
       color: 'rose',
       avatarId: DUDA_AVATAR_ID,
+      plan: 'free',
+      admin: false,
+      lorkariumOwner: false,
       online: true,
     });
   });

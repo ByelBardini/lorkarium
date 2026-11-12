@@ -27,6 +27,18 @@ export class AssetsDao {
     return row;
   }
 
+  /** The object key of every file of `campaignId`: read before the table is deleted, the objects
+   *  are removed after the commit (the rows go by cascade).
+   *
+   *  Example: `await dao.storageKeysOf(vharnId) // ['assets/<id>', …]` */
+  async storageKeysOf(campaignId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ storageKey: assets.storageKey })
+      .from(assets)
+      .where(eq(assets.campaignId, campaignId));
+    return rows.map((row) => row.storageKey);
+  }
+
   /** The asked assets that belong to `campaignId`; ids from elsewhere are skipped. */
   async findManyInCampaign(campaignId: string, assetIds: readonly string[]): Promise<AssetPo[]> {
     if (assetIds.length === 0) return [];

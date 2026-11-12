@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { SheetTemplatesService } from '../../../src/modules/sheets/sheet-templates.service';
 import { lyraPortraitPo } from '../../support/assets-factories';
@@ -288,6 +289,60 @@ describe('SheetTemplatesService', () => {
       });
 
       await expect(create).rejects.toMatchObject({ code: 'SHEET_TEMPLATE_ASSETS_TOO_LARGE' });
+    });
+  });
+
+  describe("the owner's plan", () => {
+    const FREE = { role: 'user', plan: 'free', lorkariumOwner: false } as const;
+
+    it('a free table with one template refuses the 2nd with PLAN_LIMIT sheetTemplates, writing nothing', async () => {
+      const harness = withTormenta();
+      harness.campaigns.owner = FREE;
+
+      const create = new SheetTemplatesService(harness.deps).create(
+        harness.requester,
+        SHEET_TEMPLATE_CODE,
+      );
+
+      await expect(create).rejects.toMatchObject({
+        code: 'PLAN_LIMIT',
+        resource: 'sheetTemplates',
+        limit: 1,
+        plan: 'free',
+      });
+      expect(harness.journal).toEqual(['lock']);
+    });
+
+    it("a free table's first template is created; Quelm's template does not count", async () => {
+      const harness = new SheetTemplatesHarness();
+      harness.campaigns.owner = FREE;
+
+      await new SheetTemplatesService(harness.deps).create(harness.requester, SHEET_TEMPLATE_CODE);
+
+      expect(harness.journal).toEqual(['lock', 'insert', 'commit', 'publish']);
+    });
+
+    it('an admin owner on free creates past the free ceiling', async () => {
+      const harness = withTormenta();
+      harness.campaigns.owner = { ...FREE, role: 'admin' };
+
+      await new SheetTemplatesService(harness.deps).create(harness.requester, SHEET_TEMPLATE_CODE);
+
+      expect(harness.journal).toEqual(['lock', 'insert', 'commit', 'publish']);
+    });
+
+    it('editing a template past the ceiling still saves (who is past keeps what it has)', async () => {
+      const harness = withTormenta();
+      harness.templates.rows.push(sheetTemplatePo({ id: randomUUID(), name: 'Outra' }));
+      harness.campaigns.owner = FREE;
+
+      const saved = await new SheetTemplatesService(harness.deps).update(
+        harness.requester,
+        TORMENTA_ID,
+        { expectedVersion: 2, name: 'Tormenta 2' },
+      );
+
+      expect(saved.name).toBe('Tormenta 2');
     });
   });
 });

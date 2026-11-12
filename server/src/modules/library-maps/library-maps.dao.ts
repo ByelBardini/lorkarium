@@ -1,4 +1,4 @@
-import { and, eq, getTableColumns, sql, type SQL } from 'drizzle-orm';
+import { and, count, eq, getTableColumns, sql, type SQL } from 'drizzle-orm';
 import { hiddenByFolderSql } from '../../database/hidden-by-folder-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { assets, type AssetPo } from '../assets/assets.po';
@@ -36,6 +36,17 @@ export class LibraryMapsDao {
    *  Example: `await mapsDao.listOfCampaign(campaignId)` */
   async listOfCampaign(campaignId: string): Promise<LibraryMapRow[]> {
     return this.rowsWhere(eq(libraryMaps.campaignId, campaignId));
+  }
+
+  /** How many maps the campaign has, what its owner's plan counts (`libraryMaps`).
+   *
+   *  Example: `await mapsDao.countOfCampaign(campaignId)` */
+  async countOfCampaign(campaignId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ total: count() })
+      .from(libraryMaps)
+      .where(eq(libraryMaps.campaignId, campaignId));
+    return row?.total ?? 0;
   }
 
   /** Example: `await mapsDao.findInCampaign(campaignId, mapId)` */

@@ -2,9 +2,11 @@ import type {
   CharacterPublisherPort,
   CharactersChange,
 } from '../../src/modules/characters/character-publisher.port';
+import type { UserPlanPo } from '../../src/modules/auth/users.po';
 import type {
   CharacterRow,
   CharactersDao,
+  CharactersLockPo,
   NewCharacterRow,
   WornCharacterRow,
 } from '../../src/modules/characters/characters.dao';
@@ -28,6 +30,7 @@ import { formRowsOf } from '../../src/modules/tokens/token-forms.dao';
 import type { BarValuesPo, TokenFormInputPo } from '../../src/modules/tokens/tokens.po';
 import { characterBarPo, characterPo } from './characters-factories';
 import { ConditionsDaoFake } from './conditions-fakes';
+import { planAccount } from './plan-account-fakes';
 
 /** A character as the fake keeps it: its `conditions`, if given, are ignored (reads take them
  *  from `conditionsFrom`). */
@@ -64,6 +67,9 @@ export class CharactersDaoFake implements Pick<CharactersDao, FakeDaoMethods> {
   /** The role of each user at the table, for the characters inserted here. */
   readonly roles: Record<string, CharacterRow['holderRole']> = {};
   private conditions: Readonly<{ active: readonly ActiveConditionRow[] }> = { active: [] };
+  /** The plan of each table's owner, read with the lock; a table not set answers `planAccount()`
+   *  (everything open). */
+  readonly owners = new Map<string, UserPlanPo>();
 
   constructor(
     readonly journal: string[] = [],
@@ -80,9 +86,11 @@ export class CharactersDaoFake implements Pick<CharactersDao, FakeDaoMethods> {
     this.conditions = conditions;
   }
 
-  async lockVersion(campaignId: string): Promise<number | undefined> {
+  async lockVersion(campaignId: string): Promise<CharactersLockPo | undefined> {
     this.journal.push('lock characters');
-    return this.versions[campaignId];
+    const version = this.versions[campaignId];
+    if (version === undefined) return undefined;
+    return { version, owner: this.owners.get(campaignId) ?? planAccount() };
   }
 
   async bumpVersion(campaignId: string): Promise<number> {

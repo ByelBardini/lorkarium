@@ -2,11 +2,20 @@ import {
   AVATAR_MAX_BYTES,
   AVATAR_SIDE,
   DICE_TEXTURE_SIDE,
+  isHexColor,
+  type PlanFeatureResource,
   type ProfileDto,
   type UpdateProfileRequestDto,
 } from '@lorkarium/contracts';
 import type { AssetStoragePort, StoredObject } from '../assets/asset-storage.port';
 import type { FetchRefusal, ImageFetcherPort } from '../assets/image-fetcher.port';
+import type { UsersDao } from '../auth/users.dao';
+import {
+  PlanLimitsBo,
+  customizationAllowed,
+  effectiveLimitsOf,
+  type PlanAccount,
+} from '../plans/plan-limits.bo';
 import type { AvatarProcessorPort, ImageShape } from './avatar-processor.port';
 import type { ProfileChangedPort } from './profile-changed.port';
 import type { ProfileChanges, ProfileRow, ProfilesDao, SwappedImage } from './profiles.dao';
@@ -43,16 +52,21 @@ export type ProfilesServiceDeps = Readonly<{
   storage: Pick<AssetStoragePort, 'put' | 'open' | 'remove'>;
   processor: AvatarProcessorPort;
   profileChanged: ProfileChangedPort;
+  /** The plan of the person, read at each write: the customizations follow it, and a plan changed
+   *  in the backoffice holds from the next request on. */
+  accounts: Pick<UsersDao, 'lockForPlan'>;
   /** Downloads an image link without reaching an internal address (the assets' guarded fetcher). */
   fetcher: ImageFetcherPort;
   newId: () => string;
 }>;
 
 /** One image of the account (the photo, the dice texture): its column, its bucket prefix, the
- *  square it is kept as, its own refusals, and whether the live tables hear of a change. */
+ *  square it is kept as for the person's plan, the plan's refusal, its own refusals, and whether
+ *  the live tables hear of a change. */
 type ImageSpace = Readonly<{
   subject: ProfileImageSubject;
-  shape: ImageShape;
+  shapeFor: (account: PlanAccount) => ImageShape;
+  requirePlan: (account: PlanAccount) => void;
   keyOf: (imageId: string) => string;
   idOf: (row: ProfileRow) => string | null;
   swap: (userId: string, imageId: string | null) => Promise<SwappedImage | undefined>;
@@ -84,6 +98,7 @@ export class ProfilesService {
   }
 
   async update(userId: string, dto: UpdateProfileRequestDto): Promise<ProfileDto> {
+    if (asksCustomColor(dto)) requireCustomization('customColor', await this.accountOf(userId));
     const changes = toProfileChanges(dto);
     const row = await this.deps.profiles.update(userId, changes);
     if (!row) throw missingAccount(userId);
@@ -104,7 +119,8 @@ export class ProfilesService {
     );
   }
 
-  /** The photo from a web link (an animated GIF stays animated): downloaded by the guarded
+  /** The photo from a web link (an animated GIF stays animated when the plan has the
+   *  customizations, otherwise only its first frame): downloaded by the guarded
    *  fetcher, then the very path of a sent photo.
    *
    *  Example: `await profiles.replaceAvatarFromLink(user.id, 'https://media.example.com/a.gif')` */
@@ -153,11 +169,12 @@ export class ProfilesService {
     userId: string,
     url: string,
   ): Promise<ProfileDto> {
+    const owner = await this.ownerOf(space, userId);
     const fetched = await this.deps.fetcher.fetch(url);
     if (!fetched.ok) throw linkErrorOf(space, url, fetched.refusal);
     const notImage = (detail: string): ProfileError =>
       new AvatarLinkNotImageError(url, detail, space.subject);
-    return this.keepImage(space, userId, fetched.image.bytes, notImage);
+    return this.keepImageOf(space, owner, fetched.image.bytes, notImage);
   }
 
   private async keepImage(
@@ -166,9 +183,19 @@ export class ProfilesService {
     bytes: Uint8Array,
     refused: (detail: string) => ProfileError,
   ): Promise<ProfileDto> {
+    return this.keepImageOf(space, await this.ownerOf(space, userId), bytes, refused);
+  }
+
+  private async keepImageOf(
+    space: ImageSpace,
+    owner: ImageOwner,
+    bytes: Uint8Array,
+    refused: (detail: string) => ProfileError,
+  ): Promise<ProfileDto> {
+    const { userId, account } = owner;
     if (bytes.byteLength > AVATAR_MAX_BYTES)
       throw space.tooLarge(AVATAR_MAX_BYTES, bytes.byteLength);
-    const outcome = await this.deps.processor.normalize(bytes, space.shape);
+    const outcome = await this.deps.processor.normalize(bytes, space.shapeFor(account));
     if (!outcome.ok) throw refused(outcome.refusal.detail);
     const imageId = this.deps.newId();
     await this.deps.storage.put(space.keyOf(imageId), outcome.avatar.bytes, AVATAR_CONTENT_TYPE);
@@ -203,6 +230,19 @@ export class ProfilesService {
     return this.profileOf(userId);
   }
 
+  // The plan is checked before the image is downloaded or decoded: a refusal costs nothing.
+  private async ownerOf(space: ImageSpace, userId: string): Promise<ImageOwner> {
+    const account = await this.accountOf(userId);
+    space.requirePlan(account);
+    return { userId, account };
+  }
+
+  private async accountOf(userId: string): Promise<PlanAccount> {
+    const account = await this.deps.accounts.lockForPlan(userId);
+    if (!account) throw missingAccount(userId);
+    return account;
+  }
+
   private async rowOf(userId: string): Promise<ProfileRow> {
     const row = await this.deps.profiles.findById(userId);
     if (!row) throw missingAccount(userId);
@@ -212,10 +252,14 @@ export class ProfilesService {
 
 type ImageColumns = ProfilesServiceDeps['profiles'];
 
+type ImageOwner = Readonly<{ userId: string; account: PlanAccount }>;
+
 function avatarSpaceOf(profiles: ImageColumns): ImageSpace {
   return {
     subject: 'photo',
-    shape: { side: AVATAR_SIDE, animated: true },
+    // Without the customizations a GIF is kept still (its first frame), never refused.
+    shapeFor: (account) => ({ side: AVATAR_SIDE, animated: customizationAllowed(account) }),
+    requirePlan: () => undefined,
     keyOf: avatarKeyOf,
     idOf: (row) => row.avatarId,
     swap: (userId, imageId) => profiles.swapAvatar(userId, imageId),
@@ -229,7 +273,8 @@ function avatarSpaceOf(profiles: ImageColumns): ImageSpace {
 function diceTextureSpaceOf(profiles: ImageColumns): ImageSpace {
   return {
     subject: 'dice texture',
-    shape: { side: DICE_TEXTURE_SIDE, animated: false },
+    shapeFor: () => ({ side: DICE_TEXTURE_SIDE, animated: false }),
+    requirePlan: (account) => requireCustomization('diceTexture', account),
     keyOf: diceTextureKeyOf,
     idOf: (row) => row.diceTextureId,
     swap: (userId, imageId) => profiles.swapDiceTexture(userId, imageId),
@@ -238,6 +283,17 @@ function diceTextureSpaceOf(profiles: ImageColumns): ImageSpace {
     tooLarge: (limit, received) => new DiceTextureTooLargeError(limit, received),
     tellsTables: false,
   };
+}
+
+// The palette and the automatic colors are for every plan; a hex (on the profile or the dice
+// number, which is only hex) is a customization. Who already has one keeps it.
+function asksCustomColor(dto: UpdateProfileRequestDto): boolean {
+  if (dto.diceNumberColor !== undefined && dto.diceNumberColor !== null) return true;
+  return typeof dto.color === 'string' && isHexColor(dto.color);
+}
+
+function requireCustomization(resource: PlanFeatureResource, account: PlanAccount): void {
+  PlanLimitsBo.requireFeature(resource, customizationAllowed(account), effectiveLimitsOf(account));
 }
 
 function touchesRoster(changes: ProfileChanges): boolean {

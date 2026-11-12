@@ -22,6 +22,7 @@ import {
 } from '../support/realtime-client';
 import { signUpAndLogin, type SignedInUser } from '../support/sign-in';
 import { createTable, joinByCode, type Table } from '../support/tables';
+import { setAccountPlan } from '../support/account-plans';
 import { pngOf } from '../support/images';
 import { CountingQueryLog } from '../support/query-count';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
@@ -55,6 +56,8 @@ describe('live table session over Socket.IO', () => {
     ana = await signUpAndLogin(app, connection.db, 'Ana');
     bia = await signUpAndLogin(app, connection.db, 'Bia');
     caio = await signUpAndLogin(app, connection.db, 'Caio');
+    // A hex profile color is a customization: Ana's plan has it.
+    await setAccountPlan(connection.db, ana.id, 'amigo_do_dono');
     vharn = await createTable(app, ana, 'Os Sinos de Vharn');
     quelm = await createTable(app, caio, 'Quelm');
     await joinByCode(app, bia, vharn);
@@ -115,6 +118,9 @@ describe('live table session over Socket.IO', () => {
         ...profileSeen(ana, 'Ana'),
         role: 'master',
         juggernaut: false,
+        plan: 'amigo_do_dono',
+        admin: false,
+        lorkariumOwner: false,
         online: true,
         awaySince: null,
       },
@@ -122,6 +128,9 @@ describe('live table session over Socket.IO', () => {
         ...profileSeen(bia, 'Bia'),
         role: 'player',
         juggernaut: false,
+        plan: 'free',
+        admin: false,
+        lorkariumOwner: false,
         online: false,
         awaySince: null,
       },
@@ -143,6 +152,9 @@ describe('live table session over Socket.IO', () => {
             ...profileSeen(bia, 'Bia'),
             role: 'player',
             juggernaut: false,
+            plan: 'free',
+            admin: false,
+            lorkariumOwner: false,
             online: true,
             awaySince: null,
           },
@@ -545,6 +557,9 @@ describe('live table session over Socket.IO', () => {
         bio: 'Mestre de Vharn',
         role: 'master',
         juggernaut: false,
+        plan: 'amigo_do_dono',
+        admin: false,
+        lorkariumOwner: false,
         online: false,
         awaySince: null,
       });

@@ -1,10 +1,18 @@
-import { MEMBER_COLOR_NAMES, type HexColorDto, type MemberColorDto } from '@lorkarium/contracts';
+import {
+  MEMBER_COLOR_NAMES,
+  USER_PLANS,
+  type HexColorDto,
+  type MemberColorDto,
+} from '@lorkarium/contracts';
 import { sql } from 'drizzle-orm';
 import { check, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { paletteOrHexSql } from '../../database/palette-or-hex-sql';
 
 // Global account role; game master/player/spectator are per-campaign roles (spec §6).
 export const userRole = pgEnum('user_role', ['user', 'admin']);
+
+// The master plan of the account; the table limits follow the owner's (see plans module).
+export const userPlan = pgEnum('user_plan', USER_PLANS);
 
 export const BIO_MAX_LENGTH = 190;
 
@@ -22,6 +30,7 @@ export const users = pgTable(
     emailIndex: text('email_index').notNull().unique(),
     passwordHash: text('password_hash').notNull(),
     role: userRole('role').notNull().default('user'),
+    plan: userPlan('plan').notNull().default('free'),
     // A name of the palette or a custom hex; null = automatic, drawn from the id.
     color: text('color').$type<MemberColorDto>(),
     bio: text('bio'),
@@ -55,5 +64,9 @@ export const users = pgTable(
 
 export type UserPo = typeof users.$inferSelect;
 export type NewUserPo = typeof users.$inferInsert;
+/** What the plans module needs of an account to resolve its limits (`effectiveLimitsOf`):
+ *  `lorkariumOwner` is no column, it is `lorkariumOwnerSql` read in the same select
+ *  (`planAccountColumnsOf`). */
+export type UserPlanPo = Pick<UserPo, 'role' | 'plan'> & Readonly<{ lorkariumOwner: boolean }>;
 /** The two columns that keep an e-mail at rest. */
 export type SealedEmail = Pick<UserPo, 'emailCipher' | 'emailIndex'>;

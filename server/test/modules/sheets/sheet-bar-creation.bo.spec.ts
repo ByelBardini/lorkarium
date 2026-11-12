@@ -1,8 +1,9 @@
+import { PLAN_LIMITS } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import { SheetBarCreationBo } from '../../../src/modules/sheets/sheet-bar-creation.bo';
 import { LYRA_SHEET_ID } from '../../support/sheets-fakes';
 
-const rules = new SheetBarCreationBo(LYRA_SHEET_ID, 8);
+const rules = new SheetBarCreationBo(LYRA_SHEET_ID, PLAN_LIMITS.amigo_do_dono);
 const bars = [
   { id: 'pv', label: 'PV' },
   { id: 'folego', label: 'Fôlego' },
@@ -31,6 +32,20 @@ describe('SheetBarCreationBo.barIdOf', () => {
       expect.objectContaining({
         code: 'BAR_LIMIT',
         message: 'Bar "Sorte" does not fit: the holder has 8 bars; expected fewer than 8',
+      }),
+    );
+  });
+
+  it('on a free table, a label skipped past its 2 bars is PLAN_LIMIT tokenBars, limit 2', () => {
+    const free = new SheetBarCreationBo(LYRA_SHEET_ID, PLAN_LIMITS.free);
+
+    expect(free.barCap).toBe(2);
+    expect(() => free.barIdOf('Sorte', bars, ['Sorte'])).toThrow(
+      expect.objectContaining({
+        code: 'PLAN_LIMIT',
+        resource: 'tokenBars',
+        limit: 2,
+        plan: 'free',
       }),
     );
   });

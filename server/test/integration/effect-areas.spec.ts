@@ -1,5 +1,6 @@
 import { effectAreasCreatedDto, type EffectAreaDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import {
   recordEventsOf,
   type EventRecorder,
@@ -174,6 +175,7 @@ describe('effect areas over Socket.IO', () => {
   });
 
   it('a custom color reaches the table, comes in the sync and survives a restart', async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
     const ana = recordEventsOf(await live.atTable(live.ana, live.vharn));
     const bia = await live.atTable(live.bia, live.vharn);
 
@@ -188,6 +190,7 @@ describe('effect areas over Socket.IO', () => {
   });
 
   it('reshaping an area to a custom color is saved and reaches the table', async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
     const bia = recordEventsOf(await live.atTable(live.bia, live.vharn));
     const area = await createdBy(bia.client, live.vharn.id);
     const shape = { ...CUSTOM_CONE, color: '#AABBCC' };

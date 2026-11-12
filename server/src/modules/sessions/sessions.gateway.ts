@@ -30,6 +30,8 @@ import type { SceneWatchService } from '../scenes/scene-watch.service';
 import type { ConnectionTablesChange } from './connection-tables.bo';
 import { SessionEndedError, SessionError } from './sessions.error';
 import type { TableSessionService } from './sessions.service';
+import { planLimitErrorBody } from '../plans/plan-limit-response';
+import { PlanLimitError } from '../plans/plans.error';
 
 export type SessionsGatewayDeps = Readonly<{
   service: TableSessionService;
@@ -210,6 +212,7 @@ async function commandOf<C extends SessionCommandDto = SessionCommandDto>(
 
 function toAckError(deps: SessionsGatewayDeps, error: unknown): ApiErrorDto {
   if (error instanceof ZodError) return invalidBodyError(error);
+  if (error instanceof PlanLimitError) return planLimitErrorBody(error);
   if (error instanceof CommandRateLimitedError) {
     const { code, retryAfterSeconds } = error;
     return { code, message: PUBLIC_MESSAGE[code] ?? code, retryAfterSeconds };

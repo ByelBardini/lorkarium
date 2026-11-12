@@ -1,5 +1,6 @@
 import type { LibraryChangedDto, SceneActivatedDto } from '@lorkarium/contracts';
-import type { CampaignsDao } from '../../src/modules/campaigns/campaigns.dao';
+import type { UserPlanPo } from '../../src/modules/auth/users.po';
+import type { CampaignsDao, CampaignWithOwnerPo } from '../../src/modules/campaigns/campaigns.dao';
 import type { CampaignPo } from '../../src/modules/campaigns/campaigns.po';
 import type { LibraryPublisherPort } from '../../src/modules/library/library-publisher.port';
 import type {
@@ -27,16 +28,28 @@ import type {
 } from '../../src/modules/scenes/scenes.po';
 import { librarySceneRow, sceneFolderPo } from './library-factories';
 
-/** In-memory campaigns for the library; `lockById` writes 'lock' and `setActiveScene`
- *  'setActiveScene' to the journal. */
+/** In-memory campaigns for the library; `lockById` and `lockWithOwner` write 'lock' and
+ *  `setActiveScene` 'setActiveScene' to the journal. Every table's owner has `owner`'s plan
+ *  (no plan limit by default; set it to a free one to meet the plan's ceilings). */
 export class LibraryCampaignsDaoFake implements Pick<
   CampaignsDao,
-  'findById' | 'lockById' | 'setActiveScene'
+  'findById' | 'lockById' | 'lockWithOwner' | 'setActiveScene'
 > {
+  owner: UserPlanPo = {
+    role: 'user',
+    plan: 'amigo_do_dono',
+    lorkariumOwner: false,
+  };
+
   constructor(
     private readonly journal: string[],
     readonly rows: CampaignPo[] = [],
   ) {}
+
+  async lockWithOwner(campaignId: string): Promise<CampaignWithOwnerPo | undefined> {
+    const row = await this.lockById(campaignId);
+    return row && { ...row, owner: this.owner };
+  }
 
   async findById(campaignId: string): Promise<CampaignPo | undefined> {
     return this.rows.find((row) => row.id === campaignId);

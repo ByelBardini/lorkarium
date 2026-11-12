@@ -1,5 +1,7 @@
 import { and, asc, eq, inArray, notInArray, sql, type SQL } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
+import { PLAN_ACCOUNT_COLUMNS } from '../auth/users.dao';
+import { users, type UserPlanPo } from '../auth/users.po';
 import { campaignMembers, type CampaignMemberPo } from '../campaigns/campaign-members.po';
 import { campaigns } from '../campaigns/campaigns.po';
 import { ConditionsDao, type ActiveConditionRow } from '../conditions/conditions.dao';
@@ -78,6 +80,9 @@ const FORM_COLUMNS_FROM_INSERT = {
  *  (insert, replace) must run on a DAO built with a `tx`.
  *
  *  Example: `await new CharactersDao(tx).findInCampaign(vharnId, lyraId)` */
+/** The characters' version of a table, locked, and the plan of its owner (`effectiveLimitsOf`). */
+export type CharactersLockPo = Readonly<{ version: number; owner: UserPlanPo }>;
+
 export class CharactersDao {
   private readonly conditions: ConditionsDao;
 
@@ -221,18 +226,24 @@ export class CharactersDao {
       .where(eq(characters.id, characterId));
   }
 
-  /** Locks the table's row for the characters' version and reads it; `undefined` = no table.
-   *  NO KEY UPDATE, not UPDATE: an insert that only references the table (a token, a drawing)
-   *  takes KEY SHARE on it and must not wait for a character command.
+  /** Locks the table's row for the characters' version and reads it with the plan of the table's
+   *  owner (the limits of the work), in one statement; `undefined` = no table. NO KEY UPDATE, not
+   *  UPDATE, and only on the table: an insert that only references the table (a token, a
+   *  drawing) takes KEY SHARE on it and must not wait for a character command, and the owner's
+   *  row stays free.
    *
-   *  Example: `const version = await new CharactersDao(tx).lockVersion(vharnId)` */
-  async lockVersion(campaignId: string): Promise<number | undefined> {
+   *  Example: `const { version, owner } = (await new CharactersDao(tx).lockVersion(vharnId))!` */
+  async lockVersion(campaignId: string): Promise<CharactersLockPo | undefined> {
     const [row] = await this.db
-      .select({ version: campaigns.charactersVersion })
+      .select({
+        version: campaigns.charactersVersion,
+        owner: PLAN_ACCOUNT_COLUMNS,
+      })
       .from(campaigns)
+      .innerJoin(users, eq(users.id, campaigns.ownerId))
       .where(eq(campaigns.id, campaignId))
-      .for('no key update');
-    return row?.version;
+      .for('no key update', { of: campaigns });
+    return row;
   }
 
   /** The characters' version of the table plus one, saved and returned. */

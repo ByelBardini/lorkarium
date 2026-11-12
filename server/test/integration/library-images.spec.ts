@@ -9,6 +9,7 @@ import { pngOf, animatedGifOf } from '../support/images';
 import { send, envelope, synced } from '../support/live-table';
 import { tokenCommandFor, useTokenTable } from '../support/token-table';
 import type { SignedInUser } from '../support/sign-in';
+import { setAccountPlan } from '../support/account-plans';
 import { SceneFoldersDao } from '../../src/modules/library/scene-folders.dao';
 const live = useTokenTable();
 const url = () => `/api/campaigns/${live.vharn.id}/library-images`;
@@ -180,6 +181,7 @@ describe('library image HTTP and access isolation', () => {
     expect(gif.statusCode).toBe(422);
   });
   it('reserved images cannot become token, aura, condition, form, background or cover references', async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
     const image = await create();
     const master = await live.atTable(live.ana, live.vharn);
     const token = tokenCommandFor(live.vharn, live.ana.id, { imageAssetId: image.asset.id });

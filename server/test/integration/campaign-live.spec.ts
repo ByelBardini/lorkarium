@@ -21,6 +21,7 @@ import {
 import { signUpAndLogin, type SignedInUser } from '../support/sign-in';
 import { createTable, joinByCode, type Table } from '../support/tables';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
+import { setAccountPlan } from '../support/account-plans';
 
 // Long enough for an event already emitted to arrive on localhost; far below the 5 s grace.
 const SILENCE_MS = 300;
@@ -49,6 +50,8 @@ describe('campaign changes at the live table', () => {
     baseUrl = await app.listen({ port: 0, host: '127.0.0.1' });
     ana = await signUpAndLogin(app, connection.db, 'Ana');
     bia = await signUpAndLogin(app, connection.db, 'Bia');
+    // Owns more than one table: the plan without a ceiling of tables keeps this spec as before.
+    await setAccountPlan(connection.db, bia.id, 'amigo_do_dono');
     caio = await signUpAndLogin(app, connection.db, 'Caio');
     vharn = await createTable(app, ana, 'Os Sinos de Vharn');
     quelm = await createTable(app, caio, 'Quelm');

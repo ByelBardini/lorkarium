@@ -24,6 +24,7 @@ import {
 } from './account-security.error';
 import type { AccountSecurityService } from './account-security.service';
 import type { EmailChangeService } from './email-change.service';
+import { withPlanLimitReply } from '../plans/plan-limit-response';
 
 // Spec §8.4: per user (the e-mail confirm, which is public, per IP).
 const PASSWORD_CHANGES_PER_MINUTE = 5;
@@ -80,7 +81,7 @@ export function accountSecurityRoutes(
 ): (app: FastifyInstance) => Promise<void> {
   return async (app: FastifyInstance): Promise<void> => {
     await app.register(rateLimit, { global: false, errorResponseBuilder: rateLimitedError });
-    app.setErrorHandler(replyWithApiError);
+    app.setErrorHandler(withPlanLimitReply(replyWithApiError));
     registerPasswordRoutes(app, services.security);
     registerSessionRoutes(app, services.sessions);
     registerEmailRoutes(app, services.emailChange);

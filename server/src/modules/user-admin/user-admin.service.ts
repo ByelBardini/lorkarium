@@ -20,7 +20,9 @@ import type { DataCipherPort } from '../auth/data-cipher.port';
 import type { SessionEndedPort } from '../auth/session-ended.port';
 import type { UserPo } from '../auth/users.po';
 import type { CampaignMembersDao, RevokedAdminSeat } from '../campaigns/campaign-members.dao';
+import type { ProfileChangedPort } from '../profiles/profile-changed.port';
 import { avatarKeyOf, diceTextureKeyOf } from '../profiles/profiles.mapper';
+import type { OwnerLimitsPort } from './owner-limits.port';
 import type { RevokedSeatsPort } from './revoked-seats.port';
 import { deletionVerdict, requireOtherAccount } from './user-admin.bo';
 import type { AccountListingRow, UserAdminDao } from './user-admin.dao';
@@ -31,7 +33,7 @@ import { toAdminUserDto, toDeletionCheckDto } from './user-admin.mapper';
 export type UserAdminWriteDaos = Readonly<{
   accounts: Pick<
     UserAdminDao,
-    'findAccount' | 'setRole' | 'setSuspendedAt' | 'lockOwnedCampaigns' | 'delete'
+    'findAccount' | 'setRole' | 'setPlan' | 'setSuspendedAt' | 'lockOwnedCampaigns' | 'delete'
   >;
   sessions: Pick<AuthSessionsDao, 'deleteAllOf'>;
   passwordResets: Pick<PasswordResetsDao, 'deleteOfUser'>;
@@ -55,6 +57,10 @@ export type UserAdminDeps = Readonly<{
   memberships: Readonly<{ forgetUser(userId: string): void }>;
   /** The tables hear about the seats an account lost with the admin role, after the commit. */
   juggernauts: RevokedSeatsPort;
+  /** Every live table of the account hears its new seals (`session:memberUpdated`). */
+  profiles: ProfileChangedPort;
+  /** Every live table the account owns hears its new limits (`session:campaignUpdated`). */
+  ownedTables: OwnerLimitsPort;
   storage: Pick<AssetStoragePort, 'remove'>;
   notices: Pick<SecurityNoticesService, 'send'>;
   cipher: DataCipherPort;
@@ -87,7 +93,28 @@ export class UserAdminService {
     });
     if (before.role !== 'admin' && role === 'admin') await this.tellPromoted(after);
     if (revoked.length > 0) await this.deps.juggernauts.announceRevoked(userId, revoked);
+    if (before.role !== role) await this.tellSealAndLimits(userId);
     return toAdminUserDto(after, this.deps.cipher);
+  }
+
+  /** Sets the master plan; the admin may change their own (it gives no power: the admin has no
+   *  plan limit). After the commit the live tables hear the seal and, those it owns, the limits.
+   *
+   *  Example: `await userAdmin.changePlan(biaId, 'lenda')` */
+  async changePlan(userId: string, plan: UserPo['plan']): Promise<AdminUserDto> {
+    const { before, after } = await this.deps.transaction(async ({ accounts }) => {
+      const found = await this.requireAccount(accounts, userId);
+      await accounts.setPlan(userId, plan);
+      return { before: found, after: { ...found, plan } };
+    });
+    if (before.plan !== plan) await this.tellSealAndLimits(userId);
+    return toAdminUserDto(after, this.deps.cipher);
+  }
+
+  // The role and the plan both pick the seal and the limits (an admin has no plan limit).
+  private async tellSealAndLimits(userId: string): Promise<void> {
+    await this.deps.profiles.profileChanged(userId);
+    await this.deps.ownedTables.ownerLimitsChanged(userId);
   }
 
   // In the role's transaction: nothing the admin role gave can outlive a committed demotion.

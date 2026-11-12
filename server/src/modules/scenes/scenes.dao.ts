@@ -2,6 +2,8 @@ import { and, asc, eq, getTableColumns, inArray, sql, type SQL } from 'drizzle-o
 import { hiddenByFolderSql } from '../../database/hidden-by-folder-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { assets } from '../assets/assets.po';
+import { PLAN_ACCOUNT_COLUMNS } from '../auth/users.dao';
+import { users, type UserPlanPo } from '../auth/users.po';
 import { campaigns } from '../campaigns/campaigns.po';
 import { tokens } from '../tokens/tokens.po';
 import {
@@ -24,9 +26,11 @@ export type SceneRow = ScenePo &
 /** A scene as the library lists it: the row, its background pixels and how many tokens it has. */
 export type LibrarySceneRow = SceneRow & Readonly<{ tokenCount: number }>;
 
-/** A grid reached by its address (the group one or a `sceneId`): the row and whether it is the
- *  group grid, which decides who may reach it while private. */
-export type AddressedSceneRow = SceneRow & Readonly<{ isActive: boolean }>;
+/** A grid reached by its address (the group one or a `sceneId`): the row, whether it is the
+ *  group grid (which decides who may reach it while private) and what decides the table's limits:
+ *  its owner's role, plan and Dono flag (`effectiveLimitsOf(row.owner)`), read in the same
+ *  statement as the lock, never from a cache. */
+export type AddressedSceneRow = SceneRow & Readonly<{ isActive: boolean; owner: UserPlanPo }>;
 
 const sceneWithBackground = {
   ...getTableColumns(scenes),
@@ -48,7 +52,14 @@ const tokenCountOfScene = sql<number>`(
 /** Whether the scene is its table's group grid; the query must join `campaigns`. */
 export const IS_GROUP_GRID = sql<boolean>`coalesce(${campaigns.activeSceneId} = ${scenes.id}, false)`;
 
-const addressedScene = { ...sceneWithBackground, isActive: IS_GROUP_GRID };
+const addressedScene = {
+  ...sceneWithBackground,
+  isActive: IS_GROUP_GRID,
+  owner: PLAN_ACCOUNT_COLUMNS,
+};
+
+// The owner of the grid's table; the query must join `campaigns`. Only the scene row is locked.
+const ownerOfCampaign = eq(users.id, campaigns.ownerId);
 
 /** Absent `sceneId` = the group grid; either way only a scene of the campaign itself (§2.6). The
  *  query must join `campaigns` on `scenes.campaign_id`.
@@ -119,6 +130,7 @@ export class ScenesDao {
       .select(addressedScene)
       .from(scenes)
       .innerJoin(campaigns, eq(campaigns.id, scenes.campaignId))
+      .innerJoin(users, ownerOfCampaign)
       .leftJoin(assets, backgroundOfScene)
       .where(gridOfCampaign(campaignId, sceneId))
       .for('update', { of: scenes });
@@ -145,6 +157,7 @@ export class ScenesDao {
       .select(addressedScene)
       .from(scenes)
       .innerJoin(campaigns, eq(campaigns.id, scenes.campaignId))
+      .innerJoin(users, ownerOfCampaign)
       .leftJoin(assets, backgroundOfScene)
       .where(gridOfCampaign(campaignId, sceneId))
       .for('share', { of: scenes });
@@ -162,6 +175,7 @@ export class ScenesDao {
       .select(addressedScene)
       .from(scenes)
       .innerJoin(campaigns, eq(campaigns.id, scenes.campaignId))
+      .innerJoin(users, ownerOfCampaign)
       .leftJoin(assets, backgroundOfScene)
       .where(gridOfCampaign(campaignId, sceneId));
     return row;
