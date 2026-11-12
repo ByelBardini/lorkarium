@@ -70,29 +70,23 @@ type NoticePlaceProps = Readonly<{
 }>;
 
 // Centred on the free board: the panel covers the right 360px when open (not in focus mode), and
-// on a phone "Painel" sits at the bottom right. Beside the board the chat bar (42px + 12px) takes
-// the foot; its open drawer can take 60% of the board, so the notice leaves for the top rather
-// than cover the conversation being typed.
+// on a phone "Painel" sits at the bottom right. Beside the board the chat owns the foot: its bar,
+// the previews and gold notices rising from it (up to six cards) and a drawer of up to 60% of the
+// board, so the notice lives at the top rather than cover any of them.
 function NoticePlace({ roomLayout, children }: NoticePlaceProps): React.JSX.Element {
   const desktop = useMediaQuery(DESKTOP_QUERY);
   const panelShown = useRoomLayout(roomLayout, (state) => state.panel === 'open' && !state.focus);
-  const chatOpen = useRoomLayout(roomLayout, (state) => state.chat === 'open');
   return (
     <div
       className={cn(
         'pointer-events-none absolute left-0 flex justify-center px-4',
-        noticeEdgeOf(desktop, chatOpen),
+        desktop ? 'top-14' : 'bottom-16',
         desktop && panelShown ? 'right-90' : 'right-0',
       )}
     >
       {children}
     </div>
   );
-}
-
-function noticeEdgeOf(desktop: boolean, chatOpen: boolean): string {
-  if (!desktop) return 'bottom-16';
-  return chatOpen ? 'top-14' : 'bottom-18';
 }
 
 type NoticeCardProps = Readonly<{ event: DiceRolledDto; roller: RollerIdentity }>;
