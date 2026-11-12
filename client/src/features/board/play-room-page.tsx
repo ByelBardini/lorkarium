@@ -13,6 +13,7 @@ import { useOpenTable, type OpenTableView } from '@/features/sessions/use-open-t
 import { useOpenTableOf } from '@/features/chat/use-chat-people';
 import { useSpeechBalloons } from '@/features/chat/use-speech-balloons';
 import { RoomChat } from '@/features/chat/room-chat';
+import type { ChatAttention } from '@/features/chat/chat-attention-watch';
 import { useRoomDiceWindow } from '@/features/dice/use-room-dice-window';
 import { ApplyConditionDialog } from '@/features/combat/apply-condition-dialog';
 import { ConditionToolPanel } from '@/features/combat/condition-tool-panel';
@@ -136,6 +137,8 @@ export type PlayRoomPageProps = Readonly<{
   /** "Som do chat": a mention or a whisper to the viewer rings. */
   chatPreferences: StoreApi<ChatPreferencesStore>;
   createChatSound: ChatSoundFactory;
+  /** The desktop app's taskbar button, lit for chat messages not seen; `null` in the browser. */
+  chatAttention: ChatAttention | null;
   documentWorkspace?: StoreApi<DocumentWorkspaceStore>;
   /** A page (settings, conditions) covers the room: the desktop title bar gets its place back. */
   covered?: boolean;
@@ -245,7 +248,8 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
         />
       )}
       {diceWindow.portal}
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-panel">
+      {/* clip, not hidden: a hidden box still scrolls when a focus inside reaches past its edge */}
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-clip bg-panel">
         {(!focus || !!activeDocument) && (
           <RoomHeader
             campaign={campaign}
@@ -422,6 +426,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
               panel={tablePanels}
               roomLayout={roomLayout}
               services={props}
+              onScreen={!props.covered}
             />
             <FocusToggle roomLayout={roomLayout} />
             {focus && table && (
