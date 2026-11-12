@@ -1,23 +1,43 @@
-import { AssetTooLargeError, UnsupportedFontError } from './assets.error';
+import { AssetTooLargeError, InvalidCropError, UnsupportedFontError } from './assets.error';
 import type { AssetPo } from './assets.po';
+import type { ImageAspect, ImageCrop, ImageFrame } from './image-processor.port';
 
 export type AssetPurpose = AssetPo['purpose'];
 
 /** Largest side in pixels kept per purpose (the contract's `ASSET_MAX_SIDE`). */
 export type SideLimits = Readonly<Record<AssetPurpose, number>>;
 
-/** How an image sent for a purpose is kept: its largest side and whether it is cut square. */
-export type AssetResize = Readonly<{ maxSide: number; square: boolean }>;
+/** How an image sent for a purpose is kept: its largest side. */
+export type AssetResize = Readonly<{ maxSide: number }>;
+
+/** The aspect each framed purpose is kept in (the contract's `ASSET_FRAME`). */
+export type FrameAspects = Readonly<Partial<Record<AssetPurpose, ImageAspect>>>;
 
 // The board fills a circle with the condition texture; a square one needs no mask, which would
-// break the GPU batch (docs/context/client/performance.md).
-const SQUARE_PURPOSES: ReadonlySet<AssetPurpose> = new Set(['condition']);
+// break the GPU batch (docs/context/client/performance.md). Its square is always the centre.
+const CENTRED_SQUARE: ImageFrame = { aspect: { width: 1, height: 1 }, crop: null };
 
-/** How the server keeps an image sent for `purpose`.
+/** How large the server keeps an image sent for `purpose`.
  *
- *  Example: `resizeFor('condition', ASSET_MAX_SIDE) // { maxSide: 256, square: true }` */
+ *  Example: `resizeFor('condition', ASSET_MAX_SIDE) // { maxSide: 256 }` */
 export function resizeFor(purpose: AssetPurpose, limits: SideLimits): AssetResize {
-  return { maxSide: limits[purpose], square: SQUARE_PURPOSES.has(purpose) };
+  return { maxSide: limits[purpose] };
+}
+
+/** The frame an image sent for `purpose` is cut to: its aspect in `aspects` inside `crop` (the
+ *  centre when `null`), the centred square of a condition, or `null` (kept in its shape). A
+ *  rectangle sent for a purpose with no aspect of its own is refused.
+ *
+ *  Example: `frameFor('campaign_banner', { x: 0, y: 25, w: 100, h: 33 }, ASSET_FRAME) // { aspect: 3:1, crop }` */
+export function frameFor(
+  purpose: AssetPurpose,
+  crop: ImageCrop | null,
+  aspects: FrameAspects,
+): ImageFrame | null {
+  const aspect = aspects[purpose];
+  if (aspect) return { aspect: { width: aspect.width, height: aspect.height }, crop };
+  if (crop !== null) throw new InvalidCropError(purpose, crop, Object.keys(aspects));
+  return purpose === 'condition' ? CENTRED_SQUARE : null;
 }
 
 /** How much a kept image may animate (the contract's `AURA_ANIMATION_LIMITS`). */

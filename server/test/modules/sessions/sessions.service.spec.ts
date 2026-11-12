@@ -456,6 +456,8 @@ describe('TableSessionService campaign changes', () => {
     masterName: 'Ana',
     memberCount: 2,
     cover: { kind: 'drawn', drawing: 1, tone: 2 },
+    photoAssetId: null,
+    bannerAssetId: null,
     contentWarnings: [],
     tags: [],
     playersCreateTokens: false,

@@ -105,17 +105,19 @@ export class ForbiddenActionError extends CampaignError {
   }
 }
 
-// The cover image must be an asset of this very table sent as a cover (critério 14).
+// Each campaign image must be an asset of this very table sent for its slot (critério 14).
 export class InvalidCampaignCoverError extends CampaignError {
   constructor(
     readonly campaignId: string,
-    readonly assetId: string,
-    readonly purpose: string | null,
+    readonly slot: string,
+    found: Readonly<{ assetId: string; purpose: string | null }>,
+    expected: string,
   ) {
-    const found = purpose === null ? 'no asset of this campaign' : `an asset of purpose ${purpose}`;
+    const what =
+      found.purpose === null ? 'no asset of this campaign' : `an asset of purpose ${found.purpose}`;
     super(
       'INVALID_BODY',
-      `cover asset ${assetId} of campaign ${campaignId} must be an asset of that campaign with purpose cover; found ${found}`,
+      `${slot} asset ${found.assetId} of campaign ${campaignId} is ${what}; expected ${expected} of that campaign`,
     );
   }
 }

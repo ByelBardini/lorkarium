@@ -85,7 +85,7 @@ describe('AssetsService', () => {
   it('a master uploads a library image with a proportional 4096 px static budget', async () => {
     const asset = await service.upload(ANA_ID, VHARN_ID, { bytes: PNG, purpose: 'library_image' });
     expect(asset).toEqual({ id: NEW_ID, mimeType: 'image/png', width: 1024, height: 512 });
-    expect(processor.resizes).toEqual([{ maxSide: 4096, square: false, opaqueAsWebp: true }]);
+    expect(processor.resizes).toEqual([{ maxSide: 4096, opaqueAsWebp: true }]);
     expect(assets.rows[0]).toMatchObject({ purpose: 'library_image', ownerId: ANA_ID });
     expect(journal).toEqual(['normalize', 'put', 'insert']);
   });
@@ -100,7 +100,7 @@ describe('AssetsService', () => {
   it('document ingestion keeps static pixels within 4096 px and records its reserved purpose', async () => {
     const result = await service.uploadDocumentImage(BIA_ID, VHARN_ID, PNG);
     expect(result).toEqual({ id: NEW_ID, mimeType: 'image/png', width: 1024, height: 512 });
-    expect(processor.resizes).toEqual([{ maxSide: 4096, square: false }]);
+    expect(processor.resizes).toEqual([{ maxSide: 4096 }]);
     expect(assets.rows[0]).toMatchObject({ purpose: 'document_image', ownerId: BIA_ID });
     expect(journal).toEqual(['normalize', 'put', 'insert']);
   });
@@ -132,7 +132,6 @@ describe('AssetsService', () => {
     expect(processor.resizes).toEqual([
       {
         maxSide: 4096,
-        square: false,
         animation: { maxFrames: 120, maxDecodedPixels: 16_000_000 },
       },
     ]);
@@ -163,7 +162,7 @@ describe('AssetsService', () => {
     });
 
     expect(asset).toMatchObject({ id: NEW_ID, mimeType: 'image/png' });
-    expect(processor.resizes).toEqual([{ maxSide: 4096, square: false }]);
+    expect(processor.resizes).toEqual([{ maxSide: 4096 }]);
     expect(journal).toEqual(['normalize', 'put', 'insert']);
   });
 
@@ -258,13 +257,13 @@ describe('AssetsService', () => {
       purpose: 'library_image',
     });
     expect(fetcher.fetched).toEqual(['https://example.com/portrait.webp']);
-    expect(processor.resizes).toEqual([{ maxSide: 4096, square: false, opaqueAsWebp: true }]);
+    expect(processor.resizes).toEqual([{ maxSide: 4096, opaqueAsWebp: true }]);
     expect(assets.rows[0]?.purpose).toBe('library_image');
   });
 
   it('a master uploads a map image with a proportional 8192 px static budget', async () => {
     await service.upload(ANA_ID, VHARN_ID, { bytes: PNG, purpose: 'library_map' });
-    expect(processor.resizes).toEqual([{ maxSide: 8192, square: false, opaqueAsWebp: true }]);
+    expect(processor.resizes).toEqual([{ maxSide: 8192, opaqueAsWebp: true }]);
     expect(assets.rows[0]).toMatchObject({ purpose: 'library_map', ownerId: ANA_ID });
     expect(journal).toEqual(['normalize', 'put', 'insert']);
   });
@@ -274,7 +273,7 @@ describe('AssetsService', () => {
       url: 'https://example.com/world.webp',
       purpose: 'library_map',
     });
-    expect(processor.resizes).toEqual([{ maxSide: 8192, square: false, opaqueAsWebp: true }]);
+    expect(processor.resizes).toEqual([{ maxSide: 8192, opaqueAsWebp: true }]);
     expect(assets.rows[0]?.purpose).toBe('library_map');
   });
 
@@ -416,7 +415,7 @@ describe('AssetsService', () => {
 
     expect(asset).toEqual({ id: NEW_ID, mimeType: 'image/png', width: 1024, height: 512 });
     expect(journal).toEqual(['normalize', 'put', 'insert']);
-    expect(processor.resizes).toEqual([{ maxSide: 1024, square: false, outline: true }]);
+    expect(processor.resizes).toEqual([{ maxSide: 1024, outline: true }]);
     expect(storage.objects.get(`assets/${NEW_ID}`)?.bytes).toEqual(processor.result.bytes);
     expect(assets.rows[0]).toMatchObject({ ownerId: BIA_ID, campaignId: VHARN_ID, sizeBytes: 6 });
   });
@@ -424,7 +423,7 @@ describe('AssetsService', () => {
   it('a background is normalized up to 4096 px, opaque as WebP', async () => {
     await service.upload(ANA_ID, VHARN_ID, { bytes: PNG, purpose: 'background' });
 
-    expect(processor.resizes).toEqual([{ maxSide: 4096, square: false, opaqueAsWebp: true }]);
+    expect(processor.resizes).toEqual([{ maxSide: 4096, opaqueAsWebp: true }]);
   });
 
   it('a PNG kept as WebP is stored and recorded with the type that came out', async () => {
@@ -440,7 +439,9 @@ describe('AssetsService', () => {
   it('a condition file is normalized as a square of 256 px, then stored and recorded', async () => {
     await service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose: 'condition' });
 
-    expect(processor.resizes).toEqual([{ maxSide: 256, square: true }]);
+    expect(processor.resizes).toEqual([
+      { maxSide: 256, frame: { aspect: { width: 1, height: 1 }, crop: null } },
+    ]);
     expect(journal).toEqual(['normalize', 'put', 'insert']);
   });
 
@@ -449,15 +450,47 @@ describe('AssetsService', () => {
 
     await service.importLink(BIA_ID, VHARN_ID, link);
 
-    expect(processor.resizes).toEqual([{ maxSide: 256, square: true }]);
+    expect(processor.resizes).toEqual([
+      { maxSide: 256, frame: { aspect: { width: 1, height: 1 }, crop: null } },
+    ]);
     expect(journal).toEqual(['normalize', 'put', 'insert']);
+  });
+
+  it('a campaign photo file is cut 1:1 inside the picked rectangle, up to 512 px', async () => {
+    const crop = { x: 50, y: 0, w: 50, h: 100 };
+
+    await service.upload(ANA_ID, VHARN_ID, { bytes: PNG, purpose: 'campaign_photo', crop });
+
+    expect(processor.resizes).toEqual([
+      { maxSide: 512, frame: { aspect: { width: 1, height: 1 }, crop } },
+    ]);
+    expect(journal).toEqual(['normalize', 'put', 'insert']);
+  });
+
+  it('a campaign photo link is cut 1:1 at the centre, with no rectangle', async () => {
+    const link = { url: 'https://x.com/lork.png', purpose: 'campaign_photo' } as const;
+
+    await service.importLink(ANA_ID, VHARN_ID, link);
+
+    expect(processor.resizes).toEqual([
+      { maxSide: 512, frame: { aspect: { width: 1, height: 1 }, crop: null } },
+    ]);
+  });
+
+  it('a rectangle sent with a token is refused before decoding or storing anything', async () => {
+    const file = { bytes: PNG, purpose: 'token', crop: { x: 0, y: 0, w: 50, h: 50 } } as const;
+
+    await expect(service.upload(BIA_ID, VHARN_ID, file)).rejects.toMatchObject({
+      code: 'INVALID_BODY',
+    });
+    expect(journal).toEqual([]);
   });
 
   it('an aura file is normalized up to 512 px with the animation budget of the contract', async () => {
     await service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose: 'aura' });
 
     expect(processor.resizes).toEqual([
-      { maxSide: 512, square: false, animation: { maxFrames: 120, maxDecodedPixels: 16_000_000 } },
+      { maxSide: 512, animation: { maxFrames: 120, maxDecodedPixels: 16_000_000 } },
     ]);
     expect(journal).toEqual(['normalize', 'put', 'insert']);
   });
@@ -474,7 +507,7 @@ describe('AssetsService', () => {
     await service.importLink(BIA_ID, VHARN_ID, link);
 
     expect(processor.resizes).toEqual([
-      { maxSide: 512, square: false, animation: { maxFrames: 120, maxDecodedPixels: 16_000_000 } },
+      { maxSide: 512, animation: { maxFrames: 120, maxDecodedPixels: 16_000_000 } },
     ]);
   });
 

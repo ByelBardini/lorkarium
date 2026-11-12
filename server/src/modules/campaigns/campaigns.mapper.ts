@@ -87,12 +87,13 @@ function campaignInfoOf(row: CampaignBaseRow & Readonly<{ owner: UserPlanPo }>):
 function campaignBaseOf(row: CampaignBaseRow): Omit<CampaignInfoDto, 'limits'> {
   const { campaign, masterName, memberCount } = row;
   const { id, name, system, status, description, visibility, tags, ownerId } = campaign;
-  const { playersCreateTokens, playersDeleteTokens } = campaign;
+  const { playersCreateTokens, playersDeleteTokens, photoAssetId, bannerAssetId } = campaign;
   return {
     ...{ id, name, system, status, description, visibility, masterName, memberCount, tags },
     ownerId,
     ...{ playersCreateTokens, playersDeleteTokens },
     cover: coverOf(campaign),
+    ...{ photoAssetId, bannerAssetId },
     contentWarnings: campaign.contentWarnings.filter(isContentWarning),
   };
 }
@@ -170,10 +171,12 @@ export function toCampaignDetailDto(view: CampaignDetailView): CampaignDetailDto
 export function toCampaignInfoDto(detail: CampaignDetailDto): CampaignInfoDto {
   const { id, name, system, status, description, visibility, masterName, memberCount } = detail;
   const { cover, contentWarnings, tags, playersCreateTokens, playersDeleteTokens } = detail;
+  const { photoAssetId, bannerAssetId } = detail;
   return {
     ...{ id, name, system, status, description, visibility, masterName, memberCount },
     ownerId: detail.ownerId,
-    ...{ cover, contentWarnings, tags, playersCreateTokens, playersDeleteTokens },
+    ...{ cover, photoAssetId, bannerAssetId },
+    ...{ contentWarnings, tags, playersCreateTokens, playersDeleteTokens },
     limits: detail.limits,
   };
 }
@@ -373,10 +376,11 @@ export function toCampaignPatch(
 ): Partial<NewCampaignPo> {
   // The plain password never reaches the row: only `written.passwordHash` does.
   const { name, system, status, description, visibility, contentWarnings, tags } = input;
-  const { playersCreateTokens, playersDeleteTokens } = input;
+  const { playersCreateTokens, playersDeleteTokens, photoAssetId, bannerAssetId } = input;
   const fields = { name, system, status, description, visibility, contentWarnings, tags };
   const tokenRights = { playersCreateTokens, playersDeleteTokens };
-  const columns = { ...fields, ...tokenRights, ...coverColumnsOf(input.cover), ...written };
+  const images = { photoAssetId, bannerAssetId, ...coverColumnsOf(input.cover) };
+  const columns = { ...fields, ...tokenRights, ...images, ...written };
   const present = Object.entries(columns).filter(([, value]) => value !== undefined);
   return Object.fromEntries(present) as Partial<NewCampaignPo>;
 }

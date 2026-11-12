@@ -1,5 +1,5 @@
 import type { AssetMimeTypeDto } from '@lorkarium/contracts';
-import sharp, { type Metadata, type ResizeOptions, type Sharp } from 'sharp';
+import sharp, { type Metadata, type Sharp } from 'sharp';
 import type {
   ImageProcessorPort,
   ImageRefusal,
@@ -9,6 +9,7 @@ import type {
 import { framesWithin, frameHeightOf } from '../sharp-frames';
 import { ALPHA_GRID_MAX_SIDE, outlineOfAlpha, type TracedOutline } from './alpha-outline';
 import { keptAnimatedGif } from './animated-gif';
+import { frameBoxOf, type ImageSize } from './frame-box';
 
 // 100 megapixels: far above any map, far below a decompression bomb.
 const DEFAULT_MAX_INPUT_PIXELS = 100_000_000;
@@ -29,16 +30,16 @@ const STILL_FORMATS: Readonly<Record<string, AssetMimeTypeDto>> = {
 export type SharpImageProcessorOptions = Readonly<{ maxInputPixels?: number }>;
 
 type Refused = Readonly<{ ok: false; refusal: ImageRefusal }>;
-type StillInspected = Readonly<{ mimeType: AssetMimeTypeDto; shortSide: number }>;
+type StillInspected = Readonly<{ mimeType: AssetMimeTypeDto; size: ImageSize }>;
 type Inspected =
-  Readonly<{ ok: true; mimeType: AssetMimeTypeDto; shortSide: number; frames: number }> | Refused;
+  Readonly<{ ok: true; mimeType: AssetMimeTypeDto; size: ImageSize; frames: number }> | Refused;
 
 /** `ImageProcessorPort` over `sharp`: reads the real format from the bytes, turns the image
- *  upright by its EXIF, shrinks it to `maxSide` (or cuts its centre square) and re-encodes it
+ *  upright by its EXIF, cuts it to its `frame` (when given), shrinks it to `maxSide` and re-encodes it
  *  without any metadata. With an animation budget a GIF is kept animated; without, as a PNG of its
  *  first frame.
  *
- *  Example: `await new SharpImageProcessor().normalize(bytes, { maxSide: 256, square: true })` */
+ *  Example: `await new SharpImageProcessor().normalize(bytes, { maxSide: 256, frame: { aspect: { width: 1, height: 1 }, crop: null } })` */
 export class SharpImageProcessor implements ImageProcessorPort {
   private readonly maxInputPixels: number;
 
@@ -60,9 +61,7 @@ export class SharpImageProcessor implements ImageProcessorPort {
   // comes out still: only a GIF with a budget keeps its frames).
   private async still(bytes: Uint8Array, options: NormalizeOptions, inspected: StillInspected) {
     const mimeType = await this.keptMimeOf(bytes, options, inspected.mimeType);
-    const resized = sharp(bytes, { limitInputPixels: this.maxInputPixels })
-      .autoOrient()
-      .resize(resizeOf(options, inspected.shortSide));
+    const resized = this.framedAndShrunk(bytes, options, inspected.size);
     const quality = mimeType === inspected.mimeType ? QUALITY : CONVERTED_WEBP_QUALITY;
     const output = await encoded(resized, mimeType, quality)
       .toBuffer({ resolveWithObject: true })
@@ -77,6 +76,20 @@ export class SharpImageProcessor implements ImageProcessorPort {
       height: info.height,
       outline,
     };
+  }
+
+  // sharp orders it `autoOrient` → `extract` → `resize`, so the frame is cut on the upright image
+  // and the shrink never enlarges what was cut.
+  private framedAndShrunk(bytes: Uint8Array, options: NormalizeOptions, size: ImageSize): Sharp {
+    const upright = sharp(bytes, { limitInputPixels: this.maxInputPixels }).autoOrient();
+    const { frame, maxSide } = options;
+    const framed = frame ? upright.extract(frameBoxOf(size, frame.aspect, frame.crop)) : upright;
+    return framed.resize({
+      width: maxSide,
+      height: maxSide,
+      fit: 'inside',
+      withoutEnlargement: true,
+    });
   }
 
   // A transparent pixel keeps the sent format: only PNG and WebP carry alpha, and a JPEG has none.
@@ -118,10 +131,9 @@ export class SharpImageProcessor implements ImageProcessorPort {
       return refused('format', `format ${metadata.format} is not kept`, EXPECTED);
     }
     // A GIF's height counts all its frames; only the first is read.
-    const height = frameHeightOf(metadata);
-    const pixels = metadata.width * height;
-    const shortSide = Math.min(metadata.width, height);
-    if (pixels <= this.maxInputPixels) return { ok: true, mimeType, shortSide, frames: 1 };
+    const size = uprightSizeOf(metadata);
+    const pixels = size.width * size.height;
+    if (pixels <= this.maxInputPixels) return { ok: true, mimeType, size, frames: 1 };
     const what = `the image has ${pixels} pixels, above the limit of ${this.maxInputPixels}`;
     return refused('too-many-pixels', what, EXPECTED);
   }
@@ -132,20 +144,22 @@ export class SharpImageProcessor implements ImageProcessorPort {
       const { reason, what, expected } = counted.refusal;
       return refused(reason, what, expected);
     }
-    const shortSide = Math.min(metadata.width, frameHeightOf(metadata));
-    return { ok: true, mimeType: 'image/gif', shortSide, frames: counted.frames };
+    return {
+      ok: true,
+      mimeType: 'image/gif',
+      size: uprightSizeOf(metadata),
+      frames: counted.frames,
+    };
   }
 }
 
-// The square side never enlarges: the shortest side of the image, at most `maxSide`. The
-// rotation of `autoOrient` swaps width and height, so the shortest side stays the same.
-function resizeOf(options: NormalizeOptions, shortSide: number): ResizeOptions {
-  const { maxSide } = options;
-  if (options.square !== true) {
-    return { width: maxSide, height: maxSide, fit: 'inside', withoutEnlargement: true };
-  }
-  const side = Math.min(shortSide, maxSide);
-  return { width: side, height: side, fit: 'cover', position: 'centre' };
+// The header gives the size before `autoOrient`; EXIF orientations 5 to 8 turn the image a
+// quarter, so the frame is cut on the swapped sides.
+function uprightSizeOf(metadata: Metadata): ImageSize {
+  const width = metadata.width;
+  const height = frameHeightOf(metadata);
+  const quarterTurned = (metadata.orientation ?? 1) >= 5;
+  return quarterTurned ? { width: height, height: width } : { width, height };
 }
 
 // Read from the kept file, not the sent one: a crop or a rotation is already in it. An image with

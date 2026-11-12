@@ -53,6 +53,13 @@ function patchOf(body: UpdateCampaignRequestInput, written: Written) {
   return toCampaignPatch(updateCampaignRequestDto.parse(body), written);
 }
 const COVER_ID = '7d6c5b4a-3f2e-4d1c-8b0a-9f8e7d6c5b4a';
+const PHOTO_ID = '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
+const BANNER_ID = '6f5e4d3c-2b1a-4f0e-9d8c-7b6a5f4e3d2c';
+
+function publicRowOf(campaign: ReturnType<typeof campaignPo>) {
+  const master = { masterIds: [ANA_ID], masterName: 'Ana', masterUsername: 'ana' };
+  return { campaign, ...master, memberCount: 1, myRole: null };
+}
 
 function detailView(overrides: Partial<CampaignDetailView> = {}): CampaignDetailView {
   return {
@@ -96,6 +103,8 @@ describe('campaigns mapper', () => {
       masterName: 'Bia',
       memberCount: 4,
       cover: { kind: 'drawn', ...defaultCoverOf(VHARN_ID) },
+      photoAssetId: null,
+      bannerAssetId: null,
       contentWarnings: [],
       tags: [],
       playersCreateTokens: false,
@@ -376,6 +385,41 @@ describe('the campaign settings in the mapper', () => {
     const summary = toCampaignSummaryDto(campaignListingRow({ campaign }));
     expect(info).toMatchObject({ playersCreateTokens: true, playersDeleteTokens: false });
     expect(summary).toMatchObject({ playersCreateTokens: true, playersDeleteTokens: false });
+  });
+
+  it('the info, the summary and the explore card carry the photo and the banner as stored', () => {
+    const campaign = campaignPo({ photoAssetId: PHOTO_ID, bannerAssetId: BANNER_ID });
+    const info = toCampaignInfoDto(toCampaignDetailDto(detailView({ campaign })));
+    const summary = toCampaignSummaryDto(campaignListingRow({ campaign }));
+    const card = toPublicCampaignDto(publicRowOf(campaign), false, NOBODY_ONLINE);
+    const images = { photoAssetId: PHOTO_ID, bannerAssetId: BANNER_ID };
+    expect(info).toMatchObject(images);
+    expect(summary).toMatchObject(images);
+    expect(card).toMatchObject(images);
+  });
+
+  it('a table without photo nor banner sends both as null', () => {
+    const info = toCampaignInfoDto(toCampaignDetailDto(detailView()));
+    expect(info).toMatchObject({ photoAssetId: null, bannerAssetId: null });
+  });
+
+  it('removing the photo writes only its column as null, the cover untouched', () => {
+    const updatedAt = new Date('2026-11-12T10:00:00Z');
+    const patch = patchOf({ photoAssetId: null }, { passwordHash: undefined, updatedAt });
+    expect(patch).toEqual({ photoAssetId: null, updatedAt });
+  });
+
+  it('a new banner writes its column alone', () => {
+    const updatedAt = new Date('2026-11-12T10:00:00Z');
+    const patch = patchOf({ bannerAssetId: BANNER_ID }, { passwordHash: undefined, updatedAt });
+    expect(patch).toEqual({ bannerAssetId: BANNER_ID, updatedAt });
+  });
+
+  it('a drawn cover leaves the photo and the banner as they are', () => {
+    const at = { passwordHash: undefined, updatedAt: new Date('2026-11-12T10:00:00Z') };
+    const patch = patchOf({ cover: { kind: 'drawn', drawing: 0, tone: 3 } }, at);
+    expect(patch).not.toHaveProperty('photoAssetId');
+    expect(patch).not.toHaveProperty('bannerAssetId');
   });
 
   it('the plain password never reaches the patch', () => {
