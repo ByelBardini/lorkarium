@@ -39,11 +39,14 @@ export async function restoreOwnProfile(page: Page, profile: OwnProfile): Promis
   expect(response.status()).toBe(200);
 }
 
-/** Opens "Minha conta" and waits for its heading.
+/** A tab of "Minha conta", as `?aba=` names it. */
+export type AccountTabName = 'perfil' | 'dados' | 'seguranca' | 'plano';
+
+/** Opens "Minha conta" on a tab (Perfil by default) and waits for its heading.
  *
- *  Example: `await openAccount(caio); await caio.getByRole('button', { name: 'Trocar senha' }).click()` */
-export async function openAccount(page: Page): Promise<void> {
-  await page.goto('/account');
+ *  Example: `await openAccount(caio, 'seguranca'); await caio.getByRole('button', { name: 'Trocar senha' }).click()` */
+export async function openAccount(page: Page, tab: AccountTabName = 'perfil'): Promise<void> {
+  await page.goto(tab === 'perfil' ? '/account' : `/account?aba=${tab}`);
   await expect(page.getByRole('heading', { name: 'Minha conta', level: 1 })).toBeVisible();
 }
 

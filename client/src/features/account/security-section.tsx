@@ -37,7 +37,7 @@ export function SecuritySection(props: SecuritySectionProps): React.JSX.Element 
     setNotice(message);
   };
   return (
-    <section aria-labelledby={titleId} className="flex flex-col gap-6 border-t border-divider pt-8">
+    <section aria-labelledby={titleId} className="flex flex-col gap-6">
       <SectionHeading id={titleId} title="Conta e segurança">
         Só você vê esta parte.
       </SectionHeading>
