@@ -73,8 +73,10 @@ function useComposerFocus(
   roomLayout: StoreApi<RoomLayoutStore>,
 ): void {
   useLayoutEffect(() => {
+    // It mounts 0 px tall (the board is measured right after): a plain focus would scroll the
+    // room's box to reach the composer, leaving the board shifted up over a dark strip.
     const focusComposer = (): void =>
-      ref.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
+      ref.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus({ preventScroll: true });
     focusComposer();
     return onChatFocusRequest(roomLayout, focusComposer);
   }, [ref, roomLayout]);
