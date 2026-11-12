@@ -2,12 +2,11 @@ import type { AccountPlanDto, ProfileDto } from '@lorkarium/contracts';
 import { useId } from 'react';
 import { useRevalidator } from 'react-router';
 import { Alert } from '@/components/ui/alert';
-import { PlanSeal } from '@/components/plan-seal';
 import { Button } from '@/components/ui/button';
 import type { AccountLoadFailure, AccountResult } from '@/services/account-failure';
 import { PlanGridTable } from './plan-grid-table';
 import { campaignsUsageLabel, storageUsageLabel } from './plan-grid';
-import { PLAN_NAMES } from '@/lib/plan-seal';
+import { PlanCard } from './plan-card';
 import { SectionHeading } from './section-heading';
 
 /** What of the account, besides the plan, picks the seal and says why there is no plan limit. */
@@ -41,21 +40,14 @@ export function PlanSection({ plan, account }: PlanSectionProps): React.JSX.Elem
 type PlanSummaryProps = Readonly<{ plan: AccountPlanDto; account: PlanSectionAccount }>;
 
 function PlanSummary({ plan, account }: PlanSummaryProps): React.JSX.Element {
-  const scopeNote = noPlanLimitNote(plan, account);
   const { admin, lorkariumOwner } = account;
   const seal = { plan: plan.plan, admin, lorkariumOwner };
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-1.5">
-          <h3 className="font-display text-xl font-semibold">{PLAN_NAMES[plan.plan]}</h3>
-          <PlanSeal holder={seal} className="text-xl" />
-        </div>
-        {scopeNote !== null && <p className="text-sm">{scopeNote}</p>}
-        <p className="text-sm text-muted-foreground">{customizationNote(plan.customization)}</p>
-      </div>
+      <PlanCard holder={seal} />
+      <p className="text-sm text-muted-foreground">{customizationNote(plan.customization)}</p>
       <PlanUsage plan={plan} />
-      <PlanGridTable current={plan.limits.plan} />
+      <PlanGridTable holder={seal} />
     </div>
   );
 }
@@ -75,17 +67,6 @@ function PlanUsage({
       </dd>
     </dl>
   );
-}
-
-// The effective limits are Amigo do Dono's for the plan itself, for the Dono do Lorkarium and for
-// an admin, whatever the plan; the reason follows the seal's order.
-function noPlanLimitNote(plan: AccountPlanDto, account: PlanSectionAccount): string | null {
-  if (plan.limits.plan !== 'amigo_do_dono') return null;
-  if (account.lorkariumOwner)
-    return 'Dono do Lorkarium: sem limite de plano, valem só os limites técnicos.';
-  if (account.admin)
-    return 'Conta de administrador: sem limite de plano, valem só os limites técnicos.';
-  return 'Sem limite de plano: valem só os limites técnicos.';
 }
 
 function customizationNote(open: boolean): string {
