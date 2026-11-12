@@ -14,9 +14,9 @@
     "@lorkarium/brand": "workspace:*",
     "@lorkarium/contracts": "workspace:*",
     "@lorkarium/dice-renderer": "workspace:*",
-    "@tailwindcss/vite": "^4.3.3",
-    "astro": "^7.4.4",
-    "tailwindcss": "^4.3.3",
+    "@tailwindcss/vite": "^4.3.4",
+    "astro": "^7.4.5",
+    "tailwindcss": "^4.3.4",
     "zod": "^4.6.7"
   },
   "devDependencies": {
