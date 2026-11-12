@@ -173,7 +173,7 @@ describe('room layout store', () => {
     ['combat', true],
     ['people', true],
     ['dice', true],
-    ['chat', true],
+    ['chat', false],
     ['notes', false],
   ])('isRoomTab(%s) is %s', (value, expected) => {
     expect(isRoomTab(value)).toBe(expected);

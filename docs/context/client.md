@@ -13,6 +13,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Tempo real: transporte Socket.IO, sessão da mesa, mesas abertas da aba, presença e versão      | [`realtime.md`](client/realtime.md)                             |
 | Sala de jogo: tabuleiro, renderer, câmera, ferramentas, sync e comandos                        | [`board.md`](client/board.md)                                   |
 | Renderer PixiJS: câmera, entrada, `BoardView`, hover, faixas, adaptador                        | [`board-renderer.md`](client/board-renderer.md)                 |
+| Atalhos da sala e do tabuleiro: F, Esc, ferramentas, câmera, edição                            | [`board-atalhos.md`](client/board-atalhos.md)                   |
 | Tokens na sala: arraste, teclado, lista "Na cena", detalhe, diálogo e barras                   | [`tokens.md`](client/tokens.md)                                 |
 | Diálogo do token: prévia (lugar da imagem), abas Básico, Barras, Formas, Visão e luz           | [`token-dialog.md`](client/token-dialog.md)                     |
 | Formas no mapa: `token:formChanged`, `setTokenForm`, desfazer, "Trocar forma", teclas 1–8      | [`token-forms.md`](client/token-forms.md)                       |
@@ -90,7 +91,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 - App desktop: `src/lib/desktop-shell.ts` (`isDesktopShell`, `desktopShellOf`), `src/services/field-editing.ts` e `src/features/text-field-menu/` — ver [`client/text-field-menu.md`](client/text-field-menu.md); `src/services/desktop-window.ts` — porta `DesktopWindow` (`minimize`, `toggleMaximize`, `close`, `isMaximized`, `onMaximizedChange`) e `TauriDesktopWindow` para a principal (recusa → `DesktopWindowError` com o comando e o motivo) — ver [`client/title-bar.md`](client/title-bar.md). `desktop-chat-window-host.ts` e `detached-desktop-window.ts` controlam as auxiliares ([`client/chat-janela.md`](client/chat-janela.md)); esses adaptadores carregam `@tauri-apps/api` por `import()`, só na casca.
 - `src/lib/stored-choice.ts` — `readStoredChoice(storage, chave, opções, padrão)` / `writeStoredChoice`: preferência de UI no `localStorage` que cai na memória se o storage lança (trilho e painel da sala)
 - `src/lib/use-media-query.ts` — `useMediaQuery(query)` e `DESKTOP_QUERY` (`md`); sem `matchMedia` (jsdom) responde `true`
-- `src/lib/board-shortcuts.ts`, `ruler-label.ts` — atalhos e régua da sala (ver [`client/board.md`](client/board.md))
+- `src/lib/board-shortcuts.ts`, `ruler-label.ts` — atalhos e régua da sala (ver [`client/board-atalhos.md`](client/board-atalhos.md) e [`client/board.md`](client/board.md))
 - `src/lib/table-roster.ts`, `member-presence.ts`, `idle-watch.ts`, `away-label.ts` — seções, presença, inatividade e "ausente há N min" da aba "Na mesa" (ver [`client/table-people.md`](client/table-people.md))
 - `src/lib/cells-text.ts` — `cellsText(1.5)` → `'1,5'`: casas com vírgula; `positionText(4.015625)` → `'4,02'`: posição, até 2 decimais
 - `src/lib/token-side.ts` — `sideRingVar(lado)` → `var(--label)` / `var(--chart-3)` / `var(--chart-2)`: a cor do anel do token no DOM

@@ -14,6 +14,7 @@ import { documentFixture } from '../../support/documents-fixtures';
 import { chatSent } from '../../support/chat-fixtures';
 import { biaRolled } from '../../support/dice-fixtures';
 import { emulateViewport } from '../../support/viewport';
+import type { ChatWindowFake } from '../../support/chat-window-host-fake';
 import { TORRE_SCENE, torreBoard } from '../../support/scene-tab-fixtures';
 import {
   KAEL_COMBATANT,
@@ -297,7 +298,7 @@ describe('play room: grid tabs', () => {
   });
 });
 
-describe('play room: the "Chat" tab and its counter', () => {
+describe('play room: the chat at the foot of the board', () => {
   let deps: TestDependencies;
 
   beforeEach(async () => {
@@ -316,11 +317,100 @@ describe('play room: the "Chat" tab and its counter', () => {
     await act(() => Promise.resolve());
   });
 
-  it('"Chat" holds the conversations of the table and sends from there', async () => {
-    await userEvent.click(screen.getByRole('tab', { name: 'Chat' }));
-    const chat = screen.getByRole('tabpanel', { name: 'Chat' });
-    await userEvent.type(within(chat).getByRole('combobox', { name: 'Mensagem' }), 'Oi!{Enter}');
+  function bar(): HTMLElement {
+    return screen.getByRole('region', { name: 'Chat da mesa' });
+  }
+
+  function drawer(): HTMLElement {
+    return screen.getByRole('region', { name: 'Conversa' });
+  }
+
+  async function openChat(): Promise<void> {
+    await userEvent.click(within(bar()).getByRole('button', { name: 'Abrir chat' }));
+  }
+
+  async function detachChat(): Promise<ChatWindowFake> {
+    await openChat();
+    await userEvent.click(within(drawer()).getByRole('button', { name: 'Abrir em outra janela' }));
+    const popup = deps.chatWindowHost.last();
+    popup.load();
+    await waitFor(() => expect(within(popup.document.body).getByRole('log')).toBeInTheDocument());
+    return popup;
+  }
+
+  it('the side panel has only "Combate", "Na mesa" and "Dados"', () => {
+    const panel = screen.getByRole('complementary', { name: 'Painel da mesa' });
+    const tabs = within(panel).getAllByRole('tab');
+    expect(tabs.map((tab) => tab.textContent?.replace(/\d+$/, ''))).toEqual([
+      'Combate',
+      'Na mesa',
+      'Dados',
+    ]);
+  });
+
+  it('the "Chat da mesa" bar opens a drawer that sends to the table', async () => {
+    await openChat();
+    await userEvent.type(
+      within(drawer()).getByRole('combobox', { name: 'Mensagem' }),
+      'Oi!{Enter}',
+    );
     expect(deps.chat.sent.map(({ request }) => request.text)).toEqual(['Oi!']);
+  });
+
+  it('a message while the panel shows "Dados" is counted on the bar', async () => {
+    await userEvent.click(screen.getByRole('tab', { name: 'Dados' }));
+    deps.tableSessionApi.emit({ kind: 'chatSent', event: chatSent() });
+    expect(within(bar()).getByRole('button', { name: 'Abrir chat' })).toHaveAccessibleDescription(
+      '1 mensagem não lida',
+    );
+  });
+
+  it('with the panel collapsed, "Abrir painel" carries no chat count: the bar does', async () => {
+    await userEvent.click(screen.getByRole('button', { name: 'Recolher painel' }));
+    deps.tableSessionApi.emit({ kind: 'chatSent', event: chatSent() });
+    expect(screen.getByRole('button', { name: 'Abrir painel' })).not.toHaveAccessibleDescription();
+    expect(within(bar()).getByRole('button', { name: 'Abrir chat' })).toHaveAccessibleDescription(
+      '1 mensagem não lida',
+    );
+  });
+
+  it('focus mode (F) hides the toolbar and the panel, and keeps the bar', () => {
+    fireEvent.keyDown(window, { key: 'f' });
+    expect(screen.queryByRole('toolbar', { name: 'Ferramentas do tabuleiro' })).toBeNull();
+    expect(screen.queryByRole('complementary', { name: 'Painel da mesa' })).toBeNull();
+    expect(bar()).toBeInTheDocument();
+  });
+
+  it('the browser tab counts the unread messages, and goes back to the plain title once read', async () => {
+    expect(document.title).toBe('Lorkarium · Os Sinos de Vharn');
+    deps.tableSessionApi.emit({ kind: 'chatSent', event: chatSent() });
+    expect(document.title).toBe('(1) Lorkarium · Os Sinos de Vharn');
+    await openChat();
+    expect(document.title).toBe('Lorkarium · Os Sinos de Vharn');
+  });
+
+  it('Esc with the focus in the drawer closes only the drawer, and focus mode stays', async () => {
+    fireEvent.keyDown(window, { key: 'f' });
+    await openChat();
+    expect(within(drawer()).getByRole('combobox', { name: 'Mensagem' })).toHaveFocus();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('region', { name: 'Conversa' })).toBeNull();
+    expect(deps.roomLayout.getState()).toMatchObject({ focus: true, chat: 'closed' });
+  });
+
+  it('Esc on the board still leaves focus mode, and the open drawer stays', async () => {
+    fireEvent.keyDown(window, { key: 'f' });
+    await openChat();
+    act(() => screen.getByRole('application').focus());
+    await userEvent.keyboard('{Escape}');
+    expect(deps.roomLayout.getState()).toMatchObject({ focus: false, chat: 'open' });
+    expect(drawer()).toBeInTheDocument();
+  });
+
+  it('a whisper to the viewer rings the chat sound once', () => {
+    const whisper = chatSent({ channel: { kind: 'table', whisperTo: ANA.id }, text: 'Só você.' });
+    deps.tableSessionApi.emit({ kind: 'chatSent', event: whisper });
+    expect(deps.chatSounds.latest().plays).toBe(1);
   });
 
   it('dice and chat open independent windows, keep rolling across tabs, and dock after closing', async () => {
@@ -333,50 +423,31 @@ describe('play room: the "Chat" tab and its counter', () => {
     );
     expect(deps.chatWindowHost.calls.at(-1)?.url).toBe('/chat-window.html?panel=dice');
     expect(dicePopup.document.title).toBe('Dados · Lorkarium');
-    await userEvent.click(screen.getByRole('tab', { name: 'Chat' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Abrir em outra janela' }));
-    const chatPopup = deps.chatWindowHost.last();
-    chatPopup.load();
-    await waitFor(() =>
-      expect(within(chatPopup.document.body).getByRole('log')).toBeInTheDocument(),
-    );
+    const chatPopup = await detachChat();
     expect(deps.chatWindowHost.calls[0]?.name).not.toBe(deps.chatWindowHost.calls[1]?.name);
     await userEvent.type(within(dicePopup.document.body).getByLabelText('Fórmula'), '1d20');
     await userEvent.click(within(dicePopup.document.body).getByRole('button', { name: 'Rolar' }));
     expect(deps.dice.sent).toHaveLength(1);
-    await userEvent.click(screen.getByRole('tab', { name: 'Dados' }));
     dicePopup.closeByUser();
     await waitFor(() => expect(screen.getByLabelText('Fórmula')).toBeInTheDocument());
     expect(chatPopup.closed).toBe(false);
   });
 
-  it('the separate chat stays live after switching tabs and returns when brought back', async () => {
-    await userEvent.click(screen.getByRole('tab', { name: 'Chat' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Abrir em outra janela' }));
-    const popup = deps.chatWindowHost.last();
-    popup.load();
-    await waitFor(() => expect(within(popup.document.body).getByRole('log')).toBeInTheDocument());
+  it('the detached chat sends and receives through its window, and the bar brings it back', async () => {
+    const popup = await detachChat();
+    expect(within(bar()).getByText('Chat aberto em outra janela')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('tab', { name: 'Dados' }));
     deps.tableSessionApi.emit({ kind: 'chatSent', event: chatSent() });
     expect(within(popup.document.body).getByRole('log')).toHaveTextContent('Oi, mesa.');
-    expect(screen.getByRole('tab', { name: 'Chat' })).not.toHaveAccessibleDescription();
+    expect(document.title).toBe('Lorkarium · Os Sinos de Vharn');
     await userEvent.type(
       within(popup.document.body).getByRole('combobox', { name: 'Mensagem' }),
       'Da janela.{Enter}',
     );
     expect(deps.chat.sent.at(-1)?.request.text).toBe('Da janela.');
-    await userEvent.click(screen.getByRole('tab', { name: 'Chat' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Trazer de volta' }));
+    await userEvent.click(within(bar()).getByRole('button', { name: 'Trazer de volta' }));
     expect(popup.closed).toBe(true);
-    expect(screen.getByRole('log')).toHaveTextContent('Oi, mesa.');
-  });
-
-  it('a message while "Chat" is not shown is counted on the tab, and showing it clears the count', async () => {
-    deps.tableSessionApi.emit({ kind: 'chatSent', event: chatSent() });
-    const tab = screen.getByRole('tab', { name: 'Chat' });
-    expect(tab).toHaveAccessibleDescription('1 mensagem não lida');
-    await userEvent.click(tab);
-    expect(screen.getByRole('tab', { name: 'Chat' })).not.toHaveAccessibleDescription();
+    expect(within(drawer()).getByRole('log')).toHaveTextContent('Oi, mesa.');
   });
 
   it('a character’s line at the Table goes to the board shown as a balloon', () => {
@@ -393,20 +464,12 @@ describe('play room: the "Chat" tab and its counter', () => {
       { tokenId: LYRA_ID, text: 'Oi, mesa.' },
     ]);
   });
-
-  it('with the panel collapsed, "Abrir painel" carries the count', async () => {
-    await userEvent.click(screen.getByRole('button', { name: 'Recolher painel' }));
-    deps.tableSessionApi.emit({ kind: 'chatSent', event: chatSent() });
-    expect(screen.getByRole('button', { name: 'Abrir painel' })).toHaveAccessibleDescription(
-      '1 mensagem não lida',
-    );
-  });
 });
 
 describe('play room on a phone: the chat counter on "Painel"', () => {
   emulateViewport('mobile');
 
-  it('a message is counted on "Painel" while the sheet is closed', async () => {
+  it('a message is counted on "Painel" while the sheet is closed, with no chat bar', async () => {
     const deps = testDependencies();
     deps.authApi.answerMeWith(ANA);
     const router = createMemoryRouter(buildRoutes(deps), {
@@ -419,5 +482,6 @@ describe('play room on a phone: the chat counter on "Painel"', () => {
     expect(screen.getByRole('button', { name: 'Painel' })).toHaveAccessibleDescription(
       '1 mensagem não lida',
     );
+    expect(screen.queryByRole('region', { name: 'Chat da mesa' })).toBeNull();
   });
 });
