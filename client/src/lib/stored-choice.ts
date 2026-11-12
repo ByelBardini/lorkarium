@@ -32,6 +32,24 @@ export function readStoredColor<Name extends string>(
   return palette.find((name) => name === stored) ?? fallback;
 }
 
+const DECIMAL_TEXT = /^-?\d+(\.\d+)?$/;
+
+/** A remembered number written as plain decimal text that `accepts` approves, or `fallback` for
+ *  anything else (`'12px'`, `'1e3'`, `'Infinity'`, a refused value, a storage that throws).
+ *
+ *  Example: `readStoredNumber(storage, 'lorkarium.roomChatHeight', (h) => h > 0, 330)` */
+export function readStoredNumber(
+  storage: ChoiceStorage,
+  key: string,
+  accepts: (value: number) => boolean,
+  fallback: number,
+): number {
+  const stored = storedTextOf(storage, key);
+  if (stored === null || !DECIMAL_TEXT.test(stored)) return fallback;
+  const value = Number(stored);
+  return accepts(value) ? value : fallback;
+}
+
 function storedTextOf(storage: ChoiceStorage, key: string): string | null {
   try {
     return storage.getItem(key);
