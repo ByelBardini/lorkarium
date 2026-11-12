@@ -12,8 +12,11 @@ import {
   type PublicCampaignDto,
   type CreateCampaignRequestDto,
   type UpdateCampaignRequestDto,
+  type UserPlan,
 } from '@lorkarium/contracts';
 import { defaultCoverOf, memberColorOf, type TableSeat } from '@lorkarium/game-core';
+import type { UserPlanPo } from '../auth/users.po';
+import { effectiveLimitsOf } from '../plans/plan-limits.bo';
 import { CampaignAccessBo } from './campaign-access.bo';
 import { CampaignJoinBo } from './campaign-join.bo';
 import { CampaignSettingsBo } from './campaign-settings.bo';
@@ -66,7 +69,7 @@ export function toPublicCampaignDto(
 ): PublicCampaignDto {
   const mastersOnline = row.masterIds.filter((id) => onlineUserIds.has(id)).length;
   return {
-    ...campaignInfoOf(row),
+    ...campaignBaseOf(row),
     myRole: row.myRole,
     hasPassword: row.campaign.passwordHash !== null && !readerIsAdmin,
     masterUsername: row.masterUsername,
@@ -75,9 +78,14 @@ export function toPublicCampaignDto(
   };
 }
 
-type CampaignInfoRow = Readonly<{ campaign: CampaignPo; masterName: string; memberCount: number }>;
+type CampaignBaseRow = Readonly<{ campaign: CampaignPo; masterName: string; memberCount: number }>;
 
-function campaignInfoOf({ campaign, masterName, memberCount }: CampaignInfoRow): CampaignInfoDto {
+function campaignInfoOf(row: CampaignBaseRow & Readonly<{ owner: UserPlanPo }>): CampaignInfoDto {
+  return { ...campaignBaseOf(row), limits: effectiveLimitsOf(row.owner) };
+}
+
+function campaignBaseOf(row: CampaignBaseRow): Omit<CampaignInfoDto, 'limits'> {
+  const { campaign, masterName, memberCount } = row;
   const { id, name, system, status, description, visibility, tags, ownerId } = campaign;
   const { playersCreateTokens, playersDeleteTokens } = campaign;
   return {
@@ -118,14 +126,16 @@ function coverToneOf(stored: string): CampaignCoverToneDto {
  *
  *  Example: `toCampaignSummaryOfView({ campaign, membership, members }).myRole // 'player'` */
 export function toCampaignSummaryOfView(view: CampaignView): CampaignSummaryDto {
+  const owner = ownerOf(view);
   return toCampaignSummaryDto({
     campaign: view.campaign,
     role: view.membership.role,
     juggernautSince: view.membership.juggernautSince,
     joinedAt: view.membership.joinedAt,
     lastEnteredAt: view.membership.lastEnteredAt,
-    masterName: masterNameOf(view),
+    masterName: owner.name,
     memberCount: membersOfRecord(view.members).length,
+    owner: owner.account,
   });
 }
 
@@ -164,6 +174,7 @@ export function toCampaignInfoDto(detail: CampaignDetailDto): CampaignInfoDto {
     ...{ id, name, system, status, description, visibility, masterName, memberCount },
     ownerId: detail.ownerId,
     ...{ cover, contentWarnings, tags, playersCreateTokens, playersDeleteTokens },
+    limits: detail.limits,
   };
 }
 
@@ -259,11 +270,12 @@ export function toMemberRoleBo(lookup: MemberRoleLookup): MemberRoleBo {
   return new MemberRoleBo(campaignId, requester, target);
 }
 
-// "Mestre: X" is the owner's name, however many co-masters the table has.
-function masterNameOf(view: CampaignView): string {
+// "Mestre: X" is the owner's name, however many co-masters the table has, and the owner's plan
+// gives the table's limits.
+function ownerOf(view: CampaignView): CampaignMemberRow {
   const { id, ownerId } = view.campaign;
   const owner = view.members.find((member) => member.userId === ownerId);
-  if (owner) return owner.name;
+  if (owner) return owner;
   throw new Error(`campaign ${id} has no member with the owner_id ${ownerId}`);
 }
 
@@ -296,9 +308,26 @@ export function toCampaignMemberDto(member: CampaignMemberRow, online: boolean):
     role: member.role,
     color: memberColorOf(member.userId, member.colorChoice),
     avatarId: member.avatarId,
+    ...accountSealFieldsOf(member.account),
     online,
   };
 }
+
+/** What the table picks a person's one seal from: the stored plan (never the effective one, which
+ *  is Amigo do Dono's for an admin), the global role and the Dono do Lorkarium.
+ *
+ *  Example: `accountSealFieldsOf({ role: 'admin', plan: 'free', lorkariumOwner: false }).admin // true` */
+export function accountSealFieldsOf(account: UserPlanPo): AccountSealFields {
+  const { plan, lorkariumOwner } = account;
+  return { plan, admin: account.role === 'admin', lorkariumOwner };
+}
+
+/** The fields of a member DTO the seal is picked from. */
+export type AccountSealFields = Readonly<{
+  plan: UserPlan;
+  admin: boolean;
+  lorkariumOwner: boolean;
+}>;
 
 function seatRank(member: CampaignMemberRow): number {
   if (member.owner) return 0;

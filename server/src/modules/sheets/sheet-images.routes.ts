@@ -18,6 +18,7 @@ import { CampaignError, CampaignNotFoundError } from '../campaigns/campaigns.err
 import type { LibraryRequester } from '../library/library.service';
 import type { SheetImagesService } from './sheet-images.service';
 import { SheetError, SheetNotFoundError } from './sheets.error';
+import { withPlanLimitReply } from '../plans/plan-limit-response';
 
 const IMAGES_URL = '/campaigns/:campaignId/sheets/:sheetId/images';
 // Spec §8.4: each send decodes an image; the same budget as the generic asset routes.
@@ -38,7 +39,7 @@ export function sheetImagesRoutes(
   images: SheetImagesService,
 ): (app: FastifyInstance) => Promise<void> {
   return async (app) => {
-    app.setErrorHandler(sheetImageErrorReply);
+    app.setErrorHandler(withPlanLimitReply(sheetImageErrorReply));
     app.addHook('onSend', async (_request, reply, payload) => {
       reply.header('cache-control', 'private, no-store');
       return payload;

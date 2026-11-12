@@ -8,6 +8,7 @@ import { isUniqueViolation } from '../../lib/postgres-error';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { CampaignNotFoundError } from '../campaigns/campaigns.error';
 import { memberAccessOf } from '../campaigns/member-access';
+import { effectiveLimitsOf } from '../plans/plan-limits.bo';
 import { SavedRollRulesBo } from './saved-roll.bo';
 import type { SavedRollFoldersDao } from './saved-roll-folders.dao';
 import type { SavedRollsDao } from './saved-rolls.dao';
@@ -61,14 +62,17 @@ export class SavedRollsService {
     return { savedRolls: rows.map(toSavedRollDto) };
   }
 
-  /** Counts and inserts under the owner's lock, so two saves never pass the ceiling together. */
+  /** Counts and inserts under the owner's lock, so two saves never pass the ceiling together; the
+   *  ceiling is the table owner's plan, read in that lock. */
   async create(owner: SavedRollOwner, input: CreateSavedRollRequestDto): Promise<SavedRollDto> {
     await this.requireMember(owner);
     this.rules.requireReadable(input.parts.map((part) => part.expression));
     const row = await this.namedWrite(input.name, () =>
       this.deps.transaction(async ({ rolls, folders }) => {
-        if (!(await rolls.lockOwner(owner.campaignId, owner.userId))) throw notMember(owner);
-        this.rules.requireRoomFor(await rolls.countOf(owner.campaignId, owner.userId));
+        const tableOwner = await rolls.lockOwner(owner.campaignId, owner.userId);
+        if (!tableOwner) throw notMember(owner);
+        const kept = await rolls.countOf(owner.campaignId, owner.userId);
+        this.rules.requireRoomFor(kept, effectiveLimitsOf(tableOwner));
         await requireOwnFolder(folders, owner, input.folderId);
         return rolls.insert(toNewSavedRollPo(owner, input));
       }),

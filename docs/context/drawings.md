@@ -19,6 +19,7 @@ Desenhos do tabuleiro (extensão do spec §3.3): mão livre, quadrado, círculo 
 ## Regra
 
 - Todo membro desenha: o `createMany` só confere a participação (`memberAccessOf`; fora da mesa → `CAMPAIGN_NOT_FOUND`).
+- Cor personalizada segue o plano do dono da mesa (`locked.scene.owner`): no `createMany`, `stroke` ou `fill` hex sem `customColor` → `PLAN_LIMIT` `customColor` (`CustomColorPlanBo`, ver [`plans.md`](plans.md)). Mover e apagar não olham cor: o desenho com hex de antes da descida segue editável.
 - A autoria mora no `AuthoredAccessBo(campaignAccess, 'drawing')` (`scenes/authored-access.bo.ts`, comum a desenhos e áreas de efeito): `requireEdit(ação, { id, authorId })` (`AuthoredPiece`) — o mestre edita qualquer um (inclusive sem autor); o autor só o seu (`FORBIDDEN` citando `drawing <id>`).
 - `DrawingRulesBo({ scene, limit })`: `place(caixa)` pelo `boxFits` do game-core (fora → `OUT_OF_SCENE` citando a caixa e a cena, `DrawingOutOfSceneError`); `admit(guardados, novos)` — passar de `DRAWINGS_PER_SCENE_MAX` (500, passado pelo plugin) → `DRAWING_LIMIT` citando a contagem e o limite; `requireAt(id, esperado?, atual)` — sem `expect` sempre passa; diferente ao centésimo → `STALE_UNDO` citando o desenho, o esperado e o atual.
 - `drawings.mapper.ts`: `toDrawingDto` (numeric `"2.50"` → `2.5`; mão livre sem pontos é linha quebrada e lança), `toNewDrawingPo(sceneId, autor, forma)` (arredonda ao centésimo, mão livre sem `fill`), `boxOfShape`, `boxAt(linha, posição)`, `positionOf`, `ownershipOf` (id e autor), `toDrawingMovePo`, `toHundredth`.

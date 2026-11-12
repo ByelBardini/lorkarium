@@ -1,6 +1,17 @@
 import { eq, sql } from 'drizzle-orm';
+import { lorkariumOwnerSql } from '../../database/lorkarium-owner-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
-import { users, type NewUserPo, type SealedEmail, type UserPo } from './users.po';
+import { users, type NewUserPo, type SealedEmail, type UserPlanPo, type UserPo } from './users.po';
+
+/** The select of an account's `UserPlanPo`, joined on `users`: every read of a plan for its
+ *  limits uses it, so none forgets whether the account is the Dono do Lorkarium.
+ *
+ *  Example: `db.select({ owner: PLAN_ACCOUNT_COLUMNS }).from(campaigns).innerJoin(users, …)` */
+export const PLAN_ACCOUNT_COLUMNS = {
+  role: users.role,
+  plan: users.plan,
+  lorkariumOwner: lorkariumOwnerSql(users.username),
+};
 
 /** An account still keeping its e-mail in clear (between migrations 0038 and 0039). */
 export type PlainEmailRow = Readonly<{ id: string; email: string }>;
@@ -30,6 +41,21 @@ export class UsersDao {
       .where(eq(users.id, userId))
       .for('share');
     return row?.role;
+  }
+
+  /** The account's role, plan and Dono flag, its row locked until the transaction ends: two
+   *  writes counted against the same account's plan (its tables as owner) queue here. `NO KEY
+   *  UPDATE`, so rows that only point at the account are still inserted meanwhile. Call it on a
+   *  DAO built with the `tx`.
+   *
+   *  Example: `effectiveLimitsOf(await new UsersDao(tx).lockForPlan(ownerId))` */
+  async lockForPlan(userId: string): Promise<UserPlanPo | undefined> {
+    const [row] = await this.db
+      .select(PLAN_ACCOUNT_COLUMNS)
+      .from(users)
+      .where(eq(users.id, userId))
+      .for('no key update');
+    return row;
   }
 
   async findByUsername(username: string): Promise<UserPo | undefined> {

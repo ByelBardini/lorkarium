@@ -32,7 +32,15 @@ describe('ProfilesDao on Postgres', () => {
   it('the row read carries the @ and the profile columns, never the e-mail nor the hash', async () => {
     const row = await profiles.findById(anaId);
 
-    expect(row).toMatchObject({ id: anaId, username: 'ana', name: 'Ana', color: null });
+    expect(row).toMatchObject({
+      id: anaId,
+      username: 'ana',
+      name: 'Ana',
+      color: null,
+      plan: 'free',
+      role: 'user',
+      lorkariumOwner: false,
+    });
     expect(Object.keys(row ?? {}).sort()).toEqual(
       [
         'avatarId',
@@ -42,7 +50,10 @@ describe('ProfilesDao on Postgres', () => {
         'diceNumberColor',
         'diceTextureId',
         'id',
+        'lorkariumOwner',
         'name',
+        'plan',
+        'role',
         'username',
       ].sort(),
     );

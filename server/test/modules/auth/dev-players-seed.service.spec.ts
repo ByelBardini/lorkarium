@@ -25,6 +25,7 @@ describe('DevPlayersSeedService', () => {
         emailCipher: `sealed:user-email:${CAIO_ID}:caio@lorkarium.dev`,
         emailIndex: 'idx:email-index:caio@lorkarium.dev',
         passwordHash: 'hashed:lorkarium-dev',
+        plan: 'amigo_do_dono',
       },
     ]);
   });

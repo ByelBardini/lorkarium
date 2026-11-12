@@ -4,6 +4,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import { FormField } from '@/components/form-field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { UserHandle } from '@/components/user-handle';
 import { UnsavedChangesBar } from '@/components/unsaved-changes-bar';
 import {
   unsavedChangesStateOf,
@@ -60,7 +61,7 @@ export function ProfileSection(props: ProfileSectionProps): React.JSX.Element {
               profileApi={props.profileApi}
               sessionStore={props.sessionStore}
             />
-            <ProfileFields draft={draft} username={profile.username} />
+            <ProfileFields draft={draft} profile={profile} />
             <DiceAppearanceField
               profile={profile}
               draft={draft}
@@ -74,6 +75,7 @@ export function ProfileSection(props: ProfileSectionProps): React.JSX.Element {
             username={profile.username}
             avatarId={profile.avatarId}
             memberSince={profile.memberSince}
+            seal={profile}
           />
         </div>
         {save.barState && (
@@ -124,7 +126,7 @@ function useProfileSave(draft: ProfileDraft): ProfileSave {
   };
 }
 
-function ProfileFields({ draft, username }: Readonly<{ draft: ProfileDraft; username: string }>) {
+function ProfileFields({ draft, profile }: Readonly<{ draft: ProfileDraft; profile: ProfileDto }>) {
   const ids = { name: useId(), bio: useId() };
   const { values, errors } = draft;
   return (
@@ -144,7 +146,7 @@ function ProfileFields({ draft, username }: Readonly<{ draft: ProfileDraft; user
           aria-describedby={errors.name ? `${ids.name}-error` : undefined}
         />
       </FormField>
-      <UsernameLine username={username} />
+      <UsernameLine profile={profile} />
       <ProfileColorField value={values.color} onChange={(color) => draft.change({ color })} />
       <FormField
         id={ids.bio}
@@ -164,11 +166,13 @@ function ProfileFields({ draft, username }: Readonly<{ draft: ProfileDraft; user
   );
 }
 
-function UsernameLine({ username }: Readonly<{ username: string }>): React.JSX.Element {
+function UsernameLine({ profile }: Readonly<{ profile: ProfileDto }>): React.JSX.Element {
   return (
     <div className="flex flex-col gap-1">
       <span className="text-[13px] font-medium text-label">Nome de usuário</span>
-      <p className="text-[15px] text-foreground">@{username}</p>
+      <p className="text-[15px] text-foreground">
+        <UserHandle username={profile.username} seal={profile} />
+      </p>
       <p className="text-[13px] text-placeholder">É fixo: ele te identifica em todas as mesas.</p>
     </div>
   );

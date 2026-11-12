@@ -22,9 +22,9 @@ Ao lado das cores fixas, um ladrilho abre um popover com área de cor, campo de 
 
 ## API dos componentes
 
-- `CustomColorTile`: `value: string | null | undefined` (hex marca o ladrilho; nome de paleta ou vazio deixa o "+"), `onPick: (cor: HexColorDto) => void`, `disabled?`, `legibleOn?: HexColorDto`, `className?` (outro tamanho que não `size-7`).
+- `CustomColorTile`: `value: string | null | undefined` (hex marca o ladrilho; nome de paleta ou vazio deixa o "+"), `onPick: (cor: HexColorDto) => void`, `disabled?`, `legibleOn?: HexColorDto`, `className?` (outro tamanho que não `size-7`), `scope?: 'account' | 'table'` (de quem é o plano que oferece a cor: travado pelo `CustomColorLocksContext` de `custom-color-locks.ts`, desabilitado com a dica; sem `scope`, sempre livre — capa e lugar de mapa). Detalhe em [`../plans/client-controles.md`](../plans/client-controles.md).
 - `CustomColorPanel`: `value: string | null | undefined` (onde a prévia começa; sem hex, o dourado), `onPick`, `legibleOn?`. Chama `onPick` e **não fecha nada**: quem fecha é o dono do popover. A prévia vive no estado dele e morre ao desmontar: é isso que faz Esc e clique fora descartarem.
-- `PaletteColorField<T>`: `legend`, `value: T | HexColorDto | null`, `tiles: readonly StyleTile<T>[]`, `onChange: (valor: T | HexColorDto) => void`, `disabled?` (o campo todo), `customDisabled?` (só o ladrilho), `hint?`, `legendHidden?`, `legibleOn?`.
+- `PaletteColorField<T>`: `legend`, `value: T | HexColorDto | null`, `tiles: readonly StyleTile<T>[]`, `onChange: (valor: T | HexColorDto) => void`, `disabled?` (o campo todo), `customDisabled?` (só o ladrilho), `hint?`, `legendHidden?`, `legibleOn?`, `customScope?` (`'table'` por padrão; `null` no lugar de mapa).
 - `StyleTileGroup`: `trailing?: ReactNode`, no fim da fileira e dentro do `radiogroup`, sem ser `Item`.
 
 ## Regras
@@ -32,6 +32,7 @@ Ao lado das cores fixas, um ladrilho abre um popover com área de cor, campo de 
 - O arrasto e as setas no canvas só mudam a prévia. `onPick` sai uma vez, por "Usar cor" ou pelo clique numa salva. "Salvar" e excluir só mexem na lista.
 - O ladrilho é `button` depois dos `Item`: as setas andam só entre as cores fixas e não abrem o popover. Com hex: mostra a cor, anel dourado, nome "Cor personalizada: #336699"; nenhum `Item` marcado.
 - Campo de código: com ou sem `#`, qualquer caixa, forma curta. Inválido: `aria-invalid`, erro em `aria-describedby`, "Usar cor" e "Salvar" desligados; o canvas fica na última válida.
+- "Salvar" desliga também com a trava da conta (`useCustomColorLock('account')`), qualquer que seja o `scope` do ladrilho.
 - "Salvar" desliga com a cor já salva e com a lista cheia (`SAVED_COLORS_MAX`, mensagem pedindo para excluir uma). Se a lista estava velha, o 409 mostra a mesma mensagem em `role="alert"`.
 - `legibleOn`: abaixo de 4,5:1 mostra aviso, sem bloquear.
 - Excluir leva o foco para a grade antes de o botão sumir: foco caindo na página fecharia o popover.

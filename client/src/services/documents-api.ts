@@ -20,7 +20,13 @@ import {
   type DeleteDocumentRequestDto,
 } from '@lorkarium/contracts';
 import type { z } from 'zod';
-import { callApi, errorCodeOf, parseOk } from './api-call';
+import {
+  callApi,
+  errorCodeOf,
+  parseOk,
+  planLimitFailureOf,
+  type PlanLimitFailure,
+} from './api-call';
 import {
   NetworkUnavailableError,
   type HttpTransport,
@@ -28,19 +34,26 @@ import {
   type HttpResponse,
 } from './http-transport';
 
-export type DocumentsFailure = Readonly<{
-  kind:
-    | 'conflict'
-    | 'action_reused'
-    | 'forbidden'
-    | 'not_found'
-    | 'unauthenticated'
-    | 'invalid'
-    | 'tab_limit'
-    | 'last_tab'
-    | 'offline'
-    | 'unexpected';
-}>;
+export type DocumentsFailure =
+  | Readonly<{
+      kind:
+        | 'conflict'
+        | 'action_reused'
+        | 'forbidden'
+        | 'not_found'
+        | 'unauthenticated'
+        | 'invalid'
+        | 'tab_limit'
+        | 'last_tab'
+        | 'offline'
+        | 'unexpected';
+    }>
+  /** The table owner's plan ran out (tabs per document): 403 `PLAN_LIMIT`. */
+  | PlanLimitFailure;
+
+/** A refusal named by its code or status alone. */
+type DocumentRefusalKind = Exclude<DocumentsFailure['kind'], 'plan_limit'>;
+
 export type DocumentsResult<T> =
   Readonly<{ ok: true; value: T }> | Readonly<{ ok: false; failure: DocumentsFailure }>;
 
@@ -285,7 +298,7 @@ function tabPathOf(campaignId: string, documentId: string, tabId?: string): stri
   const base = `${pathOf(campaignId, documentId)}/tabs`;
   return tabId === undefined ? base : `${base}/${encodeURIComponent(tabId)}`;
 }
-const REFUSAL_BY_CODE: Readonly<Record<string, DocumentsFailure['kind']>> = {
+const REFUSAL_BY_CODE: Readonly<Record<string, DocumentRefusalKind>> = {
   DOCUMENT_VERSION_CONFLICT: 'conflict',
   DOCUMENT_ACTION_REUSED: 'action_reused',
   DOCUMENT_TAB_LIMIT: 'tab_limit',
@@ -295,10 +308,12 @@ function offline(): DocumentsResult<never> {
   return { ok: false, failure: { kind: 'offline' } };
 }
 function refused(response: HttpResponse): DocumentsResult<never> {
+  const planLimit = planLimitFailureOf(response);
+  if (planLimit) return { ok: false, failure: planLimit };
   const code = errorCodeOf(response);
   const byCode = code === null ? undefined : REFUSAL_BY_CODE[code];
   if (byCode) return { ok: false, failure: { kind: byCode } };
-  const statuses: Readonly<Record<number, DocumentsFailure['kind']>> = {
+  const statuses: Readonly<Record<number, DocumentRefusalKind>> = {
     400: 'invalid',
     401: 'unauthenticated',
     403: 'forbidden',

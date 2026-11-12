@@ -33,7 +33,7 @@ O token que anda sozinho por uma rota em loop (guarda de vigia, carroça). O ser
 
 ## Menu do token
 
-- `features/board/token-patrol-items.tsx` — `TokenPatrolItems`, no `TokenContextMenu` do **mestre** (com `onEditPatrol`, depois de "Tornar invisível/visível"): "Patrulha…" (`menuitem`, abre o editor naquele token) e "Patrulhando" (`menuitemcheckbox`, marcado com a patrulha ligada; age na seleção se o token está nela, mandando só os que têm rota, num `setTokenPatrolsActive`; sem rota: desabilitado, descrito por "Desenhe uma patrulha primeiro."). Confirmado → a linha de status diz `patrolsSwitchedAnnouncement`; recusa → o motivo (`token_patrol_limit` → "Este grid já tem 30 patrulhas ligadas."). Jogador e espectador não veem.
+- `features/board/token-patrol-items.tsx` — `TokenPatrolItems`, no `TokenContextMenu` do **mestre** (com `onEditPatrol`, depois de "Tornar invisível/visível"): "Patrulha…" (`menuitem`, abre o editor naquele token) e "Patrulhando" (`menuitemcheckbox`, marcado com a patrulha ligada; age na seleção se o token está nela, mandando só os que têm rota, num `setTokenPatrolsActive`; sem rota: desabilitado, descrito por "Desenhe uma patrulha primeiro."). Confirmado → a linha de status diz `patrolsSwitchedAnnouncement`; recusa → o motivo (`token_patrol_limit` → "Este grid já tem 30 patrulhas ligadas."). Jogador e espectador não veem. Mesa sem patrulha no plano (`maxPatrols` 0): "Patrulhando" desabilitado com "Disponível no Narrador" (a que já corre ainda pausa) e "Patrulha…" desabilitado no token sem rota ([`../plans/client-controles.md`](../plans/client-controles.md)).
 
 ## Testes
 

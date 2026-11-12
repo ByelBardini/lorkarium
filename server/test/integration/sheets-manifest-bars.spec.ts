@@ -1,3 +1,4 @@
+import { setAccountPlan } from '../support/account-plans';
 import {
   characterChangedEventDto,
   sheetTemplateResponseDto,
@@ -5,7 +6,7 @@ import {
   tokenUpdatedDto,
   type SheetWriteResponseDto,
 } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { eventPayload, send, silence } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
 import type { SignedInUser } from '../support/sign-in';
@@ -14,6 +15,11 @@ import type { Table } from '../support/tables';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Before the plans: the owners of Vharn and Quelm on amigo_do_dono (test accounts are born free).
+beforeEach(async () => {
+  await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+  await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+});
 const CODE = { files: [{ path: 'index.html', content: '<p></p>' }] };
 const MANIFEST_BARS = [
   { label: 'HP', color: 'ember', max: 20 },

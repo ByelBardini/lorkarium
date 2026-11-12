@@ -3,6 +3,8 @@ import { Route } from 'lucide-react';
 import { useId } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { DropdownMenuCheckboxItem, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { featureGate } from '@/features/plans/plan-gate';
+import { usePlanLimits } from '@/features/plans/use-plan-limits';
 import { NEEDS_PATROL_HINT, patrolsSwitchedAnnouncement } from '@/features/tokens/patrol-messages';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 
@@ -25,6 +27,10 @@ export function TokenPatrolItems(props: TokenPatrolItemsProps): React.JSX.Elemen
   const { token, targets, interaction } = props;
   const hintId = useId();
   const running = token.patrol !== null && token.patrol.startedAt !== null;
+  // A patrol already running may still be paused when the plan has none: only starting is stopped.
+  const gate = featureGate(usePlanLimits().table, (limits) => limits.maxPatrols > 0);
+  const locked = !gate.open && !running;
+  const hint = locked ? gate.hint : token.patrol === null ? NEEDS_PATROL_HINT : null;
   const switchPatrols = (): void => {
     const routed = targets.filter(({ patrol }) => patrol !== null);
     const ids = routed.map(({ id }) => id);
@@ -38,21 +44,25 @@ export function TokenPatrolItems(props: TokenPatrolItemsProps): React.JSX.Elemen
   };
   return (
     <>
-      <DropdownMenuItem onSelect={() => props.onEditPatrol(token.id)}>
+      <DropdownMenuItem
+        disabled={locked && token.patrol === null}
+        aria-describedby={locked && token.patrol === null ? hintId : undefined}
+        onSelect={() => props.onEditPatrol(token.id)}
+      >
         <Route aria-hidden="true" />
         Patrulha…
       </DropdownMenuItem>
       <DropdownMenuCheckboxItem
         checked={running}
-        disabled={token.patrol === null}
-        aria-describedby={token.patrol === null ? hintId : undefined}
+        disabled={token.patrol === null || locked}
+        aria-describedby={hint === null ? undefined : hintId}
         onSelect={switchPatrols}
       >
         Patrulhando
       </DropdownMenuCheckboxItem>
-      {token.patrol === null && (
+      {hint !== null && (
         <p id={hintId} className="px-2 py-1 text-xs text-muted-foreground">
-          {NEEDS_PATROL_HINT}
+          {hint}
         </p>
       )}
     </>

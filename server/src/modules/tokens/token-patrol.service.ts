@@ -14,7 +14,8 @@ import {
   type LockedGrid,
   type SavedVersion,
 } from '../scenes/locked-scene';
-import type { ScenePo } from '../scenes/scenes.po';
+import { effectiveLimitsOf } from '../plans/plan-limits.bo';
+import type { AddressedSceneRow } from '../scenes/scenes.dao';
 import { TokenPatrolBo, type PatrolWrite } from './token-patrol.bo';
 import {
   toPatrolChangeDto,
@@ -133,9 +134,11 @@ export class TokenPatrolService {
     return { writes, veiled: await veiledWriteOf(daos, scene.id, writtenRowsOf(rows, writes)) };
   }
 
-  private ruleOf(scene: Pick<ScenePo, 'widthCells' | 'heightCells'>): TokenPatrolBo {
+  // The table's plan comes with the grid lock: its owner's, never a cached one.
+  private ruleOf(scene: AddressedSceneRow): TokenPatrolBo {
     const sceneSize = { widthCells: scene.widthCells, heightCells: scene.heightCells };
-    return new TokenPatrolBo({ scene: sceneSize, runningLimit: this.deps.runningLimit });
+    const plan = effectiveLimitsOf(scene.owner);
+    return new TokenPatrolBo({ scene: sceneSize, runningLimit: this.deps.runningLimit, plan });
   }
 
   private publish(campaignId: string, grid: SavedVersion, saved: PatrolsSaved, now: Date): void {

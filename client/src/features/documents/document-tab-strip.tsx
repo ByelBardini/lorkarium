@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import type { DocumentTabSummaryDto, DocumentWriteResponseDto } from '@lorkarium/contracts';
 import { ChevronDownIcon, EyeOffIcon, PlusIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { countGate, planHintIdOf } from '@/features/plans/plan-gate';
+import { PlanGateHint } from '@/features/plans/plan-gate-hint';
+import { usePlanLimits } from '@/features/plans/use-plan-limits';
 import { moveFocusAlongTabs } from '@/lib/tab-focus';
 import { splitTabsToFit, tabsThatFit } from '@/lib/tab-overflow';
 import { useElementWidth } from '@/lib/use-element-width';
@@ -49,6 +52,8 @@ export function DocumentTabStrip(props: DocumentTabStripProps): React.JSX.Elemen
   const [removing, setRemoving] = useState<DocumentTabSummaryDto | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const strip = useRef<HTMLDivElement>(null);
+  const newTabGate = countGate(usePlanLimits().table, 'documentTabs', tabs.length);
+  const newTabHintId = useId();
   const width = useElementWidth(strip);
   const ids = tabs.map((tab) => tab.id);
   const run = async (command: DocumentTabCommand): Promise<string | null> => {
@@ -116,14 +121,17 @@ export function DocumentTabStrip(props: DocumentTabStripProps): React.JSX.Elemen
             variant="ghost"
             size="icon-sm"
             aria-label="Nova aba"
-            title="Nova aba"
+            title={newTabGate.hint ?? 'Nova aba'}
             className="shrink-0 text-muted-foreground"
+            disabled={!newTabGate.open}
+            aria-describedby={planHintIdOf(newTabGate, newTabHintId)}
             onClick={() => void create()}
           >
             <PlusIcon aria-hidden="true" />
           </Button>
         )}
       </div>
+      {canEdit && <PlanGateHint id={newTabHintId} gate={newTabGate} className="pb-2" />}
       {problem && (
         <p role="alert" className="pb-2 text-xs text-destructive-text">
           {problem}

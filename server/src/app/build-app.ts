@@ -65,6 +65,7 @@ import { createWallsModule } from '../modules/walls/walls.plugin';
 import { createScenesModule } from '../modules/scenes/scenes.plugin';
 import { createLibraryModule } from '../modules/library/library.plugin';
 import { createSavedColorsModule } from '../modules/saved-colors/saved-colors.plugin';
+import { createPlansModule } from '../modules/plans/plans.plugin';
 import { createSavedRollsModule } from '../modules/saved-rolls/saved-rolls.plugin';
 import { createTokensModule } from '../modules/tokens/tokens.plugin';
 import { createCharactersModule } from '../modules/characters/characters.plugin';
@@ -85,6 +86,7 @@ import { attachRealtime } from '../realtime/realtime-server';
 import type { AccessLogArchivePort } from '../modules/access-log/access-log-archive.port';
 import type { AccessLogModule } from '../modules/access-log/access-log.plugin';
 import { wireAccessLog } from './wire-access-log';
+import { wireAssetSweep } from './wire-asset-sweep';
 import { wireAssetStorage } from './wire-asset-storage';
 import { mailerOf, wireAccountSecurity } from './wire-account-security';
 import { serveClient } from './serve-client';
@@ -187,8 +189,9 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
     },
   };
   const assetsOptions = { db: deps.db, members: memberships, storage, processor, fetcher };
-  const assets = createAssetsModule({ ...assetsOptions, readPolicy });
+  const assets = createAssetsModule({ ...assetsOptions, clock, readPolicy });
   await app.register(assets.plugin, { prefix: API_PREFIX });
+  wireAssetSweep(app, { db: deps.db, storage, clock });
   const realtimeModules = {
     campaigns: campaigns.service,
     clock,
@@ -202,7 +205,10 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   // Registered once the live session exists: each saved campaign change reaches its room.
   const { campaignChanged: changed, memberRoleChanged: roleChanged, memberRemoved } = outlets;
   const campaignOutlets = { changed, roleChanged, removed: memberRemoved, seatIn: outlets.seatIn };
-  await app.register(campaigns.pluginWith(campaignOutlets), { prefix: API_PREFIX });
+  const tableFiles = { objects: storage, log: app.log };
+  await app.register(campaigns.pluginWith({ ...campaignOutlets, ...tableFiles }), {
+    prefix: API_PREFIX,
+  });
   const { audience, libraryPublisher: publisher, boardPublisher: grids } = outlets;
   const library = createLibraryModule({ db: deps.db, publisher, audience, grids, clock });
   await app.register(library.plugin, { prefix: API_PREFIX });
@@ -231,6 +237,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   await app.register(templateAssets.plugin, { prefix: API_PREFIX });
   await app.register(createSavedRollsModule({ db: deps.db }).plugin, { prefix: API_PREFIX });
   await app.register(createSavedColorsModule({ db: deps.db }).plugin, { prefix: API_PREFIX });
+  await app.register(createPlansModule({ db: deps.db, clock }).plugin, { prefix: API_PREFIX });
   const { profileChanged } = outlets;
   const avatars = new SharpAvatarProcessor();
   // Capped at the photo's limit: a larger link is cut while it downloads, not after.
@@ -247,7 +254,9 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const { notices, recovery } = security;
   const links = { ...authOptions, sessions: auth.sessions, notices, recovery, appPublicUrl };
   const juggernauts = campaigns.juggernaut();
-  await wireBackoffice(app, { ...links, memberships, juggernauts, storage, mailer }, API_PREFIX);
+  const planOutlets = { profiles: profileChanged, ownedTables: campaigns.settings() };
+  const backoffice = { ...links, memberships, juggernauts, ...planOutlets, storage, mailer };
+  await wireBackoffice(app, backoffice, API_PREFIX);
   // After every /api route: its not-found handler answers the SPA for the rest.
   if (env.clientDistDir) await serveClient(app, env.clientDistDir);
   return app;

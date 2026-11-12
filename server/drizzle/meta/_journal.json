@@ -729,6 +729,13 @@
       "when": 1794366950580,
       "tag": "0103_receipt_created_at",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1794447108799,
+      "tag": "0104_user_plans",
+      "breakpoints": true
     }
   ]
 }

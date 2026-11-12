@@ -8,6 +8,7 @@ import type {
 import { useState } from 'react';
 import {
   sheetTemplateFailureMessage,
+  sheetTemplateRefusalMessage,
   sheetTemplateFileProblemMessage,
 } from '@/features/sheets/sheet-template-messages';
 import { base64ToBytes } from '@/lib/base64';
@@ -125,7 +126,7 @@ async function uploadedAssets(
   const declared: SheetManifestAssetDto[] = [];
   for (const { path, type, data } of carried) {
     const sent = await ports.uploadAsset(base64ToBytes(data).buffer, type);
-    if (!sent.ok) return sheetTemplateFailureMessage(sent.failure.kind);
+    if (!sent.ok) return sheetTemplateRefusalMessage(sent.failure);
     declared.push({ path, assetId: sent.value.id });
   }
   return declared;

@@ -5,6 +5,7 @@ import {
   type TokenDto,
 } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { gridAck, newGrid } from '../support/grids';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import { recordEventsOf, type RealtimeClient } from '../support/realtime-client';
@@ -224,6 +225,7 @@ describe('free movement over Socket.IO', () => {
   });
 
   it('Duplicar copies the mode and the fine position of the token', async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
     const { ana, lyra } = await freeTableWithLyra();
     await send(ana, 'token:move', moveOf(lyra.id, FINE_COL, FINE_ROW));
     const groupId = (await synced(ana, live.vharn)).scene.id;

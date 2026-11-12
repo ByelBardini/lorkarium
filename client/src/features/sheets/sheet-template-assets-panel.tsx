@@ -11,7 +11,7 @@ import {
 } from '@/lib/sheet-manifest-assets';
 import { readSheetManifestText } from '@/lib/sheet-template-manifest';
 import type { SheetTemplatesApi } from '@/services/sheet-templates-api';
-import { sheetTemplateFailureMessage } from './sheet-template-messages';
+import { sheetTemplateRefusalMessage } from './sheet-template-messages';
 
 /** Where the editor sends and reads the template's fonts and images. */
 export type SheetTemplateAssetPorts = Readonly<{
@@ -135,7 +135,7 @@ async function sendAsset(props: UploadFormProps, path: string, file: File): Prom
     await file.arrayBuffer(),
     type,
   );
-  if (!sent.ok) return sheetTemplateFailureMessage(sent.failure.kind);
+  if (!sent.ok) return sheetTemplateRefusalMessage(sent.failure);
   const next = withManifestAsset(props.manifest, { path, assetId: sent.value.id });
   if (next === null) return 'Corrija o manifesto para enviar assets.';
   props.onManifest(next);

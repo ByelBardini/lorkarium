@@ -9,3 +9,11 @@ type SheetHolderFields = Pick<SheetSummaryDto, 'tokenId' | 'memberId'>;
 export function isSpareSheet({ tokenId, memberId }: SheetHolderFields): boolean {
   return tokenId === null && memberId === null;
 }
+
+/** Whether a token holds the sheet (an NPC's, which the table's plan counts); a character's names
+ *  its player instead.
+ *
+ *  Example: `isNpcSheet({ tokenId: goblinId, memberId: null }) // true` */
+export function isNpcSheet({ tokenId }: SheetHolderFields): boolean {
+  return tokenId !== null;
+}

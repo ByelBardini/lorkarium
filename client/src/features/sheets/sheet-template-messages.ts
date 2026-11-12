@@ -1,5 +1,6 @@
 import { SHEET_TEMPLATE_FILES_MAX, SHEET_TEMPLATE_SOURCE_MAX_BYTES } from '@lorkarium/contracts';
 import type { InlineHandler } from '@/lib/sheet-inline-handlers';
+import { PLAN_LIMIT_FALLBACK, planLimitMessage } from '@/lib/plan-limit-message';
 import type { PreviewDataProblem } from '@/lib/sheet-preview-data';
 import type { TemplateFilesProblem } from '@/lib/sheet-template-files';
 import type { SheetTemplateFileProblem } from '@/lib/sheet-template-file';
@@ -20,6 +21,7 @@ const FAILURE_MESSAGES: Readonly<Record<SheetTemplatesFailure['kind'], string>> 
   rate_limited: 'Muitos envios seguidos. Espere um minuto e tente de novo.',
   offline: 'Sem conexão. Tente de novo quando a mesa reconectar.',
   unexpected: 'Não deu para salvar o modelo. Tente de novo.',
+  plan_limit: PLAN_LIMIT_FALLBACK,
 };
 
 /** The refusal of a template command, worded for the status line or the editor.
@@ -27,6 +29,14 @@ const FAILURE_MESSAGES: Readonly<Record<SheetTemplatesFailure['kind'], string>> 
  *  Example: `sheetTemplateFailureMessage('in_use')` */
 export function sheetTemplateFailureMessage(kind: SheetTemplatesFailure['kind']): string {
   return FAILURE_MESSAGES[kind];
+}
+
+/** `sheetTemplateFailureMessage` with the plan refusal's own sentence (create, import, asset).
+ *
+ *  Example: `sheetTemplateRefusalMessage(result.failure)` */
+export function sheetTemplateRefusalMessage(failure: SheetTemplatesFailure): string {
+  if (failure.kind === 'plan_limit') return planLimitMessage(failure.planLimit);
+  return FAILURE_MESSAGES[failure.kind];
 }
 
 /** "12,3 KiB de 512 KiB": the size of the code against the budget.

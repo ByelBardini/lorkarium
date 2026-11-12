@@ -125,6 +125,9 @@ export class SheetsDaoFake implements SheetOperations {
   async find(campaignId: string, sheetId: string): Promise<SheetRow | undefined> {
     return this.rows.find((row) => row.campaignId === campaignId && row.id === sheetId);
   }
+  async countHeldByTokens(campaignId: string): Promise<number> {
+    return this.rows.filter((row) => row.campaignId === campaignId && row.tokenId !== null).length;
+  }
   async lockById(campaignId: string, sheetId: string): Promise<boolean> {
     this.journal.push('lock sheet');
     return (await this.find(campaignId, sheetId)) !== undefined;
@@ -276,8 +279,10 @@ export class SheetsHarness {
     sheetTemplatePo({ version: 2 }),
     sheetTemplatePo({ id: QUELM_TEMPLATE_ID, campaignId: QUELM_ID }),
   ]);
+  /** Vharn; its owner's plan is `campaigns.owner` (no plan limit until a spec sets one). */
+  readonly campaigns = new LibraryCampaignsDaoFake(this.journal, [campaignPo({ id: VHARN_ID })]);
   readonly daos: SheetDaos = {
-    campaigns: new LibraryCampaignsDaoFake(this.journal, [campaignPo({ id: VHARN_ID })]),
+    campaigns: this.campaigns,
     members: this.members,
     sheets: this.sheets,
     templates: this.templates,

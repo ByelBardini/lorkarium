@@ -1,11 +1,16 @@
+import type { PlanLimits } from '@lorkarium/contracts';
 import { lightFits, type LightRange, type SceneLight, type SceneSize } from '@lorkarium/game-core';
 import { StaleUndoError } from '../board/board.error';
+import { PlanLimitsBo } from '../plans/plan-limits.bo';
 import { LightLimitError, LightOutOfSceneError } from './lights.error';
 
 export type LightRulesState = Readonly<{
   scene: SceneSize;
   /** `LIGHTS_PER_SCENE_MAX`, passed in: the BO does not read the contract. */
   limit: number;
+  /** The table's effective limits (its owner's plan): `maxLights` per scene, and the other checks
+   *  a light command runs. */
+  plan: PlanLimits;
 }>;
 
 export type LightPosition = Readonly<{ x: number; y: number }>;
@@ -15,18 +20,27 @@ export type LightColor = string | null;
 export type LightCone = Readonly<{ facing: number; angle: number }>;
 
 /** The rules of a map light on its scene: its point lies inside the scene, the scene keeps at most
- *  so many lights, and an undo finds the light as it left it.
+ *  so many lights (the table's plan, then the technical ceiling), and an undo finds the light as
+ *  it left it.
  *
- *  Example: `new LightRulesBo({ scene, limit: 100 }).place(sceneLightOf(row))` */
+ *  Example: `new LightRulesBo({ scene, limit: 100, plan }).place(sceneLightOf(row))` */
 export class LightRulesBo {
   constructor(private readonly state: LightRulesState) {}
+
+  /** The table's effective limits the rule was built with. */
+  get plan(): PlanLimits {
+    return this.state.plan;
+  }
 
   place(light: SceneLight): SceneLight {
     if (lightFits(this.state.scene, light)) return light;
     throw new LightOutOfSceneError(light, this.state.scene);
   }
 
+  /** Past the plan is PLAN_LIMIT `lights`; past the technical ceiling, LIGHT_LIMIT. Adding nothing
+   *  always passes (a scene of a lower plan keeps its lights). */
   admit(stored: number, adding: number): void {
+    PlanLimitsBo.requireRoom('lights', stored, adding, this.state.plan);
     const total = stored + adding;
     if (total > this.state.limit) throw new LightLimitError(total, this.state.limit);
   }

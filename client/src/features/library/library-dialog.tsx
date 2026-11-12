@@ -119,7 +119,7 @@ function LibraryLoadFailure(props: LibraryDialogProps & Readonly<{ failure: Libr
       <LibraryHeader subtitle={props.campaign.name} onClose={props.onClose} />
       <div className="flex flex-col items-start gap-4 p-6">
         <p role="alert" className="text-sm text-destructive-text">
-          {`Não deu para abrir a biblioteca. ${libraryFailureMessage(props.failure.kind)}`}
+          {`Não deu para abrir a biblioteca. ${libraryFailureMessage(props.failure)}`}
         </p>
         <Button variant="outline" disabled={state === 'loading'} onClick={() => void revalidate()}>
           Tentar de novo

@@ -17,6 +17,7 @@ import {
   type ProfileErrorCode,
 } from './profiles.error';
 import type { ProfilesService } from './profiles.service';
+import { withPlanLimitReply } from '../plans/plan-limit-response';
 
 // Spec §8.4, keyed by the signed-in user: a profile save reaches every live table of the person.
 const PROFILE_SAVES_PER_MINUTE = 30;
@@ -62,7 +63,7 @@ export function profilesRoutes(
     app.addContentTypeParser([...AVATAR_MIME_TYPES], { parseAs: 'buffer' }, (_req, body, done) =>
       done(null, body),
     );
-    app.setErrorHandler(errorHandlerFor(edges));
+    app.setErrorHandler(withPlanLimitReply(errorHandlerFor(edges)));
     registerProfileRoutes(app, service);
     for (const edge of edges) registerImageRoutes(app, edge);
   };

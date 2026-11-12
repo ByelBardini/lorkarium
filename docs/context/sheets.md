@@ -1,6 +1,6 @@
 # Fichas personalizadas
 
-O mestre escreve um **modelo** de ficha (uma lista de arquivos HTML, CSS e JS, com fontes e imagens próprias) na biblioteca e cria **fichas** daquele modelo, também itens da biblioteca (nome, pasta). A ficha pode ficar **sem dono** (só mestres a veem), ir a um **jogador** (fica no personagem dele, com token no grid ou sem) ou a um **token**; um personagem ou token pode ter várias. A ficha roda num iframe isolado (origem opaca, sem rede) e só fala com a mesa pelo SDK `window.lorkarium`, por um `MessagePort`; o host traduz cada pedido num comando real e o servidor reautoriza tudo. Produto: [`../spec.md`](../spec.md) §3.12.
+O mestre escreve um **modelo** de ficha (uma lista de arquivos HTML, CSS e JS, com fontes e imagens próprias) na biblioteca e cria **fichas** daquele modelo, também itens da biblioteca (nome, pasta). A ficha pode ficar **sem dono** (só mestres a veem), ir a um **jogador** (fica no personagem dele, com token no grid ou sem) ou a um **token**; um personagem ou token pode ter várias. A ficha roda num iframe isolado (origem opaca, sem rede) e só fala com a mesa pelo SDK `window.lorkarium`, por um `MessagePort`; o host traduz cada pedido num comando real e o servidor reautoriza tudo. Produto: [`../spec.md`](../spec.md) §3.13.
 
 > **Detalhe em [`sheets/`](sheets/) e nos arquivos do client abaixo — abra só o arquivo da tarefa.**
 

@@ -4,6 +4,7 @@ import {
   loginResponseDto,
   twoFactorLoginRequestDto,
 } from '../../src/auth/login.dto';
+import { PLAN_LIMITS } from '../../src/plans/plan-limits';
 
 const ANA = {
   id: '7d0f8c39-2b8e-4f4e-9d1a-5c6b7a8e9f01',
@@ -13,6 +14,10 @@ const ANA = {
   role: 'user',
   color: 'teal',
   avatarId: null,
+  plan: 'narrador',
+  lorkariumOwner: false,
+  limits: PLAN_LIMITS.narrador,
+  customization: true,
 } as const;
 
 function issuePathsOf(input: unknown): string[] {

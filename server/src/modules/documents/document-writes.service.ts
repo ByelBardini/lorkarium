@@ -5,6 +5,7 @@ import {
   type DocumentDto,
   type DocumentReceiptDto,
   type DocumentTabWriteResponseDto,
+  type PlanLimits,
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
@@ -17,6 +18,7 @@ import type { SceneFoldersDao } from '../library/scene-folders.dao';
 import type { LibraryImagesDao } from '../library/library-images.dao';
 import type { LibraryPublisherPort } from '../library/library-publisher.port';
 import type { LibraryRequester } from '../library/library.service';
+import { effectiveLimitsOf } from '../plans/plan-limits.bo';
 import type { DocumentsDao } from './documents.dao';
 import type { DocumentTabsDao } from './document-tabs.dao';
 import type { DocumentAssetsDao } from './document-assets.dao';
@@ -49,7 +51,7 @@ export type DocumentDaos = Readonly<{
     | 'delete'
   >;
   assets: Pick<DocumentAssetsDao, 'ofDocument' | 'ofAsset' | 'prepare' | 'confirmTab'>;
-  campaigns: Pick<CampaignsDao, 'lockById'>;
+  campaigns: Pick<CampaignsDao, 'lockWithOwner'>;
   members: Pick<CampaignMembersDao, 'findMembership'>;
   folders: Pick<SceneFoldersDao, 'listOfCampaign'>;
   images: Pick<LibraryImagesDao, 'findInCampaign'>;
@@ -62,9 +64,12 @@ export type DocumentsServiceDeps = Readonly<{
   clock: ClockPort;
   newId: () => string;
   publisher: Pick<LibraryPublisherPort, 'libraryChanged' | 'documentTabChanged'>;
-  /** At most this many tabs per document (`DOCUMENT_TABS_MAX`, given by the plugin). */
+  /** At most this many tabs per document for every plan (`DOCUMENT_TABS_MAX`, given by the
+   *  plugin); the owner's plan may allow fewer (`documentTabs`). */
   tabLimit: number;
 }>;
+/** The table locked for a command: what the requester may do and the limits of the owner's plan. */
+export type LockedTable = Readonly<{ access: CampaignAccessBo; limits: PlanLimits }>;
 /** One document loaded for a command: the row, its owners and what the requester may do. */
 export type DocumentScope = Readonly<{
   daos: DocumentDaos;
@@ -82,10 +87,17 @@ export type Applied<T> = Readonly<{ value: T; changed: boolean }>;
 export class DocumentWriteSteps {
   constructor(private readonly deps: Pick<DocumentsServiceDeps, 'clock' | 'publisher'>) {}
   async lockedAccess(daos: DocumentDaos, requester: LibraryRequester): Promise<CampaignAccessBo> {
+    return (await this.lockedTable(daos, requester)).access;
+  }
+  /** `lockedAccess` plus the limits of the owner's plan, read with the table's lock. */
+  async lockedTable(daos: DocumentDaos, requester: LibraryRequester): Promise<LockedTable> {
     await viewerAccessOf(daos.members, requester.campaignId, requester.userId);
-    if (!(await daos.campaigns.lockById(requester.campaignId)))
-      throw new CampaignNotFoundError(requester);
-    return this.protectedAccess(daos, requester);
+    const table = await daos.campaigns.lockWithOwner(requester.campaignId);
+    if (!table) throw new CampaignNotFoundError(requester);
+    return {
+      access: await this.protectedAccess(daos, requester),
+      limits: effectiveLimitsOf(table.owner),
+    };
   }
   /** Like `lockedAccess`, for a tab body: locks only that tab's row (an unknown tab locks nothing
    *  and is refused by the scope), so the body never waits on the table.

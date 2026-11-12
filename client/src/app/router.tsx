@@ -33,6 +33,7 @@ import { useLeaveDeletedTable } from '@/features/sessions/use-leave-deleted-tabl
 import { useSignOutWhenRefused } from '@/features/sessions/use-sign-out-when-refused';
 import { safeRedirectTarget } from '@/lib/safe-redirect';
 import type { AccountLinksApi } from '@/services/account-links-api';
+import type { AccountPlanApi } from '@/services/account-plan-api';
 import type { AccountSecurityApi } from '@/services/account-security-api';
 import type { UserAdminApi } from '@/services/user-admin-api';
 import type { AuthApi } from '@/services/auth-api';
@@ -79,6 +80,7 @@ import { AppShell } from './shell/app-shell';
 import { SplashScreen } from './splash-screen';
 import { TitleBarFrame } from './title-bar/title-bar-frame';
 import { placeOf, type PlaceHandle } from './title-bar/title-bar-place';
+import { AccountPlanProvider } from '@/features/plans/plan-limits-providers';
 
 export type AppDependencies = Readonly<{
   authApi: AuthApi;
@@ -89,6 +91,8 @@ export type AppDependencies = Readonly<{
   savedColorsApi: SavedColorsApi;
   /** Password, e-mail, signed-in devices and 2FA ("Minha conta"). */
   accountSecurityApi: AccountSecurityApi;
+  /** The plan, its limits and the usage ("Seu plano" in "Minha conta"). */
+  accountPlanApi: AccountPlanApi;
   /** The backoffice over the accounts and the invitations (admins only). */
   userAdminApi: UserAdminApi;
   /** The public side of the invitation and new-password links. */
@@ -374,16 +378,18 @@ function shellRoute(deps: AppDependencies): () => React.JSX.Element | null {
       await navigate('/login', { replace: true });
     };
     return (
-      <SavedColorsProvider api={deps.savedColorsApi} userId={session.user.id}>
-        <AppShell
-          railStore={railStore}
-          openTables={openTables}
-          user={session.user}
-          onSignOut={signOut}
-          brandInTitleBar={desktopWindow !== null}
-        />
-        <DocumentWorkspaceHost deps={deps} />
-      </SavedColorsProvider>
+      <AccountPlanProvider account={session.user}>
+        <SavedColorsProvider api={deps.savedColorsApi} userId={session.user.id}>
+          <AppShell
+            railStore={railStore}
+            openTables={openTables}
+            user={session.user}
+            onSignOut={signOut}
+            brandInTitleBar={desktopWindow !== null}
+          />
+          <DocumentWorkspaceHost deps={deps} />
+        </SavedColorsProvider>
+      </AccountPlanProvider>
     );
   };
 }

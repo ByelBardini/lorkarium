@@ -1,10 +1,11 @@
+import { setAccountPlan } from '../support/account-plans';
 import {
   tokenMovedDto,
   tokenPatrolsChangedDto,
   veiledLightsChangedDto,
   type TokenPatrolFieldsDto,
 } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { TokensDao } from '../../src/modules/tokens/tokens.dao';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import { recordEventsOf, type RealtimeClient } from '../support/realtime-client';
@@ -24,6 +25,11 @@ const ROUTE: TokenPatrolFieldsDto = {
 
 describe('token patrols over Socket.IO', () => {
   const live = useTokenTable();
+  // Before the plans: the owners of Vharn and Quelm on amigo_do_dono (test accounts are born free).
+  beforeEach(async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+    await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+  });
 
   async function lyraOfBia(master: RealtimeClient): Promise<string> {
     const events = recordEventsOf(master);

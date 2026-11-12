@@ -1,8 +1,10 @@
+import { PLAN_LIMITS } from '@lorkarium/contracts';
 import type { FastifyBaseLogger } from 'fastify';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { CommandRateLimitedError } from '../../../src/modules/board/board.error';
 import { onCommand, type CommandEdgeDeps } from '../../../src/modules/board/board-command-edge';
+import { PlanLimitsBo } from '../../../src/modules/plans/plan-limits.bo';
 import { CommandRateGuard } from '../../../src/realtime/command-rate-guard';
 import type { RealtimeSocket } from '../../../src/realtime/realtime-server';
 import { ClockFake } from '../../support/auth-fakes';
@@ -98,5 +100,32 @@ describe('onCommand', () => {
 
     expect(answers.slice(0, 4).every((answer) => answer.ok)).toBe(true);
     expect(answers[4]?.error?.code).toBe('RATE_LIMITED');
+  });
+});
+
+describe('onCommand with a plan refusal', () => {
+  it('a PLAN_LIMIT thrown by the handler goes into the ack with its planLimit', async () => {
+    const edge = new RealtimeEdgeFake();
+    const rate = new CommandRateGuard(
+      new ClockFake(NOW),
+      (socketId, seconds) => new CommandRateLimitedError(socketId, seconds),
+    );
+    const schema = z.strictObject({ campaignId: z.uuid() });
+    const listener = onCommand({ deps: edge.deps, rate, socket: edge.socket }, schema, async () => {
+      PlanLimitsBo.requireRoom('tokenBars', 2, 1, PLAN_LIMITS.free);
+      return { ok: true as const };
+    });
+    const answer = await new Promise((resolve) =>
+      listener({ campaignId: OPEN_TABLE }, resolve as Parameters<typeof listener>[1]),
+    );
+
+    expect(answer).toEqual({
+      ok: false,
+      error: {
+        code: 'PLAN_LIMIT',
+        message: 'would have 3 tokenBars; plan free allows at most 2',
+        planLimit: { resource: 'tokenBars', limit: 2, plan: 'free' },
+      },
+    });
   });
 });

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { BoardCommandFailure } from '@/services/board-command-sender';
 import type { EditEntry } from '@/lib/edit-history';
 import { sendEffectArea } from '@/stores/effect-area-tool-flow';
 import { BIA_CONE_ID } from '../support/effect-area-fixtures';
@@ -22,7 +23,7 @@ describe('sendEffectArea', () => {
     const deps = {
       scopeOf: () => VHARN_GRID,
       commands,
-      describeRefusal: (failure: string) => `recusado: ${failure}`,
+      describeRefusal: (failure: BoardCommandFailure) => `recusado: ${String(failure)}`,
       recordEdit: (entry: EditEntry) => recorded.push(entry),
     };
     return sendEffectArea(deps, CONE, { readOnly, say: (notice) => notices.push(notice) });

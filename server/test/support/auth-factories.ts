@@ -1,5 +1,6 @@
 import type { AuthSessionPo, NewAuthSessionPo } from '../../src/modules/auth/auth-sessions.po';
-import type { NewUserPo, SealedEmail, UserPo } from '../../src/modules/auth/users.po';
+import type { NewUserPo, SealedEmail, UserPlanPo, UserPo } from '../../src/modules/auth/users.po';
+import { customizationAllowed, effectiveLimitsOf } from '../../src/modules/plans/plan-limits.bo';
 
 export const ANA_ID = '7d0f8c39-2b8e-4f4e-9d1a-5c6b7a8e9f01';
 
@@ -45,6 +46,7 @@ export function userPo(overrides: UserOverrides<UserPo> = {}): UserPo {
     ...fakeSealedEmail(email, id),
     passwordHash: '$argon2id$fake',
     role: 'user',
+    plan: 'free',
     color: null,
     bio: null,
     avatarId: null,
@@ -91,5 +93,23 @@ export function authSessionPo(overrides: Partial<AuthSessionPo> = {}): AuthSessi
     lastSeenAt: new Date('2026-10-01T12:00:00Z'),
     createdAt: new Date('2026-10-01T12:00:00Z'),
     ...overrides,
+  };
+}
+
+/** The plan fields of the client view of an account (`AuthUserDto`), resolved as `/me` does.
+ *
+ *  Example: `{ id, username, name, email, role, color, avatarId, ...authPlanFieldsOf(row) }` */
+export function authPlanFieldsOf(
+  row: Omit<UserPlanPo, 'lorkariumOwner'> & Partial<Pick<UserPlanPo, 'lorkariumOwner'>> = {
+    role: 'user',
+    plan: 'free',
+  },
+) {
+  const account = { ...row, lorkariumOwner: row.lorkariumOwner ?? false };
+  return {
+    plan: account.plan,
+    lorkariumOwner: account.lorkariumOwner,
+    limits: effectiveLimitsOf(account),
+    customization: customizationAllowed(account),
   };
 }

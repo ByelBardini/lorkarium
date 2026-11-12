@@ -94,6 +94,8 @@ describe('backoffice over the accounts (/api/admin/users)', () => {
 
   describe('list', () => {
     it('the admin gets every account with the e-mail, the tables and the last seen, newest first', async () => {
+      // Two tables of Ana: a plan without a ceiling of tables.
+      await connection.db.update(users).set({ plan: 'amigo_do_dono' }).where(eq(users.id, ana.id));
       await createTable(app, ana, 'Vharn');
       await createTable(app, ana, 'Quelm');
       const response = await call('GET', '/admin/users', admin.token);

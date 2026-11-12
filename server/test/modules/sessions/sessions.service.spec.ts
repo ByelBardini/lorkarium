@@ -1,4 +1,4 @@
-import type { CampaignInfoDto } from '@lorkarium/contracts';
+import { PLAN_LIMITS, type CampaignInfoDto } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TableSessionService } from '../../../src/modules/sessions/sessions.service';
 import { EMPTY_ROSTER } from '../../../src/modules/sessions/table-presence.bo';
@@ -64,6 +64,9 @@ describe('TableSessionService', () => {
           bio: null,
           role: 'master',
           juggernaut: false,
+          plan: 'free',
+          admin: false,
+          lorkariumOwner: false,
           online: true,
           awaySince: null,
         },
@@ -76,6 +79,9 @@ describe('TableSessionService', () => {
           bio: null,
           role: 'player',
           juggernaut: false,
+          plan: 'free',
+          admin: false,
+          lorkariumOwner: false,
           online: false,
           awaySince: null,
         },
@@ -97,6 +103,9 @@ describe('TableSessionService', () => {
             bio: null,
             role: 'master',
             juggernaut: false,
+            plan: 'free',
+            admin: false,
+            lorkariumOwner: false,
             online: true,
             awaySince: null,
           },
@@ -134,6 +143,9 @@ describe('TableSessionService', () => {
         bio: null,
         role: 'master',
         juggernaut: false,
+        plan: 'free',
+        admin: false,
+        lorkariumOwner: false,
         online: true,
         awaySince: null,
       },
@@ -380,6 +392,9 @@ describe('TableSessionService.profileChanged', () => {
           bio: null,
           role: 'master',
           juggernaut: false,
+          plan: 'free',
+          admin: false,
+          lorkariumOwner: false,
           online: false,
           awaySince: null,
         },
@@ -445,6 +460,7 @@ describe('TableSessionService campaign changes', () => {
     tags: [],
     playersCreateTokens: false,
     playersDeleteTokens: false,
+    limits: PLAN_LIMITS.free,
   };
 
   let journal: SessionsJournal;

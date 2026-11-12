@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, count, eq, sql } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { tokenSheets } from './sheets.po';
 import {
@@ -39,6 +39,17 @@ export class SheetTemplatesDao {
       .from(t)
       .where(eq(t.campaignId, campaignId))
       .orderBy(t.createdAt, t.id);
+  }
+
+  /** How many templates the table has, what the owner's plan limits.
+   *
+   *  Example: `await dao.countOfCampaign(campaignId) // 1` */
+  async countOfCampaign(campaignId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ total: count() })
+      .from(sheetTemplates)
+      .where(eq(sheetTemplates.campaignId, campaignId));
+    return row?.total ?? 0;
   }
 
   async insert(input: NewSheetTemplatePo): Promise<SheetTemplatePo> {

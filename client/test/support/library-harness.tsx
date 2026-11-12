@@ -1,4 +1,4 @@
-import type { CampaignRoleDto, SessionStateDto } from '@lorkarium/contracts';
+import type { CampaignRoleDto, PlanLimits, SessionStateDto } from '@lorkarium/contracts';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
@@ -17,6 +17,8 @@ export type LibraryRoom = Readonly<{
 export type LibraryRoomOptions = Readonly<{
   role?: CampaignRoleDto;
   state?: SessionStateDto;
+  /** The table's plan limits (its owner's); Amigo do Dono's by default. */
+  limits?: PlanLimits;
 }>;
 
 /** VHARN's play room, live on the group grid, as the master (or a player with `role`).
@@ -24,13 +26,13 @@ export type LibraryRoomOptions = Readonly<{
  *  Example: `const { table } = await openRoom(deps, { role: 'player' })` */
 export async function openRoom(
   deps: TestDependencies,
-  { role = 'master', state = vharnState() }: LibraryRoomOptions = {},
+  { role = 'master', state = vharnState(), limits = VHARN.limits }: LibraryRoomOptions = {},
 ): Promise<LibraryRoom> {
   deps.authApi.answerMeWith(ANA);
   const joinCode = role === 'master' ? 'VHRN7K2Q' : null;
   deps.campaignsApi.answer('detail', {
     ok: true,
-    value: detailOf(VHARN, { myRole: role, joinCode }),
+    value: detailOf(VHARN, { myRole: role, joinCode, limits }),
   });
   const router = createMemoryRouter(buildRoutes(deps), {
     initialEntries: [`/campaigns/${VHARN.id}/table`],

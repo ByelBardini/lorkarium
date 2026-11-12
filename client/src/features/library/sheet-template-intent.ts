@@ -1,5 +1,5 @@
 import type { SheetTemplatesApi, SheetTemplatesResult } from '@/services/sheet-templates-api';
-import { sheetTemplateFailureMessage } from '@/features/sheets/sheet-template-messages';
+import { sheetTemplateRefusalMessage } from '@/features/sheets/sheet-template-messages';
 import type { LibraryIntent } from './library-intents';
 
 /** The library intents that go to the sheet templates' routes. */
@@ -43,10 +43,10 @@ export async function runSheetTemplateIntent(
 function refusalOf(
   result: Extract<SheetTemplatesResult<never>, { ok: false }>,
 ): SheetTemplateAnswer {
-  const { kind } = result.failure;
+  const { failure } = result;
   return {
     ok: false,
-    message: sheetTemplateFailureMessage(kind),
-    signedOut: kind === 'unauthenticated',
+    message: sheetTemplateRefusalMessage(failure),
+    signedOut: failure.kind === 'unauthenticated',
   };
 }

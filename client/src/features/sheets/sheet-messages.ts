@@ -4,6 +4,7 @@ import {
   type SheetSummaryDto,
   type SheetVisibilityDto,
 } from '@lorkarium/contracts';
+import { planLimitMessage } from '@/lib/plan-limit-message';
 import type { SheetsFailure } from '@/services/sheets-api';
 
 export const OPEN_SHEET = 'Abrir ficha';
@@ -40,6 +41,7 @@ const SHEET_FAILURE: Readonly<Partial<Record<SheetsFailure['kind'], string>>> = 
  *
  *  Example: `sheetCommandFailureMessage('Criar', { kind: 'member_not_found' }) // 'Esse jogador não está mais na mesa.'` */
 export function sheetCommandFailureMessage(action: string, failure: SheetsFailure): string {
+  if (failure.kind === 'plan_limit') return planLimitMessage(failure.planLimit);
   return SHEET_FAILURE[failure.kind] ?? `${action} a ficha não deu certo. Tente de novo.`;
 }
 

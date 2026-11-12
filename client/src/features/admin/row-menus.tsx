@@ -1,27 +1,41 @@
-import type { AdminInvitationDto, AdminUserDto } from '@lorkarium/contracts';
+import {
+  USER_PLANS,
+  type AdminInvitationDto,
+  type AdminUserDto,
+  type UserPlan,
+} from '@lorkarium/contracts';
 import { EllipsisIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { PLAN_NAMES } from '@/lib/plan-seal';
 
 export type UserRowCommand =
   'password-link' | 'grant-admin' | 'revoke-admin' | 'suspend' | 'reactivate' | 'delete';
 export type InvitationRowCommand = 'resend' | 'cancel';
 
-/** The menu at the end of an account row; what it offers follows the account's state.
+/** The menu at the end of an account row; what it offers follows the account's state. "Plano"
+ *  opens the plans with the current one marked.
  *
- *  Example: `<UserRowMenu user={bia} onCommand={(command) => open(command, bia)} />` */
+ *  Example: `<UserRowMenu user={bia} onCommand={(command) => open(command, bia)} onPlan={(plan) => setPlan(bia, plan)} />` */
 export function UserRowMenu({
   user,
   onCommand,
+  onPlan,
 }: Readonly<{
   user: AdminUserDto;
   onCommand: (command: UserRowCommand) => void;
+  onPlan: (plan: UserPlan) => void;
 }>): React.JSX.Element {
   const active = user.status === 'active';
   return (
@@ -46,6 +60,7 @@ export function UserRowMenu({
             Tornar admin
           </DropdownMenuItem>
         )}
+        <PlanSubmenu current={user.plan} onPlan={onPlan} />
         {active ? (
           <DropdownMenuItem onSelect={() => onCommand('suspend')}>
             Suspender acesso
@@ -61,6 +76,31 @@ export function UserRowMenu({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+type PlanSubmenuProps = Readonly<{ current: UserPlan; onPlan: (plan: UserPlan) => void }>;
+
+function PlanSubmenu({ current, onPlan }: PlanSubmenuProps): React.JSX.Element {
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>Plano</DropdownMenuSubTrigger>
+      <DropdownMenuSubContent>
+        <DropdownMenuRadioGroup value={current}>
+          {USER_PLANS.map((plan) => (
+            <DropdownMenuRadioItem
+              key={plan}
+              value={plan}
+              onSelect={() => {
+                if (plan !== current) onPlan(plan);
+              }}
+            >
+              {PLAN_NAMES[plan]}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
   );
 }
 

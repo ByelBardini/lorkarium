@@ -1,9 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { MapRegionsOverHttp } from '../support/library-map-regions-http';
 import type { SignedInUser } from '../support/sign-in';
+import { setAccountPlan } from '../support/account-plans';
 import { useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Vharn as it was before the plans: its owner has no plan limit.
+beforeEach(() => setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono'));
 const atlas = new MapRegionsOverHttp(live);
 
 const documentLink = (id: string) => ({ link: { kind: 'document', id } });
