@@ -25,14 +25,16 @@ import {
   dedicatedEndpointOf,
   isMasterOnlyAssetPurpose,
   isProtectedAssetPurpose,
+  opaqueAsWebpFor,
   outlineFor,
   requireSize,
   requireWoff2,
   resizeFor,
   type SideLimits,
 } from './asset-upload.bo';
+import { assetEtagOf, isRevalidated, PROTECTED_ASSET_CACHE_CONTROL } from './asset-revalidation.bo';
 import type { AssetStoragePort, StoredObject } from './asset-storage.port';
-import type { AssetsDao } from './assets.dao';
+import type { AssetHeaderPo, AssetsDao } from './assets.dao';
 import {
   AssetNotFoundError,
   AssetTooLargeError,
@@ -67,7 +69,7 @@ export type AssetKeepTransactionRunner = <T>(
 
 export type AssetsServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership'>;
-  assets: Pick<AssetsDao, 'findById'>;
+  assets: Pick<AssetsDao, 'findById' | 'findHeaderById'>;
   /** The plan of the table's owner, unlocked: it only decides the sides before decoding. */
   tableOwners: Pick<CampaignsDao, 'findOwnerPlan'>;
   /** Where the storage quota is counted and the row written, under the table's and owner's locks. */
@@ -86,7 +88,11 @@ export type OpenedAsset = Readonly<{
   size: number;
   mimeType: AssetPo['mimeType'];
   cacheControl?: string;
+  etag?: string;
 }>;
+
+/** A protected asset the browser already holds, still readable: 304, no bytes and no S3. */
+export type RevalidatedAsset = Readonly<{ notModified: true; cacheControl: string; etag: string }>;
 
 type TableOfUser = Readonly<{ campaignId: string; userId: string }>;
 
@@ -218,17 +224,26 @@ export class AssetsService {
   }
 
   /** The bytes of an asset for a member of its campaign; anyone else, a missing row or a missing
-   *  object all get the same `ASSET_NOT_FOUND` (criterion 14). */
-  async open(userId: string, assetId: string): Promise<OpenedAsset> {
-    const row = await this.readableRow(userId, assetId);
+   *  object all get the same `ASSET_NOT_FOUND` (criterion 14). A protected asset whose ETag
+   *  `ifNoneMatch` names comes back revalidated: after the policy, before the S3.
+   *
+   *  Example: `await assetsService.open(bia.id, mapId, request.headers['if-none-match'])` */
+  async open(
+    userId: string,
+    assetId: string,
+    ifNoneMatch?: string,
+  ): Promise<OpenedAsset | RevalidatedAsset> {
+    const row = await this.readable(
+      userId,
+      assetId,
+      await this.deps.assets.findHeaderById(assetId),
+    );
+    const revalidation = revalidationOf(row);
+    if (revalidation && isRevalidated(ifNoneMatch, revalidation.etag))
+      return { notModified: true, ...revalidation };
     const object = await this.deps.storage.open(row.storageKey);
     if (object === null) throw new AssetNotFoundError(assetId);
-    return {
-      body: object.body,
-      size: object.size,
-      mimeType: row.mimeType,
-      ...(isProtectedAssetPurpose(row.purpose) ? { cacheControl: 'private, no-store' } : {}),
-    };
+    return { body: object.body, size: object.size, mimeType: row.mimeType, ...revalidation };
   }
 
   /** The silhouette of an asset, under the same guard as its bytes; it reads no object, so an old
@@ -236,17 +251,22 @@ export class AssetsService {
    *
    *  Example: `(await assetsService.outlineOf(user.id, imageId)).outline // polygons, [] or null` */
   async outlineOf(userId: string, assetId: string): Promise<AssetOutlineResponseDto> {
-    return toAssetOutlineDto(await this.readableRow(userId, assetId));
+    return toAssetOutlineDto(
+      await this.readable(userId, assetId, await this.deps.assets.findById(assetId)),
+    );
   }
 
-  private async readableRow(userId: string, assetId: string): Promise<AssetPo> {
-    const row = await this.deps.assets.findById(assetId);
+  private async readable<R extends AssetHeaderPo>(
+    userId: string,
+    assetId: string,
+    row: R | undefined,
+  ): Promise<R> {
     if (row === undefined) throw new AssetNotFoundError(assetId);
     const membership = await this.deps.members.findMembership(row.campaignId, userId);
     if (membership === undefined) throw new AssetNotFoundError(assetId);
     if (
       isProtectedAssetPurpose(row.purpose) &&
-      !(await this.deps.readPolicy?.canRead(userId, row.campaignId, row.id))
+      !(await this.deps.readPolicy?.canRead(userId, row.campaignId, row.id, row.purpose))
     )
       throw new AssetNotFoundError(assetId);
     return row;
@@ -309,6 +329,7 @@ function keptAs(purpose: AssetPurposeDto, sides: SideLimits): NormalizeOptions {
     ...resize,
     ...(animation ? { animation } : {}),
     ...(outlineFor(purpose) ? { outline: true } : {}),
+    ...(opaqueAsWebpFor(purpose) ? { opaqueAsWebp: true } : {}),
   };
 }
 
@@ -316,4 +337,10 @@ function linkErrorOf(url: string, refusal: FetchRefusal): Error {
   if (refusal.kind === 'blocked') return new LinkBlockedError(refusal.host, refusal.address);
   if (refusal.kind === 'too-large') return new AssetTooLargeError(refusal.limit, refusal.received);
   return new LinkUnreachableError(url, refusal.reason);
+}
+
+// Only a protected purpose is revalidated: its permission can change, the others are immutable.
+function revalidationOf(row: AssetHeaderPo): { cacheControl: string; etag: string } | undefined {
+  if (!isProtectedAssetPurpose(row.purpose)) return undefined;
+  return { cacheControl: PROTECTED_ASSET_CACHE_CONTROL, etag: assetEtagOf(row.id) };
 }

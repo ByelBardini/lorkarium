@@ -12,13 +12,13 @@ import {
 import { insertTestAccount } from '../support/sign-in';
 
 const SCRATCH_DATABASE = 'lorkarium_user_plans_migration';
-const LAST_MIGRATION_BEFORE_PLANS = '0100_sheet_template_assets';
-const PLANS_MIGRATION = '0101_user_plans';
+const LAST_MIGRATION_BEFORE_PLANS = '0103_receipt_created_at';
+const PLANS_MIGRATION = '0104_user_plans';
 
 type PlanRow = { name: string; plan: string };
 
-// Two accounts at 0100: a user and an admin.
-async function seedAccountsAt0100(scratch: DatabaseConnection): Promise<void> {
+// Two accounts just before the plans: a user and an admin.
+async function seedAccountsBeforePlans(scratch: DatabaseConnection): Promise<void> {
   await insertUserAtOldMigration(scratch.db, { name: 'Bia', email: 'bia@mesa.com' });
   const adminId = await insertUserAtOldMigration(scratch.db, {
     name: 'Ana',
@@ -27,7 +27,7 @@ async function seedAccountsAt0100(scratch: DatabaseConnection): Promise<void> {
   await scratch.db.execute(sql`UPDATE users SET role = 'admin' WHERE id = ${adminId}`);
 }
 
-describe('migration 0101_user_plans on a database with a user and an admin', () => {
+describe('migration 0104_user_plans on a database with a user and an admin', () => {
   let admin: DatabaseConnection;
   let scratch: DatabaseConnection;
   let beforeFolder: string;
@@ -41,7 +41,7 @@ describe('migration 0101_user_plans on a database with a user and an admin', () 
     beforeFolder = await migrationsUpTo(LAST_MIGRATION_BEFORE_PLANS);
     plansFolder = await migrationsUpTo(PLANS_MIGRATION);
     await migrate(scratch.db, { migrationsFolder: beforeFolder });
-    await seedAccountsAt0100(scratch);
+    await seedAccountsBeforePlans(scratch);
     await migrate(scratch.db, { migrationsFolder: plansFolder });
   });
 

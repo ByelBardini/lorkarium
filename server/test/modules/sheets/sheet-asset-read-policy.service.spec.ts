@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { SheetHolderService } from '../../../src/modules/sheets/sheet-holder.service';
 import { SheetAssetReadPolicy } from '../../../src/modules/sheets/sheet-asset-read-policy.service';
 import { ANA_ID } from '../../support/auth-factories';
 import { BIA_ID, CAIO_ID, DUDA_ID, QUELM_ID, VHARN_ID } from '../../support/campaigns-factories';
@@ -9,7 +8,7 @@ import { KAEL_CHARACTER_ID, LYRA_SHEET_ID, QUELM_SHEET_ID } from '../../support/
 const KAEL_SHEET_ID = '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
 
 function policyOf(harness: SheetImagesHarness): SheetAssetReadPolicy {
-  return new SheetAssetReadPolicy(harness.work, new SheetHolderService());
+  return new SheetAssetReadPolicy(harness.work);
 }
 
 function tied(harness: SheetImagesHarness, sheetId: string, campaignId = VHARN_ID): void {

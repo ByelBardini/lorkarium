@@ -1,7 +1,7 @@
 import type { SessionMemberDto, TokenDto } from '@lorkarium/contracts';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
-import { useBoardSight } from '@/features/board/use-board-sight';
+import { useBoardSeen } from '@/features/board/use-board-sight';
 import { SelectionConditions } from '@/features/combat/selection-conditions';
 import { seenTokensOf } from '@/lib/board-sight';
 import type { PrepItem } from '@/lib/combat-prep';
@@ -30,7 +30,7 @@ const NO_TOKENS: readonly TokenDto[] = [];
  *  Example: `<SceneTokenList board={board} presence={presence} interaction={interaction} isMaster />` */
 export function SceneTokenList(props: SceneTokenListProps): React.JSX.Element {
   const all = useBoard(props.board, (state) => state.board?.tokens ?? NO_TOKENS);
-  const sight = useBoardSight(props.board, props.interaction);
+  const sight = useBoardSeen(props.board, props.interaction);
   // Only what this viewer sees whole (a silhouette or a hidden token is never named), and only the
   // Tokens layer: the chest of Objetos is still picked on the board.
   const sections = useMemo(
@@ -102,8 +102,15 @@ function SideSection({ section, ...props }: LinesProps & Readonly<{ section: Sce
 }
 
 function SceneItem({ item, ...props }: LinesProps & Readonly<{ item: PrepItem }>) {
-  if (item.kind === 'token') return <SceneTokenRow token={item.token} {...props} />;
+  if (item.kind === 'token')
+    return <SceneTokenRow token={item.token} {...rowPropsOf(props, item.token)} />;
   return <SceneGroupRow group={item} {...props} />;
+}
+
+// The row gets only what it shows of the selection, so the `memo` holds for every other row.
+function rowPropsOf({ selectedIds, members, interaction }: LinesProps, token: TokenDto) {
+  const selected = selectedIds.includes(token.id);
+  return { members, interaction, selected, alone: selected && selectedIds.length === 1 };
 }
 
 type SceneGroupRowProps = LinesProps & Readonly<{ group: Extract<PrepItem, { kind: 'group' }> }>;
@@ -125,7 +132,7 @@ function SceneGroupRow({ group, ...props }: SceneGroupRowProps) {
           className="mt-1.5 flex flex-col border-l border-divider"
         >
           {group.tokens.map((token) => (
-            <SceneTokenRow key={token.id} token={token} compact {...props} />
+            <SceneTokenRow key={token.id} token={token} compact {...rowPropsOf(props, token)} />
           ))}
         </ul>
       </TokenGroupLine>
@@ -133,19 +140,24 @@ function SceneGroupRow({ group, ...props }: SceneGroupRowProps) {
   );
 }
 
-type SceneTokenRowProps = LinesProps & Readonly<{ token: TokenDto; compact?: boolean }>;
+type SceneTokenRowProps = Pick<LinesProps, 'members' | 'interaction'> &
+  Readonly<{ token: TokenDto; compact?: boolean; selected: boolean; alone: boolean }>;
 
-function SceneTokenRow({ token, compact = false, ...props }: SceneTokenRowProps) {
+// Off screen, a row of a long scene is neither laid out nor painted (`content-visibility`).
+const SceneTokenRow = memo(function SceneTokenRow(props: SceneTokenRowProps) {
+  const { token, compact = false, selected, alone } = props;
   const rowRef = useRef<HTMLLIElement>(null);
-  const selected = props.selectedIds.includes(token.id);
   useEffect(() => {
     if (selected) rowRef.current?.scrollIntoView?.({ block: 'nearest' });
   }, [selected]);
-  const alone = props.selectedIds.length === 1 && selected;
   return (
     <li
       ref={rowRef}
-      className={compact ? 'py-1 pl-2' : 'border-b border-divider py-2 last:border-b-0'}
+      className={
+        compact
+          ? 'py-1 pl-2'
+          : 'border-b border-divider py-2 [contain-intrinsic-size:auto_3.5rem] [content-visibility:auto] last:border-b-0'
+      }
     >
       <TokenLine
         token={token}
@@ -156,4 +168,4 @@ function SceneTokenRow({ token, compact = false, ...props }: SceneTokenRowProps)
       />
     </li>
   );
-}
+});

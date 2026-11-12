@@ -10,6 +10,7 @@ import {
   type SQL,
 } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
+import { columnsWithout } from '../../database/columns-without';
 import { hiddenByFolderSql } from '../../database/hidden-by-folder-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import type { CampaignRole } from '../campaigns/campaign-access.bo';
@@ -32,6 +33,12 @@ const SHEET_WITH_FOLDER = {
   ...getTableColumns(tokenSheets),
   hiddenByFolder: hiddenByFolderSql('"token_sheets"."folder_id"'),
 };
+
+/** A sheet as the library lists it: the row without its values. */
+export type SheetListedPo = Omit<SheetPo, 'values'>;
+/** A listed sheet once its folder chain is decided: what the gates of a line read. */
+export type SheetLineRow = SheetListedPo & Readonly<{ hiddenByFolder: boolean }>;
+const SHEET_LISTED = columnsWithout(getTableColumns(tokenSheets), 'values');
 
 /** Where a token of the table stands, as the sheet's access reads it: the grid it is on, whether that is the group's grid, the character it is linked to and who controls it. */
 export type TokenPlacePo = Readonly<{
@@ -86,6 +93,21 @@ export class SheetsDao {
     return row;
   }
 
+  /** Locks the row of one sheet for a values write; `false` when it is not of that table. The
+   *  values lock their own row, not the table's: a save would otherwise wait on every HP and
+   *  condition write of the characters, which hold the table's row. Managing the sheet still
+   *  locks the table, and its write to this row waits here.
+   *
+   *  Example: `await new SheetsDao(tx).lockById(campaignId, sheetId)` */
+  async lockById(campaignId: string, sheetId: string): Promise<boolean> {
+    const rows = await this.db
+      .select({ id: tokenSheets.id })
+      .from(tokenSheets)
+      .where(this.oneOf(campaignId, sheetId))
+      .for('no key update');
+    return rows.length > 0;
+  }
+
   /** The sheets a token holds, in creation order. */
   async listOfToken(campaignId: string, tokenId: string): Promise<SheetRow[]> {
     const where = and(eq(tokenSheets.campaignId, campaignId), eq(tokenSheets.tokenId, tokenId));
@@ -101,9 +123,28 @@ export class SheetsDao {
     return this.ordered(where);
   }
 
-  /** Every sheet of the table, in creation order (the library). */
-  async listOfCampaign(campaignId: string): Promise<SheetRow[]> {
-    return this.ordered(eq(tokenSheets.campaignId, campaignId));
+  /** The asked sheets of the table as their gates read them, without the values; ids of another
+   *  table are left out, and no ids is no query.
+   *
+   *  Example: `await dao.findLines(vharnId, await sheetAssets.sheetsOfAsset(vharnId, imageId))` */
+  async findLines(campaignId: string, sheetIds: readonly string[]): Promise<SheetLineRow[]> {
+    if (sheetIds.length === 0) return [];
+    return this.db
+      .select({ ...SHEET_LISTED, hiddenByFolder: SHEET_WITH_FOLDER.hiddenByFolder })
+      .from(tokenSheets)
+      .where(and(eq(tokenSheets.campaignId, campaignId), inArray(tokenSheets.id, [...sheetIds])));
+  }
+
+  /** Every sheet of the table as the library lists it, in creation order: without the values
+   *  (up to 256 KiB each) nor the folder chain, which the caller decides over its folders.
+   *
+   *  Example: `const lines = await dao.listOfCampaign(vharnId) // no values, no hiddenByFolder` */
+  async listOfCampaign(campaignId: string): Promise<SheetListedPo[]> {
+    return this.db
+      .select(SHEET_LISTED)
+      .from(tokenSheets)
+      .where(eq(tokenSheets.campaignId, campaignId))
+      .orderBy(asc(tokenSheets.createdAt));
   }
 
   /** Every sheet of the template, held or not. */
@@ -150,7 +191,7 @@ export class SheetsDao {
     });
   }
 
-  /** The whole values, merged by the caller under the table's lock (the path patches), and the
+  /** The whole values, merged by the caller under the sheet's lock (the path patches), and the
    *  version up by one. */
   async replaceValues(
     campaignId: string,
@@ -236,7 +277,10 @@ export class SheetsDao {
   /** The holders of `sheets`, tokens and characters, in bulk.
    *
    *  Example: `const places = await dao.holdersOf(vharnId, await dao.listOfCampaign(vharnId))` */
-  async holdersOf(campaignId: string, sheets: readonly SheetPo[]): Promise<SheetPlacesPo> {
+  async holdersOf(
+    campaignId: string,
+    sheets: readonly Pick<SheetPo, 'tokenId' | 'characterId'>[],
+  ): Promise<SheetPlacesPo> {
     const tokenIds = new Set(sheets.flatMap(({ tokenId }) => (tokenId ? [tokenId] : [])));
     const characterIds = new Set(sheets.flatMap(({ characterId: id }) => (id ? [id] : [])));
     return {

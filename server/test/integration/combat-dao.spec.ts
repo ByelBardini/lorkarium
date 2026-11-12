@@ -197,7 +197,7 @@ describe('CombatDao on Postgres', () => {
     if (!enemies || !kaelEntry) throw new Error('entries missing');
 
     await combat.setInitiative(enemies.id, 18);
-    await combat.setTieOrders([
+    await combat.setTieOrders(started.combat.id, [
       { combatantId: enemies.id, tieOrder: 1 },
       { combatantId: kaelEntry.id, tieOrder: 0 },
     ]);
@@ -248,5 +248,39 @@ describe('CombatDao on Postgres', () => {
     await expect(
       connection.db.insert(combatantTokens).values({ tokenId: goblin, combatantId: kaelEntry.id }),
     ).rejects.toMatchObject({ cause: { code: UNIQUE_VIOLATION } });
+  });
+
+  it('setTieOrders under another combat leaves the entries of this one as they were', async () => {
+    const started = await startVharn();
+    const quelm = await sceneWith(connection.db, 'QLMX4P9S', ['Ogro']);
+    const other = await combat.start(quelm.sceneId, [
+      { name: null, tokenIds: [quelm.tokenIds.Ogro ?? ''], initiative: null },
+    ]);
+
+    await combat.setTieOrders(
+      other.combat.id,
+      started.combatants.map(({ id }) => ({ combatantId: id, tieOrder: 9 })),
+    );
+
+    const found = await combat.findOfScene(vharn.sceneId);
+    expect(found?.combatants.map(({ tieOrder }) => tieOrder)).toEqual(
+      started.combatants.map(({ tieOrder }) => tieOrder),
+    );
+  });
+
+  it('linkMany moves each token out of its entry into the new one; a repeated one ends in the last', async () => {
+    const started = await startVharn();
+    const [enemies, kaelEntry] = started.combatants;
+    if (!enemies || !kaelEntry) throw new Error('entries missing');
+
+    await combat.linkMany([
+      { combatantId: kaelEntry.id, tokenIds: [goblin, lobo] },
+      { combatantId: enemies.id, tokenIds: [lobo] },
+    ]);
+
+    const found = await combat.findOfScene(vharn.sceneId);
+    const linked = (id: string) =>
+      [...(found?.combatants.find((entry) => entry.id === id)?.tokenIds ?? [])].sort();
+    expect([linked(enemies.id), linked(kaelEntry.id)]).toEqual([[lobo], [goblin, kael].sort()]);
   });
 });

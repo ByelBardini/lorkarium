@@ -10,6 +10,9 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, './src'),
     },
   },
+  // Both manifests feed `scripts/check-entry-chunk.ts`: which chunks the entry loads statically,
+  // and which modules each chunk holds.
+  build: { manifest: true, ssrManifest: true },
   server: {
     port: 5173,
     // Same origin as production: the session cookie stays first-party and no CORS is needed.

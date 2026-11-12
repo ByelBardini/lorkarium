@@ -21,8 +21,8 @@ type PresentationReadDao = LibraryImageReadDaos['presentations'];
 
 class ImageReadDaoFake implements ImageReadDao {
   rows: LibraryImageRow[] = [];
-  async listOfCampaign(campaignId: string): Promise<LibraryImageRow[]> {
-    return this.rows.filter((row) => row.image.campaignId === campaignId);
+  async findByAsset(campaignId: string, assetId: string): Promise<LibraryImageRow | undefined> {
+    return this.rows.find((row) => row.image.campaignId === campaignId && row.asset.id === assetId);
   }
 }
 

@@ -31,6 +31,7 @@ export const LORK_SHEET_FILES = [
   'js/texto-rico.js',
   'js/imagens.js',
   'js/eventos.js',
+  'js/zoom.js',
   'js/inicio.js',
 ] as const;
 

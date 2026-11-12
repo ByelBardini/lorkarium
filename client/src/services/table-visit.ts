@@ -2,6 +2,7 @@ import {
   BOARD_EVENTS,
   CHAT_EVENTS,
   DICE_EVENTS,
+  DOCUMENT_EVENTS,
   LIBRARY_MAP_EVENTS,
   SESSION_EVENTS,
   SHEET_EVENTS,
@@ -10,6 +11,7 @@ import {
   chatSentDto,
   diceRolledDto,
   diceRolledSecretlyDto,
+  documentTabChangedDto,
   libraryChangedDto,
   libraryMapChangedDto,
   libraryMapRegionShownDto,
@@ -36,7 +38,10 @@ import { BOARD_EVENT_SPECS, parseBoardEvent, parseVeiledLights } from './board-e
 import type { RealtimeLifecycle, RealtimeTransport, Unsubscribe } from './realtime-transport';
 import { CharacterFollow } from './character-follow';
 import { syncFailureOf, type AckOutcome } from './sync-failure';
+import { namesTable } from './table-event-scope';
+import { assetUrlOf } from './assets-api';
 import type {
+  BoardImagePrefetch,
   CharacterListener,
   CharactersHandle,
   GridListener,
@@ -78,6 +83,7 @@ export class TableVisit {
     private readonly newActionId: () => string,
     private readonly campaignId: string,
     private readonly listener: TableSessionListener,
+    private readonly prefetch: BoardImagePrefetch,
   ) {
     this.characters = new CharacterFollow(transport, campaignId, ACK_TIMEOUT_MS);
   }
@@ -121,6 +127,7 @@ export class TableVisit {
   async syncBoard(): Promise<void> {
     const update = snapshotUpdateOf(await this.ackOf(BOARD_EVENTS.sync, boardSyncAckDto));
     if (update.kind === 'board') this.groupSceneId = update.state.scene.id;
+    this.prefetchBackgroundOf(update);
     this.notify(update);
   }
 
@@ -140,8 +147,17 @@ export class TableVisit {
 
   private async syncWatch(watch: GridWatch): Promise<void> {
     const fields = { sceneId: watch.sceneId };
-    const ack = await this.ackOf(BOARD_EVENTS.watchScene, boardSyncAckDto, fields);
-    this.toWatch(watch, snapshotUpdateOf(ack));
+    const update = snapshotUpdateOf(
+      await this.ackOf(BOARD_EVENTS.watchScene, boardSyncAckDto, fields),
+    );
+    this.prefetchBackgroundOf(update);
+    this.toWatch(watch, update);
+  }
+
+  // Before the board hears of it: the image downloads while the renderer still mounts.
+  private prefetchBackgroundOf(update: GridUpdate): void {
+    const background = update.kind === 'board' ? update.state.scene.background : null;
+    if (background && !this.closed) this.prefetch(assetUrlOf(background.assetId));
   }
 
   private unwatch(watch: GridWatch): void {
@@ -176,7 +192,8 @@ export class TableVisit {
     this.notify({ kind: 'status', status: 'live' });
     if (this.away && !this.closed) this.sendActivity();
     if (this.closed) return;
-    await this.syncBoard();
+    // All at once: each snapshot is its own ack, none waits for another to answer.
+    void this.syncBoard();
     void this.characters.sync();
     for (const watch of this.watches.values()) void this.syncWatch(watch);
   }
@@ -227,6 +244,12 @@ export class TableVisit {
         this.watches.delete(event.sceneId);
         this.notify({ kind: 'sceneClosed', event });
       }),
+      ...this.libraryEventSubscriptions(),
+    ];
+  }
+
+  private libraryEventSubscriptions(): Unsubscribe[] {
+    return [
       this.onTableEvent('library:imagePresentationChanged', imagePresentationChangedDto, (event) =>
         this.notify({ kind: 'imagePresentationChanged', event }),
       ),
@@ -241,6 +264,9 @@ export class TableVisit {
       ),
       this.onTableEvent(SHEET_EVENTS.changed, sheetChangedEventDto, (event) =>
         this.notify({ kind: 'sheetChanged', event }),
+      ),
+      this.onTableEvent(DOCUMENT_EVENTS.tabChanged, documentTabChangedDto, (event) =>
+        this.notify({ kind: 'documentTabChanged', event }),
       ),
     ];
   }
@@ -279,8 +305,9 @@ export class TableVisit {
     deliver: (event: E) => void,
   ): Unsubscribe {
     return this.transport.on(name, (payload) => {
+      if (!namesTable(payload, this.campaignId)) return;
       const parsed = dto.safeParse(payload);
-      if (parsed.success && parsed.data.campaignId === this.campaignId) deliver(parsed.data);
+      if (parsed.success) deliver(parsed.data);
     });
   }
 
@@ -291,8 +318,9 @@ export class TableVisit {
   // A malformed preview is dropped: it changed nothing confirmed, so there is nothing to resync.
   // A preview naming no grid is the group grid's.
   private onTokensDragged(payload: unknown): void {
+    if (!namesTable(payload, this.campaignId)) return;
     const parsed = tokensDraggedDto.safeParse(payload);
-    if (!parsed.success || parsed.data.campaignId !== this.campaignId) return;
+    if (!parsed.success) return;
     const drag: TokensDraggedDto = parsed.data;
     if (drag.sceneId === undefined) return this.notify({ kind: 'tokensDragged', drag });
     this.route(drag.sceneId, { kind: 'tokensDragged', drag });
@@ -300,8 +328,9 @@ export class TableVisit {
 
   // Like the preview: a malformed ping changed nothing, so it is dropped with no resync.
   private onPinged(payload: unknown): void {
+    if (!namesTable(payload, this.campaignId)) return;
     const parsed = boardPingedDto.safeParse(payload);
-    if (!parsed.success || parsed.data.campaignId !== this.campaignId) return;
+    if (!parsed.success) return;
     this.route(parsed.data.sceneId, { kind: 'pinged', event: parsed.data });
   }
 

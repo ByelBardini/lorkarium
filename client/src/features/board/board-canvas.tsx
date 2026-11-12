@@ -33,6 +33,7 @@ import { wallStyleOf, type WallStyleStore } from '@/stores/wall-style-store';
 import { useTableSightOutlines } from './table-sight-outlines';
 import { useBoardSight } from './use-board-sight';
 import { useMountedRenderer } from './use-mounted-renderer';
+import { useTabCamera } from './use-tab-camera';
 import { usePatrolPoses } from './use-patrol-poses';
 import { createTokenPatrolEditor, type TokenPatrolEditor } from '@/stores/token-patrol-flow';
 import type { PatrolDraftView } from '@/renderer/patrol-path-view';
@@ -60,6 +61,8 @@ export type BoardCanvasProps = Readonly<{
   clock?: InteractionClock;
   /** The master's patrol editor: its draft is drawn on the grid it belongs to. */
   patrolEditor?: StoreApi<TokenPatrolEditor>;
+  /** The grid tab shown: another key resets the same renderer to that tab's camera. */
+  tabKey?: string;
 }>;
 
 const NO_TOKENS: readonly TokenDto[] = [];
@@ -83,10 +86,11 @@ const KEYBOARD_INSTRUCTIONS =
 const MOUNT_FAILED = 'Seu navegador não conseguiu abrir o tabuleiro.';
 const RELOAD_BOARD = 'Recarregar tabuleiro';
 const MONOTONIC_CLOCK = (): number => performance.now();
+const ONLY_TAB = 'only';
 
 /** Hosts the board renderer: React owns the element and the confirmed state; the renderer owns
- *  the pixels. One renderer per mount, destroyed on unmount (StrictMode mounts twice), rebuilt
- *  at the same camera when the GPU drops the WebGL context.
+ *  the pixels. One renderer per mount, destroyed on unmount (StrictMode mounts twice), kept
+ *  across grid tabs (`tabKey`), rebuilt at the same camera when the GPU drops the WebGL context.
  *
  *  Example: `<BoardCanvas board={board} interaction={interaction} createBoardRenderer={deps.createBoardRenderer} onIntent={onIntent} onRenderer={setRenderer} />` */
 export function BoardCanvas(props: BoardCanvasProps): React.JSX.Element {
@@ -96,6 +100,7 @@ export function BoardCanvas(props: BoardCanvasProps): React.JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null);
   const lossClock = props.lossClock ?? MONOTONIC_CLOCK;
   const { renderer, failed, retry } = useMountedRenderer(hostRef, { ...props, lossClock });
+  useTabCamera(renderer, props.tabKey ?? ONLY_TAB);
   useEffect(() => {
     if (renderer && view) renderer.draw(view);
   }, [renderer, view]);

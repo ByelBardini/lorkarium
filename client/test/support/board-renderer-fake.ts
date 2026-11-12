@@ -15,7 +15,7 @@ import type {
 type MountMode = 'resolve' | 'hold' | 'reject';
 
 /** A renderer the test watches: `draws` keeps every view, `zooms` every zoomBy factor, `fits`
- *  counts fitScene; `emit(intent)` plays the canvas (inside `act`), `lose()` the GPU dropping it;
+ *  counts fitScene, `resets` keeps each resetScene; `emit(intent)` plays the canvas (inside `act`), `lose()` the GPU dropping it;
  *  `mountedCamera` is the camera `mount` got, `cameraNow` what `camera()` answers.
  *
  *  Example: `deps.boardRenderers.latest().emit({ kind: 'cameraChanged', zoom: 1.25 })` */
@@ -96,6 +96,29 @@ export class BoardRendererFake implements BoardRenderer {
     this.speeches.push({ sceneId, balloons });
   }
 
+  /** Each `resetScene` call, in order: the camera the next grid opens at (`undefined`: fit). */
+  readonly resets: Array<Camera | undefined> = [];
+
+  /** What the canvas says while it resets (the real one cancels a drag), outside `act`: the
+   *  reset runs inside React's commit. */
+  saysOnReset: BoardIntent[] = [];
+
+  resetScene(options?: BoardMountOptions): void {
+    this.resets.push(options?.camera);
+    for (const intent of this.saysOnReset) this.onIntent(intent);
+  }
+
+  /** Each `pause` and `resume`, in order. */
+  readonly pauses: Array<'pause' | 'resume'> = [];
+
+  pause(): void {
+    this.pauses.push('pause');
+  }
+
+  resume(): void {
+    this.pauses.push('resume');
+  }
+
   destroy(): void {
     this.destroyed = true;
   }
@@ -124,8 +147,14 @@ export class BoardRendererFake implements BoardRenderer {
 export class BoardRenderersFake {
   readonly made: BoardRendererFake[] = [];
   mountMode: MountMode = 'resolve';
+  /** `false`: the renderer chunk fails to download, so nothing is made. */
+  loads = true;
+  /** Every call to `create`, made or not. */
+  calls = 0;
 
-  readonly create: CreateBoardRenderer = (onIntent) => {
+  readonly create: CreateBoardRenderer = async (onIntent) => {
+    this.calls += 1;
+    if (!this.loads) throw new TypeError('Failed to fetch dynamically imported module');
     const renderer = new BoardRendererFake(onIntent, this.mountMode);
     this.made.push(renderer);
     return renderer;

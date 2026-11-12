@@ -51,6 +51,20 @@ export class DocumentTabsDao {
       .where(tabIn(campaignId, documentId, tabId));
     return row;
   }
+  /** Locks the row of one tab for its body save; `false` when it is not in that document.
+   *  The body locks its own row, not the table's: a save would otherwise wait on every HP and
+   *  condition write of the characters, which hold the table's row. Structural tab changes
+   *  still lock the table, and their writes to this row wait here.
+   *
+   *  Example: `await new DocumentTabsDao(tx).lockById(campaignId, documentId, tabId)` */
+  async lockById(campaignId: string, documentId: string, tabId: string): Promise<boolean> {
+    const rows = await this.db
+      .select({ id: t.id })
+      .from(t)
+      .where(tabIn(campaignId, documentId, tabId))
+      .for('no key update');
+    return rows.length > 0;
+  }
   async countOfDocument(campaignId: string, documentId: string): Promise<number> {
     const [row] = await this.db
       .select({ total: count() })

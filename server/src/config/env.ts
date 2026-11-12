@@ -28,6 +28,8 @@ const ENV_KEYS = [
   'SITE_PUBLIC_URL',
   'TRUST_PROXY',
   'CLIENT_DIST_DIR',
+  'ASSET_CACHE_DIR',
+  'ASSET_CACHE_MAX_MB',
   'ACCESS_LOG_S3_BUCKET',
   'ACCESS_LOG_S3_ACCESS_KEY_ID',
   'ACCESS_LOG_S3_SECRET_ACCESS_KEY',
@@ -91,15 +93,21 @@ const SMTP_URL = z
   })
   .optional();
 
-/** An integer variable in `[min, max]` with a default; the rule text names the range. */
-function boundedInteger(min: number, max: number, fallback: number, unit = ''): z.ZodType<number> {
+/** An integer variable in `[min, max]`; the rule text names the range.
+ *
+ *  Example: `integerInRange(1, 100).parse('7') // 7` */
+function integerInRange(min: number, max: number, unit = ''): z.ZodType<number, unknown> {
   const rule = `must be an integer from ${min} to ${max}${unit}`;
   return z.coerce
     .number({ error: rule })
     .int({ error: rule })
     .min(min, { error: rule })
-    .max(max, { error: rule })
-    .default(fallback);
+    .max(max, { error: rule });
+}
+
+/** An integer variable in `[min, max]` with a default; the rule text names the range. */
+function boundedInteger(min: number, max: number, fallback: number, unit = ''): z.ZodType<number> {
+  return integerInRange(min, max, unit).default(fallback);
 }
 
 // Up to 100 connections: Postgres' own default max_connections is 100.
@@ -119,6 +127,20 @@ const CLIENT_DIST_DIR = z
     error: 'must be an absolute path (/app/client/dist)',
   })
   .optional();
+
+export const DEFAULT_ASSET_CACHE_MAX_MB = 10240;
+
+const BYTES_PER_MEGABYTE = 1024 * 1024;
+
+const ASSET_CACHE_DIR = z
+  .string()
+  .refine((value) => path.isAbsolute(value), {
+    error: 'must be an absolute path (/var/cache/lorkarium/assets)',
+  })
+  .optional();
+
+// Up to 1 TiB; the default applies in `toEnv`, so a maximum without the dir is still seen as set.
+const ASSET_CACHE_MAX_MB = integerInRange(1, 1_048_576, ' megabytes').optional();
 
 const envSchema = z
   .object({
@@ -159,6 +181,8 @@ const envSchema = z
     SITE_PUBLIC_URL: z.url({ error: 'must be a URL (https://example.com)' }).optional(),
     TRUST_PROXY: TRUST_PROXY_HOPS,
     CLIENT_DIST_DIR,
+    ASSET_CACHE_DIR,
+    ASSET_CACHE_MAX_MB,
     ACCESS_LOG_S3_BUCKET: z.string().optional(),
     ACCESS_LOG_S3_ACCESS_KEY_ID: z.string().optional(),
     ACCESS_LOG_S3_SECRET_ACCESS_KEY: z
@@ -172,7 +196,8 @@ const envSchema = z
   .superRefine(requireStrongAdminPasswordInProduction)
   .superRefine(requireMailInProduction)
   .superRefine(requireSiteInProduction)
-  .superRefine(requireAccessLog);
+  .superRefine(requireAccessLog)
+  .superRefine(requireAssetCacheDir);
 
 type ParsedEnv = z.infer<typeof envSchema>;
 
@@ -202,6 +227,9 @@ export type DatabaseConfig = Readonly<{
 export type MailerConfig =
   Readonly<{ kind: 'smtp'; url: string; from: string }> | Readonly<{ kind: 'log'; from: string }>;
 
+/** The disk cache of the S3 objects: its folder and the byte ceiling it evicts down to. */
+export type AssetCacheConfig = Readonly<{ dir: string; maxBytes: number }>;
+
 export type Env = Readonly<{
   nodeEnv: NodeEnv;
   port: number;
@@ -221,6 +249,8 @@ export type Env = Readonly<{
   trustProxyHops: number;
   /** The Vite build the server serves as the SPA; null = it serves only `/api` (dev, tests). */
   clientDistDir: string | null;
+  /** null = the assets are read straight from S3 (dev, CI, integration). */
+  assetCache: AssetCacheConfig | null;
   /** The write-only bucket of the access log (Marco Civil, art. 15), on the endpoint and region of
    *  `storage`; null = no access log (only outside production). */
   accessLog: StorageConfig | null;
@@ -305,6 +335,18 @@ function requireAccessLog(env: AccessLogVariables, ctx: z.RefinementCtx): void {
   }
 }
 
+function requireAssetCacheDir(
+  env: { ASSET_CACHE_DIR?: string | undefined; ASSET_CACHE_MAX_MB?: number | undefined },
+  ctx: z.RefinementCtx,
+): void {
+  if (env.ASSET_CACHE_MAX_MB === undefined || env.ASSET_CACHE_DIR !== undefined) return;
+  ctx.addIssue({
+    code: 'custom',
+    path: ['ASSET_CACHE_MAX_MB'],
+    message: 'is valid only with ASSET_CACHE_DIR',
+  });
+}
+
 function requireAdminPair(env: AdminPair, ctx: z.RefinementCtx): void {
   if (env.ADMIN_EMAIL !== undefined && env.ADMIN_PASSWORD === undefined) {
     ctx.addIssue({
@@ -374,6 +416,7 @@ function toEnv(parsed: ParsedEnv): Env {
     sitePublicUrl: withoutTrailingSlash(parsed.SITE_PUBLIC_URL ?? DEFAULT_SITE_PUBLIC_URL),
     trustProxyHops: parsed.TRUST_PROXY,
     clientDistDir: parsed.CLIENT_DIST_DIR ?? null,
+    assetCache: toAssetCacheConfig(parsed),
     accessLog: toAccessLogConfig(parsed),
     ownerUsername: parsed.OWNER_USERNAME ?? null,
   };
@@ -385,6 +428,13 @@ function toAccessLogConfig(parsed: ParsedEnv): StorageConfig | null {
   if (!bucket || !accessKeyId || !secretAccessKey) return null;
   const { S3_ENDPOINT: endpoint, S3_REGION: region, S3_FORCE_PATH_STYLE: forcePathStyle } = parsed;
   return { endpoint, region, bucket, accessKeyId, secretAccessKey, forcePathStyle };
+}
+
+function toAssetCacheConfig(parsed: ParsedEnv): AssetCacheConfig | null {
+  const dir = parsed.ASSET_CACHE_DIR;
+  if (dir === undefined) return null;
+  const maxMegabytes = parsed.ASSET_CACHE_MAX_MB ?? DEFAULT_ASSET_CACHE_MAX_MB;
+  return { dir, maxBytes: maxMegabytes * BYTES_PER_MEGABYTE };
 }
 
 function withoutTrailingSlash(url: string): string {

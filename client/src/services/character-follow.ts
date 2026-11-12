@@ -11,6 +11,7 @@ import {
 import type { z } from 'zod';
 import type { RealtimeTransport, Unsubscribe } from './realtime-transport';
 import { syncFailureOf } from './sync-failure';
+import { namesTable } from './table-event-scope';
 import type { CharacterListener, CharacterUpdate, CharactersHandle } from './table-session-api';
 
 /** The table stream of one table visit: `character:sync` after each join (and on `resync`), and
@@ -100,11 +101,10 @@ export class CharacterFollow {
     updateOf: (event: E) => CharacterUpdate,
   ): Unsubscribe {
     return this.transport.on(name, (payload) => {
+      if (!namesTable(payload, this.campaignId)) return;
       const parsed = dto.safeParse(payload);
-      if (parsed.success && parsed.data.campaignId === this.campaignId) {
-        return this.listener?.(updateOf(parsed.data));
-      }
-      if (!parsed.success && campaignIdOf(payload) === this.campaignId) void this.sync();
+      if (parsed.success) return this.listener?.(updateOf(parsed.data));
+      void this.sync();
     });
   }
 }
@@ -116,9 +116,4 @@ function snapshotUpdateOf(answer: unknown): CharacterUpdate {
     return { kind: 'charactersFailed', failure: syncFailureOf(parsed.data.error) };
   const { version, characters, conditionDefinitions } = parsed.data;
   return { kind: 'characters', sync: { version, characters, conditionDefinitions } };
-}
-
-function campaignIdOf(payload: unknown): string | null {
-  if (typeof payload !== 'object' || payload === null || !('campaignId' in payload)) return null;
-  return typeof payload.campaignId === 'string' ? payload.campaignId : null;
 }

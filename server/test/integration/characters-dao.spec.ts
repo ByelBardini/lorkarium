@@ -219,7 +219,7 @@ describe('CharactersDao on Postgres', () => {
       const before = await dao.findInCampaign(vharnId, lyraId);
       const pvId = before?.bars[0]?.id ?? '';
 
-      await dao.setBarValues(pvId, { current: 18, max: 30, temp: 4 });
+      await dao.setBarValues(lyraId, [{ barId: pvId, values: { current: 18, max: 30, temp: 4 } }]);
 
       const bars = (await dao.findInCampaign(vharnId, lyraId))?.bars;
       expect(bars?.[0]?.temp).toBe(4);
@@ -227,6 +227,30 @@ describe('CharactersDao on Postgres', () => {
         ['PV', 18],
         ['Mana', 4],
       ]);
+    });
+
+    it('setBarValues writes PV and Mana of Lyra together and no bar of another character', async () => {
+      const lyraId = await insertLyra();
+      const mira = newCharacter(vharnId, null, 'Mira', { bars: [PV, MANA] });
+      const miraId = (
+        await runInTransaction(connection.db, (tx) => new CharactersDao(tx).insert(mira))
+      ).character.id;
+      const [pv, mana] = (await dao.findInCampaign(vharnId, lyraId))?.bars ?? [];
+      const foreign = (await dao.findInCampaign(vharnId, miraId))?.bars[0];
+      if (!pv || !mana || !foreign) throw new Error('Lyra was saved without her 2 bars');
+
+      await dao.setBarValues(lyraId, [
+        { barId: pv.id, values: { current: 1, max: 30, temp: 0 } },
+        { barId: mana.id, values: { current: 2, max: 10, temp: 3 } },
+        { barId: foreign.id, values: { current: 0, max: 30, temp: 0 } },
+      ]);
+
+      const bars = (await dao.findInCampaign(vharnId, lyraId))?.bars;
+      expect(bars?.map(({ current, temp }) => [current, temp])).toEqual([
+        [1, 0],
+        [2, 3],
+      ]);
+      expect((await dao.findInCampaign(vharnId, miraId))?.bars[0]?.current).toBe(foreign.current);
     });
 
     it('replaceBars puts the given bars in order and drops the old ones', async () => {

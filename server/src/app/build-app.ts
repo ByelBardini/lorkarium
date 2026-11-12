@@ -1,21 +1,20 @@
 import { LibraryImageReadPolicy } from '../modules/library/library-image-read-policy.service';
+import { wireHousekeeping } from '../modules/housekeeping/housekeeping.plugin';
 import { libraryImageDaos } from '../modules/library/library.plugin';
 import { runInSnapshot, type Transaction } from '../database/transaction';
 import type { MemberSeatPort } from '../modules/campaigns/member-seat.port';
 import { removedInOrder } from './member-outlets';
 import { createDocumentsModule, documentDaos } from '../modules/documents/documents.plugin';
 import { DocumentAssetReadPolicy } from '../modules/documents/document-asset-read-policy.service';
-import { AssetsDao } from '../modules/assets/assets.dao';
 import { CampaignMembersDao } from '../modules/campaigns/campaign-members.dao';
 import { LibraryMapReadPolicy } from '../modules/library-maps/library-map-read-policy.service';
 import { LibraryMapsDao } from '../modules/library-maps/library-maps.dao';
 import { createLibraryMapsModule } from '../modules/library-maps/library-maps.plugin';
 import cookie from '@fastify/cookie';
-import { AVATAR_MAX_BYTES } from '@lorkarium/contracts';
+import { AVATAR_MAX_BYTES, type AssetPurposeDto } from '@lorkarium/contracts';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import type { Env } from '../config/env';
 import type { Database } from '../database/database';
-import { S3AssetStorage } from '../infrastructure/asset-storage/s3-asset-storage';
 import { GuardedImageFetcher } from '../infrastructure/image-fetcher/guarded-image-fetcher';
 import { SharpImageProcessor } from '../infrastructure/image-processor/sharp-image-processor';
 import { createAssetsModule } from '../modules/assets/assets.plugin';
@@ -88,6 +87,7 @@ import type { AccessLogArchivePort } from '../modules/access-log/access-log-arch
 import type { AccessLogModule } from '../modules/access-log/access-log.plugin';
 import { wireAccessLog } from './wire-access-log';
 import { wireAssetSweep } from './wire-asset-sweep';
+import { wireAssetStorage } from './wire-asset-storage';
 import { mailerOf, wireAccountSecurity } from './wire-account-security';
 import { serveClient } from './serve-client';
 import { trustProxyOf } from './trust-proxy';
@@ -147,16 +147,19 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const campaigns = createCampaignsModule({ db: deps.db, hasher, codes, clock, presence });
   await app.register(healthPlugin, { prefix: API_PREFIX, db: deps.db });
   await app.register(legalPlugin, { prefix: API_PREFIX, sitePublicUrl: env.sitePublicUrl });
-  const storage = wireAssetStorage(app, new S3AssetStorage(deps.env.storage));
+  const storage = wireAssetStorage(app, deps.env, clock);
   // After the asset bucket is ensured: dev and CI keep the access log in that same bucket.
   const accessLog = wireAccessLog(app, { env, clock, archive: deps.accessLogArchive });
+  wireHousekeeping(app, { db: deps.db, clock, scheduler: new TimerScheduler() });
   const processor = new SharpImageProcessor();
   const fetcher = new GuardedImageFetcher();
+  // The membership the asset read already warmed: a policy does not read it again.
+  const { memberships } = campaigns;
   const libraryReadPolicy = new LibraryImageReadPolicy((work) =>
-    runInSnapshot(deps.db, (tx) => work(libraryImageDaos(tx))),
+    runInSnapshot(deps.db, (tx) => work({ ...libraryImageDaos(tx), members: memberships })),
   );
   const documentReadPolicy = new DocumentAssetReadPolicy((work) =>
-    runInSnapshot(deps.db, (tx) => work(documentDaos(tx))),
+    runInSnapshot(deps.db, (tx) => work({ ...documentDaos(tx), members: memberships })),
   );
   const mapReadPolicy = new LibraryMapReadPolicy((work) =>
     runInSnapshot(deps.db, (tx) =>
@@ -166,14 +169,18 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const sheetReadPolicy = createSheetAssetReadPolicy(deps.db);
   const templateAssetReadPolicy = createSheetTemplateAssetReadPolicy(deps.db);
   const readPolicy = {
-    canRead: async (userId: string, campaignId: string, assetId: string): Promise<boolean> => {
-      const row = await new AssetsDao(deps.db).findInCampaign(campaignId, assetId);
-      if (row?.purpose === 'library_map') return mapReadPolicy.canRead(userId, campaignId, assetId);
-      if (row?.purpose === 'sheet_image')
-        return sheetReadPolicy.canRead(userId, campaignId, assetId);
-      if (row?.purpose === 'sheet_template_asset')
-        return templateAssetReadPolicy.canRead(userId, campaignId, assetId);
-      if (row?.purpose === 'document_image')
+    canRead: async (
+      userId: string,
+      campaignId: string,
+      assetId: string,
+      purpose: AssetPurposeDto,
+    ): Promise<boolean> => {
+      if (purpose === 'library_map') return mapReadPolicy.canRead(userId, campaignId, assetId);
+      if (purpose === 'sheet_image')
+        return sheetReadPolicy.canRead(userId, campaignId, assetId, purpose);
+      if (purpose === 'sheet_template_asset')
+        return templateAssetReadPolicy.canRead(userId, campaignId, assetId, purpose);
+      if (purpose === 'document_image')
         return documentReadPolicy.canRead(userId, campaignId, assetId);
       return (
         (await libraryReadPolicy.canRead(userId, campaignId, assetId)) ||
@@ -181,17 +188,10 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
       );
     },
   };
-  const assets = createAssetsModule({
-    db: deps.db,
-    storage,
-    processor,
-    fetcher,
-    clock,
-    readPolicy,
-  });
+  const assetsOptions = { db: deps.db, members: memberships, storage, processor, fetcher };
+  const assets = createAssetsModule({ ...assetsOptions, clock, readPolicy });
   await app.register(assets.plugin, { prefix: API_PREFIX });
   wireAssetSweep(app, { db: deps.db, storage, clock });
-  const { memberships } = campaigns;
   const realtimeModules = {
     campaigns: campaigns.service,
     clock,
@@ -393,13 +393,6 @@ function wireRealtime(
   const memberRemoved = removedInOrder(sessions.service, characters.seats);
   const { seatIn } = characters;
   return { ...outlets, profileChanged, campaignChanged, memberRoleChanged, memberRemoved, seatIn };
-}
-
-// The bucket is ensured once per boot (dev, CI and integration alike), before the first request.
-function wireAssetStorage(app: FastifyInstance, storage: S3AssetStorage): S3AssetStorage {
-  app.addHook('onReady', async () => storage.ensureBucket());
-  app.addHook('onClose', async () => storage.destroy());
-  return storage;
 }
 
 function loggerOptions(env: Env): FastifyServerOptions['logger'] {

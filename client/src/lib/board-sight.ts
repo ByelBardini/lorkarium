@@ -176,7 +176,8 @@ export function poseShapingIdsOf(
 }
 
 /** `previous` with only the levels of `movedIds` worked out again, from where they show now: the
- *  eyes, the lights and the doors did not move, so nothing else changes.
+ *  eyes, the lights and the doors did not move, so nothing else changes. No level changed gives
+ *  `previous` itself, so a drag inside the light renders no panel.
  *
  *  Example: `sightWithMovedOf(last, board, { previewEyeIds, landing }, [goblinId])` */
 export function sightWithMovedOf(
@@ -190,14 +191,26 @@ export function sightWithMovedOf(
   const { walls, blockers } = geometryOfOptions(board, options);
   const lights = lightSourcesOf(board, landing, blockers);
   const context: SightContext = { eyes: previous.eyes, walls, mode: previous.mode, lights };
+  const moved = board.tokens.filter(
+    ({ id }) => movedIds.includes(id) && !previous.eyeTokenIds.includes(id),
+  );
+  const changed = changedLevelsOf(previous, moved, { context, landing, blockers });
+  if (changed.length === 0) return previous;
   const levels = new Map(previous.levels);
-  for (const token of board.tokens) {
-    if (!movedIds.includes(token.id) || previous.eyeTokenIds.includes(token.id)) continue;
-    const level = levelOfToken({ context, landing, blockers }, token);
-    if (level === 'seen') levels.delete(token.id);
-    else levels.set(token.id, level);
+  for (const [id, level] of changed) {
+    if (level === 'seen') levels.delete(id);
+    else levels.set(id, level);
   }
   return { ...previous, levels };
+}
+
+function changedLevelsOf(
+  previous: BoardSight,
+  moved: readonly TokenDto[],
+  reading: LevelReading,
+): (readonly [string, SightLevel])[] {
+  const levels = moved.map((token) => [token.id, levelOfToken(reading, token)] as const);
+  return levels.filter(([id, level]) => level !== levelOf(previous, id));
 }
 
 function levelsOf(

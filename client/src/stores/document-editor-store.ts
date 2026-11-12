@@ -45,6 +45,9 @@ export type DocumentEditorState = Readonly<{
   dispose: () => void;
   /** Saves the other tabs' pending bodies and returns this tab's editor (null: no such tab). */
   openTab: (tabId: string) => StoreApi<DocumentTabEditorState> | null;
+  /** Someone saved `tabId` at `version`: reads that tab again only if it is open here at an
+   *  older version (a tab never opened, or already there, costs nothing). */
+  rereadTab: (tabId: string, version: number) => void;
   runTabCommand: (
     command: DocumentTabCommand,
   ) => Promise<DocumentsResult<DocumentWriteResponseDto>>;
@@ -108,6 +111,12 @@ export function createDocumentEditorStore(
       for (const [other, tab] of Object.entries(get().tabEditors))
         if (other !== key && tab.getState().dirty) void tab.getState().flush();
       return get().tabEditors[key] ?? createTabEditor(tabId, key);
+    },
+    rereadTab: (tabId, version) => {
+      const key = documentTabEditorKey(options.campaignId, options.documentId, tabId);
+      const editor = get().tabEditors[key];
+      const confirmed = editor?.getState().confirmed;
+      if (editor && confirmed && confirmed.version < version) void editor.getState().revalidate();
     },
     runTabCommand: async (command) => {
       await name.getState().flush();

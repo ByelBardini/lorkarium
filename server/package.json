@@ -13,6 +13,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:encrypt-emails": "tsx --env-file-if-exists=.env src/encrypt-emails.ts",
+    "db:recompress-images": "tsx --env-file-if-exists=.env src/recompress-images.ts",
     "seed:dev": "tsx --env-file-if-exists=.env src/dev-seed.ts",
     "seed:stress": "tsx --env-file-if-exists=.env src/stress-seed.ts",
     "mail:preview": "tsx --env-file-if-exists=.env src/mail-preview.ts",

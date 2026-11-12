@@ -4,7 +4,8 @@ import { seenTokensOf } from '@/lib/board-sight';
 import { cn } from '@/lib/utils';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
-import { useBoardSight } from '@/features/board/use-board-sight';
+import { useBoardSeen } from '@/features/board/use-board-sight';
+import { useTokensBesidesPose } from '@/features/board/use-board-tokens';
 import { combatSummaryOf, turnLine } from './combat-view';
 
 export type TurnLineProps = Readonly<{
@@ -18,11 +19,12 @@ export type TurnLineProps = Readonly<{
  *
  *  Example: `<TurnLine board={board} interaction={interaction} />` */
 export function TurnLine({ board, interaction, className }: TurnLineProps) {
-  const state = useBoard(board, (current) => current.board);
-  const sight = useBoardSight(board, interaction);
+  const combat = useBoard(board, (current) => current.board?.combat ?? null);
+  const tokens = useTokensBesidesPose(board);
+  const sight = useBoardSeen(board, interaction);
   const summary = useMemo(
-    () => (state ? combatSummaryOf(state, seenTokensOf(state, sight)) : null),
-    [state, sight],
+    () => combatSummaryOf({ combat }, seenTokensOf({ tokens }, sight)),
+    [combat, tokens, sight],
   );
   if (!summary) return null;
   return (

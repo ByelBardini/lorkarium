@@ -34,6 +34,9 @@ export class LibraryImagesDaoFake implements ImageDao {
   async findInCampaign(campaignId: string, imageId: string): Promise<LibraryImageRow | undefined> {
     return this.rows.find((row) => row.image.campaignId === campaignId && row.image.id === imageId);
   }
+  async findByAsset(campaignId: string, assetId: string): Promise<LibraryImageRow | undefined> {
+    return this.rows.find((row) => row.image.campaignId === campaignId && row.asset.id === assetId);
+  }
   async insert(input: NewLibraryImagePo): Promise<LibraryImagePo> {
     if (this.failSave) throw new Error('save failed');
     const fixture = libraryImageRow();

@@ -75,6 +75,11 @@ export class RealtimeTransportFake implements RealtimeTransport {
     return this.pendingAcks.filter((pending) => pending.event === event).length;
   }
 
+  /** Every event some listener of the client is subscribed to right now. */
+  listenedEvents(): string[] {
+    return [...this.listeners].filter(([, forEvent]) => forEvent.size > 0).map(([event]) => event);
+  }
+
   serverEmits(event: string, payload: unknown): void {
     for (const listener of this.listeners.get(event) ?? []) listener(payload);
   }

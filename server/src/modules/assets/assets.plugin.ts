@@ -5,7 +5,7 @@ import type { Database } from '../../database/database';
 import { runInTransaction } from '../../database/transaction';
 import type { ClockPort } from '../auth/clock.port';
 import { UsersDao } from '../auth/users.dao';
-import { CampaignMembersDao } from '../campaigns/campaign-members.dao';
+import type { MembershipReader } from '../campaigns/cached-memberships';
 import { CampaignsDao } from '../campaigns/campaigns.dao';
 import { AssetReferencesDao } from './asset-references.dao';
 import type { AssetStoragePort } from './asset-storage.port';
@@ -17,6 +17,8 @@ import type { ImageProcessorPort } from './image-processor.port';
 
 export type AssetsModuleOptions = Readonly<{
   db: Database;
+  /** The `campaigns.memberships` of the app: reading an image reads no membership again. */
+  members: Pick<MembershipReader, 'findMembership'>;
   storage: AssetStoragePort;
   processor: ImageProcessorPort;
   fetcher: ImageFetcherPort;
@@ -34,7 +36,7 @@ export type AssetsModule = Readonly<{
  *  Example: `const assets = createAssetsModule(options); await app.register(assets.plugin, { prefix: '/api' })` */
 export function createAssetsModule(options: AssetsModuleOptions): AssetsModule {
   const service = new AssetsService({
-    members: new CampaignMembersDao(options.db),
+    members: options.members,
     assets: new AssetsDao(options.db),
     tableOwners: new CampaignsDao(options.db),
     keeping: keepingOver(options.db),

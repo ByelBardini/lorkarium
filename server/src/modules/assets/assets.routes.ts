@@ -26,7 +26,7 @@ import {
   AssetRateLimitedError,
   type AssetErrorCode,
 } from './assets.error';
-import type { AssetsService } from './assets.service';
+import type { AssetsService, RevalidatedAsset } from './assets.service';
 import { withPlanLimitReply } from '../plans/plan-limit-response';
 
 // Spec §8.4: keyed by the signed-in user; each send decodes an image, so it is the costly route.
@@ -50,7 +50,7 @@ const STATUS_BY_CODE: Readonly<Record<AssetErrorCode, number>> = {
 // Public text only: the internal message cites links, addresses and ids and stays in the log.
 const PUBLIC_MESSAGE: Readonly<Record<AssetErrorCode, string>> = {
   ASSET_NOT_FOUND: 'Image not found',
-  UNSUPPORTED_IMAGE: 'The file is not a PNG, JPEG or WebP image (GIF only for an aura)',
+  UNSUPPORTED_IMAGE: 'The file is not a PNG, JPEG, WebP or GIF image',
   UNSUPPORTED_FONT: 'The file is not a WOFF2 font',
   ASSET_TOO_LARGE: 'The image is larger than 20 MB',
   LINK_BLOCKED: 'This link cannot be used',
@@ -101,7 +101,10 @@ function registerSendRoutes(app: FastifyInstance, service: AssetsService): void 
 function registerReadRoute(app: FastifyInstance, service: AssetsService): void {
   const { requireAuth, userOf } = app.authGuards;
   app.get('/assets/:assetId', { preHandler: requireAuth }, async (request, reply) => {
-    const opened = await service.open(userOf(request).id, assetIdOf(request));
+    const ifNoneMatch = request.headers['if-none-match'];
+    const opened = await service.open(userOf(request).id, assetIdOf(request), ifNoneMatch);
+    if ('notModified' in opened) return revalidated(reply, opened);
+    if (opened.etag) reply.header('etag', opened.etag);
     return reply
       .header('content-type', opened.mimeType)
       .header('content-length', opened.size)
@@ -109,6 +112,14 @@ function registerReadRoute(app: FastifyInstance, service: AssetsService): void {
       .header('x-content-type-options', 'nosniff')
       .send(opened.body);
   });
+}
+
+function revalidated(reply: FastifyReply, asset: RevalidatedAsset): FastifyReply {
+  return reply
+    .code(304)
+    .header('etag', asset.etag)
+    .header('cache-control', asset.cacheControl)
+    .send();
 }
 
 function registerOutlineRoute(app: FastifyInstance, service: AssetsService): void {

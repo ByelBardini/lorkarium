@@ -7,6 +7,8 @@ import {
   type TablePresenceStore,
 } from '@/stores/table-presence-store';
 import { QUELM, VHARN } from '../support/campaigns-api-fake';
+import { chatSent } from '../support/chat-fixtures';
+import { NotificationCounter } from '../support/notification-counter';
 import {
   ANA_AT_TABLE,
   BIA_AT_TABLE,
@@ -14,6 +16,7 @@ import {
   biaJoined,
   biaLeft,
   biaUpdated,
+  groupDraggedOver,
   duda,
   rootJuggernaut,
   vharnRenamed,
@@ -365,5 +368,36 @@ describe('table presence store', () => {
 
     apply({ kind: 'memberLeft', event: biaLeft({ version: 4, at: '2026-10-22T12:09:00.000Z' }) });
     expect(store.getState().at).toBe('2026-10-22T12:05:00.000Z');
+  });
+  describe('notifications', () => {
+    it.each([
+      ['a board event', { kind: 'tokensDragged', drag: groupDraggedOver([]) }],
+      ['a chat message', { kind: 'chatSent', event: chatSent() }],
+      ['an event of an older version', { kind: 'memberLeft', event: biaLeft({ version: 3 }) }],
+    ] as const)('%s tells no subscriber of the presence', (_, update) => {
+      apply({ kind: 'state', state: vharnState({ version: 3 }) });
+      const notified = new NotificationCounter(store);
+
+      apply(update);
+
+      expect(notified.count).toBe(0);
+    });
+
+    it('the same status twice notifies once', () => {
+      const notified = new NotificationCounter(store);
+
+      apply({ kind: 'status', status: 'live' }, { kind: 'status', status: 'live' });
+
+      expect(notified.count).toBe(1);
+    });
+
+    it('someone joining notifies once', () => {
+      apply({ kind: 'state', state: vharnState({ version: 3 }) });
+      const notified = new NotificationCounter(store);
+
+      apply({ kind: 'memberJoined', event: biaJoined({ version: 4 }) });
+
+      expect(notified.count).toBe(1);
+    });
   });
 });

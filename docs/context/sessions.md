@@ -92,6 +92,7 @@ Sessão ao vivo da mesa: a **própria mesa é a sessão** (não há tabela `sess
 | `SchedulerPort`        | `TimerScheduler`           | `schedule(chave, ms, tarefa)` substitui a pendente da mesma chave; `cancel(chave)`; `cancelAll()` no fechamento                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 - **Por que memória e não Redis:** presença não toca o banco e o MVP roda uma instância (spec §5.5, §5.7). O registro é **síncrono** de propósito: o service lê, decide e salva sem `await` no meio, então dois comandos na mesma mesa nunca se intercalam. Com várias instâncias, a porta vira uma atualização atômica no Redis e entra o redis-adapter do Socket.IO.
+- O client, depois do ack do `join`, pede `board:sync`, `character:sync` e os `scene:watch` juntos: nenhum depende da resposta do outro (ver [`client/realtime.md`](client/realtime.md), Entrada na mesa).
 - Mesa esvaziada volta à versão 0 no próximo `join`: o client aceita sempre o snapshot (inclusive de versão menor), então isso não regride ninguém.
 
 ## Testes

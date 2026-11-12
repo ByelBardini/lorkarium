@@ -1,5 +1,6 @@
 import type {
   ActiveConditionRow,
+  ConditionApplication,
   ConditionDuration,
   ConditionsDao,
 } from '../../src/modules/conditions/conditions.dao';
@@ -32,6 +33,7 @@ export class ConditionsDaoFake implements Pick<
   | 'countActiveOf'
   | 'findDefinitionInCampaign'
   | 'apply'
+  | 'applyMany'
   | 'remove'
   | 'setRounds'
   | 'stacksOf'
@@ -202,6 +204,18 @@ export class ConditionsDaoFake implements Pick<
     };
     this.active = [...kept, row];
     return row;
+  }
+
+  /** Like the DAO, in the order given; one 'save' per holder in the journal. */
+  async applyMany(
+    conditionId: string,
+    duration: ConditionDuration,
+    applications: readonly ConditionApplication[],
+  ): Promise<ActiveConditionRow[]> {
+    const applied: ActiveConditionRow[] = [];
+    for (const { holder, stacks } of applications)
+      applied.push(await this.apply(holder, conditionId, duration, stacks));
+    return applied;
   }
 
   async remove(holder: ConditionHolder, activeConditionId: string): Promise<boolean> {

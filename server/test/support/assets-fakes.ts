@@ -41,6 +41,8 @@ export class LoopbackOnlyPolicyFake implements AddressPolicy {
 /** An in-memory bucket; writes 'put' and 'remove:<key>' to the shared journal. */
 export class AssetStorageFake implements AssetStoragePort {
   readonly objects = new Map<string, { bytes: Uint8Array; contentType: string }>();
+  /** Every key `open` was asked for: a 304 opens none. */
+  readonly opened: string[] = [];
 
   constructor(private readonly journal: string[] = []) {}
 
@@ -52,6 +54,7 @@ export class AssetStorageFake implements AssetStoragePort {
   }
 
   async open(key: string): Promise<StoredObject | null> {
+    this.opened.push(key);
     const object = this.objects.get(key);
     if (object === undefined) return null;
     const body = Readable.from([Buffer.from(object.bytes)]);
@@ -103,7 +106,7 @@ export class ImageFetcherFake implements ImageFetcherPort {
 /** Asset rows in memory; writes 'insert' to the shared journal and records each lookup by id. */
 export class AssetsDaoFake implements Pick<
   AssetsDao,
-  'insert' | 'findById' | 'findInCampaign' | 'findManyInCampaign' | 'outlinesOf'
+  'insert' | 'findById' | 'findHeaderById' | 'findInCampaign' | 'findManyInCampaign' | 'outlinesOf'
 > {
   constructor(
     private readonly journal: string[] = [],
@@ -128,6 +131,11 @@ export class AssetsDaoFake implements Pick<
 
   async findById(assetId: string): Promise<AssetPo | undefined> {
     return this.rows.find((row) => row.id === assetId);
+  }
+
+  /** The same row: a header that keeps its outline still serves the bytes. */
+  async findHeaderById(assetId: string): Promise<AssetPo | undefined> {
+    return this.findById(assetId);
   }
 
   async findInCampaign(campaignId: string, assetId: string): Promise<AssetPo | undefined> {

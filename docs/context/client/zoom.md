@@ -27,7 +27,7 @@ Hub: [`../client.md`](../client.md). Como o zoom fica leve (assentamento, recort
 
 ## Texto com textura limitada
 
-`textResolutionFor(dpr, fontSize)` (`camera.ts`): o `zoomProofTextResolution` (4 × dpr) cortado só o bastante para o lado da textura (`fontSize × 1,3 × r`) caber em 2048 px. Usado nas iniciais do token (`pixi-token-layer.ts`) e no "Zz" do sono (`pixi-token-look.ts`), cujo tamanho acompanha o token; o resto do texto continua no `zoomProofTextResolution`. Um token 10 × 10 (fonte 192) ainda não corta; corta a partir de ~263 px de fonte em dpr 1,5.
+`textResolutionFor(dpr, fontSize)` (`camera.ts`): o `zoomProofTextResolution` (4 × dpr) cortado só o bastante para o lado da textura (`fontSize × 1,3 × r`) caber em 2048 px. Usado no "Zz" do sono (`pixi-token-look.ts`), cujo tamanho acompanha o token; as iniciais saíram do `Text` e são `BitmapText` sobre um atlas só (`pixi-initials-font.ts`: Hanken 600 em 32 px, resolução 4 — a do zoom máximo —, página de 2048 px; acima de 32 px de fonte, num token grande, o glifo é ampliado); o resto do texto continua no `zoomProofTextResolution`. Um token 10 × 10 (fonte 192) ainda não corta; corta a partir de ~263 px de fonte em dpr 1,5.
 
 ## Medições
 
@@ -53,7 +53,7 @@ Mesa de estresse (Bia, mestre), `pnpm dev`, pane do app 800 × 600, dpr 1. Gesto
 
 Sem limitar a CPU, os dois ficam perto de 60 FPS; a correção zera as long tasks (era 0,3–1,3 por gesto). Script em scratchpad, não versionado: abre a mesa nas duas portas e dispara `WheelEvent` no canvas.
 
-- Memória de textura parada: **56,9 MB** (305 texturas). Uma de 2048² em resolução 0,32 (névoa/luz, 16 MB) e ~300 de texto de 512 × 256 em resolução 4 (0,5 MB cada, **~40 MB, ~71%**). Nenhum texto passa de 2048 px de lado: o `textResolutionFor` não alcança esses textos pequenos, e baixar a resolução das iniciais troca nitidez por memória (decisão de produto, não tomada).
+- Memória de textura parada: **56,9 MB** (305 texturas). Uma de 2048² em resolução 0,32 (névoa/luz, 16 MB) e ~300 de texto de 512 × 256 em resolução 4 (0,5 MB cada, **~40 MB, ~71%**). Nenhum texto passa de 2048 px de lado: o `textResolutionFor` não alcança esses textos pequenos, e baixar a resolução das iniciais trocaria nitidez por memória. Depois, as iniciais dividem o atlas (uma página de 2048², ~16 MB, mais 1/3 de mipmap do Pixi), no lugar dos ~300 textos: medir o `texture.mb` de novo.
 - `strip.redraw` ficou 0: o seed de estresse não tem condições.
 - A tela branca **não reproduziu** (nenhum `CONTEXT_LOST_WEBGL` no console). Reabrir com o relato de quem viu: navegador, GPU, tamanho da cena e zoom.
 - O zoom não passa pelo `buildBoardView`: o bench não muda com ele (compare sempre com o `sightArea` do game-core na mesma rodada para separar a máquina do código).

@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, notInArray, sql, type SQL } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { PLAN_ACCOUNT_COLUMNS } from '../auth/users.dao';
 import { users, type UserPlanPo } from '../auth/users.po';
+import { updateManySql } from '../../database/update-many';
 import { campaignMembers, type CampaignMemberPo } from '../campaigns/campaign-members.po';
 import { campaigns } from '../campaigns/campaigns.po';
 import { ConditionsDao, type ActiveConditionRow } from '../conditions/conditions.dao';
@@ -9,7 +10,7 @@ import { scenes } from '../scenes/scenes.po';
 import { formRowsOf } from '../tokens/token-forms.dao';
 import {
   tokenForms,
-  type BarValuesPo,
+  type BarValuesWritePo,
   type CharacterFormPo,
   type TokenFormInputPo,
 } from '../tokens/tokens.po';
@@ -160,11 +161,26 @@ export class CharactersDao {
       .where(eq(characters.id, characterId));
   }
 
-  async setBarValues(barId: string, { current, max, temp }: BarValuesPo): Promise<void> {
-    await this.db
-      .update(characterBars)
-      .set({ current, max, temp })
-      .where(eq(characterBars.id, barId));
+  /** The values of several bars of one character in one `UPDATE`; a bar of another character in
+   *  the group does not change.
+   *
+   *  Example: `await dao.setBarValues(lyraId, [{ barId: pvId, values: { current: 18, max: 30, temp: 0 } }])` */
+  async setBarValues(characterId: string, writes: readonly BarValuesWritePo[]): Promise<void> {
+    if (writes.length === 0) return;
+    const columns = [
+      { column: characterBars.current, cast: 'integer' },
+      { column: characterBars.max, cast: 'integer' },
+      { column: characterBars.temp, cast: 'integer' },
+    ];
+    const rows = writes.map(({ barId, values }) => [
+      barId,
+      values.current,
+      values.max,
+      values.temp,
+    ]);
+    const where = eq(characterBars.characterId, characterId);
+    const update = { table: characterBars, key: characterBars.id, columns, rows, where };
+    await this.db.execute(updateManySql(update));
   }
 
   /** The bars of one character, replaced whole, in the order given (their position). */

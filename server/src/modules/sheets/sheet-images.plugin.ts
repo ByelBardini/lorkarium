@@ -42,7 +42,7 @@ export function createSheetImagesModule(options: SheetImagesModuleOptions): Shee
  *
  *  Example: `createSheetAssetReadPolicy(db).canRead(userId, campaignId, assetId)` */
 export function createSheetAssetReadPolicy(db: Database): AssetReadPolicyPort {
-  return new SheetAssetReadPolicy(snapshotOf(db), new SheetHolderService());
+  return new SheetAssetReadPolicy(snapshotOf(db));
 }
 
 function snapshotOf(db: Database): SheetImageWork {

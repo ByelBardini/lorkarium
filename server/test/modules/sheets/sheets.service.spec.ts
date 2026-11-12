@@ -317,7 +317,13 @@ describe('SheetsService: values', () => {
     expect(harness.publisher.events).toEqual([
       { campaignId: VHARN_ID, sheetId: LYRA_SHEET_ID, version: 5, at: '2026-10-31T15:00:00.000Z' },
     ]);
-    expect(harness.journal).toEqual(['lock', 'patch values', 'receipt', 'commit', 'publish sheet']);
+    expect(harness.journal).toEqual([
+      'lock sheet',
+      'patch values',
+      'receipt',
+      'commit',
+      'publish sheet',
+    ]);
     expect(harness.library.changes).toEqual([]);
   });
 
@@ -514,7 +520,7 @@ describe('SheetsService: values by path', () => {
     expect(sheet.values).toEqual({ hab: { k3f9: { efeito: 'Luz' }, p2a1: { efeito: 'Raio' } } });
     expect(receipt).toMatchObject({ version: 5, operation: 'values' });
     expect(harness.journal).toEqual([
-      'lock',
+      'lock sheet',
       'replace values',
       'receipt',
       'commit',
