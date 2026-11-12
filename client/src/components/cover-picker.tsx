@@ -26,8 +26,6 @@ const ITEM_FOCUS =
 export type CoverPickerProps = Readonly<{
   value: CampaignCoverDto;
   onChange: (cover: CampaignCoverDto) => void;
-  /** The image option under the drawings (the settings tab puts an `ImagePicker` here). */
-  image?: React.ReactNode;
   /** A line under the picker (e.g. where the image can be sent later). */
   hint?: string;
   disabled?: boolean;
@@ -35,9 +33,8 @@ export type CoverPickerProps = Readonly<{
 }>;
 
 /** The campaign cover as two radio groups, a row of drawings and a row of tones (arrows move the
- *  choice), plus an optional image slot. After the tones, a tile opens the custom color. With an
- *  image chosen, no drawing nor tone is checked; picking one goes back to the last drawn cover
- *  with that change.
+ *  choice). After the tones, a tile opens the custom color. With an image chosen, no drawing nor
+ *  tone is checked; picking one goes back to the last drawn cover with that change.
  *
  *  Example: `<CoverPicker value={draft.cover} onChange={(cover) => change({ cover })} />` */
 export function CoverPicker(props: CoverPickerProps): React.JSX.Element {
@@ -65,7 +62,6 @@ export function CoverPicker(props: CoverPickerProps): React.JSX.Element {
         disabled={props.disabled}
         onPick={(tone) => choose({ tone })}
       />
-      {props.image}
       {props.hint && <p className="text-xs text-muted-foreground">{props.hint}</p>}
     </div>
   );
