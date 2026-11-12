@@ -15,6 +15,12 @@ const PREVIEW_WIDTH: Readonly<Record<CampaignImageFormat, string>> = {
   banner: 'w-72',
 };
 
+const PROPORTION_HINT: Readonly<Record<CampaignImageFormat, string>> = {
+  photo: 'Quadrada, proporção 1:1.',
+  cover: 'Retangular, proporção 2:1.',
+  banner: 'Faixa larga, proporção 3:1.',
+};
+
 type OptionalFormat = Readonly<{
   title: string;
   pickerLabel: string;
@@ -58,9 +64,12 @@ export type CampaignImageFieldsProps = Readonly<{
 export function CampaignImageFields(props: CampaignImageFieldsProps): React.JSX.Element {
   return (
     <div className="flex flex-col gap-6">
-      <OptionalImageField {...props} format="photo" />
-      <CoverField {...props} />
-      <OptionalImageField {...props} format="banner" />
+      <div className="grid items-stretch gap-6 lg:grid-cols-3">
+        <OptionalImageField {...props} format="photo" />
+        <CoverField {...props} />
+        <OptionalImageField {...props} format="banner" />
+      </div>
+      <DrawnCoverField {...props} />
     </div>
   );
 }
@@ -92,15 +101,38 @@ function imagePatchOf(key: OptionalFormat['key'], assetId: string | null): Parti
 }
 
 function CoverField(props: CampaignImageFieldsProps): React.JSX.Element {
-  const { values, change } = props.draft;
   return (
-    <ImageField title="Capa" format="cover" values={values}>
-      <CoverPicker
-        value={values.cover}
-        onChange={(cover) => change({ cover })}
-        image={<CoverImagePicker {...props} />}
-      />
+    <ImageField title="Capa" format="cover" values={props.draft.values}>
+      <CoverImagePicker {...props} />
+      {props.draft.values.cover.kind === 'drawn' && (
+        <p className="text-xs text-muted-foreground">Sem imagem, a capa usa o desenho abaixo.</p>
+      )}
     </ImageField>
+  );
+}
+
+function DrawnCoverField({ draft }: CampaignImageFieldsProps): React.JSX.Element {
+  const titleId = useId();
+  return (
+    <div
+      role="group"
+      aria-labelledby={titleId}
+      className="flex flex-col items-center gap-3 rounded-lg border border-border p-4 text-center"
+    >
+      <div className="flex flex-col gap-0.5">
+        <span id={titleId} className="text-[13px] font-medium text-label">
+          Capa desenhada
+        </span>
+        <span className="text-xs text-muted-foreground">
+          Usada quando a capa não tem imagem. Escolher um desenho troca a imagem por ele.
+        </span>
+      </div>
+      <CoverPicker
+        className="w-full max-w-xl [&_[role=radiogroup]]:justify-center"
+        value={draft.values.cover}
+        onChange={(cover) => draft.change({ cover })}
+      />
+    </div>
   );
 }
 
@@ -132,17 +164,33 @@ type ImageFieldProps = Readonly<{
 // The preview resolves the fallback, so a photo not set shows the cover the screens will use.
 function ImageField({ title, format, values, children }: ImageFieldProps): React.JSX.Element {
   const titleId = useId();
+  const hintId = useId();
   return (
-    <div role="group" aria-labelledby={titleId} className="flex flex-col gap-3">
-      <span id={titleId} className="text-[13px] font-medium text-label">
-        {title}
-      </span>
-      <div data-campaign-image-preview={format} className={cn('max-w-full', PREVIEW_WIDTH[format])}>
-        <CampaignCover
-          {...values}
-          format={format}
-          className="w-full rounded-md border border-border"
-        />
+    <div
+      role="group"
+      aria-labelledby={titleId}
+      aria-describedby={hintId}
+      className="flex min-w-0 flex-col gap-3 rounded-lg border border-border p-4"
+    >
+      <div className="flex flex-col gap-0.5">
+        <span id={titleId} className="text-[13px] font-medium text-label">
+          {title}
+        </span>
+        <span id={hintId} className="text-xs text-muted-foreground">
+          {PROPORTION_HINT[format]} A imagem enviada é recortada nesse formato.
+        </span>
+      </div>
+      <div className="flex h-28 items-center justify-center">
+        <div
+          data-campaign-image-preview={format}
+          className={cn('max-w-full', PREVIEW_WIDTH[format])}
+        >
+          <CampaignCover
+            {...values}
+            format={format}
+            className="w-full rounded-md border border-border"
+          />
+        </div>
       </div>
       {children}
     </div>
