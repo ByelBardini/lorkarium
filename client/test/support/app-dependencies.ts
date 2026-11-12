@@ -233,6 +233,7 @@ export function testDependencies(): TestDependencies {
     chatPreferences: createChatPreferencesStore(chatPreferencesStorage),
     chatSounds,
     createChatSound: chatSounds.create,
+    chatAttention: null,
     interactionClock,
     openTables: createOpenTablesStore({
       api: tableSessionApi,

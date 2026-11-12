@@ -1,4 +1,6 @@
 import type { ImagePresentationApi } from '@/services/image-presentation-api';
+import type { ChatAttention } from '@/features/chat/chat-attention-watch';
+import { useChatAttention } from '@/features/chat/use-chat-attention';
 import type { DocumentsApi } from '@/services/documents-api';
 import type { DocumentWorkspaceStore } from '@/stores/document-workspace-store';
 import { DocumentWorkspaceHost } from '@/features/documents/document-workspace-host';
@@ -167,6 +169,9 @@ export type AppDependencies = Readonly<{
   chatPreferences: StoreApi<ChatPreferencesStore>;
   /** The short sound of a mention or a whisper; Web Audio in the app, a fake in tests. */
   createChatSound: ChatSoundFactory;
+  /** The desktop app's taskbar button, lit for chat messages the person cannot see; `null` in the
+   *  browser (and in the tests that do not look at it). */
+  chatAttention: ChatAttention | null;
   /** The board's own time (the hover card's delay); the browser's in the app. */
   interactionClock: InteractionClock;
   /** The instant of the overline date; a parameter so tests fix the day. */
@@ -373,6 +378,11 @@ function shellRoute(deps: AppDependencies): () => React.JSX.Element | null {
     useSignOutWhenRefused(openTables, sessionStore);
     useLeaveDeletedTable(openTables);
     useTabActivity({ clock: interactionClock, onAway: setAway });
+    useChatAttention(
+      openTables,
+      deps.chatAttention,
+      session.status === 'authenticated' ? session.user.id : null,
+    );
     if (session.status !== 'authenticated') return null;
     const signOut = async (): Promise<void> => {
       // Before the logout: once the session ends the server refuses the leaves, and the others

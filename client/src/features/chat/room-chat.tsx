@@ -15,6 +15,8 @@ import type { ChatPanelProps } from './chat-panel';
 import { useChatSound } from './use-chat-sound';
 import { useOpenTableOf } from './use-chat-people';
 import { useRoomChatWindow } from './use-room-chat-window';
+import type { ChatAttention } from './chat-attention-watch';
+import { useRoomAttention } from './use-chat-attention';
 
 /** What the room's chat takes from the app (the `PlayRoomPage` props carry them all). */
 export type RoomChatServices = Readonly<{
@@ -24,6 +26,8 @@ export type RoomChatServices = Readonly<{
   /** "Som do chat" on this device. */
   chatPreferences: StoreApi<ChatPreferencesStore>;
   createChatSound: ChatSoundFactory;
+  /** The taskbar button of the desktop app; `null` in the browser. */
+  chatAttention: ChatAttention | null;
 }>;
 
 export type RoomChatProps = Readonly<{
@@ -34,22 +38,26 @@ export type RoomChatProps = Readonly<{
   /** The chat bar's state, the panel and focus mode (they place the bar). */
   roomLayout: StoreApi<RoomLayoutStore>;
   services: RoomChatServices;
+  /** `false` while a page (settings, conditions) covers the room: its chat is not seen. */
+  onScreen: boolean;
 }>;
 
 const NOTHING_UNREAD: ChatUnreadSummary = { count: 0, important: false };
 
 /** The chat of the play room, mounted by the room inside the board's box whatever is shown
  *  (focus mode included): the detached window's portal, the browser tab's title with the unread
- *  count, the sound of mentions and whispers and, beside the board (`md+`), the `ChatDock` at its
+ *  count, the sound of mentions and whispers, the taskbar button's flash (`onScreen`) and, beside the board (`md+`), the `ChatDock` at its
  *  foot; below `md`, the "Chat" button beside "Painel".
  *
- *  Example: `<RoomChat tableName={campaign.name} panel={chatPanelProps} roomLayout={roomLayout} services={deps} />` */
+ *  Example: `<RoomChat tableName={campaign.name} panel={chatPanelProps} roomLayout={roomLayout} services={deps} onScreen />` */
 export function RoomChat(props: RoomChatProps): React.JSX.Element {
   const { panel, roomLayout, services } = props;
   const chatWindow = useRoomChatWindow(panel, services.chatWindowHost);
   const desktop = useMediaQuery(DESKTOP_QUERY);
   const chat = useOpenTableOf(panel.openTables, panel.campaignId)?.chat ?? null;
   useRoomChatSound(props, chat);
+  const attention = props.onScreen ? services.chatAttention : null;
+  useRoomAttention(attention, panel.campaignId, chatWindow.focusWindow);
   return (
     <>
       {chatWindow.portal}

@@ -11,7 +11,7 @@ import { DetachedWindowFrame } from './detached-window-frame';
 export function useRoomChatWindow(
   props: ChatPanelProps,
   host: ChatWindowHost,
-): Readonly<{ slot: ChatWindowSlot; portal: React.ReactNode }> {
+): Readonly<{ slot: ChatWindowSlot; portal: React.ReactNode; focusWindow: Window | null }> {
   const chatWindow = useChatWindow(props.campaignId, host);
   const slot: ChatWindowSlot =
     chatWindow.status === 'detached'
@@ -30,5 +30,6 @@ export function useRoomChatWindow(
       </DetachedWindowFrame>
     </ChatWindowPortal>
   );
-  return { slot, portal };
+  const focusWindow = chatWindow.portalTarget?.ownerDocument.defaultView ?? null;
+  return { slot, portal, focusWindow };
 }
