@@ -154,22 +154,20 @@ describe('DiceRollNotice', () => {
     expect(notice().parentElement).toHaveClass('right-0');
   });
 
-  it('sits above the chat bar at the foot of the board', () => {
-    renderNotice(deps);
-    roll(deps, biaRolled());
-    advance(deps, 2400);
-    expect(notice().parentElement).toHaveClass('bottom-18');
-  });
-
-  it('with the chat drawer open it moves to the top of the board, off the conversation', () => {
-    deps.roomLayout.getState().openChat();
+  it('beside the board it sits at the top, clear of the chat bar and the previews rising from it', () => {
     renderNotice(deps);
     roll(deps, biaRolled());
     advance(deps, 2400);
     expect(notice().parentElement).toHaveClass('top-14');
     expect(notice().parentElement).not.toHaveClass('bottom-18');
-    act(() => deps.roomLayout.getState().closeChat());
-    expect(notice().parentElement).toHaveClass('bottom-18');
+  });
+
+  it('stays at the top with the chat drawer open, off the conversation', () => {
+    deps.roomLayout.getState().openChat();
+    renderNotice(deps);
+    roll(deps, biaRolled());
+    advance(deps, 2400);
+    expect(notice().parentElement).toHaveClass('top-14');
   });
 
   it('in focus mode the panel is hidden, so it centres over the whole board', () => {
