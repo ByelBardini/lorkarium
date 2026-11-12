@@ -3,7 +3,9 @@ import {
   readStoredChoice,
   readStoredColor,
   readStoredNumber,
+  readStoredSwitch,
   writeStoredChoice,
+  writeStoredSwitch,
 } from '@/lib/stored-choice';
 import { StorageFake } from '../support/storage-fake';
 
@@ -101,5 +103,22 @@ describe('stored number', () => {
 
   it('a storage that throws reads as the fallback', () => {
     expect(readStoredNumber(new StorageFake(true), 'key', ANY, 7)).toBe(7);
+  });
+});
+
+describe('stored switch', () => {
+  it('a switch written off reads back off, and on again after writing on', () => {
+    const storage = new StorageFake();
+    writeStoredSwitch(storage, 'key', false);
+    expect(storage.values.get('key')).toBe('off');
+    expect(readStoredSwitch(storage, 'key')).toBe(false);
+    writeStoredSwitch(storage, 'key', true);
+    expect(readStoredSwitch(storage, 'key')).toBe(true);
+  });
+
+  it.each([null, 'yes', 'OFF'])('stored %s reads as on', (stored) => {
+    const storage = new StorageFake();
+    if (stored !== null) storage.values.set('key', stored);
+    expect(readStoredSwitch(storage, 'key')).toBe(true);
   });
 });
