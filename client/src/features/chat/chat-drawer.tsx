@@ -1,0 +1,129 @@
+import { ChevronDownIcon } from 'lucide-react';
+import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import type { StoreApi } from 'zustand/vanilla';
+import { Button } from '@/components/ui/button';
+import { CHAT_DRAWER_MIN_HEIGHT, clampChatDrawerHeight } from '@/lib/chat-drawer-height';
+import { trackPointerDrag, type DragPoint } from '@/lib/pointer-drag';
+import { useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store';
+import { ChatPanel, type ChatPanelProps } from './chat-panel';
+
+/** One arrow press on the handle grows or shrinks the drawer this many pixels. */
+export const CHAT_DRAWER_STEP = 24;
+
+export type ChatDrawerProps = Readonly<{
+  panel: ChatPanelProps;
+  /** The drawer height (`chatHeight`, fitted to the board as it is drawn). */
+  roomLayout: StoreApi<RoomLayoutStore>;
+  /** "Recolher chat", or Esc with the focus inside. */
+  onClose: () => void;
+}>;
+
+/** The open chat over the grid: a translucent box with the whole `ChatPanel`, a handle on top
+ *  that sets its height (at least 180 px, at most 60% of the board: its parent is as tall as the
+ *  board) and "Recolher chat". It focuses the composer as it mounts. Esc inside it closes it and
+ *  never reaches the room's shortcuts (on `window`); an Esc someone inside already took (the
+ *  composer's suggestions, a menu, a dialog) closes only that.
+ *
+ *  Example: `<ChatDrawer panel={{ ...chatPanelProps, initialConversation: key }} roomLayout={roomLayout} onClose={collapse} />` */
+export function ChatDrawer({ panel, roomLayout, onClose }: ChatDrawerProps): React.JSX.Element {
+  const ref = useRef<HTMLElement>(null);
+  const boardHeight = useParentHeight(ref);
+  const stored = useRoomLayout(roomLayout, (state) => state.chatHeight);
+  const height = clampChatDrawerHeight(stored, boardHeight);
+  const fit = (wanted: number): void =>
+    roomLayout.getState().setChatHeight(clampChatDrawerHeight(wanted, boardHeight));
+  useComposerFocusOnMount(ref);
+  return (
+    <section
+      ref={ref}
+      aria-label="Conversa"
+      style={{ height }}
+      onKeyDown={(event) => closeOnEscape(event, onClose)}
+      className="pointer-events-auto flex w-full max-w-170 flex-col rounded-sm border border-border bg-panel/95 px-4 pb-3 backdrop-blur"
+    >
+      <div className="flex items-center gap-2">
+        <ChatDrawerHandle height={height} boardHeight={boardHeight} onChange={fit} />
+        <Button variant="ghost" size="sm" onClick={onClose} className="text-muted-foreground">
+          Recolher chat
+          <ChevronDownIcon aria-hidden="true" />
+        </Button>
+      </div>
+      <ChatPanel {...panel} />
+    </section>
+  );
+}
+
+// React's root is under `window`: stopping the Esc here keeps it from the room's shortcuts.
+function closeOnEscape(event: KeyboardEvent<HTMLElement>, onClose: () => void): void {
+  if (event.key !== 'Escape' || event.defaultPrevented) return;
+  if (!(event.target instanceof Node) || !event.currentTarget.contains(event.target)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  onClose();
+}
+
+function useComposerFocusOnMount(ref: React.RefObject<HTMLElement | null>): void {
+  useLayoutEffect(() => {
+    ref.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
+  }, [ref]);
+}
+
+// The parent spans the board: it is what the 60% ceiling is measured against.
+function useParentHeight(ref: React.RefObject<HTMLElement | null>): number {
+  const [height, setHeight] = useState(0);
+  useLayoutEffect(() => {
+    const parent = ref.current?.parentElement;
+    if (!parent) return;
+    setHeight(parent.clientHeight);
+    const observer = new ResizeObserver(() => setHeight(parent.clientHeight));
+    observer.observe(parent);
+    return () => observer.disconnect();
+  }, [ref]);
+  return height;
+}
+
+type ChatDrawerHandleProps = Readonly<{
+  height: number;
+  boardHeight: number;
+  onChange: (height: number) => void;
+}>;
+
+const KEY_MOVES: Readonly<Record<string, (height: number) => number>> = {
+  ArrowUp: (height) => height + CHAT_DRAWER_STEP,
+  ArrowDown: (height) => height - CHAT_DRAWER_STEP,
+};
+
+function ChatDrawerHandle(props: ChatDrawerHandleProps): React.JSX.Element {
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    const move = KEY_MOVES[event.key];
+    if (!move) return;
+    event.preventDefault();
+    props.onChange(move(props.height));
+  };
+  return (
+    <div
+      role="separator"
+      tabIndex={0}
+      aria-label="Altura do chat"
+      aria-orientation="horizontal"
+      aria-valuenow={props.height}
+      aria-valuemin={CHAT_DRAWER_MIN_HEIGHT}
+      aria-valuemax={clampChatDrawerHeight(Number.POSITIVE_INFINITY, props.boardHeight)}
+      onKeyDown={onKeyDown}
+      onPointerDown={(event) => startDrag(event, props)}
+      className="group flex h-6 min-w-0 flex-1 cursor-row-resize touch-none items-center justify-center outline-none"
+    >
+      <span
+        aria-hidden="true"
+        className="h-1 w-10 rounded-full bg-divider transition-colors group-hover:bg-primary/60 group-focus-visible:bg-primary motion-reduce:transition-none"
+      />
+    </div>
+  );
+}
+
+// Measured from where the drag started: the drawer's bottom stays put, its top follows.
+function startDrag(event: PointerEvent<HTMLDivElement>, props: ChatDrawerHandleProps): void {
+  const { clientY: startY } = event;
+  const follow = (moved: DragPoint): void => props.onChange(props.height + startY - moved.clientY);
+  if (trackPointerDrag(event.currentTarget, event, follow, () => undefined)) event.preventDefault();
+}

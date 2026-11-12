@@ -1,3 +1,4 @@
+import type { ChatMessage } from '@/lib/chat-conversations';
 import type { ChatInputRefusal } from '@/lib/chat-input';
 import type { ChatSendFailure } from '@/services/chat-commands';
 import {
@@ -114,6 +115,23 @@ export function chatAnnouncement(author: string, place: AnnouncedPlace, text: st
   if (place.kind === 'direct') return `${author}, no privado: ${text}`;
   if (place.kind === 'group') return `${author}, em ${place.name}: ${text}`;
   return `${author}: ${text}`;
+}
+
+/** One message as a line: the voice (the token spoken as, or the author), where it was said and
+ *  the text — what the announcer says, the chat bar and its previews show.
+ *
+ *  Example: `chatLineOf(message, people.nameOf) // 'Caio: Vou abrir a porta'` */
+export function chatLineOf(message: ChatMessage, nameOf: (userId: string) => string): string {
+  const { event } = message;
+  const author = event.speaker.kind === 'token' ? event.speaker.name : nameOf(event.fromUserId);
+  return chatAnnouncement(author, placeOf(message), event.text);
+}
+
+function placeOf({ event }: ChatMessage): AnnouncedPlace {
+  const { channel } = event;
+  if (channel.kind === 'group') return { kind: 'group', name: channel.name };
+  if (channel.kind === 'direct') return { kind: 'direct' };
+  return channel.whisperTo === null ? { kind: 'table' } : { kind: 'whisper' };
 }
 
 /** The chat's counter for the screen reader (the description of "Chat", "Abrir painel", "Painel").
