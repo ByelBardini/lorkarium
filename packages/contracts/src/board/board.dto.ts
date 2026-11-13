@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { campaignRoleDto } from '../campaigns/campaign.dto';
 import type { DiceClientEvents, DiceServerEvents } from '../dice/dice.dto';
 import type { ChatClientEvents, ChatServerEvents } from '../chat/chat.dto';
+import type { DmClientEvents, DmServerEvents } from '../direct-messages/direct-message.dto';
+import type { PresenceClientEvents, PresenceServerEvents } from '../friends/presence.dto';
 import { realtimeAckFailureDto, stateVersionDto } from '../http/realtime-ack.dto';
 import type { LibraryServerEvents } from '../library/library.dto';
 import type { SheetClientEvents, SheetServerEvents } from '../sheets/sheet-events';
@@ -474,18 +476,23 @@ export type BoardServerEvents = {
 } & CharacterServerEvents &
   TokenPatrolServerEvents;
 
-/** Every client → server event of a table connection (session + board + dice + chat + sheets). */
+/** Every client → server event of a connection (session + board + dice + chat + sheets, plus
+ *  the account's presence and direct messages, which need no table). */
 export type TableClientEvents = SessionClientEvents &
   BoardClientEvents &
   DiceClientEvents &
   ChatClientEvents &
-  SheetClientEvents;
+  SheetClientEvents &
+  PresenceClientEvents &
+  DmClientEvents;
 
-/** Every server → client event of a table connection (session + board + library + dice + chat
- *  + sheets). */
+/** Every server → client event of a connection (session + board + library + dice + chat
+ *  + sheets, plus the account's presence, friends and direct messages). */
 export type TableServerEvents = SessionServerEvents &
   BoardServerEvents &
   LibraryServerEvents &
   DiceServerEvents &
   ChatServerEvents &
-  SheetServerEvents;
+  SheetServerEvents &
+  PresenceServerEvents &
+  DmServerEvents;
