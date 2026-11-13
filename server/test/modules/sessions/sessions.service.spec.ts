@@ -19,6 +19,7 @@ import {
   SchedulerFake,
   SessionPublisherFake,
   SessionsJournal,
+  TableOpenedFake,
 } from '../../support/sessions-fakes';
 
 const NOW = new Date('2026-10-15T12:00:00Z');
@@ -45,6 +46,7 @@ describe('TableSessionService', () => {
       registry,
       scheduler,
       publisher,
+      tables: new TableOpenedFake(),
       clock: new ClockFake(NOW),
     });
   });
@@ -215,6 +217,7 @@ describe('TableSessionService tables of a connection', () => {
       registry: new PresenceRegistryFake(journal),
       scheduler: new SchedulerFake(),
       publisher: new SessionPublisherFake(journal),
+      tables: new TableOpenedFake(),
       clock: new ClockFake(NOW),
     });
   });
@@ -248,6 +251,7 @@ describe('TableSessionService activity', () => {
       registry: new PresenceRegistryFake(journal),
       scheduler: new SchedulerFake(),
       publisher,
+      tables: new TableOpenedFake(),
       clock: new ClockFake(NOW),
     });
   });
@@ -357,6 +361,7 @@ describe('TableSessionService.profileChanged', () => {
       registry,
       scheduler: new SchedulerFake(),
       publisher,
+      tables: new TableOpenedFake(),
       clock: new ClockFake(NOW),
     });
   });
@@ -482,6 +487,7 @@ describe('TableSessionService campaign changes', () => {
       registry,
       scheduler,
       publisher,
+      tables: new TableOpenedFake(),
       clock: new ClockFake(NOW),
     });
   });

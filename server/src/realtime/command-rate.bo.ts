@@ -19,6 +19,13 @@ export const DICE_RATE: CommandRateLimits = { burst: 6, perSecond: 2 };
  *  flood of them would bury the conversation of everyone at the table. */
 export const CHAT_RATE: CommandRateLimits = { burst: 8, perSecond: 2 };
 
+/** The bucket of `dm:send`, apart from every other: the same pace as the table's chat. */
+export const DM_RATE: CommandRateLimits = { burst: 8, perSecond: 2 };
+
+/** The bucket of `dm:typing`: the client sends it a few seconds apart while the person types;
+ *  more than that is dropped silently. */
+export const DM_TYPING_RATE: CommandRateLimits = { burst: 4, perSecond: 1 };
+
 /** A token bucket: `tokens` left, as of `updatedAtMs`. */
 export type CommandBucket = Readonly<{ tokens: number; updatedAtMs: number }>;
 

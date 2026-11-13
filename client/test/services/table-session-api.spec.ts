@@ -39,9 +39,9 @@ describe('RealtimeTableSessionApi', () => {
     await transport.answerAck(answer);
   }
 
-  it('opening connects and, once connected, sends session:join with the generated action id', () => {
+  it('opening never connects the socket (the account does) and, once connected, sends session:join with the generated action id', () => {
+    expect(transport.connects).toBe(0);
     transport.lifecycle({ kind: 'connected' });
-    expect(transport.connects).toBe(1);
     expect(transport.sent).toEqual([
       { event: 'session:join', payload: { actionId: ACTION_ID, campaignId: VHARN.id } },
     ]);
@@ -115,7 +115,7 @@ describe('RealtimeTableSessionApi', () => {
     ]);
   });
 
-  it('closing sends session:leave and disconnects; later events no longer reach the listener', async () => {
+  it('closing sends session:leave and keeps the account socket; later events no longer reach the listener', async () => {
     await connectAndAnswer({ ok: true, state: vharnState() });
     handle.close();
     transport.serverEmits('session:memberJoined', biaJoined());
@@ -124,7 +124,7 @@ describe('RealtimeTableSessionApi', () => {
       event: 'session:leave',
       payload: { actionId: ACTION_ID, campaignId: VHARN.id },
     });
-    expect(transport.disconnects).toBe(1);
+    expect(transport.disconnects).toBe(0);
     expect(updates).toHaveLength(3);
   });
 
@@ -393,24 +393,23 @@ describe('RealtimeTableSessionApi with several tables on one connection', () => 
       .map(({ payload }) => payload);
   }
 
-  it('opening QUELM after the connection is up sends its session:join at once without connecting again', async () => {
+  it('opening QUELM after the connection is up sends its session:join at once without connecting', async () => {
     openVharn();
     transport.lifecycle({ kind: 'connected' });
     await transport.answerAck({ ok: true, state: vharnState() });
     openQuelm();
-    expect(transport.connects).toBe(1);
+    expect(transport.connects).toBe(0);
     expect(joinsSent()).toEqual([
       { actionId: ACTION_ID, campaignId: VHARN.id },
       { actionId: ACTION_ID, campaignId: QUELM.id },
     ]);
   });
 
-  it('two tables opened while connecting both send session:join on connected, over one connect', () => {
+  it('two tables opened before the account connects both send session:join on connected', () => {
     openVharn();
     openQuelm();
     expect(joinsSent()).toEqual([]);
     transport.lifecycle({ kind: 'connected' });
-    expect(transport.connects).toBe(1);
     expect(joinsSent()).toEqual([
       { actionId: ACTION_ID, campaignId: VHARN.id },
       { actionId: ACTION_ID, campaignId: QUELM.id },
@@ -469,15 +468,15 @@ describe('RealtimeTableSessionApi with several tables on one connection', () => 
     });
   });
 
-  it('closing the last open table disconnects, and opening one again connects again', () => {
+  it('closing the last open table keeps the account socket, and opening one again does not connect', () => {
     const vharn = openVharn();
     const quelm = openQuelm();
     transport.lifecycle({ kind: 'connected' });
     vharn.close();
     quelm.close();
-    expect(transport.disconnects).toBe(1);
+    expect(transport.disconnects).toBe(0);
     openVharn();
-    expect(transport.connects).toBe(2);
+    expect(transport.connects).toBe(0);
   });
 
   it('a join refused with TOO_MANY_TABLES fails as too_many_tables', async () => {

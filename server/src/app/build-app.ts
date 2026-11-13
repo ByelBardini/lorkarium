@@ -3,7 +3,11 @@ import { wireHousekeeping } from '../modules/housekeeping/housekeeping.plugin';
 import { libraryImageDaos } from '../modules/library/library.plugin';
 import { runInSnapshot, type Transaction } from '../database/transaction';
 import type { MemberSeatPort } from '../modules/campaigns/member-seat.port';
-import { removedInOrder } from './member-outlets';
+import { profileChangedInOrder, removedInOrder } from './member-outlets';
+import { wireAccountRealtime } from './wire-account-realtime';
+import { FriendProfileNoticeService } from '../modules/friends/friend-profile-notice.service';
+import type { FriendsChangedPort } from '../modules/friends/friends-changed.port';
+import { FriendshipsDao } from '../modules/friends/friendships.dao';
 import { createDocumentsModule, documentDaos } from '../modules/documents/documents.plugin';
 import { DocumentAssetReadPolicy } from '../modules/documents/document-asset-read-policy.service';
 import { CampaignMembersDao } from '../modules/campaigns/campaign-members.dao';
@@ -94,6 +98,7 @@ import { trustProxyOf } from './trust-proxy';
 import { wireBackoffice } from './wire-backoffice';
 import { wireChat } from './wire-chat';
 import { wireDice } from './wire-dice';
+import { wireFriends } from './wire-friends';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -209,6 +214,8 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   await app.register(campaigns.pluginWith({ ...campaignOutlets, ...tableFiles }), {
     prefix: API_PREFIX,
   });
+  const friendsWiring = { db: deps.db, clock, removed: memberRemoved, memberships };
+  await wireFriends(app, { ...friendsWiring, changed: outlets.friendsChanged }, API_PREFIX);
   const { audience, libraryPublisher: publisher, boardPublisher: grids } = outlets;
   const library = createLibraryModule({ db: deps.db, publisher, audience, grids, clock });
   await app.register(library.plugin, { prefix: API_PREFIX });
@@ -289,6 +296,8 @@ type RealtimeOutlets = Readonly<{
   memberRemoved: MemberRemovedPort;
   /** The character of a member, written in the transaction of their new role. */
   seatIn: (tx: Transaction) => MemberSeatPort;
+  /** `friends:changed` to each account's `user:<id>` room, once the direct messages forget. */
+  friendsChanged: FriendsChangedPort;
 }>;
 
 function wireRealtime(
@@ -308,6 +317,8 @@ function wireRealtime(
   });
   const scheduler = new TimerScheduler();
   app.addHook('onClose', async () => scheduler.cancelAll());
+  // Before the table session: every connection is already in its own room and counted online.
+  const account = wireAccountRealtime(realtime, { db, clock, scheduler, rate, log: app.log });
   const publisher = new SocketIoBoardPublisher(realtime.io);
   const shared = { db, publisher, clock, members };
   const outlets = {
@@ -325,12 +336,19 @@ function wireRealtime(
     groupGrid: sceneWatch,
     scheduler,
     publisher: new SocketIoSessionPublisher(realtime.io),
+    tables: account.presence,
     realtime,
     rate,
     log: app.log,
   });
   realtime.onConnection(sessions.gateway);
-  const { service: profileChanged, service: campaignChanged } = sessions;
+  const { service: campaignChanged } = sessions;
+  const friendNotice = new FriendProfileNoticeService({
+    friendships: new FriendshipsDao(db),
+    changed: account.friendsChanged,
+    clock,
+  });
+  const profileChanged = profileChangedInOrder(sessions.service, friendNotice);
   const { service: memberRoleChanged } = sessions;
   const sceneWalls = new SceneWallsService();
   const { characterPublisher } = outlets;
@@ -392,7 +410,9 @@ function wireRealtime(
   wireChat(realtime, { db, members, clock, log: app.log });
   const memberRemoved = removedInOrder(sessions.service, characters.seats);
   const { seatIn } = characters;
-  return { ...outlets, profileChanged, campaignChanged, memberRoleChanged, memberRemoved, seatIn };
+  const { friendsChanged } = account;
+  const live = { profileChanged, campaignChanged, memberRoleChanged, memberRemoved, seatIn };
+  return { ...outlets, ...live, friendsChanged };
 }
 
 function loggerOptions(env: Env): FastifyServerOptions['logger'] {

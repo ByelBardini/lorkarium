@@ -61,6 +61,15 @@ import { sessionStore } from '@/stores/session-store';
 import { createAppUpdateStore } from '@/stores/app-update-store';
 import { buildFingerprintOf } from '@/lib/client-build';
 import { FetchPublishedBuild } from '@/services/published-build';
+import { linkAccount } from '@/app/account-link';
+import { linkPresenceChoice } from '@/app/presence-link';
+import { RealtimePresenceCommands } from '@/services/presence-commands';
+import { createPresenceChoiceStore } from '@/stores/presence-choice-store';
+import { AccountRealtime } from '@/services/account-realtime';
+import { RealtimeDirectMessageCommands } from '@/services/direct-message-commands';
+import { HttpFriendsApi } from '@/services/friends-api';
+import { createDirectMessagesStore } from '@/stores/direct-messages-store';
+import { createFriendsStore } from '@/stores/friends-store';
 import './index.css';
 
 const rootElement = document.getElementById('root');
@@ -70,6 +79,7 @@ if (!rootElement) throw new Error('index.html must have a <div id="root"> for th
 const browserStorage = {
   getItem: (key: string) => window.localStorage.getItem(key),
   setItem: (key: string, value: string) => window.localStorage.setItem(key, value),
+  removeItem: (key: string) => window.localStorage.removeItem(key),
 };
 const tabStorage = {
   getItem: (key: string) => window.sessionStorage.getItem(key),
@@ -110,8 +120,24 @@ const signedInUserId = (): string | null => {
   const { session } = sessionStore.getState();
   return session.status === 'authenticated' ? session.user.id : null;
 };
-// One socket for every open table: the session, the board sync and the board commands.
+// One socket for the account (friends, direct messages) and every open table on it: the
+// account connects it at sign-in and disconnects it at sign-out.
 const realtime = new SocketIoRealtimeTransport();
+const accountRealtime = new AccountRealtime(realtime, () => sessionStore.getState().signedOut());
+const friendsApi = new HttpFriendsApi(transport);
+const friends = createFriendsStore(friendsApi);
+const directMessages = createDirectMessagesStore({
+  commands: new RealtimeDirectMessageCommands(realtime, newActionId),
+  storage: browserStorage,
+  clock: browserWallClock,
+});
+linkAccount({ sessionStore, transport: realtime, accountRealtime, friends, directMessages });
+const presenceChoice = createPresenceChoiceStore(browserStorage);
+linkPresenceChoice(
+  accountRealtime,
+  presenceChoice,
+  new RealtimePresenceCommands(realtime, newActionId),
+);
 const tableSessionApi = new RealtimeTableSessionApi(realtime, newActionId, prefetchBoardImage);
 const boardCommands = new RealtimeTableBoardCommands(realtime, newActionId);
 // Read before any lazy route adds its own `/assets/` links to the document.
@@ -196,6 +222,11 @@ const router = createBrowserRouter(
     waitBeforeRetry: (ms) => new Promise((resume) => setTimeout(resume, ms)),
     appUpdate,
     reloadPage: () => window.location.reload(),
+    accountRealtime,
+    friendsApi,
+    friends,
+    directMessages,
+    presenceChoice,
   }),
 );
 

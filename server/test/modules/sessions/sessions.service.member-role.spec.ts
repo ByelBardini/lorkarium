@@ -16,6 +16,7 @@ import {
   SchedulerFake,
   SessionPublisherFake,
   SessionsJournal,
+  TableOpenedFake,
 } from '../../support/sessions-fakes';
 
 const NOW = new Date('2026-10-24T21:00:00Z');
@@ -45,6 +46,7 @@ describe('TableSessionService.memberRoleChanged', () => {
       registry,
       scheduler: new SchedulerFake(),
       publisher,
+      tables: new TableOpenedFake(),
       clock: new ClockFake(NOW),
     });
   });
@@ -164,6 +166,7 @@ describe('TableSessionService.memberRoleChanged', () => {
         registry,
         scheduler: new SchedulerFake(),
         publisher,
+        tables: new TableOpenedFake(),
         clock: new ClockFake(NOW),
       });
     });

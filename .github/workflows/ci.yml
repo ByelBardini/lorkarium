@@ -167,6 +167,7 @@ jobs:
             lighting,
             library,
             dice,
+            friends,
             sheets,
             sheets-lork,
             player-tokens,

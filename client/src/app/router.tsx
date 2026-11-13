@@ -26,6 +26,8 @@ import { inviteRoute, passwordResetRoute } from '@/features/account-links/accoun
 import { LoginPage } from '@/features/auth/login-page';
 import { campaignTableRoute } from '@/features/campaigns/campaign-routes';
 import { exploreRoute } from '@/features/explore/explore-route';
+import { friendsRoute } from '@/features/friends/friends-route';
+import { useFriendsBadge, useUserMenuPresence } from '@/features/friends/use-shell-friends';
 import { homeRoutes } from '@/features/home/home-route';
 import { SavedColorsProvider } from '@/components/color-picker/saved-colors-context';
 import { TextFieldMenu } from '@/features/text-field-menu/text-field-menu';
@@ -85,6 +87,11 @@ import { SplashScreen } from './splash-screen';
 import { TitleBarFrame } from './title-bar/title-bar-frame';
 import { placeOf, type PlaceHandle } from './title-bar/title-bar-place';
 import { AccountPlanProvider } from '@/features/plans/plan-limits-providers';
+import type { AccountRealtime } from '@/services/account-realtime';
+import type { FriendsApi } from '@/services/friends-api';
+import type { DirectMessagesStore } from '@/stores/direct-messages-store';
+import type { FriendsStore } from '@/stores/friends-store';
+import type { PresenceChoiceStore } from '@/stores/presence-choice-store';
 
 export type AppDependencies = Readonly<{
   authApi: AuthApi;
@@ -184,6 +191,16 @@ export type AppDependencies = Readonly<{
   appUpdate: StoreApi<AppUpdateStore>;
   /** The full reload into the new build; `location.reload()` in the app. */
   reloadPage: () => void;
+  /** The socket of the signed-in account (connected while signed in): its status for the
+   *  "Reconectando…" of the friends screen. */
+  accountRealtime: AccountRealtime;
+  friendsApi: FriendsApi;
+  /** Friends, requests, blocks and presence, as the server confirmed them. */
+  friends: StoreApi<FriendsStore>;
+  /** The direct messages of this device, per account and friend. */
+  directMessages: StoreApi<DirectMessagesStore>;
+  /** Online or Invisível, chosen in the user menu; sent at every connection of the account. */
+  presenceChoice: StoreApi<PresenceChoiceStore>;
 }>;
 
 /** Every route of the SPA, with the session resolved once at the root and a guard per route.
@@ -255,6 +272,7 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
           children: [
             ...homeRoutes(deps).map((route) => withPlace(route, 'Suas mesas')),
             withPlace(exploreRoute(deps), 'Explorar mesas'),
+            withPlace(friendsRoute(deps), 'Amigos'),
             withPlace(accountRoute(deps), 'Minha conta'),
             campaignTableRoute(deps),
           ],
@@ -371,10 +389,15 @@ function loginRoute({
 function shellRoute(deps: AppDependencies): () => React.JSX.Element | null {
   const { authApi, sessionStore, railStore, openTables, interactionClock, desktopWindow } = deps;
   // Stable across renders: the activity watch restarts only when this changes.
-  const setAway = (away: boolean): void => openTables.getState().setAway(away);
+  const setAway = (away: boolean): void => {
+    openTables.getState().setAway(away);
+    deps.presenceChoice.getState().setAway(away);
+  };
   return function ShellRoute(): React.JSX.Element | null {
     const session = useSession(sessionStore);
     const navigate = useNavigate();
+    const friendsBadge = useFriendsBadge(deps.friends, deps.directMessages);
+    const presence = useUserMenuPresence(deps.presenceChoice);
     useSignOutWhenRefused(openTables, sessionStore);
     useLeaveDeletedTable(openTables);
     useTabActivity({ clock: interactionClock, onAway: setAway });
@@ -401,6 +424,8 @@ function shellRoute(deps: AppDependencies): () => React.JSX.Element | null {
             openTables={openTables}
             user={session.user}
             onSignOut={signOut}
+            friendsBadge={friendsBadge}
+            presence={presence}
             brandInTitleBar={desktopWindow !== null}
           />
           <DocumentWorkspaceHost deps={deps} />

@@ -7,18 +7,26 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/s
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import { RailBrand, RailNav } from './app-rail';
 import { OpenTablesNav } from './open-tables-nav';
-import { UserMenu } from './user-menu';
+import { UserMenu, type UserMenuPresence } from './user-menu';
 
 export type MobileRailProps = Readonly<{
   openTables: StoreApi<OpenTablesStore>;
   user: AuthUserDto;
   onSignOut: () => Promise<void>;
+  friendsBadge?: number;
+  presence?: UserMenuPresence;
 }>;
 
 /** Below `md`: "Abrir menu" opens the expanded rail as a drawer, which closes on navigation.
  *
  *  Example: `<header className="md:hidden"><MobileRail openTables={openTables} user={user} onSignOut={signOut} /></header>` */
-export function MobileRail({ openTables, user, onSignOut }: MobileRailProps): React.JSX.Element {
+export function MobileRail({
+  openTables,
+  user,
+  onSignOut,
+  friendsBadge = 0,
+  presence,
+}: MobileRailProps): React.JSX.Element {
   const [open, setOpen] = useState(false);
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -30,10 +38,10 @@ export function MobileRail({ openTables, user, onSignOut }: MobileRailProps): Re
       <SheetContent side="left" aria-describedby={undefined} className="w-56 gap-0 bg-panel p-0">
         <SheetTitle className="sr-only">Menu</SheetTitle>
         <RailBrand expanded />
-        <RailNav expanded onNavigate={() => setOpen(false)} />
+        <RailNav expanded onNavigate={() => setOpen(false)} friendsBadge={friendsBadge} />
         <OpenTablesNav openTables={openTables} expanded onNavigate={() => setOpen(false)} />
         <div className="mt-auto border-t border-border p-2">
-          <UserMenu user={user} expanded onSignOut={onSignOut} />
+          <UserMenu user={user} expanded onSignOut={onSignOut} presence={presence} />
         </div>
       </SheetContent>
     </Sheet>

@@ -757,6 +757,13 @@
       "when": 1794532953368,
       "tag": "0107_document_preview",
       "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "7",
+      "when": 1794563582166,
+      "tag": "0108_friends",
+      "breakpoints": true
     }
   ]
 }

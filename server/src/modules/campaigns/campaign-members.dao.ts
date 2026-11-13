@@ -1,9 +1,22 @@
-import { and, desc, eq, getTableColumns, isNotNull, isNull, max, ne, sql } from 'drizzle-orm';
+import {
+  and,
+  desc,
+  eq,
+  getTableColumns,
+  inArray,
+  isNotNull,
+  isNull,
+  max,
+  ne,
+  notExists,
+  sql,
+} from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { lorkariumOwnerSql } from '../../database/lorkarium-owner-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { PLAN_ACCOUNT_COLUMNS } from '../auth/users.dao';
 import { users, type UserPlanPo, type UserPo } from '../auth/users.po';
+import { userBlocks } from '../friends/user-blocks.po';
 import { campaignMembers } from './campaign-members.po';
 import type { CampaignMemberPo, NewCampaignMemberPo } from './campaign-members.po';
 import { campaigns, type CampaignPo } from './campaigns.po';
@@ -134,8 +147,12 @@ export class CampaignMembersDao {
 
   /** Every public campaign (every campaign with `includePrivate`, for an admin), newest first (up
    *  to `PUBLIC_CAMPAIGNS_MAX`), with the reader's role in each; the filter is the visibility the
-   *  master chose, not a membership. */
+   *  master chose, not a membership. A table whose owner blocked the reader never shows. */
   async listPublic(readerId: string, includePrivate: boolean): Promise<PublicCampaignRow[]> {
+    const blockedByOwner = this.db
+      .select({ found: sql<number>`1` })
+      .from(userBlocks)
+      .where(and(eq(userBlocks.blockerId, campaigns.ownerId), eq(userBlocks.blockedId, readerId)));
     return this.db
       .select({
         campaign: getTableColumns(campaigns),
@@ -151,7 +168,12 @@ export class CampaignMembersDao {
         readerMembers,
         and(eq(readerMembers.campaignId, campaigns.id), eq(readerMembers.userId, readerId)),
       )
-      .where(includePrivate ? undefined : eq(campaigns.visibility, 'public'))
+      .where(
+        and(
+          includePrivate ? undefined : eq(campaigns.visibility, 'public'),
+          notExists(blockedByOwner),
+        ),
+      )
       .orderBy(desc(campaigns.createdAt))
       .limit(PUBLIC_CAMPAIGNS_MAX);
   }
@@ -314,6 +336,22 @@ export class CampaignMembersDao {
     const kept = restored.map(({ role, ...seat }) => ({ ...seat, restored: role }));
     // A juggernaut restored onto a bypass seat is out of the table: the later entry wins.
     return [...new Map([...kept, ...left].map((seat) => [seat.campaignId, seat])).values()];
+  }
+
+  /** Takes `userId` out of every table `ownerId` owns, in the caller's transaction (the owner
+   *  blocked them); answers the tables they left. A table of another owner keeps them.
+   *
+   *  Example: `await new CampaignMembersDao(tx).removeFromOwnedBy(anaId, caioId) // [vharnId]` */
+  async removeFromOwnedBy(ownerId: string, userId: string): Promise<string[]> {
+    const owned = this.db
+      .select({ id: campaigns.id })
+      .from(campaigns)
+      .where(eq(campaigns.ownerId, ownerId));
+    const removed = await this.db
+      .delete(campaignMembers)
+      .where(and(eq(campaignMembers.userId, userId), inArray(campaignMembers.campaignId, owned)))
+      .returning({ campaignId: campaignMembers.campaignId });
+    return removed.map((seat) => seat.campaignId);
   }
 
   async markEntered(campaignId: string, userId: string, at: Date): Promise<void> {

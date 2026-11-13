@@ -91,3 +91,12 @@ export function sceneIdOfRoom(room: string, campaignId: string): string | undefi
   const sceneId = room.slice(prefix.length);
   return sceneId.includes(':') ? undefined : sceneId;
 }
+
+/** Every tab of one account, with or without a table open: presence, friends and direct
+ *  messages reach the person here. Outside every `campaign:` room, so leaving a table never
+ *  leaves it.
+ *
+ *  Example: `io.to(userRoom(biaId)).emit('friends:changed', { at })` */
+export function userRoom(userId: string): string {
+  return `user:${userId}`;
+}

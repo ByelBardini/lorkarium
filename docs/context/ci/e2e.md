@@ -23,6 +23,10 @@ Workspace `e2e/` (`@lorkarium/e2e`, `@playwright/test`, só Chromium), fora do V
 - Local: o `webServer` reaproveita só o Vite da 5173. Um Vite antigo pode servir código velho.
 - Configs locais em outras portas, para rodar com um `pnpm dev` de pé ou ao lado de outra rodada: `playwright.tmp.config.ts` + `client/vite.e2e-tmp.config.ts` (client 5174, server 3334) e `playwright.dice.config.ts` + `client/vite.e2e-dice.config.ts` (5175, 3335). Nenhum dos dois reaproveita server; os dois herdam **todos** os `projects` do base, então passe `--project=<grupo>` (ver [`armadilhas.md`](armadilhas.md)).
 
+## Amigos
+
+`friends.spec.ts`, grupo próprio `friends` (~35 s com o boot): `--project=friends --workers=1`. Bia e Caio do `db:seed-dev`, cada um num contexto. A Bia cria uma mesa **pública** pela rota (`POST /api/campaigns` com `visibility: 'public'`; o `PATCH` da configuração exige a mesa aberta e dá `CAMPAIGN_NOT_OPEN`) e o Caio a vê no Explorar. Depois: a Bia pede a `@caio` ("Pedido enviado pra @caio."), o Caio aceita na aba "Pedidos (1)", e cada um vê o outro "online" na linha (`Conversar com <nome>, online`); o Caio digita e a Bia lê "Caio está digitando…", e as mensagens chegam nos dois sentidos; o Caio fica "Invisível" no menu da conta e a Bia o vê offline com o campo desligado e a frase do porquê; a Bia bloqueia o Caio ("Opções de Caio" → "Bloquear" → `alertdialog`), e o código da mesa dá "Nenhuma mesa com esse código." e o Explorar não a lista mais. Prova de que morde: tirar o `presence:sync` do `friends:changed` em `client/src/services/friends-events.ts` deixa o spec vermelho no "online" logo após o aceite. Ver [`../client/friends.md`](../client/friends.md).
+
 ## Tokens que bloqueiam a visão
 
 `sight-blockers.spec.ts`, no grupo `vision`, dois contextos (Ana, o admin do e2e, e Bia), cada um dos dois testes com a própria mesa. Uma rodada leva ~45 s: `--project=vision --workers=1 sight-blockers`.
