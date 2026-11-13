@@ -7,6 +7,7 @@ import type { RailStore } from '@/stores/rail-store';
 import { AppRail } from './app-rail';
 import { DeletedTableNotice } from './deleted-table-notice';
 import { MobileRail } from './mobile-rail';
+import type { UserMenuPresence } from './user-menu';
 import { wantsCompactRail } from './rail-handle';
 import { cn } from '@/lib/utils';
 
@@ -15,6 +16,10 @@ export type AppShellProps = Readonly<{
   openTables: StoreApi<OpenTablesStore>;
   user: AuthUserDto;
   onSignOut: () => Promise<void>;
+  /** The badge of "Amigos" on the rail (received requests + unread direct messages). */
+  friendsBadge?: number;
+  /** The status in the user menu; left out, the menu has none. */
+  presence?: UserMenuPresence;
   /** The desktop title bar already shows the logo, so the rail leaves it out. */
   brandInTitleBar?: boolean;
 }>;
@@ -30,6 +35,8 @@ export function AppShell({
   openTables,
   user,
   onSignOut,
+  friendsBadge = 0,
+  presence,
   brandInTitleBar = false,
 }: AppShellProps): React.JSX.Element {
   const compact = wantsCompactRail(useMatches());
@@ -45,6 +52,8 @@ export function AppShell({
         openTables={openTables}
         user={user}
         onSignOut={onSignOut}
+        friendsBadge={friendsBadge}
+        presence={presence}
         compact={compact}
         showBrand={!brandInTitleBar}
         className="hidden md:flex"
@@ -52,7 +61,13 @@ export function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <NavigationProgress />
         <header className="flex items-center gap-2 border-b border-border px-2 py-2 md:hidden">
-          <MobileRail openTables={openTables} user={user} onSignOut={onSignOut} />
+          <MobileRail
+            openTables={openTables}
+            user={user}
+            onSignOut={onSignOut}
+            friendsBadge={friendsBadge}
+            presence={presence}
+          />
           <BrandMark variant="compact" />
         </header>
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">

@@ -51,6 +51,15 @@ import { SavedRollsApiFake } from './saved-rolls-api-fake';
 import { TableBoardCommandsFake } from './table-board-commands-fake';
 import { TableSessionApiFake } from './table-session-api-fake';
 import { storedSheetEditorLayout } from '@/lib/sheet-editor-layout';
+import { AccountRealtime } from '@/services/account-realtime';
+import { linkPresenceChoice } from '@/app/presence-link';
+import { RealtimePresenceCommands } from '@/services/presence-commands';
+import { createPresenceChoiceStore } from '@/stores/presence-choice-store';
+import { createDirectMessagesStore } from '@/stores/direct-messages-store';
+import { createFriendsStore } from '@/stores/friends-store';
+import { DirectMessageCommandsFake } from './direct-message-commands-fake';
+import { FriendsApiFake } from './friends-api-fake';
+import { RealtimeTransportFake } from './realtime-transport-fake';
 
 export type TestDependencies = AppDependencies & {
   authApi: AuthApiFake;
@@ -124,12 +133,24 @@ export type TestDependencies = AppDependencies & {
   publishedBuild: PublishedBuildFake;
   /** The reloads asked through `reloadPage`. */
   pageReloads: PageReloadFake;
+  /** The socket under `accountRealtime`, for specs to play the connection. */
+  accountTransport: RealtimeTransportFake;
+  friendsApi: FriendsApiFake;
+  /** The commands under `directMessages`. */
+  directMessageCommands: DirectMessageCommandsFake;
+  /** The `localStorage` under `directMessages`. */
+  directMessagesStorage: StorageFake;
+  /** The `localStorage` under `presenceChoice`. */
+  presenceChoiceStorage: StorageFake;
 };
 
 /** The client build every spec's page runs, and the server publishes until a spec deploys. */
 // The play room is a lazy chunk in the app: its cold import (the whole board graph) takes more
 // than the 1 s of a `findBy`, so the specs that render the router load it while collecting.
 await import('@/features/board/play-room-page');
+
+/** The action id of every `presence:setVisibility` the page sends. */
+export const PRESENCE_ACTION_ID = '6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d';
 
 export const TEST_BUILD = '/assets/index-test.js';
 
@@ -167,6 +188,21 @@ export function testDependencies(): TestDependencies {
   const retryWaits = RetryWaitFake.held();
   const publishedBuild = new PublishedBuildFake(TEST_BUILD);
   const pageReloads = new PageReloadFake();
+  const accountTransport = new RealtimeTransportFake();
+  const sessionStore = createSessionStore();
+  const friendsApi = new FriendsApiFake();
+  const directMessageCommands = new DirectMessageCommandsFake();
+  const directMessagesStorage = new StorageFake();
+  const presenceChoiceStorage = new StorageFake();
+  const presenceChoice = createPresenceChoiceStore(presenceChoiceStorage);
+  const accountRealtime = new AccountRealtime(accountTransport, () =>
+    sessionStore.getState().signedOut(),
+  );
+  linkPresenceChoice(
+    accountRealtime,
+    presenceChoice,
+    new RealtimePresenceCommands(accountTransport, () => PRESENCE_ACTION_ID),
+  );
   return {
     journal,
     retryWaits,
@@ -242,7 +278,7 @@ export function testDependencies(): TestDependencies {
       createInteraction: tabInteractionFactory(boardCommands),
       wallClock: interactionClock.now,
     }),
-    sessionStore: createSessionStore(),
+    sessionStore,
     railStore: createRailStore(new StorageFake()),
     roomLayout: createRoomLayoutStore(roomLayoutStorage),
     drawingStyle: createDrawingStyleStore(drawingStyleStorage),
@@ -257,5 +293,18 @@ export function testDependencies(): TestDependencies {
     pageReloads,
     appUpdate: createAppUpdateStore({ running: TEST_BUILD, published: publishedBuild }),
     reloadPage: pageReloads.reload,
+    accountTransport,
+    accountRealtime,
+    presenceChoiceStorage,
+    presenceChoice,
+    friendsApi,
+    friends: createFriendsStore(friendsApi),
+    directMessageCommands,
+    directMessagesStorage,
+    directMessages: createDirectMessagesStore({
+      commands: directMessageCommands,
+      storage: directMessagesStorage,
+      clock: interactionClock,
+    }),
   };
 }

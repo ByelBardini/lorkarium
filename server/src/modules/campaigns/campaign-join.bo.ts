@@ -17,6 +17,9 @@ export type CampaignJoinState = Readonly<{
   isPublic: boolean;
   /** Admins look after every table: no code, no password, private or not. */
   readerIsAdmin: boolean;
+  /** The owner of the table blocked the reader: no role, admin included, lets them in. */
+  blockedByOwner: boolean;
+  userId: string;
 }>;
 
 /** Whether "Explorar mesas" also lists the private campaigns for this reader (admins only).
@@ -32,6 +35,16 @@ export function seesPrivateInExplore(role: UserRoleDto): boolean {
  *  Example: `new CampaignJoinBo({ campaignId, isMember: false, hasPassword: true }).decide('missing') // throws CAMPAIGN_PASSWORD_REQUIRED` */
 export class CampaignJoinBo {
   constructor(private readonly state: CampaignJoinState) {}
+
+  /** A reader the owner blocked gets the answer of a table that does not exist, so the block
+   *  is never revealed; only the owner's block counts, never a co-master's.
+   *
+   *  Example: `join.requireNotBlocked() // throws CAMPAIGN_NOT_FOUND when the owner blocked them` */
+  requireNotBlocked(): void {
+    if (!this.state.blockedByOwner) return;
+    const { campaignId, userId } = this.state;
+    throw new CampaignNotFoundError({ campaignId, userId });
+  }
 
   /** Joining without the code ("Explorar mesas") only reaches a public campaign (or any, for an
    *  admin); a private one answers as if it did not exist, so its id leaks nothing. */

@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
-import { UserMenu } from '@/app/shell/user-menu';
+import { UserMenu, type UserMenuPresence } from '@/app/shell/user-menu';
 import { ANA, ROOT_ADMIN } from '../../support/auth-api-fake';
 
 function renderMenu(user = ANA, onSignOut = vi.fn(async () => undefined)) {
@@ -109,5 +109,40 @@ describe('UserMenu', () => {
     expect(onSignOut).not.toHaveBeenCalled();
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Sair' }));
     expect(onSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  describe('status', () => {
+    function renderWithStatus(presence: UserMenuPresence): void {
+      render(
+        <MemoryRouter>
+          <UserMenu user={ANA} expanded onSignOut={async () => undefined} presence={presence} />
+        </MemoryRouter>,
+      );
+    }
+
+    it('offers Online and Invisível as radios, the choice checked', async () => {
+      const onChoose = vi.fn();
+      renderWithStatus({ choice: 'online', away: false, onChoose });
+      await userEvent.click(screen.getByRole('button', { name: /Ana/ }));
+      expect(await screen.findByRole('menuitemradio', { name: 'Online' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
+      await userEvent.click(screen.getByRole('menuitemradio', { name: 'Invisível' }));
+      expect(onChoose).toHaveBeenCalledWith('invisible');
+    });
+
+    it('idle while online says "Ausente", which is not a choice', async () => {
+      renderWithStatus({ choice: 'online', away: true, onChoose: vi.fn() });
+      await userEvent.click(screen.getByRole('button', { name: /Ana/ }));
+      expect(await screen.findByText('Seu status: Ausente')).toBeInTheDocument();
+      expect(screen.queryByRole('menuitemradio', { name: 'Ausente' })).not.toBeInTheDocument();
+    });
+
+    it('the avatar carries the dot of the status', () => {
+      renderWithStatus({ choice: 'invisible', away: false, onChoose: vi.fn() });
+      const trigger = screen.getByRole('button', { name: 'Ana' });
+      expect(trigger.querySelector('[data-status]')).toHaveAttribute('data-status', 'invisible');
+    });
   });
 });

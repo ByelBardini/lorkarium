@@ -237,20 +237,28 @@ export function toCampaignSettingsBo(
 
 /** Campaign + membership (or its absence) → BO for the join-by-code decision.
  *
- *  Example: `toCampaignJoinBo(campaign, undefined, false).needsPasswordCheck()` */
+ *  Example: `toCampaignJoinBo(campaign, undefined, { userId, readerIsAdmin: false, blockedByOwner: false }).needsPasswordCheck()` */
 export function toCampaignJoinBo(
   campaign: CampaignPo,
   membership: CampaignMemberPo | undefined,
-  readerIsAdmin: boolean,
+  reader: JoinReader,
 ): CampaignJoinBo {
   return new CampaignJoinBo({
     campaignId: campaign.id,
     isMember: membership !== undefined,
     hasPassword: campaign.passwordHash !== null,
     isPublic: campaign.visibility === 'public',
-    readerIsAdmin,
+    ...reader,
   });
 }
+
+/** Who joins: the id, whether the admin route lets them past the gate and whether the owner
+ *  blocked them. */
+export type JoinReader = Readonly<{
+  userId: string;
+  readerIsAdmin: boolean;
+  blockedByOwner: boolean;
+}>;
 
 /** Who asks to change a role, and of whom: the two memberships (`undefined` = not a member)
  *  and the campaign's owner (`null` = the campaign is gone). */

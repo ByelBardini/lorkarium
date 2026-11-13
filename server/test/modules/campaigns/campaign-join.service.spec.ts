@@ -4,6 +4,7 @@ import { ClockFake, PasswordHasherFake } from '../../support/auth-fakes';
 import { CampaignJoinTransactionRunnerFake } from '../../support/campaign-join-fakes';
 import { ANA_ID } from '../../support/auth-factories';
 import { CampaignMembersDaoFake, CampaignsDaoFake } from '../../support/campaigns-fakes';
+import { UserBlocksDaoFake } from '../../support/friends-fakes';
 import { BIA_ID, campaignMemberPo, campaignPo } from '../../support/campaigns-factories';
 
 const NOW = new Date('2026-10-14T21:00:00Z');
@@ -17,6 +18,7 @@ describe('CampaignJoinService', () => {
   let clock: ClockFake;
   let transaction: CampaignJoinTransactionRunnerFake;
   let service: CampaignJoinService;
+  let blocks: UserBlocksDaoFake;
 
   beforeEach(() => {
     campaigns = new CampaignsDaoFake();
@@ -24,8 +26,9 @@ describe('CampaignJoinService', () => {
     hasher = new PasswordHasherFake();
     clock = new ClockFake(NOW);
     transaction = new CampaignJoinTransactionRunnerFake(campaigns, members);
+    blocks = new UserBlocksDaoFake();
     service = new CampaignJoinService({
-      ...{ campaigns, members, hasher, clock },
+      ...{ campaigns, members, hasher, clock, blocks },
       transaction: transaction.run,
     });
   });
@@ -36,6 +39,30 @@ describe('CampaignJoinService', () => {
     );
     members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: BIA_ID, role: 'master' }));
   }
+
+  it('someone the owner blocked is refused by the code with CAMPAIGN_NOT_FOUND and gets no seat', async () => {
+    biasCampaign();
+    blocks.blocked.add(`${BIA_ID}:${ANA_ID}`);
+    await expect(service.join(ANA_ID, { code: 'VHRN7K2Q' })).rejects.toMatchObject({
+      code: 'CAMPAIGN_NOT_FOUND',
+    });
+    expect(members.rows).toHaveLength(1);
+    expect(transaction.runs).toBe(0);
+  });
+
+  it('someone the owner blocked is refused from "Explorar mesas" with CAMPAIGN_NOT_FOUND', async () => {
+    campaigns.rows.push(campaignPo({ id: 'vharn', ownerId: BIA_ID, visibility: 'public' }));
+    blocks.blocked.add(`${BIA_ID}:${ANA_ID}`);
+    await expect(service.joinPublic(ANA, 'vharn', {})).rejects.toMatchObject({
+      code: 'CAMPAIGN_NOT_FOUND',
+    });
+  });
+
+  it('a block by someone who is not the owner lets the newcomer in', async () => {
+    biasCampaign();
+    blocks.blocked.add(`co-master-id:${ANA_ID}`);
+    expect((await service.join(ANA_ID, { code: 'VHRN7K2Q' })).myRole).toBe('spectator');
+  });
 
   it('an unknown code is refused with CAMPAIGN_NOT_FOUND citing the code', async () => {
     await expect(service.join(ANA_ID, { code: 'ZZZZ2345' })).rejects.toMatchObject({

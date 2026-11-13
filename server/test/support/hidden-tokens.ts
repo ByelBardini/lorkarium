@@ -1,7 +1,7 @@
 import { eq, inArray } from 'drizzle-orm';
 import { expect } from 'vitest';
 import { tokens } from '../../src/modules/tokens/tokens.po';
-import { send } from './live-table';
+import { send, silence } from './live-table';
 import { recordEventsOf, type EventRecorder } from './realtime-client';
 import { createdTokenOf, tokenCommandFor, type TokenTableHarness } from './token-table';
 
@@ -32,6 +32,8 @@ export async function hiddenTable(live: TokenTableHarness, hideLobo = true): Pro
     tokenCommandFor(live.vharn, live.caio.id, { col: 7, name: 'Kael' }),
   );
   if (hideLobo) await hideBySql(live, [loboId]);
+  // Kael's token:created is awaited only on Ana; without this it can reach Caio after the reset (CI of #93).
+  await silence();
   const fresh = (recorder: EventRecorder): EventRecorder => recordEventsOf(recorder.client);
   return { ana: fresh(ana), bia: fresh(bia), caio: fresh(caio), loboId, kaelId };
 }

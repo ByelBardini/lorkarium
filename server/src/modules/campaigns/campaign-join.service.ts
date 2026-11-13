@@ -7,6 +7,7 @@ import type {
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
+import type { UserBlocksDao } from '../friends/user-blocks.dao';
 import { effectiveLimitsOf, PlanLimitsBo } from '../plans/plan-limits.bo';
 import { seesPrivateInExplore, type CampaignJoinBo, type PasswordCheck } from './campaign-join.bo';
 import type { CampaignMembersDao } from './campaign-members.dao';
@@ -39,6 +40,8 @@ export type CampaignJoinServiceDeps = Readonly<{
   transaction: CampaignJoinTransactionRunner;
   hasher: PasswordHasherPort;
   clock: ClockPort;
+  /** Whether the owner of the table blocked the newcomer. */
+  blocks: Pick<UserBlocksDao, 'exists'>;
 }>;
 
 type NewSpectator = Readonly<{ campaign: CampaignPo; userId: string; bypassedGate: boolean }>;
@@ -76,7 +79,8 @@ export class CampaignJoinService {
     route: JoinRoute,
   ): Promise<CampaignSummaryDto> {
     const existing = await this.deps.members.findMembership(campaign.id, userId);
-    const join = toCampaignJoinBo(campaign, existing, route === 'explore-as-admin');
+    const join = await this.joinOf(campaign, existing, userId, route);
+    join.requireNotBlocked();
     if (route !== 'by-code') join.requirePublic();
     const decision = join.decide(await this.checkPassword(join, campaign, password));
     const membership =
@@ -84,6 +88,17 @@ export class CampaignJoinService {
         ? existing
         : await this.addSpectator({ campaign, userId, bypassedGate: join.bypassesGate() });
     return this.summaryOf(campaign, membership);
+  }
+
+  private async joinOf(
+    campaign: CampaignPo,
+    existing: CampaignMemberPo | undefined,
+    userId: string,
+    route: JoinRoute,
+  ): Promise<CampaignJoinBo> {
+    const blockedByOwner = await this.deps.blocks.exists(campaign.ownerId, userId);
+    const readerIsAdmin = route === 'explore-as-admin';
+    return toCampaignJoinBo(campaign, existing, { userId, readerIsAdmin, blockedByOwner });
   }
 
   async enter(userId: string, campaignId: string): Promise<void> {
