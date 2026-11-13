@@ -103,4 +103,40 @@ describe('document panel workspace ownership', () => {
     expect(tab.getState()).toMatchObject({ dirty: false, status: 'saved' });
     store.getState().dispose();
   });
+  it('the preview block saves through the store and the header names what the library shows', async () => {
+    const api = new DocumentsApiFake();
+    const clock = new InteractionClockFake();
+    const store = createDocumentEditorStore({
+      api,
+      campaignId: VHARN.id,
+      documentId: api.document.id,
+      clock,
+      newActionId: () => '10000000-0000-4000-8000-000000000002',
+    });
+    await store.getState().load();
+    render(
+      <DocumentPanel
+        campaign={detailOf(VHARN)}
+        documentId={api.document.id}
+        api={api}
+        library={vharnLibrary()}
+        live
+        revision={0}
+        clock={clock}
+        clipboard={new ClipboardFake()}
+        editorStore={store}
+        submit={new WorkspacePanelActions().submit}
+        onChanged={() => undefined}
+      />,
+    );
+    await userEvent.click(await screen.findByRole('button', { name: /Prévia/ }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Resumo da prévia' }), 'Selada.');
+    await userEvent.tab();
+    expect(api.previewSaves).toMatchObject([
+      { expectedVersion: 0, summary: 'Selada.', imageAssetId: null },
+    ]);
+    expect(await screen.findByRole('button', { name: /Prévia/ })).toHaveTextContent('resumo');
+    expect(store.getState().confirmed?.preview.summary).toBe('Selada.');
+    store.getState().dispose();
+  });
 });

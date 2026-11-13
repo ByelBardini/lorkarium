@@ -1,6 +1,7 @@
 import type {
   DocumentContentDto,
   DocumentDto,
+  DocumentPreviewDto,
   DocumentTabDto,
   DocumentTabVisibilityDto,
   DocumentWriteResponseDto,
@@ -51,6 +52,9 @@ export type DocumentEditorState = Readonly<{
   runTabCommand: (
     command: DocumentTabCommand,
   ) => Promise<DocumentsResult<DocumentWriteResponseDto>>;
+  /** Sends the library card (summary and cover) against the document's version, like a tab
+   *  command: the pending name goes first and the answer is adopted. */
+  savePreview: (preview: DocumentPreviewDto) => Promise<DocumentsResult<DocumentWriteResponseDto>>;
 }>;
 export type DocumentEditorOptions = Readonly<{
   api: DocumentsApi;
@@ -118,16 +122,30 @@ export function createDocumentEditorStore(
       const confirmed = editor?.getState().confirmed;
       if (editor && confirmed && confirmed.version < version) void editor.getState().revalidate();
     },
-    runTabCommand: async (command) => {
-      await name.getState().flush();
-      const document = get().confirmed;
-      if (!document) return { ok: false, failure: { kind: 'not_found' } };
-      const result = await sendTabCommand(options, document.version, command);
-      if (result.ok) name.getState().adopt(result.value.document);
-      else if (result.failure.kind === 'conflict') void name.getState().revalidate();
-      return result;
-    },
+    runTabCommand: (command) =>
+      againstDocument((version) => sendTabCommand(options, version, command)),
+    savePreview: (preview) =>
+      againstDocument((expectedVersion) =>
+        options.api.savePreview(options.campaignId, options.documentId, {
+          actionId: options.newActionId(),
+          expectedVersion,
+          ...preview,
+        }),
+      ),
   }));
+  // A command on the document itself: after the pending name, at the confirmed version; the
+  // answer is adopted and a conflict reads the document again.
+  const againstDocument = async (
+    send: (version: number) => Promise<DocumentsResult<DocumentWriteResponseDto>>,
+  ): Promise<DocumentsResult<DocumentWriteResponseDto>> => {
+    await name.getState().flush();
+    const document = store.getState().confirmed;
+    if (!document) return { ok: false, failure: { kind: 'not_found' } };
+    const result = await send(document.version);
+    if (result.ok) name.getState().adopt(result.value.document);
+    else if (result.failure.kind === 'conflict') void name.getState().revalidate();
+    return result;
+  };
   const refreshDirty = (): void => {
     const editors = Object.values(store.getState().tabEditors);
     const dirty = name.getState().dirty || editors.some((tab) => tab.getState().dirty);

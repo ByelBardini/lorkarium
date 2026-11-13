@@ -14,22 +14,18 @@ import {
 
 class DocumentPreviewActions {
   actions: string[] = [];
-  open = (): void => {
-    this.actions.push('tab');
-  };
   window = (): void => {
     this.actions.push('window');
   };
 }
-function preview(api = new DocumentsApiFake()) {
+function preview(api = new DocumentsApiFake(), summary = documentFixture()) {
   const actions = new DocumentPreviewActions();
   render(
     <DocumentPreview
       campaignId={DOCUMENT_CAMPAIGN_ID}
-      summary={documentFixture()}
+      summary={summary}
       api={api}
       live
-      onOpen={actions.open}
       onOpenWindow={actions.window}
     />,
   );
@@ -45,11 +41,14 @@ describe('library document preview', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     expect(screen.queryByText('Donos que podem editar:')).not.toBeInTheDocument();
   });
-  it('opens a tab only after the explicit expansion action', async () => {
+  it('offers only the window: the tab opens from the tree, by a double click or Enter', async () => {
     const { actions } = preview();
+    await screen.findByRole('document', { name: 'Conteúdo do documento' });
+    expect(screen.queryByRole('button', { name: 'Expandir documento' })).toBeNull();
+    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual([
+      'Abrir em outra janela',
+    ]);
     expect(actions.actions).toEqual([]);
-    await userEvent.click(await screen.findByRole('button', { name: 'Expandir documento' }));
-    expect(actions.actions).toEqual(['tab']);
   });
   it('offers an independent window without starting another editor in the library', async () => {
     const { actions } = preview();
@@ -81,5 +80,36 @@ describe('library document preview', () => {
     preview();
     await screen.findByRole('document', { name: 'Conteúdo do documento' });
     expect(screen.queryByRole('button', { name: 'Aba da prévia' })).not.toBeInTheDocument();
+  });
+});
+
+const COVER_ID = '10000000-0000-4000-8000-000000000010';
+describe('library document preview set by its editors', () => {
+  it('shows the cover and the summary instead of the body, without reading the document', async () => {
+    const api = new DocumentsApiFake();
+    preview(
+      api,
+      documentFixture({ preview: { summary: 'Uma carta selada.', imageAssetId: COVER_ID } }),
+    );
+    expect(screen.getByRole('img', { name: 'Capa do documento' })).toHaveAttribute(
+      'src',
+      `/api/assets/${COVER_ID}`,
+    );
+    expect(screen.getByText('Uma carta selada.')).toBeInTheDocument();
+    expect(screen.queryByRole('document', { name: 'Conteúdo do documento' })).toBeNull();
+    expect(api.detailCalls).toBe(0);
+    expect(api.tabReads).toEqual([]);
+  });
+  it('a summary alone is enough, with no cover drawn', () => {
+    preview(
+      undefined,
+      documentFixture({ preview: { summary: 'Só o resumo.', imageAssetId: null } }),
+    );
+    expect(screen.getByText('Só o resumo.')).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Capa do documento' })).toBeNull();
+  });
+  it('a cover alone is enough', () => {
+    preview(undefined, documentFixture({ preview: { summary: null, imageAssetId: COVER_ID } }));
+    expect(screen.getByRole('img', { name: 'Capa do documento' })).toBeInTheDocument();
   });
 });

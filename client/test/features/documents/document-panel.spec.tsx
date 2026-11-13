@@ -23,9 +23,13 @@ async function openDocument(changes: Parameters<typeof documentFixture>[0] = {})
     value: vharnLibrary({ documents: [deps.documentsApi.document] }),
   });
   const room = await openLibrary(deps);
-  await userEvent.click(screen.getByRole('treeitem', { name: 'Carta' }));
-  await userEvent.click(await screen.findByRole('button', { name: 'Expandir documento' }));
+  await userEvent.dblClick(screen.getByRole('treeitem', { name: 'Carta' }));
   await screen.findByRole('textbox', { name: 'Nome do documento' });
+  // The tab opened behind the library, which stays open: Esc leaves the room with the document.
+  await userEvent.keyboard('{Escape}');
+  await waitFor(() =>
+    expect(room.router.state.location.pathname).toBe(`/campaigns/${VHARN.id}/table`),
+  );
   await waitFor(() => expect(document.body.style.pointerEvents).not.toBe('none'));
   return { deps, ...room };
 }
@@ -58,7 +62,7 @@ describe('authorized document panel', () => {
       await screen.findByRole('button', { name: 'Abrir documento em outra janela' }),
     );
     await screen.findByRole('textbox', { name: 'Nome do documento' });
-    expect(router.state.location.pathname).toBe(`/campaigns/${VHARN.id}/table`);
+    expect(router.state.location.pathname).toBe(`/campaigns/${VHARN.id}/table/library`);
     expect(screen.getByRole('alert')).toHaveTextContent('Permita janelas pop-up');
     expect(await screen.findByRole('tab', { name: 'Carta' })).toHaveAttribute(
       'aria-selected',
@@ -179,8 +183,7 @@ describe('authorized document panel', () => {
       value: vharnLibrary({ documents: [deps.documentsApi.document] }),
     });
     await openLibrary(deps);
-    await userEvent.click(screen.getByRole('treeitem', { name: 'Carta' }));
-    await userEvent.click(await screen.findByRole('button', { name: 'Expandir documento' }));
+    await userEvent.dblClick(screen.getByRole('treeitem', { name: 'Carta' }));
     const tabs = await screen.findByRole('tablist', { name: 'Abas do documento' });
     expect(await screen.findByRole('textbox', { name: 'Conteúdo do documento' })).toHaveTextContent(
       'A',
