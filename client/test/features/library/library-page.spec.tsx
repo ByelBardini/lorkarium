@@ -12,7 +12,13 @@ import {
   masterLibrary,
   playerLibrary,
 } from '../../support/library-fixtures';
-import { libraryTree, openCatacumbas, treeItem, treeItemNames } from '../../support/library-tree';
+import {
+  filterLibraryVisibility,
+  libraryTree,
+  openCatacumbas,
+  treeItem,
+  treeItemNames,
+} from '../../support/library-tree';
 import { libraryChanged } from '../../support/scene-tab-fixtures';
 import {
   ANA_AT_TABLE,
@@ -32,7 +38,7 @@ describe('the library of grids', () => {
   });
 
   function library(): HTMLElement {
-    return screen.getByRole('dialog', { name: 'Biblioteca' });
+    return screen.getByRole('complementary', { name: 'Biblioteca' });
   }
 
   function panel(): HTMLElement {
@@ -52,21 +58,21 @@ describe('the library of grids', () => {
   it('shows a status while the list loads, then the tree', async () => {
     const release = deps.libraryApi.hold('list');
     await openRoom(deps);
-    await userEvent.click(screen.getByRole('link', { name: 'Biblioteca' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Biblioteca' });
+    await userEvent.click(screen.getByRole('button', { name: 'Biblioteca' }));
+    const dialog = await screen.findByRole('complementary', { name: 'Biblioteca' });
     expect(within(dialog).getByRole('status')).toHaveTextContent('Carregando a biblioteca…');
     release({ ok: true, value: masterLibrary() });
     expect(await screen.findByRole('tree', { name: 'Itens e pastas' })).toBeInTheDocument();
   });
 
-  it('the tree has the root folders and "Sem pasta" open with its grid, with their counts', async () => {
+  it('the tree has the root folders with their counts, then the grid without folder at the root', async () => {
     await openLibrary(deps);
-    expect(treeItemNames()).toEqual(['Ato 1', 'Lugares fixos', 'Sem pasta', 'Cena 1']);
+    expect(treeItemNames()).toEqual(['Ato 1', 'Lugares fixos', 'Cena 1']);
     expect(treeItem('Ato 1')).toHaveAccessibleDescription('3 itens');
     expect(treeItem('Ato 1')).toHaveAttribute('aria-expanded', 'false');
     expect(treeItem('Lugares fixos')).not.toHaveAttribute('aria-expanded');
-    expect(treeItem('Sem pasta')).toHaveAccessibleDescription('1 item · o grupo está aqui');
-    expect(treeItem('Cena 1')).toHaveAttribute('aria-level', '2');
+    expect(within(libraryTree()).queryByRole('treeitem', { name: 'Sem pasta' })).toBeNull();
+    expect(treeItem('Cena 1')).toHaveAttribute('aria-level', '1');
     expect(treeItem('Cena 1')).not.toHaveAttribute('aria-expanded');
     expect(screen.queryByRole('treeitem', { name: 'Todos os grids' })).toBeNull();
     expect(screen.queryByRole('list', { name: 'Grids' })).toBeNull();
@@ -80,13 +86,12 @@ describe('the library of grids', () => {
       'Catacumbas',
       'Estrada de Vharn',
       'Lugares fixos',
-      'Sem pasta',
       'Cena 1',
     ]);
     await userEvent.click(treeItem('Catacumbas'));
     expect(treeItem('Ossuário')).toHaveAttribute('aria-level', '3');
     await userEvent.click(treeItem('Ato 1'));
-    expect(treeItemNames()).toEqual(['Ato 1', 'Lugares fixos', 'Sem pasta', 'Cena 1']);
+    expect(treeItemNames()).toEqual(['Ato 1', 'Lugares fixos', 'Cena 1']);
   });
 
   it('a folder holding the group grid, even deep inside, says the group is there', async () => {
@@ -100,7 +105,7 @@ describe('the library of grids', () => {
     expect(treeItem('Ossuário')).toHaveAccessibleDescription(/ · No ar/);
   });
 
-  it('right arrow opens a folder and enters it, Enter picks, left goes up and closes', async () => {
+  it('right arrow opens a folder and enters it, Enter or Space picks, left goes up and closes', async () => {
     await openLibrary(deps);
     treeItem('Ato 1').focus();
     await userEvent.keyboard('{ArrowRight}');
@@ -113,7 +118,7 @@ describe('the library of grids', () => {
     expect(treeItem('Catacumbas')).toHaveAttribute('aria-expanded', 'true');
     await userEvent.keyboard('{ArrowDown}{ArrowDown}');
     expect(treeItem('Ossuário')).toHaveFocus();
-    await userEvent.keyboard('{Enter}');
+    await userEvent.keyboard(' ');
     expect(treeItem('Ossuário')).toHaveAttribute('aria-selected', 'true');
     expect(within(panel()).getByRole('textbox', { name: 'Nome' })).toHaveValue('Ossuário');
     await userEvent.keyboard('{ArrowLeft}');
@@ -126,13 +131,13 @@ describe('the library of grids', () => {
 
   it('down and up arrows walk the folders and the grids that show', async () => {
     await openLibrary(deps);
-    treeItem('Lugares fixos').focus();
+    treeItem('Ato 1').focus();
     await userEvent.keyboard('{ArrowDown}{ArrowDown}');
     expect(treeItem('Cena 1')).toHaveFocus();
     await userEvent.keyboard('{Home}');
     expect(treeItem('Ato 1')).toHaveFocus();
     await userEvent.keyboard('{End}{ArrowUp}');
-    expect(treeItem('Sem pasta')).toHaveFocus();
+    expect(treeItem('Lugares fixos')).toHaveFocus();
   });
 
   it('clicking a grid picks it and shows it in the panel', async () => {
@@ -182,10 +187,7 @@ describe('the library of grids', () => {
 
   it('"Privados" keeps only the private grids, and an empty result says so', async () => {
     await openLibrary(deps);
-    await userEvent.selectOptions(
-      screen.getByRole('combobox', { name: 'Visibilidade' }),
-      'private',
-    );
+    await filterLibraryVisibility('Privados');
     expect(treeItemNames()).toEqual(['Ato 1', 'Catacumbas', 'Torre', 'Ossuário']);
     expect(within(library()).queryByText('Nada por aqui com esse filtro.')).toBeNull();
     await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar item' }), 'cena');
@@ -196,7 +198,7 @@ describe('the library of grids', () => {
   it('a network error offers "Tentar de novo", which reads the list again', async () => {
     deps.libraryApi.answer('list', { ok: false, failure: { kind: 'offline' } });
     await openRoom(deps);
-    await userEvent.click(screen.getByRole('link', { name: 'Biblioteca' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Biblioteca' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Sem conexão com o servidor.');
     deps.libraryApi.answer('list', { ok: true, value: masterLibrary() });
     await userEvent.click(screen.getByRole('button', { name: 'Tentar de novo' }));
@@ -210,14 +212,6 @@ describe('the library of grids', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(router.state.location.pathname).toBe(`/campaigns/${VHARN.id}/table`);
     expect(screen.getByRole('application')).toBeInTheDocument();
-  });
-
-  it('"Fechar biblioteca" closes it too', async () => {
-    const { router } = await openLibrary(deps);
-    await userEvent.click(screen.getByRole('button', { name: 'Fechar biblioteca' }));
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe(`/campaigns/${VHARN.id}/table`),
-    );
   });
 
   it('a library:changed reads the list again', async () => {
@@ -237,20 +231,20 @@ describe('the library of grids', () => {
       deps.libraryApi.answer('list', { ok: true, value: playerLibrary() });
       await openLibrary(deps, { role: 'player' });
       await userEvent.click(treeItem('Ato 1'));
-      expect(treeItemNames()).toEqual(['Ato 1', 'Estrada de Vharn', 'Sem pasta', 'Cena 1']);
-      expect(screen.queryByRole('combobox', { name: 'Visibilidade' })).toBeNull();
+      expect(treeItemNames()).toEqual(['Ato 1', 'Estrada de Vharn', 'Cena 1']);
+      expect(screen.queryByRole('button', { name: 'Filtrar por visibilidade' })).toBeNull();
       expect(treeItem('Estrada de Vharn')).toHaveAccessibleDescription(
         /^Grid · Público · 30×20 casas · editado/,
       );
     });
 
-    it('has no context menu and no "Nova pasta"', async () => {
+    it('has no context menu and no "Novo"', async () => {
       deps.libraryApi.answer('list', { ok: true, value: playerLibrary() });
       await openLibrary(deps, { role: 'player' });
       fireEvent.contextMenu(treeItem('Ato 1'));
       fireEvent.contextMenu(treeItem('Cena 1'));
       expect(screen.queryByRole('menu')).toBeNull();
-      expect(screen.queryByRole('button', { name: 'Nova pasta' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Novo' })).toBeNull();
     });
 
     it('with only the group grid it says the master has opened nothing yet', async () => {
@@ -263,7 +257,7 @@ describe('the library of grids', () => {
       expect(
         within(library()).getByText('O mestre ainda não abriu nenhum lugar.'),
       ).toBeInTheDocument();
-      expect(treeItemNames()).toEqual(['Sem pasta', 'Cena 1']);
+      expect(treeItemNames()).toEqual(['Cena 1']);
       expect(within(libraryTree()).queryByRole('treeitem', { name: CATACUMBAS.name })).toBeNull();
     });
   });

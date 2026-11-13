@@ -66,7 +66,8 @@ import type { LightReachStore } from '@/stores/light-reach-store';
 import type { BoardStore } from '@/stores/board-store';
 import type { CharactersStore } from '@/stores/characters-store';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
-import type { SessionStore } from '@/stores/session-store';
+import { useSession, type SessionStore } from '@/stores/session-store';
+import { useViewerMainSheet } from '@/features/sheets/use-viewer-main-sheet';
 import {
   GROUP_TAB,
   groupTabOf,
@@ -82,6 +83,7 @@ import { DeleteSelectionDialog, type SelectionToDelete } from './delete-selectio
 import { tokenCommandFailureMessage } from './board-messages';
 import { BoardStatusLine } from './board-status-line';
 import { RoomToolbar } from './room-toolbar';
+import { LibraryDrawerSlot } from './library-drawer-slot';
 import { RoomSceneDialog } from './room-scene-dialog';
 import { useBoardPause } from './use-board-pause';
 import { FocusToggle } from './focus-toggle';
@@ -99,6 +101,10 @@ import { useViewerRole } from './use-viewer-role';
 import { useBoardPings } from './use-board-pings';
 import { useEditShortcuts } from './use-edit-shortcuts';
 import { useRoomShortcuts } from './use-room-shortcuts';
+import { useTabShortcuts } from './use-tab-shortcuts';
+import { useRoomTabsMemory } from './use-room-tabs-memory';
+import { useSheetRoom } from '@/features/sheets/sheet-room-context';
+import { useLibraryToggle } from './use-library-toggle';
 import { RoomPatrolPanel } from '@/features/tokens/patrol-panel';
 import { useRoomPatrolEditor } from '@/features/tokens/use-room-patrol-editor';
 
@@ -142,6 +148,8 @@ export type PlayRoomPageProps = Readonly<{
   documentWorkspace?: StoreApi<DocumentWorkspaceStore>;
   /** A page (settings, conditions) covers the room: the desktop title bar gets its place back. */
   covered?: boolean;
+  /** The library route's drawer, floated over the board beside the toolbar. */
+  libraryDrawer?: React.ReactNode;
 }>;
 // `{ tokenId: null }` is "Novo token"; a token id is "Editar token", on `initialTab` when given.
 type TokenDialogRequest = Readonly<{ tokenId: string | null; initialTab?: 'forms' }>;
@@ -186,7 +194,30 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   useEffect(() => interaction.getState().allowLayerChoice(isMaster), [interaction, isMaster]);
   const focus = useRoomLayout(roomLayout, (state) => state.focus);
   useBoardPause(renderer, !!activeDocument);
-  useRoomShortcuts({ roomLayout, interaction, role, enabled: !activeDocument });
+  const library = useLibraryToggle(campaign.id);
+  useRoomShortcuts({
+    roomLayout,
+    interaction,
+    role,
+    enabled: !activeDocument,
+    toggleLibrary: library.toggle,
+  });
+  const session = useSession(props.sessionStore);
+  const mainSheet = useViewerMainSheet(session.status === 'authenticated' ? session.user.id : null);
+  useTabShortcuts({
+    campaignId: campaign.id,
+    tabs: shown.tabs,
+    workspace: props.documentWorkspace,
+    mainSheetKey: mainSheet?.key ?? null,
+    desktop: isDesktopShell(navigator.userAgent),
+  });
+  const libraryReader = useSheetRoom()?.libraryApi ?? null;
+  useRoomTabsMemory({
+    tabs: shown.tabs,
+    workspace: props.documentWorkspace,
+    campaign,
+    library: libraryReader,
+  });
   const { dicePreferences, createDiceRenderer, createDiceSound } = props;
   useDiceOverlay({ campaignId: campaign.id, openTables, dicePreferences, createDiceRenderer });
   useDiceSound({ campaignId: campaign.id, openTables, dicePreferences, createDiceSound });
@@ -253,12 +284,10 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
         {(!focus || !!activeDocument) && (
           <RoomHeader
             campaign={campaign}
-            presence={table?.presence ?? null}
             board={table?.board ?? null}
             tabs={shown.tabs}
             interaction={interaction}
             openTables={openTables}
-            roomLayout={roomLayout}
             clipboard={clipboard}
             sessionStore={props.sessionStore}
             inTitleBar={!props.covered}
@@ -495,6 +524,9 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
             )}
           </div>
           <RoomDocumentSurface workspace={props.documentWorkspace} activeKey={activeDocument} />
+          {props.libraryDrawer && (
+            <LibraryDrawerSlot roomLayout={roomLayout}>{props.libraryDrawer}</LibraryDrawerSlot>
+          )}
         </div>
       </div>
     </RoomContexts>

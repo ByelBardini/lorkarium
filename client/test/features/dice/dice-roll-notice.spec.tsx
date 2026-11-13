@@ -145,13 +145,13 @@ describe('DiceRollNotice', () => {
     expect(notice().parentElement).toHaveClass('pointer-events-none');
   });
 
-  it('sits centred left of the open panel, and over the whole board with the panel closed', () => {
+  it('sits centred left of the open panel and its rail, and left of the rail with the panel closed', () => {
     renderNotice(deps);
     roll(deps, biaRolled());
     advance(deps, 2400);
-    expect(notice().parentElement).toHaveClass('right-90');
+    expect(notice().parentElement).toHaveClass('right-[406px]');
     act(() => deps.roomLayout.getState().togglePanel());
-    expect(notice().parentElement).toHaveClass('right-0');
+    expect(notice().parentElement).toHaveClass('right-[46px]');
   });
 
   it('beside the board it sits at the top, clear of the chat bar and the previews rising from it', () => {

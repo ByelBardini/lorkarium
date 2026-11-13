@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
 import { MainMapReaderContext } from '@/features/maps/use-map-home';
@@ -22,7 +23,9 @@ describe('RoomName', () => {
   });
 
   it('with no way to read the main map, it is the plain name', () => {
-    render(<RoomName campaign={CAMPAIGN} tabs={null} workspace={workspace} />);
+    render(<RoomName campaign={CAMPAIGN} tabs={null} workspace={workspace} />, {
+      wrapper: MemoryRouter,
+    });
     expect(screen.getByRole('heading', { level: 1, name: VHARN.name })).toBeInTheDocument();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
@@ -32,6 +35,7 @@ describe('RoomName', () => {
       <MainMapReaderContext value={reader}>
         <RoomName campaign={CAMPAIGN} tabs={null} workspace={workspace} />
       </MainMapReaderContext>,
+      { wrapper: MemoryRouter },
     );
     expect(screen.getByRole('heading', { level: 1, name: VHARN.name })).toBeInTheDocument();
     expect(reader.calls).toEqual([]);

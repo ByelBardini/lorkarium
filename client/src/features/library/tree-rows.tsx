@@ -29,9 +29,9 @@ import {
 import type { FolderNode } from '@/lib/folder-tree';
 import { cn } from '@/lib/utils';
 import { folderDescription, sceneDescription } from './library-messages';
-import { NO_FOLDER, sceneIdOf, sceneKey } from './library-view';
+import { sceneIdOf, sceneKey } from './library-view';
 import { HiddenItemSeal, TreeFolderIcon } from './tree-icons';
-import { NewNameEntry, RenameField } from './tree-name-fields';
+import { RenameField } from './tree-name-fields';
 import { treeItemId } from './tree-navigation';
 
 type LibraryNode = FolderNode<SceneFolderDto, LibraryEntry>;
@@ -39,13 +39,10 @@ type LibraryNode = FolderNode<SceneFolderDto, LibraryEntry>;
 /** What a tree item adds for dragging (A17): its own props, given its key. */
 export type TreeItemExtras = (key: string) => Readonly<Record<string, unknown>>;
 
-/** The name fields open in the tree (the master's): renaming an item, or a new folder. */
+/** The name field open in the tree (the master's): renaming an item. */
 export type TreeEditing = Readonly<{
   renamingKey: string | null;
-  /** The folder the new folder's field sits in: `null` = the root, `undefined` = no field. */
-  newFolderParent: string | null | undefined;
   onRename: (key: string, name: string) => void;
-  onCreateFolder: (parentId: string | null, name: string) => void;
   /** A field closed; `refocusKey` = the item to give the focus back to. */
   onDone: (refocusKey: string | null) => void;
 }>;
@@ -58,33 +55,16 @@ export type TreeContext = Readonly<{
   groupSceneId: string | null;
   playersOnline: number;
   now: Date;
-  /** A click (or Enter) on an item: picks it, and opens or closes it when it can expand. */
+  /** A click (or Space; Enter on a folder) on an item: picks it, and opens or closes it when it
+   *  can expand. */
   onActivate: (key: string) => void;
+  /** A double click on an item (not a folder): opens it in the room. */
+  onOpen?: (key: string) => void;
   onToggle: (key: string) => void;
   onFocus: (key: string) => void;
   itemExtras?: TreeItemExtras;
   editing: TreeEditing | null;
 }>;
-
-/** The field of a new folder, as the first line of where it goes.
- *
- *  Example: `<NewFolderEntry context={context} parentId={ato1Id} />` */
-export function NewFolderEntry({
-  context,
-  parentId,
-}: Readonly<{ context: TreeContext; parentId: string | null }>) {
-  const editing = context.editing;
-  if (!editing || editing.newFolderParent !== parentId) return null;
-  return (
-    <li role="none" className="px-2 py-1" onClick={(event) => event.stopPropagation()}>
-      <NewNameEntry
-        label="Nome da nova pasta"
-        onSave={(name) => editing.onCreateFolder(parentId, name)}
-        onCancel={() => editing.onDone(null)}
-      />
-    </li>
-  );
-}
 
 /** A folder: its folders, then its grids, while it is expanded.
  *
@@ -96,7 +76,6 @@ export function FolderItem({
   const key = node.folder.id;
   const expandable = node.children.length + node.scenes.length > 0;
   const open = expandable && context.expanded.has(key);
-  const adding = context.editing?.newFolderParent === key;
   return (
     <TreeRow
       context={context}
@@ -116,14 +95,12 @@ export function FolderItem({
         )
       }
     >
-      {(open || adding) && (
+      {open && (
         <ul role="group" className="flex flex-col gap-0.5">
-          <NewFolderEntry context={context} parentId={key} />
-          {open &&
-            node.children.map((child) => (
-              <FolderItem key={child.folder.id} context={context} node={child} />
-            ))}
-          {open && <SceneItems context={context} scenes={node.scenes} level={node.depth + 1} />}
+          {node.children.map((child) => (
+            <FolderItem key={child.folder.id} context={context} node={child} />
+          ))}
+          <SceneItems context={context} scenes={node.scenes} level={node.depth + 1} />
         </ul>
       )}
     </TreeRow>
@@ -135,43 +112,16 @@ function folderLine(node: LibraryNode): string {
   return node.folder.visibility === 'private' ? `${line} · privada` : line;
 }
 
-/** "Sem pasta", with the grids that have no folder while it is expanded.
- *
- *  Example: `<LooseItem context={context} scenes={tree.looseScenes} />` */
-export function LooseItem({
-  context,
-  scenes,
-}: Readonly<{ context: TreeContext; scenes: readonly LibraryEntry[] }>) {
-  const expandable = scenes.length > 0;
-  const open = expandable && context.expanded.has(NO_FOLDER);
-  const groupHere = scenes.some(({ id }) => id === context.groupSceneId);
-  return (
-    <TreeRow
-      context={context}
-      itemKey={NO_FOLDER}
-      label="Sem pasta"
-      level={1}
-      description={folderDescription(scenes.length, groupHere)}
-      count={scenes.length}
-      expanded={expandable ? open : undefined}
-      icon={<TreeFolderIcon open={open} />}
-    >
-      {open && (
-        <ul role="group" className="flex flex-col gap-0.5">
-          <SceneItems context={context} scenes={scenes} level={2} />
-        </ul>
-      )}
-    </TreeRow>
-  );
-}
-
 type SceneItemsProps = Readonly<{
   context: TreeContext;
   scenes: readonly LibraryEntry[];
   level: number;
 }>;
 
-function SceneItems({ context, scenes, level }: SceneItemsProps): React.JSX.Element {
+/** The items (grids, images, maps…) of one level: a folder's, or those without folder at the root.
+ *
+ *  Example: `<SceneItems context={context} scenes={tree.looseScenes} level={1} />` */
+export function SceneItems({ context, scenes, level }: SceneItemsProps): React.JSX.Element {
   return (
     <>
       {scenes.map((scene) => {
@@ -186,6 +136,7 @@ function SceneItems({ context, scenes, level }: SceneItemsProps): React.JSX.Elem
             description={look.description}
             live={look.isGroupGrid}
             mainMap={look.isMainMap}
+            leaf
             icon={
               look.showsHiddenSeal && scene.visibility === 'private' ? (
                 <HiddenItemSeal>{look.icon}</HiddenItemSeal>
@@ -264,6 +215,8 @@ type TreeRowProps = Readonly<{
   mainMap?: boolean;
   /** `undefined` for an item that cannot expand (a grid, an empty folder). */
   expanded?: boolean;
+  /** An item, not a folder: a double click opens it. */
+  leaf?: boolean;
   children?: ReactNode;
 }>;
 
@@ -288,6 +241,10 @@ function TreeRow(props: TreeRowProps): React.JSX.Element {
         context.onActivate(itemKey);
         context.onFocus(itemKey);
       }}
+      onDoubleClick={(event) => {
+        event.stopPropagation();
+        if (props.leaf && !renaming) context.onOpen?.(itemKey);
+      }}
       className="rounded-md outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring"
       {...(renaming ? {} : context.itemExtras?.(itemKey))}
     >
@@ -306,7 +263,8 @@ function TreeRowLine(props: TreeRowLineProps): React.JSX.Element {
       style={{ paddingLeft: `${(props.level - 1) * 14 + 8}px` }}
       className={cn(
         'flex h-9 items-center gap-2 rounded-md pr-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground [&_svg]:size-5 [&_svg]:shrink-0',
-        selected && 'bg-muted text-foreground [&_svg]:text-primary',
+        selected &&
+          'bg-primary/10 text-foreground shadow-[inset_2px_0_var(--color-primary)] hover:bg-primary/15 [&_svg]:text-primary',
       )}
     >
       <Chevron {...props} />

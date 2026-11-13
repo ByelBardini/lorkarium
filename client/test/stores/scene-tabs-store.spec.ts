@@ -84,6 +84,18 @@ describe('scene tabs store', () => {
     return visible(table);
   }
 
+  it('noteShown keeps the last different key as previousKey, and stores none of it', () => {
+    const tabs = tabsOf(openVharn());
+    tabs.getState().noteShown(GROUP_TAB);
+    expect(tabs.getState().previousKey).toBeNull();
+    tabs.getState().noteShown('doc:a');
+    tabs.getState().noteShown('doc:a');
+    expect(tabs.getState().previousKey).toBe(GROUP_TAB);
+    tabs.getState().noteShown(TORRE_SCENE.id);
+    expect(tabs.getState().previousKey).toBe('doc:a');
+    expect(storage.getItem(TABS_KEY) ?? '').not.toContain('doc:a');
+  });
+
   it('opens with the group grid tab alone and shown, over the table board', () => {
     const table = openVharn();
     expect(keys(table)).toEqual([GROUP_TAB]);
@@ -243,17 +255,136 @@ describe('scene tabs store', () => {
     expect(tabsOf(openVharn()).getState().arrivedAtHome).toBe(false);
   });
 
+  describe("the order of the room's tabs", () => {
+    const DOC = 'vharn:doc-carta';
+
+    function order(table: OpenTable): readonly string[] {
+      return tabsOf(table).getState().tabOrder;
+    }
+
+    // Torre, then the document, then the Estrada: grids and items in the order they opened.
+    function openMixed(): OpenTable {
+      const table = openVharn();
+      openTorre(table);
+      tabsOf(table).getState().syncWorkspaceKeys([DOC]);
+      tabsOf(table).getState().open(ESTRADA_SCENE.id);
+      return table;
+    }
+
+    it('starts empty: the group tab is no part of it', () => {
+      expect(order(openVharn())).toEqual([]);
+    });
+
+    it('a grid or an item goes to the end as it opens, mixed', () => {
+      expect(order(openMixed())).toEqual([TORRE_SCENE.id, DOC, ESTRADA_SCENE.id]);
+    });
+
+    it('a grid closed and an item closed leave it; the others keep their places', () => {
+      const table = openMixed();
+      tabsOf(table).getState().close(TORRE_SCENE.id);
+      expect(order(table)).toEqual([DOC, ESTRADA_SCENE.id]);
+      tabsOf(table).getState().syncWorkspaceKeys([]);
+      expect(order(table)).toEqual([ESTRADA_SCENE.id]);
+    });
+
+    it('a grid the group went to leaves it with its tab', () => {
+      const table = openMixed();
+      api.emitTo(VHARN.id, {
+        kind: 'sceneActivated',
+        event: sceneActivated({ sceneId: TORRE_SCENE.id }),
+      });
+      expect(order(table)).toEqual([DOC, ESTRADA_SCENE.id]);
+    });
+
+    it('moveTab puts a tab just before another, or at the end with none', () => {
+      const table = openMixed();
+      tabsOf(table).getState().moveTab(ESTRADA_SCENE.id, TORRE_SCENE.id);
+      expect(order(table)).toEqual([ESTRADA_SCENE.id, TORRE_SCENE.id, DOC]);
+      tabsOf(table).getState().moveTab(ESTRADA_SCENE.id, null);
+      expect(order(table)).toEqual([TORRE_SCENE.id, DOC, ESTRADA_SCENE.id]);
+    });
+
+    it('before the group, a tab becomes the first after it; the group itself never moves', () => {
+      const table = openMixed();
+      tabsOf(table).getState().moveTab(DOC, GROUP_TAB);
+      expect(order(table)).toEqual([DOC, TORRE_SCENE.id, ESTRADA_SCENE.id]);
+      tabsOf(table).getState().moveTab(GROUP_TAB, ESTRADA_SCENE.id);
+      tabsOf(table).getState().shiftTab(GROUP_TAB, 1);
+      expect(order(table)).toEqual([DOC, TORRE_SCENE.id, ESTRADA_SCENE.id]);
+    });
+
+    it('shiftTab moves one place, and stops at both ends', () => {
+      const table = openMixed();
+      tabsOf(table).getState().shiftTab(DOC, -1);
+      expect(order(table)).toEqual([DOC, TORRE_SCENE.id, ESTRADA_SCENE.id]);
+      tabsOf(table).getState().shiftTab(DOC, -1);
+      tabsOf(table).getState().shiftTab(ESTRADA_SCENE.id, 1);
+      expect(order(table)).toEqual([DOC, TORRE_SCENE.id, ESTRADA_SCENE.id]);
+    });
+
+    it('the grids are remembered in the order moved, and an F5 brings them back in it', () => {
+      const table = openMixed();
+      tabsOf(table).getState().moveTab(ESTRADA_SCENE.id, TORRE_SCENE.id);
+      const stored = JSON.parse(storage.values.get(TABS_KEY) ?? 'null') as { sceneIds: string[] };
+      expect(stored.sceneIds).toEqual([ESTRADA_SCENE.id, TORRE_SCENE.id]);
+      api = new TableSessionApiFake();
+      expect(order(openVharn())).toEqual([ESTRADA_SCENE.id, TORRE_SCENE.id]);
+    });
+  });
+
   describe('after an F5', () => {
+    const DOC = 'vharn:doc-carta';
+    const CARTA_REF = { kind: 'document', id: 'doc-carta', key: DOC } as const;
+    const LYRA_REF = {
+      kind: 'sheet',
+      id: LYRA_SHEET_ID,
+      key: `vharn:sheet:${LYRA_SHEET_ID}`,
+    } as const;
+
+    function order(table: OpenTable): readonly string[] {
+      return tabsOf(table).getState().tabOrder;
+    }
+
+    function stored(): unknown {
+      return JSON.parse(storage.values.get(TABS_KEY) ?? 'null');
+    }
+
+    // Torre, the document, the Estrada, then Lyra's sheet: all in the strip, the document shown.
+    function openMixed(): OpenTable {
+      const table = openVharn();
+      openTorre(table);
+      tabsOf(table).getState().syncWorkspaceKeys([DOC]);
+      tabsOf(table).getState().open(ESTRADA_SCENE.id);
+      tabsOf(table).getState().syncWorkspaceKeys([DOC, LYRA_REF.key]);
+      return table;
+    }
+
+    // What the room remembered before the F5; the reload starts over a new session.
+    function remembered(table: OpenTable): void {
+      tabsOf(table).getState().rememberItems([CARTA_REF, LYRA_REF], DOC);
+      api = new TableSessionApiFake();
+    }
+
     it('the tabs remembered for the table come back, the shown one too', () => {
       openTorre(openVharn());
       expect(JSON.parse(storage.values.get(TABS_KEY) ?? 'null')).toEqual({
         sceneIds: [TORRE_SCENE.id],
         visible: TORRE_SCENE.id,
+        order: [TORRE_SCENE.id],
+        items: [],
+        activeItem: null,
       });
       api = new TableSessionApiFake();
       const reopened = openVharn();
       expect(api.watched).toEqual([TORRE_WATCH]);
       expect(visible(reopened).key).toBe(TORRE_SCENE.id);
+    });
+
+    it('a table left on purpose stays forgotten while its room still unmounts', () => {
+      const table = openMixed();
+      tabsOf(table).getState().dispose(true);
+      tabsOf(table).getState().rememberItems([CARTA_REF], DOC);
+      expect(stored()).toBeNull();
     });
 
     it('a remembered tab the server refuses (not found) goes away', () => {
@@ -262,6 +393,59 @@ describe('scene tabs store', () => {
       const reopened = openVharn();
       api.emitToGrid(TORRE_SCENE.id, { kind: 'boardFailed', failure: 'not_found' });
       expect(keys(reopened)).toEqual([GROUP_TAB]);
+    });
+
+    it('the workspace items are remembered with the grids, the one shown too', () => {
+      const table = openMixed();
+      tabsOf(table).getState().rememberItems([CARTA_REF], DOC);
+      expect(stored()).toMatchObject({
+        order: [TORRE_SCENE.id, DOC, ESTRADA_SCENE.id, LYRA_REF.key],
+        items: [CARTA_REF],
+        activeItem: DOC,
+      });
+    });
+
+    it('the items wait in their places for their reopening, handed over once', () => {
+      remembered(openMixed());
+      const reopened = openVharn();
+      tabsOf(reopened).getState().syncWorkspaceKeys([]);
+      expect(order(reopened)).toEqual([TORRE_SCENE.id, DOC, ESTRADA_SCENE.id, LYRA_REF.key]);
+      expect(tabsOf(reopened).getState().takeRestoredItems()).toEqual({
+        items: [CARTA_REF, LYRA_REF],
+        activeItem: DOC,
+        order: [TORRE_SCENE.id, DOC, ESTRADA_SCENE.id, LYRA_REF.key],
+      });
+      expect(tabsOf(reopened).getState().takeRestoredItems()).toBeNull();
+    });
+
+    it('settled, an item that did not come back leaves the order; one back stays', () => {
+      remembered(openMixed());
+      const reopened = openVharn();
+      tabsOf(reopened).getState().settleRestoredItems([LYRA_REF.key]);
+      expect(order(reopened)).toEqual([TORRE_SCENE.id, ESTRADA_SCENE.id, LYRA_REF.key]);
+    });
+
+    it('what the room remembers while the items are on their way keeps the waiting ones', () => {
+      remembered(openMixed());
+      const reopened = openVharn();
+      tabsOf(reopened).getState().rememberItems([LYRA_REF], null);
+      expect(stored()).toMatchObject({ items: [LYRA_REF, CARTA_REF], activeItem: DOC });
+    });
+
+    it('an F5 that brings the items back has arrived: the room keeps what it showed', () => {
+      remembered(openMixed());
+      expect(tabsOf(openVharn()).getState().arrivedAtHome).toBe(true);
+    });
+
+    it('a record of an older build (no items) brings the grids back; the main map still opens', () => {
+      storage.values.set(
+        TABS_KEY,
+        JSON.stringify({ sceneIds: [TORRE_SCENE.id], visible: TORRE_SCENE.id }),
+      );
+      const reopened = openVharn();
+      expect(keys(reopened)).toEqual([GROUP_TAB, TORRE_SCENE.id]);
+      expect(tabsOf(reopened).getState().arrivedAtHome).toBe(false);
+      expect(tabsOf(reopened).getState().takeRestoredItems()).toBeNull();
     });
 
     it('a storage that throws keeps the tabs in memory', () => {

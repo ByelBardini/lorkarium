@@ -13,6 +13,7 @@ import type { TablePresenceStore } from '@/stores/table-presence-store';
 import { revealAnnouncement } from './dice-messages';
 import { NATURAL_TOTAL_CLASS } from './natural-tone';
 import { useRevealClock } from './use-reveal-clock';
+import { roomPanelInsetClass } from '@/lib/room-panel-inset';
 import { useRollerIdentity, type RollerIdentity } from './use-roller-identity';
 
 export type DiceRollNoticeProps = Readonly<{
@@ -75,13 +76,14 @@ type NoticePlaceProps = Readonly<{
 // board, so the notice lives at the top rather than cover any of them.
 function NoticePlace({ roomLayout, children }: NoticePlaceProps): React.JSX.Element {
   const desktop = useMediaQuery(DESKTOP_QUERY);
-  const panelShown = useRoomLayout(roomLayout, (state) => state.panel === 'open' && !state.focus);
+  const panel = useRoomLayout(roomLayout, (state) => state.panel);
+  const focus = useRoomLayout(roomLayout, (state) => state.focus);
   return (
     <div
       className={cn(
         'pointer-events-none absolute left-0 flex justify-center px-4',
         desktop ? 'top-14' : 'bottom-16',
-        desktop && panelShown ? 'right-90' : 'right-0',
+        desktop ? roomPanelInsetClass({ panel, focus }) : 'right-0',
       )}
     >
       {children}

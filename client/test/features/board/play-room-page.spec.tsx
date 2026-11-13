@@ -102,17 +102,26 @@ describe('play room page', () => {
       expect(within(roomHeader()).queryByRole('button', { name: 'Copiar código' })).toBeNull();
     });
 
-    it('"2 online" counts the snapshot and opens the "Na mesa" tab', async () => {
+    it('the top carries no online count, master page links nor "Sair da mesa" of its own', async () => {
       await renderLiveRoom();
-      const online = within(roomHeader()).getByRole('button', { name: '2 online' });
-      await userEvent.click(online);
-      expect(screen.getByRole('tab', { name: 'Na mesa' })).toHaveAttribute('aria-selected', 'true');
-      expect(presencePanel()).toBeInTheDocument();
+      const top = within(roomHeader());
+      expect(top.queryByRole('button', { name: /online/ })).toBeNull();
+      for (const name of ['Condições', 'Configurações da mesa'])
+        expect(top.queryByRole('link', { name })).toBeNull();
+      expect(top.queryByRole('button', { name: 'Biblioteca' })).toBeNull();
+      expect(top.queryByRole('button', { name: 'Sair da mesa' })).toBeNull();
+      expect(top.queryByRole('button', { name: 'Mais ações da mesa' })).toBeNull();
     });
 
-    it('"Sair da mesa" closes the table once and goes to the home without reopening it', async () => {
+    it('the top has no "Suas mesas" link of its own (it lives in the table menu)', async () => {
       await renderLiveRoom();
-      await userEvent.click(within(roomHeader()).getByRole('button', { name: 'Sair da mesa' }));
+      expect(within(roomHeader()).queryByRole('link', { name: 'Suas mesas' })).toBeNull();
+    });
+
+    it('"Sair da mesa" in the table menu closes the table once and goes home without reopening it', async () => {
+      await renderLiveRoom();
+      await userEvent.click(within(roomHeader()).getByRole('button', { name: 'Menu da mesa' }));
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Sair da mesa' }));
       await screen.findByRole('heading', { level: 1, name: /E aí/ });
       expect(deps.tableSessionApi.closedIds).toEqual([VHARN.id]);
       expect(deps.tableSessionApi.opened).toEqual([VHARN.id]);
@@ -154,19 +163,19 @@ describe('play room page', () => {
     it('the "Na mesa" tab carries how many are online and keeps its name', async () => {
       await renderLiveRoom();
       const tab = screen.getByRole('tab', { name: 'Na mesa' });
-      expect(tab).toHaveTextContent('Na mesa2');
+      expect(tab).toHaveAccessibleDescription('2 online');
       deps.tableSessionApi.emit({ kind: 'memberJoined', event: biaJoined() });
-      expect(tab).toHaveTextContent('Na mesa3');
+      expect(tab).toHaveAccessibleDescription('3 online');
     });
 
-    it('"Recolher painel" hides the panel, remembers it and turns into "Abrir painel"', async () => {
+    it('the open tab of the rail collapses the panel, remembers it, and opens it again', async () => {
       renderRoom();
       await screen.findByRole('heading', { level: 1 });
-      await userEvent.click(screen.getByRole('button', { name: 'Recolher painel' }));
-      expect(screen.queryByRole('tab', { name: 'Combate' })).toBeNull();
+      await userEvent.click(screen.getByRole('tab', { name: 'Combate' }));
+      expect(screen.queryByRole('complementary', { name: 'Painel da mesa' })).toBeNull();
       expect(deps.roomLayoutStorage.values.get(ROOM_PANEL_STORAGE_KEY)).toBe('closed');
-      await userEvent.click(screen.getByRole('button', { name: 'Abrir painel' }));
-      expect(screen.getByRole('tab', { name: 'Combate' })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('tab', { name: 'Combate' }));
+      expect(screen.getByRole('complementary', { name: 'Painel da mesa' })).toBeInTheDocument();
     });
   });
 
@@ -311,7 +320,7 @@ describe('play room page', () => {
       await act(() => router.navigate(`/campaigns/${VHARN.id}/table`));
       await screen.findByRole('heading', { level: 1, name: VHARN.name });
       expect(deps.tableSessionApi.opened).toEqual([VHARN.id]);
-      expect(within(roomHeader()).getByRole('button', { name: '2 online' })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /Na mesa/ })).toBeInTheDocument();
     });
 
     it('visiting QUELM after VHARN keeps both open', async () => {
@@ -620,7 +629,8 @@ describe('play room page', () => {
         kind: 'board',
         state: vharnBoard({ tokens: [kael, lyra()], combat: vharnCombat({ round: 3 }) }),
       });
-      expect(within(roomHeader()).getByText('Rodada 3 · Vez de Kael')).toBeInTheDocument();
+      const strip = screen.getByRole('region', { name: 'Abas da sala' });
+      expect(within(strip).getByText('Rodada 3 · Vez de Kael')).toBeInTheDocument();
       await userEvent.click(screen.getByRole('button', { name: 'Modo foco' }));
       expect(screen.getByText('Rodada 3 · Vez de Kael')).toBeInTheDocument();
     });

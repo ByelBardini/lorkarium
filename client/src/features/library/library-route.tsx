@@ -11,16 +11,20 @@ import type { AppDependencies } from '@/app/router';
 import type { CampaignLoaderData } from '@/features/campaigns/campaign-loader-data';
 import type { LibraryResult } from '@/services/library-api';
 import { libraryAction } from './library-action';
-import { LibraryDialog } from './library-dialog';
+import { LibraryDrawer } from './library-drawer';
 import { useLibraryTable } from './use-library-table';
 
 /** The id of the play room route, whose loader has the campaign the library belongs to. */
 export const TABLE_ROUTE_ID = 'campaign-table';
 
+/** The library's address, under the play room. */
+export const LIBRARY_PATH = '/campaigns/:campaignId/table/library';
+
 export type LibraryLoaderData = Readonly<{ library: Promise<LibraryResult<CampaignLibraryDto>> }>;
 
-/** The library at `/campaigns/:campaignId/table/library`, a child of the play room: the room
- *  stays mounted under the modal, the link is shareable and "back" closes it.
+/** The library at `/campaigns/:campaignId/table/library`, a child of the play room drawn as a
+ *  drawer over its board: the room stays in play beside it, the link is shareable and "back"
+ *  closes it.
  *
  *  Example: `{ id: TABLE_ROUTE_ID, path: 'campaigns/:campaignId/table', children: [libraryRoute(deps)] }` */
 export function libraryRoute(deps: AppDependencies): RouteObject {
@@ -32,7 +36,7 @@ export function libraryRoute(deps: AppDependencies): RouteObject {
   };
 }
 
-// Not awaited: the modal opens at once over the room and shows the list when it comes.
+// Not awaited: the drawer opens at once over the board and shows the list when it comes.
 function libraryLoader({ libraryApi }: AppDependencies): LoaderFunction {
   return ({ params }): LibraryLoaderData => ({ library: libraryApi.list(params.campaignId ?? '') });
 }
@@ -47,11 +51,12 @@ function libraryScreen(deps: AppDependencies): () => React.JSX.Element | null {
     const tableView = useLibraryTable(deps.openTables, campaignId);
     if (!tableData) return null;
     return (
-      <LibraryDialog
+      <LibraryDrawer
         campaign={tableData.campaign}
         library={library}
         tableView={tableView}
         sessionStore={deps.sessionStore}
+        roomLayout={deps.roomLayout}
         now={now}
         assets={deps.assets}
         api={deps.libraryApi}

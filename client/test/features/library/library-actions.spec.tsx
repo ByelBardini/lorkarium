@@ -6,7 +6,13 @@ import { VHARN } from '../../support/campaigns-api-fake';
 import { NEW_FOLDER, NEW_GRID } from '../../support/library-api-fake';
 import { ATO_1, OSSUARIO, masterLibrary, playerLibrary } from '../../support/library-fixtures';
 import { openLibrary } from '../../support/library-harness';
-import { openCatacumbas, startHeaderNewItem, treeItem } from '../../support/library-tree';
+import {
+  openCatacumbas,
+  openTreeMenu,
+  pickNewItemKind,
+  startHeaderNewItem,
+  treeItem,
+} from '../../support/library-tree';
 import { VHARN_SCENE } from '../../support/table-session-fixtures';
 
 describe('the actions of the library', () => {
@@ -17,7 +23,7 @@ describe('the actions of the library', () => {
   });
 
   function library(): HTMLElement {
-    return screen.getByRole('dialog', { name: 'Biblioteca' });
+    return screen.getByRole('complementary', { name: 'Biblioteca' });
   }
 
   function panel(): HTMLElement {
@@ -124,13 +130,12 @@ describe('the actions of the library', () => {
       expect(within(panel()).getByRole('button', { name: 'O grupo está aqui' })).toBeDisabled();
     });
 
-    it('"Abrir pra preparar" opens the grid in a tab of the room and closes the library', async () => {
+    it('"Abrir pra preparar" opens the grid in a tab of the room, the library staying open', async () => {
       const { router, table } = await openLibrary(deps);
       await pickOssuario();
       await userEvent.click(within(panel()).getByRole('button', { name: 'Abrir pra preparar' }));
-      await waitFor(() =>
-        expect(router.state.location.pathname).toBe(`/campaigns/${VHARN.id}/table`),
-      );
+      expect(router.state.location.pathname).toBe(`/campaigns/${VHARN.id}/table/library`);
+      expect(library()).toBeInTheDocument();
       expect(table.tabs.getState().visibleKey).toBe(OSSUARIO.id);
       expect(deps.tableSessionApi.watched).toContain(`${VHARN.id}:${OSSUARIO.id}`);
     });
@@ -169,32 +174,7 @@ describe('the actions of the library', () => {
     });
   });
 
-  describe('folders from the header', () => {
-    it('"Nova pasta" creates on Enter inside the folder picked; Esc cancels', async () => {
-      await openLibrary(deps);
-      await userEvent.click(screen.getByRole('button', { name: 'Nova pasta' }));
-      await userEvent.type(
-        screen.getByRole('textbox', { name: 'Nome da nova pasta' }),
-        'Rascunho{Escape}',
-      );
-      expect(screen.queryByRole('textbox', { name: 'Nome da nova pasta' })).toBeNull();
-      expect(deps.libraryApi.callsOf('createFolder')).toEqual([]);
-      await userEvent.click(treeItem('Ato 1'));
-      deps.libraryApi.answer('list', { ok: true, value: withFolderIn(ATO_1.id) });
-      await userEvent.click(screen.getByRole('button', { name: 'Nova pasta' }));
-      await userEvent.type(
-        screen.getByRole('textbox', { name: 'Nome da nova pasta' }),
-        'Masmorra{Enter}',
-      );
-      expect(deps.libraryApi.callsOf('createFolder')).toEqual([
-        [{ name: 'Masmorra', parentId: ATO_1.id }],
-      ]);
-      expect(await screen.findByRole('treeitem', { name: 'Masmorra' })).toHaveAttribute(
-        'aria-selected',
-        'true',
-      );
-    });
-
+  describe('folders', () => {
     // Regression (e2e library.spec): the new subfolder opened inside a collapsed Ato 1 and the
     // tree hid the folder on screen.
     it('a folder created inside a collapsed one shows in the tree, its parents expanded', async () => {
@@ -203,11 +183,16 @@ describe('the actions of the library', () => {
       await userEvent.click(treeItem('Ato 1'));
       expect(treeItem('Ato 1')).toHaveAttribute('aria-expanded', 'false');
       deps.libraryApi.answer('list', { ok: true, value: withFolderIn(ATO_1.id) });
-      await userEvent.click(screen.getByRole('button', { name: 'Nova pasta' }));
+      const menu = await openTreeMenu(treeItem('Ato 1'));
+      await userEvent.click(within(menu).getByRole('menuitem', { name: 'Criar novo item' }));
+      const dialog = await pickNewItemKind('Pasta');
       await userEvent.type(
-        screen.getByRole('textbox', { name: 'Nome da nova pasta' }),
+        within(dialog).getByRole('textbox', { name: 'Nome' }),
         'Masmorra{Enter}',
       );
+      expect(deps.libraryApi.callsOf('createFolder')).toEqual([
+        [{ name: 'Masmorra', parentId: ATO_1.id, visibility: 'public' }],
+      ]);
       const created = await screen.findByRole('treeitem', { name: 'Masmorra' });
       expect(created).toHaveAttribute('aria-selected', 'true');
       expect(treeItem('Ato 1')).toHaveAttribute('aria-expanded', 'true');
@@ -233,8 +218,7 @@ describe('the actions of the library', () => {
       await openLibrary(deps);
       await pickOssuario();
       deps.tableSessionApi.emit({ kind: 'status', status: 'reconnecting' });
-      expect(screen.getByRole('button', { name: 'Criar item' })).toBeDisabled();
-      expect(screen.getByRole('button', { name: 'Nova pasta' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Novo' })).toBeDisabled();
       expect(within(panel()).getByRole('textbox', { name: 'Nome' })).toBeDisabled();
       expect(within(panel()).getByRole('button', { name: 'Levar o grupo pra cá' })).toBeDisabled();
       expect(within(panel()).getByRole('button', { name: 'Duplicar' })).toBeDisabled();
@@ -245,12 +229,11 @@ describe('the actions of the library', () => {
   describe('as a player or a spectator', () => {
     // A spectator reads the library as a player does (plan 2026-10-24-espectadores).
     it.each(['player', 'spectator'] as const)(
-      'a %s only reads: no "Novo grid", no "Nova pasta", and the panel only opens',
+      'a %s only reads: no "Novo", and the panel only opens',
       async (role) => {
         deps.libraryApi.answer('list', { ok: true, value: playerLibrary() });
         const { table } = await openLibrary(deps, { role });
-        expect(screen.queryByRole('button', { name: 'Novo grid' })).toBeNull();
-        expect(screen.queryByRole('button', { name: 'Nova pasta' })).toBeNull();
+        expect(screen.queryByRole('button', { name: 'Novo' })).toBeNull();
         await userEvent.click(treeItem('Ato 1'));
         await userEvent.click(treeItem('Estrada de Vharn'));
         expect(within(panel()).queryByRole('textbox')).toBeNull();

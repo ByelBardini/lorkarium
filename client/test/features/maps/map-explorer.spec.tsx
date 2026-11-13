@@ -24,10 +24,10 @@ const HEIGHT = 600;
 const OFFLINE = { ok: false, failure: { kind: 'offline' } } as const;
 
 function diaryOf(): DocumentSummaryDto {
-  const { id, folderId, visibility, version, updatedAt, canEdit, canManage } = documentFixture({
-    id: DOCUMENT_ID,
-  });
-  return { id, name: 'Diário', folderId, visibility, version, updatedAt, canEdit, canManage };
+  const { id, folderId, visibility, version, updatedAt, canEdit, canManage, preview } =
+    documentFixture({ id: DOCUMENT_ID });
+  const summary = { id, folderId, visibility, version, updatedAt, canEdit, canManage, preview };
+  return { ...summary, name: 'Diário' };
 }
 
 const LINK_TO = {

@@ -49,8 +49,16 @@ describe('the room header inside the window title bar', () => {
     expect(document.documentElement.style.getPropertyValue('--title-bar-height')).toBe('44px');
     const top = within(roomTop());
     expect(top.getByRole('heading', { level: 1, name: VHARN.name })).toBeInTheDocument();
-    expect(await top.findByRole('button', { name: /online/ })).toBeInTheDocument();
-    expect(top.getByRole('button', { name: 'Sair da mesa' })).toBeInTheDocument();
+    expect(top.getByRole('button', { name: 'Menu da mesa' })).toBeInTheDocument();
+    expect(top.queryByRole('button', { name: /online/ })).not.toBeInTheDocument();
+    expect(top.queryByRole('button', { name: 'Sair da mesa' })).not.toBeInTheDocument();
+  });
+
+  it('in the room the bar keeps its own logo, the only brand on the row', async () => {
+    await renderRoom();
+
+    await waitFor(() => expect(bar()).toContainElement(roomTop()));
+    expect(within(bar()).getAllByRole('link', { name: 'Ir para Suas mesas' })).toHaveLength(1);
   });
 
   it('no other room top stays in the body of the room', async () => {
@@ -64,10 +72,12 @@ describe('the room header inside the window title bar', () => {
     await renderRoom();
 
     await waitFor(() => expect(bar()).toContainElement(roomTop()));
-    const leave = within(roomTop()).getByRole('button', { name: 'Sair da mesa' });
-    expect(leave.closest('[data-app-region]')).toHaveAttribute('data-app-region', 'no-drag');
-    const online = await within(roomTop()).findByRole('button', { name: /online/ });
-    expect(online.closest('[data-app-region]')).toHaveAttribute('data-app-region', 'no-drag');
+    const top = within(roomTop());
+    for (const part of [
+      top.getByRole('button', { name: 'Menu da mesa' }),
+      top.getByRole('button', { name: 'Copiar código' }),
+    ])
+      expect(part.closest('[data-app-region]')).toHaveAttribute('data-app-region', 'no-drag');
   });
 
   it.each([
@@ -86,7 +96,8 @@ describe('the room header inside the window title bar', () => {
     await renderRoom();
     await waitFor(() => expect(bar()).toContainElement(roomTop()));
 
-    await userEvent.click(within(roomTop()).getByRole('button', { name: 'Sair da mesa' }));
+    await userEvent.click(within(roomTop()).getByRole('button', { name: 'Menu da mesa' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Sair da mesa' }));
 
     await waitFor(() => expect(bar()).toHaveTextContent('LORKARIUM / Suas mesas'));
     expect(bar()).toHaveAttribute('data-variant', 'place');
@@ -122,7 +133,7 @@ describe('the room header inside the window title bar', () => {
     expect(within(roomTop()).getByText('Espectador')).toBeInTheDocument();
   });
 
-  it('a player sees neither the code nor the master pages in the bar', async () => {
+  it('a player sees neither the code nor the master pages in the bar, only the table menu', async () => {
     answerDetailAs('player');
     await renderRoom();
 
@@ -130,6 +141,6 @@ describe('the room header inside the window title bar', () => {
     const top = within(roomTop());
     expect(top.queryByRole('button', { name: 'Copiar código' })).not.toBeInTheDocument();
     expect(top.queryByRole('link', { name: 'Configurações da mesa' })).not.toBeInTheDocument();
-    expect(top.getByRole('link', { name: 'Biblioteca' })).toBeInTheDocument();
+    expect(top.getByRole('button', { name: 'Menu da mesa' })).toBeInTheDocument();
   });
 });

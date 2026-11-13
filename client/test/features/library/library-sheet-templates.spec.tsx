@@ -10,7 +10,9 @@ import { ATO_1, CATACUMBAS, masterLibrary, playerLibrary } from '../../support/l
 import { openLibrary } from '../../support/library-harness';
 import {
   menuItemNames,
+  openLibraryFilters,
   openTreeMenu,
+  pickLibraryType,
   pickNewItemKind,
   treeItem,
   treeItemNames,
@@ -43,10 +45,7 @@ describe('sheet templates in the library', () => {
   it('the master filters "Modelos de ficha": the template with its folders, marked as such', async () => {
     const deps = withTormenta(CATACUMBAS.id);
     await openLibrary(deps);
-    await userEvent.selectOptions(
-      screen.getByRole('combobox', { name: 'Tipo de item' }),
-      'sheet-template',
-    );
+    await pickLibraryType('Modelos de ficha');
     expect(treeItemNames()).toEqual(['Ato 1', 'Catacumbas', 'Ficha Tormenta']);
     expect(treeItem('Ficha Tormenta')).toHaveAccessibleDescription('Modelo de ficha · só mestres');
   });
@@ -55,9 +54,10 @@ describe('sheet templates in the library', () => {
     const deps = testDependencies();
     deps.libraryApi.answer('list', { ok: true, value: playerLibrary() });
     await openLibrary(deps, { role: 'player' });
-    const types = screen.getByRole('combobox', { name: 'Tipo de item' });
-    expect(within(types).queryByRole('option', { name: 'Modelos de ficha' })).toBeNull();
-    expect(within(types).getByRole('option', { name: 'Documentos' })).toBeInTheDocument();
+    const filters = await openLibraryFilters();
+    const types = within(filters).getByRole('radiogroup', { name: 'Tipo de item' });
+    expect(within(types).queryByRole('radio', { name: 'Modelos de ficha' })).toBeNull();
+    expect(within(types).getByRole('radio', { name: 'Documentos' })).toBeInTheDocument();
   });
 
   it('picking the template opens its editor with the code read from its route', async () => {
@@ -137,7 +137,7 @@ describe('sheet templates in the library', () => {
       const deps = withTormenta();
       deps.sheetTemplatesApi.detailResult = { ok: false, failure: { kind: 'not_found' } };
       await exportFromTree(deps);
-      const library = screen.getByRole('dialog', { name: 'Biblioteca' });
+      const library = screen.getByRole('complementary', { name: 'Biblioteca' });
       await waitFor(() =>
         expect(within(library).getByRole('status')).toHaveTextContent(
           'Este modelo não existe mais.',
@@ -237,7 +237,8 @@ describe('sheet templates in the library', () => {
     const deps = withTormenta();
     await openTormentaEditor(deps);
     replaceCode('Arquivo index.html', '<p>novo</p>');
-    await userEvent.click(screen.getByRole('button', { name: 'Fechar biblioteca' }));
+    treeItem('Ficha Tormenta').focus();
+    await userEvent.keyboard('{Escape}');
     expect(
       await screen.findByRole('alertdialog', { name: 'Descartar o código não salvo?' }),
     ).toBeInTheDocument();

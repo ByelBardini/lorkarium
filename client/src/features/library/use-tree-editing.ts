@@ -5,10 +5,7 @@ import { sceneIdOf } from './library-view';
 import type { TreeEditing } from './tree-rows';
 import type { LibrarySubmit } from './use-library-submit';
 
-type EditState =
-  | Readonly<{ kind: 'rename'; key: string }>
-  | Readonly<{ kind: 'newFolder'; parentId: string | null }>
-  | null;
+type EditState = Readonly<{ kind: 'rename'; key: string }> | null;
 
 /** The master's name fields in the tree, and how to open them. */
 export type TreeEditingControls = Readonly<{
@@ -17,10 +14,9 @@ export type TreeEditingControls = Readonly<{
   /** A field is open: the context menu stays the browser's. */
   active: boolean;
   startRename: (key: string) => void;
-  startNewFolder: (parentId: string | null) => void;
 }>;
 
-/** One name field at a time in the tree: renaming an item or naming a new folder.
+/** The name field of the tree: renaming an item in place, one at a time.
  *
  *  Example: `const { editing, startRename } = useTreeEditing(master?.submit ?? null, focusItem)` */
 export function useTreeEditing(
@@ -31,17 +27,11 @@ export function useTreeEditing(
   const controls = {
     active: state !== null,
     startRename: (key: string) => setState({ kind: 'rename', key }),
-    startNewFolder: (parentId: string | null) => setState({ kind: 'newFolder', parentId }),
   };
   if (!submit) return { ...controls, editing: null };
   const editing: TreeEditing = {
-    renamingKey: state?.kind === 'rename' ? state.key : null,
-    newFolderParent: state?.kind === 'newFolder' ? state.parentId : undefined,
+    renamingKey: state?.key ?? null,
     onRename: (key, name) => void submit(renameIntent(key, name)),
-    onCreateFolder: (parentId, name) => {
-      setState(null);
-      void submit({ intent: 'createFolder', folder: { name, parentId } });
-    },
     onDone: (refocusKey) => {
       setState(null);
       if (refocusKey) focusItem(refocusKey);

@@ -24,6 +24,21 @@ describe('roving focus along the tabs', () => {
     fireEvent.keyDown(screen.getByRole('tablist'), { key: 'ArrowLeft' });
     expect(screen.getByRole('tab', { name: 'Itens' })).toHaveFocus();
   });
+  it('a vertical tablist walks on ArrowDown and ArrowUp, not on ArrowRight', () => {
+    render(
+      <div role="tablist" aria-orientation="vertical" onKeyDown={moveFocusAlongTabs}>
+        <button role="tab">Combate</button>
+        <button role="tab">Dados</button>
+      </div>,
+    );
+    screen.getByRole('tab', { name: 'Combate' }).focus();
+    fireEvent.keyDown(screen.getByRole('tablist'), { key: 'ArrowRight' });
+    expect(screen.getByRole('tab', { name: 'Combate' })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole('tablist'), { key: 'ArrowDown' });
+    expect(screen.getByRole('tab', { name: 'Dados' })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole('tablist'), { key: 'ArrowUp' });
+    expect(screen.getByRole('tab', { name: 'Combate' })).toHaveFocus();
+  });
   it('other keys leave the focus where it is', () => {
     strip();
     screen.getByRole('tab', { name: 'Geral' }).focus();

@@ -22,7 +22,7 @@ import { MainMapReaderContext } from '@/features/maps/use-map-home';
 import { MemberRoleProvider } from '@/features/sessions/member-role-provider';
 import { SheetRoomProvider } from '@/features/sheets/sheet-room';
 import type { SheetRoomServices } from '@/features/sheets/sheet-room-context';
-import { libraryRoute, TABLE_ROUTE_ID } from '@/features/library/library-route';
+import { LIBRARY_PATH, libraryRoute, TABLE_ROUTE_ID } from '@/features/library/library-route';
 import { CONDITIONS_PATH, conditionsRoute } from '@/features/conditions/conditions-route';
 import { CampaignOverview } from './campaign-overview';
 import { CAMPAIGN_SETTINGS_PATH, campaignSettingsRoute } from './campaign-settings-route';
@@ -54,7 +54,7 @@ export function campaignDetailRoute(
 }
 
 /** The play room at `/campaigns/:campaignId/table`, with the rail compact around it, the
- *  library (`…/table/library`) as a child modal over it and the settings (`…/table/settings`)
+ *  library (`…/table/library`) as a drawer over its board and the settings (`…/table/settings`)
  *  and the conditions (`…/table/conditions`), master only, as child pages covering it: the room
  *  stays mounted, so the table stays open.
  *
@@ -176,6 +176,8 @@ function tableRoute({
     const settings = useMatch(CAMPAIGN_SETTINGS_PATH);
     const conditions = useMatch(CONDITIONS_PATH);
     const covered = settings !== null || conditions !== null;
+    // The library is drawn inside the room, over its board; the pages are drawn over the room.
+    const library = useMatch(LIBRARY_PATH) !== null;
     // Another table is another screen: its own pending presence, not the previous one's.
     return (
       <TablePlanLimitsProvider openTables={openTables} campaign={campaign}>
@@ -216,6 +218,7 @@ function tableRoute({
                       chatAttention={chatAttention}
                       documentWorkspace={documentWorkspace}
                       covered={covered}
+                      libraryDrawer={library ? <Outlet /> : null}
                     />
                   </Suspense>
                 </SheetRoomProvider>
@@ -228,7 +231,7 @@ function tableRoute({
               covered={covered}
             />
           </div>
-          <Outlet />
+          {!library && <Outlet />}
         </div>
       </TablePlanLimitsProvider>
     );

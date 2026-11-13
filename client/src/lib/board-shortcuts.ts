@@ -14,7 +14,9 @@ export type BoardShortcut =
   | 'open-chat'
   | 'layer-tokens'
   | 'layer-objects'
-  | 'layer-background';
+  | 'layer-background'
+  | 'toggle-library'
+  | 'toggle-panel';
 
 /** The part of a `KeyboardEvent` the mapping reads, so it is testable without the DOM event. */
 export type ShortcutKey = Readonly<{
@@ -40,18 +42,39 @@ const SHORTCUT_BY_KEY: Readonly<Record<string, BoardShortcut>> = {
   '1': 'layer-tokens',
   '2': 'layer-objects',
   '3': 'layer-background',
+  '\\': 'toggle-panel',
   escape: 'escape',
 };
 
-/** The room shortcut of a key press, or `null`: keys typed in a field, inside a dialog or with
- *  Ctrl/⌘/Alt belong to someone else, and Shift+M / Shift+F go home (`homeShortcutFor`).
+/** The room shortcut of a key press, or `null`: keys typed in a field, inside a dialog, inside the
+ *  library drawer (but Shift+B) or with Ctrl/⌘/Alt belong to someone else, Shift+M / Shift+F go home (`homeShortcutFor`) and
+ *  Shift+B toggles the library (B alone draws).
  *
  *  Example: `shortcutFor(event) // 'toggle-focus' for an F pressed on the board` */
 export function shortcutFor(press: ShortcutKey): BoardShortcut | null {
   if (press.ctrlKey || press.metaKey || press.altKey) return null;
   if (homeShortcutFor(press)) return null;
+  if (press.shiftKey && press.key.toLowerCase() === 'b')
+    return isFieldOrDialog(press.target) ? null : 'toggle-library';
   if (belongsToAnotherControl(press.target)) return null;
   return SHORTCUT_BY_KEY[press.key.toLowerCase()] ?? null;
+}
+
+/** Walking and closing the room's tabs. Only the desktop shell binds them: a browser keeps
+ *  Ctrl+Tab and Ctrl+W for its own tabs. */
+export type TabShortcut = 'next-tab' | 'previous-tab' | 'close-tab' | Readonly<{ nth: number }>;
+
+/** The tab shortcut of a key press with Ctrl (never ⌘ nor Alt), or `null`: Ctrl+Tab next,
+ *  Ctrl+Shift+Tab previous, Ctrl+1–9 that tab, Ctrl+W close. In a field it belongs to the field.
+ *
+ *  Example: `tabShortcutFor(event) // { nth: 3 } for Ctrl+3` */
+export function tabShortcutFor(press: ShortcutKey): TabShortcut | null {
+  if (!press.ctrlKey || press.metaKey || press.altKey) return null;
+  if (belongsToAnotherControl(press.target)) return null;
+  if (press.key === 'Tab') return press.shiftKey ? 'previous-tab' : 'next-tab';
+  if (press.shiftKey) return null;
+  if (press.key.toLowerCase() === 'w') return 'close-tab';
+  return /^[1-9]$/.test(press.key) ? { nth: Number(press.key) } : null;
 }
 
 /** Editing the board: copy and paste the selection, undo and redo this user's own actions. */
@@ -92,7 +115,16 @@ export function homeShortcutFor(press: ShortcutKey): HomeShortcut | null {
   return HOME_BY_KEY[press.key.toLowerCase()] ?? null;
 }
 
+/** Marks a part of the room beside the board (the library drawer) whose keys are its own:
+ *  only Shift+B, which closes it, still reaches the room. */
+export const OWNS_ROOM_KEYS_ATTRIBUTE = 'data-owns-room-keys';
+
 function belongsToAnotherControl(target: EventTarget | null): boolean {
+  if (isFieldOrDialog(target)) return true;
+  return target instanceof Element && target.closest(`[${OWNS_ROOM_KEYS_ATTRIBUTE}]`) !== null;
+}
+
+function isFieldOrDialog(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
   if (target.closest('input, textarea, select, [contenteditable="true"]')) return true;
   return target.closest('[role="dialog"], [role="alertdialog"], [role="menu"]') !== null;

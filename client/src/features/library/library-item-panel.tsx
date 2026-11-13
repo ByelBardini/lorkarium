@@ -5,7 +5,6 @@ import type {
   LibraryMapSummaryDto,
   SheetSummaryDto,
 } from '@lorkarium/contracts';
-import { useNavigate } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
 import { DocumentPreview } from '@/features/documents/document-preview';
 import { LibrarySheetTemplateEditor } from '@/features/sheets/library-sheet-template-editor';
@@ -106,7 +105,6 @@ type PickedTemplateProps = LibraryItemPanelProps &
   Readonly<{ templateId: string; api: SheetTemplatesApi }>;
 
 function PickedTemplate({ model, templateId, api, ...props }: PickedTemplateProps) {
-  const navigate = useNavigate();
   return (
     <LibrarySheetTemplateEditor
       key={templateId}
@@ -125,7 +123,6 @@ function PickedTemplate({ model, templateId, api, ...props }: PickedTemplateProp
         props.libraryApi && { library: props.libraryApi, documents: props.documentsApi }
       }
       onRegisterLeave={model.guardedPick.registerLeave}
-      onOpenedTab={() => void navigate(`/campaigns/${encodeURIComponent(props.campaign.id)}/table`)}
     />
   );
 }
@@ -141,7 +138,6 @@ function PickedDocument({ model, document, ...props }: PickedDocumentProps) {
       summary={document}
       api={props.documentsApi}
       live={model.live}
-      onOpen={() => model.opener.openDocument(document, focusName, false)}
       onOpenWindow={() => model.opener.openDocument(document, focusName, true)}
     />
   );
@@ -191,7 +187,6 @@ function PickedSheet({ model, sheet }: PickedSheetProps) {
       sheet={sheet}
       holderLabel={sheetHolderLabel(sheet, model.holders.names)}
       templateName={template?.name ?? null}
-      onOpen={() => model.opener.openSheet(sheet, false)}
       onOpenWindow={() => model.opener.openSheet(sheet, true)}
     />
   );

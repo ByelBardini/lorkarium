@@ -56,6 +56,7 @@ export function documentFixture(changes: Partial<DocumentDto> = {}): DocumentDto
     updatedAt: '2026-10-29T12:00:00.000Z',
     canEdit: true,
     canManage: true,
+    preview: { summary: null, imageAssetId: null },
     ownerIds: [],
     schemaVersion: 2,
     tabs: [tabSummaryFixture()],

@@ -107,13 +107,13 @@ describe('useChatSound', () => {
     expect(plays()).toBe(0);
   });
 
-  it('a whisper into the conversation on screen plays nothing', () => {
+  it('a whisper into the conversation on screen still plays', () => {
     mount();
     act(() => chat.getState().setActive('table'));
 
     receive(anaWhispers(1));
 
-    expect(plays()).toBe(0);
+    expect(plays()).toBe(1);
   });
 
   it('with "Som do chat" off a whisper plays nothing and the sound is not even prepared', () => {

@@ -34,7 +34,8 @@ export class CampaignSettingsHarness {
       { kind: 'board', state: vharnBoard() },
     );
     await act(() => Promise.resolve());
-    await userEvent.click(screen.getByRole('link', { name: 'Configurações da mesa' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Menu da mesa' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Configurações da mesa' }));
     return screen.findByRole('form', { name: 'Configurações da mesa' });
   }
 
