@@ -375,6 +375,22 @@ Extensão aprovada em 09/11/2026. O mestre (co-mestre incluso) cria na bibliotec
 
 Contratos, tabelas, rotas e provas: [context/library-maps.md](context/library-maps.md). Fora desta entrega: camadas e grupos de marcadores, cursores e ping no mapa, janela separada no desktop, ficha como alvo de link, edição por jogadores, imagem em ladrilhos, troca da imagem de um mapa já criado, duplicar e exportar.
 
+### 3.15. Amigos, presença da conta e mensagens privadas
+
+Extensão aprovada em 12/11/2026. A conta tem amigos fora de qualquer mesa, vê quem está online e conversa com eles em particular. A tela é a rota `/friends`; o trilho mostra "Amigos" com a soma dos pedidos recebidos e das mensagens não lidas.
+
+- **Pedido.** Pelo @ exato (sem busca por pedaço nem sugestão). Quem recebe aceita, recusa, ou recusa e bloqueia; quem enviou cancela. Se os dois se pediram, o segundo pedido vira aceite. Tetos iguais para todo plano: 200 amigos, 50 pedidos enviados, 200 bloqueios.
+- **Remover amigo.** Desfaz a amizade dos dois lados; a conversa fica no aparelho.
+- **Bloqueio.** Desfaz amizade e pedidos, impede novo pedido e mensagem, tira o bloqueado das mesas de que o bloqueador é **dono** e o impede de entrar nelas: pelo código ele lê "Nenhuma mesa com esse código." e no Explorar a mesa some. O bloqueio nunca é revelado: o pedido de quem foi bloqueado parece enviado e nunca chega. Desbloquear não refaz a amizade. Bloqueio de co-mestre não tira ninguém da mesa.
+- **Presença da conta.** Online, Ausente (automático, aba sem uso) ou Offline, com tolerância de 5 s para F5 e queda curta. A pessoa escolhe Online ou Invisível no menu da conta; invisível aparece como offline para os amigos e não conversa. Amigo em mesa pública mostra "Na mesa X"; mesa privada e papel não aparecem. Só amigos veem a presença.
+- **Mensagens privadas.** Só entre amigos, os dois visivelmente online (ausente recebe). **Nada é gravado no servidor:** a mensagem vai às abas conectadas das duas contas e o histórico fica no aparelho (até 200 por conversa, apagado ao sair da conta ou ao bloquear). Com "digitando…" de 4 s. Sem entrega posterior, sem "visto".
+
+**Modelo de dados.** Três tabelas, todas com as duas chaves para `users` em cascata: `friend_requests` (uma linha por sentido, `from_user_id`, `to_user_id`), `friendships` (uma linha por par em ordem canônica, `user_low` < `user_high`) e `user_blocks` (`blocker_id`, `blocked_id`, gravado num sentido e lido nos dois). Presença e mensagens vivem só em memória, numa instância (como a presença da mesa, §5.7).
+
+**Comunicação.** REST sob `/api`: `GET /friends` (amigos, recebidos, enviados, bloqueados), `POST /friends/requests`, `POST /friends/requests/:userId/accept`, `DELETE /friends/requests/:userId`, `DELETE /friends/:userId`, `POST /blocks`, `DELETE /blocks/:userId`. Socket da conta (fora da sala da mesa, sala `user:<id>`): `presence:sync` (a presença de todos os amigos, pedida a cada conexão e a cada mudança nas listas), `presence:setVisibility`, `presence:friendChanged`, `friends:changed` (sem motivo: o client relê a lista), `dm:send` → `dm:sent`, `dm:typing` → `dm:typingFrom`. Identidade sempre da sessão (§7.3).
+
+Contratos, regras e provas: [context/friends.md](context/friends.md), [context/direct-messages.md](context/direct-messages.md) e [context/client/friends.md](context/client/friends.md). Fora desta entrega: convidar amigo para a mesa, mensagem para quem está offline e histórico no servidor, recibo de leitura, ausente manual, conversa de amigo dentro da sala e várias instâncias do servidor.
+
 ## 4. Tecnologias
 
 ### 4.1. Frontend
