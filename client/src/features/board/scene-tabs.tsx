@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, type ReactNode } from 'react';
 import {
   ChevronDownIcon,
   FileCode2Icon,
@@ -15,7 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { moveFocusAlongTabs } from '@/lib/tab-focus';
+import { roomTabOrder } from '@/lib/room-tab-order';
 import { splitTabsToFit, tabsThatFit } from '@/lib/tab-overflow';
 import { useElementWidth } from '@/lib/use-element-width';
 import { cn } from '@/lib/utils';
@@ -33,6 +33,9 @@ import {
   type SceneTab,
   type SceneTabsStore,
 } from '@/stores/scene-tabs-store';
+import { tabbedWorkspaceItems, useRoomTabOrderSync } from './room-tab-items';
+import { ROOM_TAB_ATTRIBUTE, useRoomTabDrag, type RoomTabDropSide } from './use-room-tab-drag';
+import { useRoomTabMoves } from './use-room-tab-moves';
 
 export type SceneTabsProps = Readonly<{
   tabs: StoreApi<SceneTabsStore>;
@@ -42,14 +45,21 @@ export type SceneTabsProps = Readonly<{
    *  button beside the table's name plays it). */
   mainSheetKey?: string | null;
 }>;
-const NO_ITEMS: readonly WorkspaceItem[] = [];
+// `never[]` fits every list of the workspace, each read with its own type.
+const NO_ITEMS: readonly never[] = [];
 
 const LOADING_NAME = 'Carregando…';
 
-/** The strip of open grids at the top of the room: the group grid's tab first (marked "Grupo",
- *  never closed), then the extra ones, each with "Fechar <grid>". Arrows move the focus along the
- *  tabs and Enter shows the focused one; the notice of the tabs (an activation, a tab closed by the
- *  server) is said in a `role="status"`.
+/** One tab of the strip: a grid's or a workspace item's. */
+type StripTab =
+  | Readonly<{ key: string; kind: 'scene'; tab: SceneTab }>
+  | Readonly<{ key: string; kind: 'item'; item: WorkspaceItem }>;
+
+/** The strip of open tabs at the top of the room, in the order they were opened, grids and
+ *  workspace items mixed: the group grid's first (marked "Grupo", never closed nor moved), then
+ *  the others, each with its close. A tab is dragged to another place, or moved by Ctrl+Shift+←/→;
+ *  the bare arrows move the focus and Enter shows the focused tab. The notice of the tabs (an
+ *  activation, a tab closed by the server) and where a moved tab went are said in `role="status"`.
  *
  *  Example: `<SceneTabs tabs={table.tabs} />` */
 export function SceneTabs({
@@ -58,17 +68,17 @@ export function SceneTabs({
   campaignId,
   mainSheetKey = null,
 }: SceneTabsProps): React.JSX.Element {
-  const open = useSceneTabs(tabs, (state) => state.tabs);
   const visibleKey = useSceneTabs(tabs, (state) => state.visibleKey);
   const activeDocument = useDocumentWorkspaceSlice(
     documents,
     (state) => state.activeByCampaign[campaignId ?? ''] ?? null,
     null,
   );
-  const documentEntries = useWorkspaceItemsOf(documents, campaignId, mainSheetKey);
+  useRoomTabOrderSync({ tabs, workspace: documents, campaignId, mainSheetKey });
+  const ordered = useStripTabs(tabs, documents, campaignId, mainSheetKey);
   const strip = useRef<HTMLDivElement>(null);
   const width = useElementWidth(strip);
-  const keys = [...open.map((tab) => tab.key), ...documentEntries.map((entry) => entry.key)];
+  const keys = ordered.map((tab) => tab.key);
   const fit = tabsThatFit({
     width: Math.max(0, width - STRIP_GAP),
     count: keys.length,
@@ -79,6 +89,12 @@ export function SceneTabs({
   // The main map can be what is active without being in the strip.
   const pinned = activeDocument && keys.includes(activeDocument) ? activeDocument : visibleKey;
   const split = splitTabsToFit(keys, fit, [GROUP_TAB, pinned]);
+  const moves = useRoomTabMoves({
+    tabs,
+    openKeys: keys.filter((key) => key !== GROUP_TAB),
+    nameOf: (key) => nameOfStripTab(ordered.find((tab) => tab.key === key)),
+  });
+  const drag = useRoomTabDrag({ order: keys, onMove: moves.move });
   const showScene = (key: string): void => {
     if (campaignId) documents?.getState().activate(campaignId, null);
     tabs.getState().show(key);
@@ -86,51 +102,86 @@ export function SceneTabs({
   const showDocument = (entry: WorkspaceItem): void =>
     documents?.getState().activate(entry.campaign.id, entry.key);
   const isShown = (key: string): boolean => split.shown.includes(key);
+  const frameOf = (tab: StripTab): TabFrameInput => ({
+    roomKey: tab.key,
+    dropSide: drag.dropSideOf(tab.key),
+    dragProps: drag.sourceProps(tab.key, nameOfStripTab(tab), tab.key === GROUP_TAB),
+  });
   return (
-    <div ref={strip} className="flex min-w-0 flex-1 items-center gap-3">
+    // The whole strip takes the drop, the empty room after the last tab too (the end).
+    <div ref={strip} {...drag.zoneProps} className="flex min-w-0 flex-1 items-center gap-3">
       <div
         role="tablist"
         aria-label="Grids abertos"
         data-app-region="no-drag"
         data-squeezed={split.shown.length > fit || undefined}
-        onKeyDown={moveFocusAlongTabs}
+        onKeyDown={moves.onKeyDown}
         className="group/tabs flex min-w-0 items-center gap-1 overflow-hidden"
       >
-        {open
+        {ordered
           .filter((tab) => isShown(tab.key))
-          .map((tab) => (
-            <SceneTabItem
-              key={tab.key}
-              tab={tab}
-              selected={!activeDocument && tab.key === visibleKey}
-              onShow={() => showScene(tab.key)}
-              onClose={() => tabs.getState().close(tab.key)}
-            />
-          ))}
-        {documentEntries
-          .filter((entry) => isShown(entry.key))
-          .map((entry) => (
-            <DocumentTabItem
-              key={entry.key}
-              entry={entry}
-              selected={activeDocument === entry.key}
-              onShow={() => showDocument(entry)}
-              onClose={() => void documents?.getState().close(entry.key)}
-            />
-          ))}
+          .map((tab) =>
+            tab.kind === 'scene' ? (
+              <SceneTabItem
+                key={tab.key}
+                tab={tab.tab}
+                frame={frameOf(tab)}
+                selected={!activeDocument && tab.key === visibleKey}
+                onShow={() => showScene(tab.key)}
+                onClose={() => tabs.getState().close(tab.key)}
+              />
+            ) : (
+              <DocumentTabItem
+                key={tab.key}
+                entry={tab.item}
+                frame={frameOf(tab)}
+                selected={activeDocument === tab.key}
+                onShow={() => showDocument(tab.item)}
+                onClose={() => void documents?.getState().close(tab.key)}
+              />
+            ),
+          )}
       </div>
       {split.hidden.length > 0 && (
         <HiddenTabsMenu
-          count={split.hidden.length}
-          scenes={open.filter((tab) => !isShown(tab.key))}
-          documents={documentEntries.filter((entry) => !isShown(entry.key))}
+          hidden={ordered.filter((tab) => !isShown(tab.key))}
           onShowScene={showScene}
           onShowDocument={showDocument}
         />
       )}
       <TabsNotice tabs={tabs} />
+      <p role="status" aria-label="Ordem das abas" className="sr-only">
+        {moves.announcement}
+      </p>
     </div>
   );
+}
+
+// The grid tabs and the workspace items of this table, in the one order the room keeps.
+function useStripTabs(
+  tabs: StoreApi<SceneTabsStore>,
+  documents: StoreApi<DocumentWorkspaceStore> | undefined,
+  campaignId: string | undefined,
+  mainSheetKey: string | null,
+): readonly StripTab[] {
+  const open = useSceneTabs(tabs, (state) => state.tabs);
+  const tabOrder = useSceneTabs(tabs, (state) => state.tabOrder);
+  const items = useWorkspaceItemsOf(documents, campaignId, mainSheetKey);
+  return useMemo(() => {
+    const byKey = new Map<string, StripTab>();
+    for (const tab of open) byKey.set(tab.key, { key: tab.key, kind: 'scene', tab });
+    for (const item of items) byKey.set(item.key, { key: item.key, kind: 'item', item });
+    const openKeys = [...byKey.keys()].filter((key) => key !== GROUP_TAB);
+    const order = roomTabOrder({ groupKey: GROUP_TAB, order: tabOrder, openKeys });
+    return order.flatMap(({ key }) => byKey.get(key) ?? []);
+  }, [open, tabOrder, items]);
+}
+
+// Read when said, not followed: a grid still loading is "Carregando…".
+function nameOfStripTab(tab: StripTab | undefined): string {
+  if (!tab) return LOADING_NAME;
+  if (tab.kind === 'item') return workspaceItemTitle(tab.item);
+  return tab.tab.board.getState().board?.scene.name ?? LOADING_NAME;
 }
 
 // The width a tab shrinks to before it moves into the "+N" menu: still a readable title.
@@ -142,14 +193,17 @@ const TAB_GAP = 4;
 const STRIP_GAP = 12;
 
 type HiddenTabsMenuProps = Readonly<{
-  count: number;
-  scenes: readonly SceneTab[];
-  documents: readonly WorkspaceItem[];
+  hidden: readonly StripTab[];
   onShowScene: (key: string) => void;
   onShowDocument: (entry: WorkspaceItem) => void;
 }>;
 
-function HiddenTabsMenu(props: HiddenTabsMenuProps): React.JSX.Element {
+function HiddenTabsMenu({
+  hidden,
+  onShowScene,
+  onShowDocument,
+}: HiddenTabsMenuProps): React.JSX.Element {
+  const count = hidden.length;
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
@@ -157,23 +211,24 @@ function HiddenTabsMenu(props: HiddenTabsMenuProps): React.JSX.Element {
           data-app-region="no-drag"
           variant="ghost"
           size="sm"
-          aria-label={`Mais ${props.count} ${props.count === 1 ? 'aba' : 'abas'}`}
+          aria-label={`Mais ${count} ${count === 1 ? 'aba' : 'abas'}`}
           className="shrink-0 gap-1 px-2 text-muted-foreground"
         >
-          +{props.count}
+          +{count}
           <ChevronDownIcon aria-hidden="true" className="size-3.5" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56 max-w-72">
-        {props.scenes.map((tab) => (
-          <HiddenSceneItem key={tab.key} tab={tab} onShow={() => props.onShowScene(tab.key)} />
-        ))}
-        {props.documents.map((entry) => (
-          <DropdownMenuItem key={entry.key} onSelect={() => props.onShowDocument(entry)}>
-            <WorkspaceItemIcon item={entry} />
-            <span className="truncate">{workspaceItemName(entry)}</span>
-          </DropdownMenuItem>
-        ))}
+        {hidden.map((tab) =>
+          tab.kind === 'scene' ? (
+            <HiddenSceneItem key={tab.key} tab={tab.tab} onShow={() => onShowScene(tab.key)} />
+          ) : (
+            <DropdownMenuItem key={tab.key} onSelect={() => onShowDocument(tab.item)}>
+              <WorkspaceItemIcon item={tab.item} />
+              <span className="truncate">{workspaceItemName(tab.item)}</span>
+            </DropdownMenuItem>
+          ),
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -191,27 +246,27 @@ function HiddenSceneItem({
   );
 }
 
-function DocumentTabItem({
-  entry,
-  selected,
-  onShow,
-  onClose,
-}: Readonly<{
+type DocumentTabItemProps = Readonly<{
   entry: WorkspaceItem;
+  frame: TabFrameInput;
   selected: boolean;
   onShow: () => void;
   onClose: () => void;
-}>): React.JSX.Element {
+}>;
+
+function DocumentTabItem(props: DocumentTabItemProps): React.JSX.Element {
+  const { entry, frame, selected, onShow, onClose } = props;
   const title = workspaceItemTitle(entry);
   const kindName = KIND_NAME[entry.kind];
   return (
-    <div className={tabFrameClass(selected)}>
+    <TabFrame frame={frame} selected={selected}>
       <button
         type="button"
         role="tab"
         aria-label={title}
         aria-selected={selected}
         aria-description={kindName}
+        aria-keyshortcuts={MOVE_KEYS}
         title={title}
         tabIndex={selected ? 0 : -1}
         onClick={onShow}
@@ -227,11 +282,11 @@ function DocumentTabItem({
         type="button"
         aria-label={`Fechar ${CLOSE_PREFIX[entry.kind]}${title}`}
         onClick={onClose}
-        className="grid size-6 shrink-0 place-items-center rounded-sm text-muted-foreground outline-offset-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+        className={closeButtonClass(selected)}
       >
         <XIcon aria-hidden className="size-3.5" />
       </button>
-    </div>
+    </TabFrame>
   );
 }
 
@@ -261,27 +316,20 @@ function WorkspaceItemIcon({ item }: Readonly<{ item: WorkspaceItem }>): React.J
   return <Icon aria-hidden="true" className="size-3.5 shrink-0" />;
 }
 
-// The documents, the sheets, the templates, then the map of this table, each list in the order
-// opened. The main map is the home of the table, not something opened: the table's name is its tab.
-// The viewer's main sheet is their own home, with its button beside the name.
+// The items of this table with a tab, without its homes (`tabbedWorkspaceItems`); the strip's
+// order is the room's (`tabOrder`), not this one.
 function useWorkspaceItemsOf(
   workspace: StoreApi<DocumentWorkspaceStore> | undefined,
   campaignId: string | undefined,
   mainSheetKey: string | null,
 ): readonly WorkspaceItem[] {
-  const documents = useDocumentWorkspaceSlice(workspace, (state) => state.entries, NO_ITEMS);
+  const entries = useDocumentWorkspaceSlice(workspace, (state) => state.entries, NO_ITEMS);
   const sheets = useDocumentWorkspaceSlice(workspace, (state) => state.sheets, NO_ITEMS);
   const templates = useDocumentWorkspaceSlice(workspace, (state) => state.templates, NO_ITEMS);
   const maps = useDocumentWorkspaceSlice(workspace, (state) => state.maps, NO_ITEMS);
   return useMemo(
-    () =>
-      [...documents, ...sheets, ...templates, ...maps].filter(
-        (item) =>
-          item.campaign.id === campaignId &&
-          !(item.kind === 'map' && item.showsMainMap) &&
-          item.key !== mainSheetKey,
-      ),
-    [documents, sheets, templates, maps, campaignId, mainSheetKey],
+    () => tabbedWorkspaceItems({ entries, sheets, templates, maps }, campaignId, mainSheetKey),
+    [entries, sheets, templates, maps, campaignId, mainSheetKey],
   );
 }
 
@@ -290,27 +338,66 @@ function useWorkspaceItemsOf(
 // clip the last one under the "+N".
 function tabFrameClass(selected: boolean): string {
   return cn(
-    'flex h-12 min-w-28 shrink items-center gap-1 border-b-2 group-data-squeezed/tabs:min-w-0 [[data-title-bar]_&]:h-11',
+    'group/tab relative flex h-10 min-w-28 shrink items-center gap-1 border-b-2 group-data-squeezed/tabs:min-w-0',
     selected ? 'border-primary' : 'border-transparent',
+  );
+}
+
+// The keys that move a tab (`tabMoveStepOf`), said on every tab but the group's.
+const MOVE_KEYS = 'Control+Shift+ArrowLeft Control+Shift+ArrowRight';
+
+type TabFrameInput = Readonly<{
+  roomKey: string;
+  dropSide: RoomTabDropSide | undefined;
+  dragProps: Readonly<Record<string, unknown>>;
+}>;
+
+type TabFrameProps = Readonly<{ frame: TabFrameInput; selected: boolean; children: ReactNode }>;
+
+// The frame is what is dragged and dropped on; the bar marks where the dragged tab would land.
+// The end's bar stays inside the last frame: the tablist clips what passes its edge.
+function TabFrame({ frame, selected, children }: TabFrameProps): React.JSX.Element {
+  const { roomKey, dropSide, dragProps } = frame;
+  return (
+    <div
+      {...{ [ROOM_TAB_ATTRIBUTE]: roomKey }}
+      data-drop-side={dropSide}
+      {...dragProps}
+      className={tabFrameClass(selected)}
+    >
+      {children}
+      {dropSide && (
+        <span
+          aria-hidden="true"
+          className={cn(
+            'pointer-events-none absolute inset-y-1.5 w-0.5 rounded-full bg-primary',
+            dropSide === 'before' ? '-left-0.5' : 'right-0',
+          )}
+        />
+      )}
+    </div>
   );
 }
 
 type SceneTabItemProps = Readonly<{
   tab: SceneTab;
+  frame: TabFrameInput;
   selected: boolean;
   onShow: () => void;
   onClose: () => void;
 }>;
 
-function SceneTabItem({ tab, selected, onShow, onClose }: SceneTabItemProps): React.JSX.Element {
+function SceneTabItem(props: SceneTabItemProps): React.JSX.Element {
+  const { tab, frame, selected, onShow, onClose } = props;
   const name = useBoard(tab.board, (state) => state.board?.scene.name) ?? LOADING_NAME;
   const isGroup = tab.key === GROUP_TAB;
   return (
-    <div className={tabFrameClass(selected)}>
+    <TabFrame frame={frame} selected={selected}>
       <button
         type="button"
         role="tab"
         aria-selected={selected}
+        aria-keyshortcuts={isGroup ? undefined : MOVE_KEYS}
         tabIndex={selected ? 0 : -1}
         onClick={onShow}
         className={cn(
@@ -328,12 +415,20 @@ function SceneTabItem({ tab, selected, onShow, onClose }: SceneTabItemProps): Re
           type="button"
           aria-label={`Fechar ${name}`}
           onClick={onClose}
-          className="grid size-6 shrink-0 place-items-center rounded-sm text-muted-foreground outline-offset-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+          className={closeButtonClass(selected)}
         >
           <XIcon aria-hidden="true" className="size-3.5" />
         </button>
       )}
-    </div>
+    </TabFrame>
+  );
+}
+
+// Out of sight but never out of the page: a screen reader and the Tab key still reach it.
+function closeButtonClass(selected: boolean): string {
+  return cn(
+    'grid size-6 shrink-0 place-items-center rounded-sm text-muted-foreground outline-offset-2 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-ring',
+    !selected && 'opacity-0 group-focus-within/tab:opacity-100 group-hover/tab:opacity-100',
   );
 }
 

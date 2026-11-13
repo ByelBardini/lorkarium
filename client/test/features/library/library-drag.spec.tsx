@@ -5,7 +5,7 @@ import { testDependencies, type TestDependencies } from '../../support/app-depen
 import { DataTransferFake } from '../../support/data-transfer-fake';
 import { ATO_1, LUGARES_FIXOS, OSSUARIO, playerLibrary } from '../../support/library-fixtures';
 import { openLibrary } from '../../support/library-harness';
-import { openCatacumbas, treeItem, treeItemNames } from '../../support/library-tree';
+import { openCatacumbas, treeArea, treeItem, treeItemNames } from '../../support/library-tree';
 
 describe('dragging in the library', () => {
   let deps: TestDependencies;
@@ -34,10 +34,10 @@ describe('dragging in the library', () => {
     );
   });
 
-  it('dropping on "Sem pasta" takes the grid out of its folder', async () => {
+  it('dropping on the empty area of the tree takes the grid out of its folder', async () => {
     await openLibrary(deps);
     await openCatacumbas();
-    drag(treeItem('Ossuário'), treeItem('Sem pasta'));
+    drag(treeItem('Ossuário'), treeArea());
     await waitFor(() =>
       expect(deps.libraryApi.callsOf('updateScene')).toEqual([[OSSUARIO.id, { folderId: null }]]),
     );
@@ -97,9 +97,9 @@ describe('dragging in the library', () => {
     expect(treeItem('Lugares fixos')).toHaveAccessibleDescription('1 item');
     answer({ ok: false, failure: { kind: 'folder_not_found' } });
     await waitFor(() => expect(treeItemNames()).toContain('Ossuário'));
-    expect(within(screen.getByRole('dialog')).getByRole('status')).toHaveTextContent(
-      'Essa pasta não existe mais.',
-    );
+    expect(
+      within(screen.getByRole('complementary', { name: 'Biblioteca' })).getByRole('status'),
+    ).toHaveTextContent('Essa pasta não existe mais.');
   });
 
   it('nothing drags for a player', async () => {

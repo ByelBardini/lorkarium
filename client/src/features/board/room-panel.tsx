@@ -1,4 +1,4 @@
-import { ExternalLinkIcon, PanelRightCloseIcon, PanelRightOpenIcon } from 'lucide-react';
+import { ExternalLinkIcon } from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -13,6 +13,8 @@ import type { CharactersStore } from '@/stores/characters-store';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import { DESKTOP_QUERY, useMediaQuery } from '@/lib/use-media-query';
 import { isRoomTab, useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store';
+import { ROOM_TAB_NAME } from './board-messages';
+import { RoomRail } from './room-rail';
 import {
   selectOnlineCount,
   useTablePresence,
@@ -47,22 +49,27 @@ export type RoomPanelProps = Readonly<{
 
 const PANEL_TITLE = 'Painel da mesa';
 
-/** The side panel of the room: a 360px column over the right of the board on tablet and
- *  desktop (when open), and a bottom sheet opened by "Painel" on a phone.
+/** The side panel of the room: on tablet and desktop the rail of icons (`RoomRail`) and, when
+ *  open, a 360px column over the right of the board beside it, titled by its tab; on a phone a
+ *  bottom sheet opened by "Painel", with its own tabs.
  *
  *  Example: `<RoomSidePanel roomLayout={roomLayout} presence={presence} />` */
 export function RoomSidePanel(props: RoomPanelProps): React.JSX.Element | null {
   const desktop = useMediaQuery(DESKTOP_QUERY);
   const panel = useRoomLayout(props.roomLayout, (state) => state.panel);
   if (!desktop) return <PhonePanel {...props} />;
-  if (panel === 'closed') return null;
   return (
-    <aside
-      aria-label={PANEL_TITLE}
-      className="absolute inset-y-0 right-0 flex w-90 flex-col border-l border-border bg-panel"
-    >
-      <RoomPanelTabs {...props} />
-    </aside>
+    <>
+      {panel === 'open' && (
+        <aside
+          aria-label={PANEL_TITLE}
+          className="absolute inset-y-0 right-[46px] flex w-90 flex-col border-l border-border bg-panel"
+        >
+          <RoomPanelTabs {...props} withList={false} />
+        </aside>
+      )}
+      <RoomRail roomLayout={props.roomLayout} presence={props.table?.presence ?? null} />
+    </>
   );
 }
 
@@ -77,13 +84,17 @@ function PhonePanel(props: RoomPanelProps): React.JSX.Element {
       </SheetTrigger>
       <SheetContent side="bottom" className="max-h-[70svh] bg-panel px-4 pb-6">
         <SheetTitle className="sr-only">{PANEL_TITLE}</SheetTitle>
-        <RoomPanelTabs {...props} />
+        <RoomPanelTabs {...props} withList />
       </SheetContent>
     </Sheet>
   );
 }
 
-function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
+type PanelTabsProps = RoomPanelProps & Readonly<{ withList: boolean }>;
+
+// Beside the board the rail picks the tab, so the panel only names it; the phone's sheet has no
+// rail and keeps the list.
+function RoomPanelTabs(props: PanelTabsProps): React.JSX.Element {
   const { roomLayout, table } = props;
   const tab = useRoomLayout(roomLayout, (state) => state.tab);
   return (
@@ -95,14 +106,20 @@ function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
       className="min-h-0 flex-1 px-4"
     >
       <div className="flex items-center gap-1 border-b border-border">
-        <TabsList className="min-w-0 flex-1 border-b-0">
-          <TabsTrigger value="combat">Combate</TabsTrigger>
-          <TabsTrigger value="people">
-            Na mesa
-            {table && <OnlinePill presence={table.presence} />}
-          </TabsTrigger>
-          <TabsTrigger value="dice">Dados</TabsTrigger>
-        </TabsList>
+        {props.withList ? (
+          <TabsList className="min-w-0 flex-1 border-b-0">
+            <TabsTrigger value="combat">Combate</TabsTrigger>
+            <TabsTrigger value="people">
+              Na mesa
+              {table && <OnlinePill presence={table.presence} />}
+            </TabsTrigger>
+            <TabsTrigger value="dice">Dados</TabsTrigger>
+          </TabsList>
+        ) : (
+          <h2 className="h-10 min-w-0 flex-1 content-center font-display text-base font-semibold">
+            {ROOM_TAB_NAME[tab]}
+          </h2>
+        )}
         {tab === 'dice' && props.diceWindow?.kind === 'docked' && (
           <Button
             variant="ghost"
@@ -116,7 +133,7 @@ function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
           </Button>
         )}
       </div>
-      <TabsContent value="combat" className="flex flex-col py-4">
+      <TabsContent value="combat" aria-label={ROOM_TAB_NAME.combat} className="flex flex-col py-4">
         {table && (
           <CombatPanel
             table={table}
@@ -126,7 +143,11 @@ function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
           />
         )}
       </TabsContent>
-      <TabsContent value="people" className="-mx-4 overflow-y-auto px-4 py-4">
+      <TabsContent
+        value="people"
+        aria-label={ROOM_TAB_NAME.people}
+        className="-mx-4 overflow-y-auto px-4 py-4"
+      >
         {table && (
           <SessionPresencePanel
             store={table.presence}
@@ -139,7 +160,11 @@ function RoomPanelTabs(props: RoomPanelProps): React.JSX.Element {
           />
         )}
       </TabsContent>
-      <TabsContent value="dice" className="-mx-1 overflow-y-auto px-1 py-4">
+      <TabsContent
+        value="dice"
+        aria-label={ROOM_TAB_NAME.dice}
+        className="-mx-1 overflow-y-auto px-1 py-4"
+      >
         <RoomDice {...props} />
       </TabsContent>
     </Tabs>
@@ -171,7 +196,7 @@ function RoomDice({ dice, table, diceWindow }: RoomPanelProps): React.JSX.Elemen
   );
 }
 
-// The room's top bar already says "N online" to the screen reader: the pill is only for the eye.
+// Beside the board the rail says "N online"; on the phone's sheet the pill is only for the eye.
 function OnlinePill({ presence }: Readonly<{ presence: StoreApi<TablePresenceStore> }>) {
   const online = useTablePresence(presence, selectOnlineCount);
   return (
@@ -181,30 +206,5 @@ function OnlinePill({ presence }: Readonly<{ presence: StoreApi<TablePresenceSto
     >
       {online}
     </span>
-  );
-}
-
-export type PanelToggleProps = Readonly<{ roomLayout: StoreApi<RoomLayoutStore> }>;
-
-/** "Recolher painel" ↔ "Abrir painel", remembered by the layout store; only beside the board.
- *  The chat's counter is not here: it lives on the chat bar at the foot of the board.
- *
- *  Example: `<PanelToggle roomLayout={roomLayout} />` */
-export function PanelToggle({ roomLayout }: PanelToggleProps): React.JSX.Element | null {
-  const desktop = useMediaQuery(DESKTOP_QUERY);
-  const open = useRoomLayout(roomLayout, (state) => state.panel === 'open');
-  if (!desktop) return null;
-  const Icon = open ? PanelRightCloseIcon : PanelRightOpenIcon;
-  return (
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      aria-label={open ? 'Recolher painel' : 'Abrir painel'}
-      aria-expanded={open}
-      onClick={() => roomLayout.getState().togglePanel()}
-      className="text-muted-foreground"
-    >
-      <Icon aria-hidden="true" />
-    </Button>
   );
 }

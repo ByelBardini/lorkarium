@@ -18,6 +18,7 @@ import {
   menuItemNames,
   newItemDialog,
   openTreeMenu,
+  pickLibraryType,
   pickNewItemKind,
   startHeaderNewItem,
   treeItem,
@@ -42,7 +43,7 @@ function callsTo(deps: TestDependencies, method: string): readonly (readonly unk
 }
 
 function statusLine(): HTMLElement {
-  return within(screen.getByRole('dialog', { name: 'Biblioteca' })).getByRole('status');
+  return within(screen.getByRole('complementary', { name: 'Biblioteca' })).getByRole('status');
 }
 
 async function pickMap(name = 'Mundo'): Promise<HTMLElement> {
@@ -123,8 +124,8 @@ describe('a map in the tree', () => {
     await openLibrary(
       withMaps(MUNDO, libraryMapSummary({ id: REINO_ID, name: 'Reino', folderId: ATO_1.id })),
     );
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Tipo de item' }), 'map');
-    expect(treeItemNames()).toEqual(['Ato 1', 'Reino', 'Sem pasta', 'Mundo']);
+    await pickLibraryType('Mapas');
+    expect(treeItemNames()).toEqual(['Ato 1', 'Reino', 'Mundo']);
     expect(treeItem('Mundo')).toHaveAccessibleDescription('Mapa · Público');
   });
 
@@ -243,16 +244,23 @@ describe('the panel of a map', () => {
     );
   });
 
-  it('"Abrir" opens the map in the room\'s tab and goes back to the room', async () => {
+  it('"Abrir" opens the map in the room tab behind the library, which stays open', async () => {
     const deps = withMaps(MUNDO);
     deps.libraryMapsApi.maps.set(MUNDO_ID, libraryMapDetail());
     const { router } = await openLibrary(deps);
     const panel = await pickMap();
     await userEvent.click(panelButton(panel, 'Abrir'));
     expect(deps.documentWorkspace.getState().maps.map(({ mapName }) => mapName)).toEqual(['Mundo']);
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe(`/campaigns/${VHARN.id}/table`),
-    );
+    expect(router.state.location.pathname).toBe(`/campaigns/${VHARN.id}/table/library`);
+    act(() => deps.documentWorkspace.getState().clear());
+  });
+
+  it('a double click on the map opens the same tab', async () => {
+    const deps = withMaps(MUNDO);
+    deps.libraryMapsApi.maps.set(MUNDO_ID, libraryMapDetail());
+    await openLibrary(deps);
+    await userEvent.dblClick(treeItem('Mundo'));
+    expect(deps.documentWorkspace.getState().maps.map(({ mapName }) => mapName)).toEqual(['Mundo']);
     act(() => deps.documentWorkspace.getState().clear());
   });
 

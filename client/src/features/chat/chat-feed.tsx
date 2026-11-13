@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { SceneTabsStore } from '@/stores/scene-tabs-store';
 import type { ChatMessage } from '@/lib/chat-conversations';
@@ -9,6 +9,7 @@ import { HistoryRow } from '@/features/dice/history-row';
 import { useRevealClock } from '@/features/dice/use-reveal-clock';
 import { ChatMessageRow } from './chat-message-row';
 import { EMPTY_CONVERSATION } from './chat-messages';
+import { useFollowBottom } from './use-follow-bottom';
 import type { ChatPeople } from './use-chat-people';
 import { chatFaceOf, chatVoicesOf, useChatTokenFaces, type ChatTokenFaces } from './use-chat-token';
 
@@ -38,7 +39,7 @@ export function ChatFeed(props: ChatFeedProps): React.JSX.Element {
   const unreadCount = unreadCountSince(props.messages, props.firstUnreadId);
   const items = chatFeedOf({ ...props, unreadCount });
   const { now } = useRevealClock(props.rolls, props.diceClock);
-  const scroller = useFollowBottom(items.length);
+  const { scroller, content } = useFollowBottom(items.length);
   const voices = useMemo(() => chatVoicesOf(props.messages), [props.messages]);
   const faces = useChatTokenFaces(props.tabs, voices);
   return (
@@ -49,15 +50,17 @@ export function ChatFeed(props: ChatFeedProps): React.JSX.Element {
       aria-label={`Mensagens: ${props.name}`}
       className="min-h-0 flex-1 overflow-y-auto py-2"
     >
-      {items.length === 0 ? (
-        <p className="px-2 py-6 text-sm text-muted-foreground">{EMPTY_CONVERSATION}</p>
-      ) : (
-        <ol className="flex flex-col">
-          {items.map((item) => (
-            <FeedItem key={keyOf(item)} item={item} now={now} faces={faces} {...props} />
-          ))}
-        </ol>
-      )}
+      <div ref={content}>
+        {items.length === 0 ? (
+          <p className="px-2 py-6 text-sm text-muted-foreground">{EMPTY_CONVERSATION}</p>
+        ) : (
+          <ol className="flex flex-col">
+            {items.map((item) => (
+              <FeedItem key={keyOf(item)} item={item} now={now} faces={faces} {...props} />
+            ))}
+          </ol>
+        )}
+      </div>
     </div>
   );
 }
@@ -103,13 +106,4 @@ function unreadCountSince(messages: readonly ChatMessage[], firstUnreadId: strin
   if (firstUnreadId === null) return 0;
   const index = messages.findIndex((each) => each.event.messageId === firstUnreadId);
   return index < 0 ? 0 : messages.length - index;
-}
-
-function useFollowBottom(count: number): React.RefObject<HTMLDivElement | null> {
-  const scroller = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const element = scroller.current;
-    if (element) element.scrollTop = element.scrollHeight;
-  }, [count]);
-  return scroller;
 }

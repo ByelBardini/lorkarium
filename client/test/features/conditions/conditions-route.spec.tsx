@@ -41,16 +41,12 @@ describe('conditions route', () => {
 
   async function openConditionsPage(): Promise<HTMLElement> {
     await openRoom();
-    await userEvent.click(screen.getByRole('link', { name: 'Condições' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Menu da mesa' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Condições da mesa' }));
     return screen.findByRole('heading', { level: 1, name: 'Condições da mesa' });
   }
 
-  it('the room header has "Condições" for the master, pointing at the conditions page', async () => {
-    await openRoom();
-    expect(screen.getByRole('link', { name: 'Condições' })).toHaveAttribute('href', CONDITIONS_URL);
-  });
-
-  it('the master following "Condições" lands on "Condições da mesa" with "Voltar à mesa"', async () => {
+  it('the master picking "Condições da mesa" in the table menu lands on "Condições da mesa" with "Voltar à mesa"', async () => {
     await openConditionsPage();
     expect(router.state.location.pathname).toBe(CONDITIONS_URL);
     expect(screen.getByRole('link', { name: 'Voltar à mesa' })).toHaveAttribute('href', ROOM_PATH);
@@ -72,14 +68,16 @@ describe('conditions route', () => {
     ]);
   });
 
-  it('a player has no "Condições" link, and the URL takes them back to the room', async () => {
+  it('a player has no "Condições da mesa" item, and the URL takes them back to the room', async () => {
     deps.campaignsApi.answer('detail', { ok: true, value: detailOf(QUELM) });
     renderAt(`/campaigns/${QUELM.id}/table/conditions`);
     await waitFor(() =>
       expect(router.state.location.pathname).toBe(`/campaigns/${QUELM.id}/table`),
     );
     await screen.findByRole('heading', { level: 1, name: QUELM.name });
-    expect(screen.queryByRole('link', { name: 'Condições' })).toBeNull();
     expect(screen.queryByRole('heading', { level: 1, name: 'Condições da mesa' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Menu da mesa' }));
+    await screen.findByRole('menuitem', { name: 'Sair da mesa' });
+    expect(screen.queryByRole('menuitem', { name: 'Condições da mesa' })).toBeNull();
   });
 });

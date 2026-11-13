@@ -36,7 +36,8 @@ function withTormenta(): TestDependencies {
 
 async function pickTormenta(): Promise<void> {
   await userEvent.click(treeItem('Ficha Tormenta'));
-  await screen.findByRole('textbox', { name: 'Arquivo index.html' });
+  const drawer = screen.getByRole('complementary', { name: 'Biblioteca' });
+  await within(drawer).findByRole('textbox', { name: 'Arquivo index.html' });
 }
 
 describe('the template editor in the library', () => {
@@ -75,10 +76,13 @@ describe('the template editor in the library', () => {
     draft.getState().edit({ files: withContent(tormentaFiles(), 'index.html', '<p>da aba</p>') });
     await openLibrary(deps);
     await pickTormenta();
-    expect(codeTextOf('Arquivo index.html')).toBe('<p>da aba</p>');
-    replaceCode('Arquivo index.html', '<p>da biblioteca</p>');
+    // The tab's editor stays on screen beside the drawer: the library's is the one inside it.
+    const drawer = screen.getByRole('complementary', { name: 'Biblioteca' });
+    expect(codeTextOf('Arquivo index.html', drawer)).toBe('<p>da aba</p>');
+    replaceCode('Arquivo index.html', '<p>da biblioteca</p>', drawer);
     expect(contentOf(draft.getState().draft.files, 'index.html')).toBe('<p>da biblioteca</p>');
-    await userEvent.click(screen.getByRole('button', { name: 'Fechar biblioteca' }));
+    within(drawer).getByRole('treeitem', { name: 'Ficha Tormenta' }).focus();
+    await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('tree')).not.toBeInTheDocument());
     expect(screen.queryByRole('alertdialog')).toBeNull();
   });

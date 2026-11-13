@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { NO_FOLDER, folderForNew, sceneIdOf, sceneKey } from '@/features/library/library-view';
+import {
+  NO_FOLDER,
+  folderForNew,
+  libraryTypeOf,
+  sceneIdOf,
+  sceneKey,
+} from '@/features/library/library-view';
 import { mapKey } from '@/lib/library-entries';
 import { ATO_1, CATACUMBAS, OSSUARIO, masterLibrary } from '../../support/library-fixtures';
 import { libraryMapSummary } from '../../support/library-map-fixtures';
@@ -36,5 +42,17 @@ describe('folderForNew', () => {
     expect(folderForNew(masterLibrary(), null)).toBeNull();
     expect(folderForNew(masterLibrary(), NO_FOLDER)).toBeNull();
     expect(folderForNew(masterLibrary(), 'f0f0f0f0-0000-4000-8000-000000000000')).toBeNull();
+  });
+});
+
+describe('libraryTypeOf', () => {
+  it('reads a type of the filter from the address', () => {
+    expect(libraryTypeOf('grid')).toBe('grid');
+    expect(libraryTypeOf('sheet-template')).toBe('sheet-template');
+  });
+
+  it('anything else, or nothing, shows every type', () => {
+    expect(libraryTypeOf('scene')).toBe('all');
+    expect(libraryTypeOf(null)).toBe('all');
   });
 });

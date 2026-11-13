@@ -16,6 +16,7 @@ import { ChatImportantNotices } from './chat-important-notices';
 import type { ChatPanelProps } from './chat-panel';
 import { ChatPreviewStack } from './chat-preview-stack';
 import { useChatNotices, type ChatNoticeItem, type ChatNotices } from './use-chat-notices';
+import { roomPanelInsetClass } from '@/lib/room-panel-inset';
 import { useChatPeople, useOpenTableOf, type ChatPeople } from './use-chat-people';
 
 /** What the drawer's `ChatPanel` gets: the dock picks the conversation it opens on. */
@@ -148,14 +149,14 @@ type DockLaneProps = Readonly<{ roomLayout: StoreApi<RoomLayoutStore>; children:
 // free strip: right of the toolbar (gone in focus mode), left of the open panel (360px).
 function DockLane({ roomLayout, children }: DockLaneProps): React.JSX.Element {
   const focus = useRoomLayout(roomLayout, (state) => state.focus);
-  const panelShown = useRoomLayout(roomLayout, (state) => state.panel === 'open' && !state.focus);
+  const panel = useRoomLayout(roomLayout, (state) => state.panel);
   return (
     <div
       data-testid="chat-dock"
       className={cn(
         'pointer-events-none absolute inset-y-0 flex flex-col items-center justify-end gap-2 px-4 pb-3',
         focus ? 'left-0' : 'left-16.5',
-        panelShown ? 'right-90' : 'right-0',
+        roomPanelInsetClass({ panel, focus }),
       )}
     >
       {children}

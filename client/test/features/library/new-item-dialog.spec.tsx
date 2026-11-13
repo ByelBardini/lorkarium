@@ -27,7 +27,7 @@ describe('the "Novo item" dialog of the library', () => {
 
   it('offers one card per type and creates nothing until a type is chosen', async () => {
     await openLibrary(deps);
-    await userEvent.click(screen.getByRole('button', { name: 'Criar item' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Novo' }));
     const dialog = await newItemDialog();
     const cards = within(within(dialog).getByRole('group', { name: 'Tipo do item' }));
     expect(cards.getAllByRole('button').map((card) => card.textContent)).toEqual([
@@ -56,7 +56,7 @@ describe('the "Novo item" dialog of the library', () => {
 
   it('says where the item goes: the root from the header, the folder from its menu', async () => {
     await openLibrary(deps);
-    await userEvent.click(screen.getByRole('button', { name: 'Criar item' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Novo' }));
     expect(await newItemDialog()).toHaveAccessibleDescription('Vai para Sem pasta.');
     await userEvent.click(button(await newItemDialog(), 'Cancelar'));
     await userEvent.click(

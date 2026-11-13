@@ -5,6 +5,7 @@ import {
   imageIdOf,
   imageKey,
   libraryEntries,
+  libraryTypeCounts,
   mapIdOf,
   mapKey,
   sheetIdOf,
@@ -35,6 +36,7 @@ describe('mixed library entries', () => {
       updatedAt: portrait.updatedAt,
       canEdit: true,
       canManage: true,
+      preview: { summary: null, imageAssetId: null },
     };
     const entries = libraryEntries(
       { ...masterLibrary(), images: [portrait], documents: [document] },
@@ -91,5 +93,30 @@ describe('mixed library entries', () => {
       [sheetKey('c'), 'private'],
     ]);
     expect(entries[0]).toMatchObject({ kind: 'sheet', holderLabel: 'de Lyra de Vharn' });
+  });
+});
+
+describe('libraryTypeCounts', () => {
+  it('counts each type the library holds and sums them under "all"', () => {
+    const library = {
+      ...masterLibrary(),
+      images: [portrait],
+      maps: [libraryMapSummary({ id: 'm1' }), libraryMapSummary({ id: 'm2' })],
+      sheets: [lyraSummary()],
+    };
+    expect(libraryTypeCounts(library)).toEqual({
+      all: 8,
+      grid: 4,
+      image: 1,
+      map: 2,
+      document: 0,
+      'sheet-template': 0,
+      sheet: 1,
+    });
+  });
+  it('a list the server left out (a player gets no templates) counts as none', () => {
+    const counts = libraryTypeCounts({ ...masterLibrary(), sheetTemplates: undefined });
+    expect(counts['sheet-template']).toBe(0);
+    expect(counts.all).toBe(4);
   });
 });

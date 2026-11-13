@@ -21,42 +21,74 @@ export type RoomNameProps = Readonly<{
   workspace: StoreApi<DocumentWorkspaceStore> | undefined;
   /** The viewer's main sheet; `null` (or left out) draws no sheet button. */
   mainSheet?: ViewerMainSheet | null;
+  /** The table menu: its chevron sits in one hover pill with the name, and clicking the name
+   *  opens it too. Left out, the name is plain text. */
+  menu?: Readonly<{ chevron: ReactNode; open: () => void }>;
 }>;
 
-/** The name of the table in the room's top bar. With a main map, an icon button beside it plays the
+/** The name of the table in the room's top bar; a click on it opens the table menu. With a main map, an icon button beside it plays the
  *  map's tab, which the strip does not draw: it goes back to the map (also Shift+M) and lights up
  *  while it is on screen. The viewer's main sheet gets its twin right after (Shift+F).
  *
  *  Example: `<RoomName campaign={campaign} tabs={tabs} workspace={documentWorkspace} mainSheet={mainSheet} />` */
 export function RoomName(props: RoomNameProps): React.JSX.Element {
-  const { campaign, tabs, workspace, mainSheet = null } = props;
+  const { campaign, tabs, workspace, mainSheet = null, menu } = props;
   const reader = useContext(MainMapReaderContext);
-  useHomeShortcut('main-sheet', mainSheet?.open ?? null);
+  const room = tabs && workspace ? { campaignId: campaign.id, tabs, workspace } : null;
+  const sheetBack = mainSheet && room ? { shown: mainSheet.shown, room } : null;
+  useHomeShortcut('main-sheet', mainSheet?.open ?? null, sheetBack);
   const sheetButton = mainSheet && <MainSheetButton sheet={mainSheet} />;
-  if (!tabs || !workspace || !reader)
-    return <NameRow name={campaign.name} sheetButton={sheetButton} />;
+  const name = <TableName name={campaign.name} menu={menu} />;
+  if (!tabs || !workspace || !reader) return <NameRow name={name} sheetButton={sheetButton} />;
   const deps = { campaign, tabs, workspace, reader };
-  return <RoomNameWithHome deps={deps} sheetButton={sheetButton} />;
+  return <RoomNameWithHome deps={deps} name={name} sheetButton={sheetButton} />;
 }
 
-type NameRowProps = Readonly<{ name: string; mapButton?: ReactNode; sheetButton: ReactNode }>;
+type TableNameProps = Readonly<{ name: string; menu: RoomNameProps['menu'] }>;
 
-function NameRow({ name, mapButton, sheetButton }: NameRowProps): React.JSX.Element {
-  if (!mapButton && !sheetButton) return <h1 className={`${NAME_STYLE} truncate`}>{name}</h1>;
+// The button lives inside the heading, so the heading keeps the table's name as its own. Name and
+// chevron light up as one pill, also while the menu is open.
+function TableName({ name, menu }: TableNameProps): React.JSX.Element {
+  if (!menu) return <h1 className={`${NAME_STYLE} truncate`}>{name}</h1>;
   return (
-    <div className="flex min-w-0 items-center gap-2">
-      {mapButton}
-      {sheetButton}
-      <h1 className={`${NAME_STYLE} truncate`}>{name}</h1>
+    <div
+      data-app-region="no-drag"
+      className="group/table-name flex h-8 min-w-0 items-center rounded-md pr-0.5 transition-colors hover:bg-card has-data-[state=open]:bg-card"
+    >
+      <h1 className={`${NAME_STYLE} min-w-0`}>
+        <button
+          type="button"
+          aria-haspopup="menu"
+          onClick={menu.open}
+          className="block max-w-full cursor-pointer truncate rounded-md py-0.5 pr-1 pl-2 outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          {name}
+        </button>
+      </h1>
+      {menu.chevron}
     </div>
   );
 }
 
-type WithHomeProps = Readonly<{ deps: MapHomeDeps; sheetButton: ReactNode }>;
+type NameRowProps = Readonly<{ name: ReactNode; mapButton?: ReactNode; sheetButton: ReactNode }>;
 
-function RoomNameWithHome({ deps, sheetButton }: WithHomeProps): React.JSX.Element {
+function NameRow({ name, mapButton, sheetButton }: NameRowProps): React.JSX.Element {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      {mapButton}
+      {sheetButton}
+      {name}
+    </div>
+  );
+}
+
+type WithHomeProps = Readonly<{ deps: MapHomeDeps; name: ReactNode; sheetButton: ReactNode }>;
+
+function RoomNameWithHome({ deps, name, sheetButton }: WithHomeProps): React.JSX.Element {
   const { hasHome, homeShown, openHome } = useMapHome(deps);
-  useHomeShortcut('main-map', hasHome ? openHome : null);
+  const { campaign, tabs, workspace } = deps;
+  const back = { shown: homeShown, room: { campaignId: campaign.id, tabs, workspace } };
+  useHomeShortcut('main-map', hasHome ? openHome : null, back);
   const mapButton = hasHome && (
     <HomeButton
       icon={MapIcon}
@@ -66,7 +98,7 @@ function RoomNameWithHome({ deps, sheetButton }: WithHomeProps): React.JSX.Eleme
       onClick={openHome}
     />
   );
-  return <NameRow name={deps.campaign.name} mapButton={mapButton} sheetButton={sheetButton} />;
+  return <NameRow name={name} mapButton={mapButton} sheetButton={sheetButton} />;
 }
 
 function MainSheetButton({ sheet }: Readonly<{ sheet: ViewerMainSheet }>): React.JSX.Element {

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { LibraryTree } from '@/features/library/folder-tree-nav';
-import { NO_FOLDER, sceneKey } from '@/features/library/library-view';
+import { sceneKey } from '@/features/library/library-view';
 import {
   ancestorKeysOf,
   expandableKeysOf,
+  isLeafKey,
   treeMove,
   visibleTreeItems,
 } from '@/features/library/tree-navigation';
@@ -40,8 +41,8 @@ function keysOf(expanded: readonly string[]): string[] {
 }
 
 describe('visibleTreeItems', () => {
-  it('with nothing expanded shows the root folders and "Sem pasta"', () => {
-    expect(keysOf([])).toEqual([ATO_1.id, LUGARES_FIXOS.id, NO_FOLDER]);
+  it('with nothing expanded shows the root folders, then the grids without folder', () => {
+    expect(keysOf([])).toEqual([ATO_1.id, LUGARES_FIXOS.id, sceneKey(VHARN_SCENE.id)]);
   });
 
   it('inside an expanded folder shows its folders first, then its grids', () => {
@@ -53,17 +54,16 @@ describe('visibleTreeItems', () => {
       sceneKey(OSSUARIO.id),
       sceneKey(ESTRADA_SCENE.id),
       LUGARES_FIXOS.id,
-      NO_FOLDER,
+      sceneKey(VHARN_SCENE.id),
     ]);
   });
 
-  it('an expanded "Sem pasta" shows the grids without folder after it', () => {
-    expect(keysOf([NO_FOLDER])).toEqual([
-      ATO_1.id,
-      LUGARES_FIXOS.id,
-      NO_FOLDER,
-      sceneKey(VHARN_SCENE.id),
-    ]);
+  it('a grid without folder is a leaf at the root, with no folder above it', () => {
+    expect(visibleTreeItems(vharnTree(), new Set()).at(-1)).toEqual({
+      key: sceneKey(VHARN_SCENE.id),
+      parentKey: null,
+      hasChildren: false,
+    });
   });
 
   it('a grid is a leaf under its folder; an empty folder cannot expand', () => {
@@ -102,9 +102,16 @@ describe('treeMove', () => {
     expect(treeMove(items, estrada, 'ArrowRight', expanded)).toBeNull();
   });
 
-  it('Home and End go to the first folder and to "Sem pasta"', () => {
+  it('Home and End go to the first folder and to the last grid without folder', () => {
     expect(treeMove(items, estrada, 'Home', expanded)).toEqual({ kind: 'focus', key: ATO_1.id });
-    expect(treeMove(items, estrada, 'End', expanded)).toEqual({ kind: 'focus', key: NO_FOLDER });
+    expect(treeMove(items, estrada, 'End', expanded)).toEqual({
+      kind: 'focus',
+      key: sceneKey(VHARN_SCENE.id),
+    });
+  });
+
+  it('left on a grid without folder goes nowhere: it sits at the root', () => {
+    expect(treeMove(items, sceneKey(VHARN_SCENE.id), 'ArrowLeft', expanded)).toBeNull();
   });
 });
 
@@ -118,8 +125,8 @@ describe('ancestorKeysOf', () => {
     expect(ancestorKeysOf(vharnTree(), sceneKey(OSSUARIO.id))).toEqual([ATO_1.id, CATACUMBAS.id]);
   });
 
-  it('puts a grid without folder under "Sem pasta"', () => {
-    expect(ancestorKeysOf(vharnTree(), sceneKey(VHARN_SCENE.id))).toEqual([NO_FOLDER]);
+  it('has nothing above a grid without folder: it shows at the root', () => {
+    expect(ancestorKeysOf(vharnTree(), sceneKey(VHARN_SCENE.id))).toEqual([]);
   });
 
   it('lists the folders above a sheet and a document, whose keys are their tree ids', () => {
@@ -139,9 +146,8 @@ describe('ancestorKeysOf', () => {
     expect(ancestorKeysOf(tree, mapKey(map.id))).toEqual([ATO_1.id, CATACUMBAS.id]);
   });
 
-  it('is empty for a root folder, "Sem pasta" and a key the tree lacks', () => {
+  it('is empty for a root folder and a key the tree lacks', () => {
     expect(ancestorKeysOf(vharnTree(), LUGARES_FIXOS.id)).toEqual([]);
-    expect(ancestorKeysOf(vharnTree(), NO_FOLDER)).toEqual([]);
     expect(ancestorKeysOf(vharnTree(), 'f0f0f0f0-0000-4000-8000-000000000000')).toEqual([]);
     expect(ancestorKeysOf(vharnTree(), sceneKey('f0f0f0f0-0000-4000-8000-000000000000'))).toEqual(
       [],
@@ -150,13 +156,22 @@ describe('ancestorKeysOf', () => {
 });
 
 describe('expandableKeysOf', () => {
-  it('lists every folder, nested ones included, and "Sem pasta"', () => {
+  it('lists every folder, nested ones included (items without folder never expand)', () => {
     expect(expandableKeysOf(vharnTree())).toEqual([
       ATO_1.id,
       CATACUMBAS.id,
       OSSOS.id,
       LUGARES_FIXOS.id,
-      NO_FOLDER,
     ]);
+  });
+});
+
+describe('isLeafKey', () => {
+  it('is true for every item kind and false for a folder', () => {
+    expect(isLeafKey(sceneKey(OSSUARIO.id))).toBe(true);
+    expect(isLeafKey(documentKey('d1'))).toBe(true);
+    expect(isLeafKey(mapKey('m1'))).toBe(true);
+    expect(isLeafKey(sheetKey('s1'))).toBe(true);
+    expect(isLeafKey(ATO_1.id)).toBe(false);
   });
 });
