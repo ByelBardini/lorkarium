@@ -14,7 +14,7 @@ Só o mestre (o jogador nem vê modelos). Nada novo no servidor: exportar é um 
 
 ## Download (`src/services/file-download.ts`)
 
-Porta `FileDownload` (`save(text, fileName, type?)`) com `BrowserFileDownload` sobre `downloadText` (`src/lib/download-text.ts`, que ganhou o `type` opcional; padrão `text/plain;charset=utf-8`). No `AppDependencies` como `fileDownload`, ligada no `main.tsx`; nos specs, `FileDownloadFake` (`saves`). Chega à biblioteca por `library-route.tsx` → `LibraryDialog` → `LibraryBrowser` (`fileDownload?`), e ao editor da aba por `deps` em `workspace-sheet-template.tsx`.
+Porta `FileDownload` (`save(text, fileName, type?)`) com `BrowserFileDownload` sobre `downloadText` (`src/lib/download-text.ts`, que ganhou o `type` opcional; padrão `text/plain;charset=utf-8`). No `AppDependencies` como `fileDownload`, ligada no `main.tsx`; nos specs, `FileDownloadFake` (`saves`). Chega à biblioteca por `library-route.tsx` → `LibraryDrawer` → `LibraryBrowser` (`fileDownload?`), e ao editor da aba por `deps` em `workspace-sheet-template.tsx`.
 
 ## Exportar (`src/features/sheets/use-sheet-template-export.ts`)
 

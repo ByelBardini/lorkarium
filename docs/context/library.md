@@ -2,13 +2,17 @@
 
 A biblioteca de grids e imagens da mesa: vários grids (cenas) por mesa, em pastas aninhadas, públicos ou privados. Na tela é "grid"; no código continua `scene`. A cena em si (grid, fundo, visão, versão) está em [`board.md`](board.md) (Cena).
 
-Aqui: o banco, a regra, o REST de grids e pastas, o duplicar e a **ativação com expulsões**. O **endereço da cena** (`sceneId` nos comandos, `inLockedGrid`) e as **salas por grid** com abas extras (`scene:watch`/`scene:unwatch`) estão em [`board.md`](board.md).
+Aqui: o banco, a regra, o REST de grids e pastas e o duplicar; a **ativação com expulsões** está em [`library/ativacao.md`](library/ativacao.md). O **endereço da cena** (`sceneId` nos comandos, `inLockedGrid`) e as **salas por grid** com abas extras (`scene:watch`/`scene:unwatch`) estão em [`board.md`](board.md).
 
-> **Detalhe por assunto:** o CRUD de grids e pastas fica neste hub.
+> **Detalhe por assunto em [`library/`](library/) — abra só o arquivo da tarefa.** Este hub guarda o banco, a regra, o REST de grids e pastas, o serviço e o duplicar.
 
-| Assunto                                                    | Arquivo                        |
-| ---------------------------------------------------------- | ------------------------------ |
-| Imagens, autorização dos arquivos, apresentação e agregado | [images.md](library/images.md) |
+| Assunto                                                    | Arquivo                                      |
+| ---------------------------------------------------------- | -------------------------------------------- |
+| Imagens, autorização dos arquivos, apresentação e agregado | [images.md](library/images.md)               |
+| Ativação do grid do grupo e expulsão (`scene:activate`)    | [ativacao.md](library/ativacao.md)           |
+| Pasta privada (`hiddenByFolder`, o que segue visível)      | [pasta-privada.md](library/pasta-privada.md) |
+| Testes (unit e integração)                                 | [testes.md](library/testes.md)               |
+| Armadilhas                                                 | [armadilhas.md](library/armadilhas.md)       |
 
 ## Tabelas (migração `0033_scene_library`)
 
@@ -71,39 +75,12 @@ Todas sob `/api`, exigem sessão (401 sem cookie), aninhadas na mesa (§2.6). DT
 - **Renomear um grid** (`updateScene` com `name`): na mesma transação `ScenesDao.bumpVersion` (diário `lock → save → bump → commit`) e, depois do `library:changed`, `scene:updated { campaignId, sceneId, version, at, scene }` às salas do grid pela dependência `grids: Pick<BoardPublisherPort, 'sceneUpdated'>` (o `SocketIoBoardPublisher`, que o `wireRealtime` devolve como `boardPublisher` em `RealtimeOutlets`). Sem isso a aba e o rótulo do tabuleiro de quem estava no grid ficavam com o nome velho até o F5 (achado pelo e2e `character.spec.ts`). Mover e publicar/privar não somam versão.
 - `LibraryPublisherPort` (`library-publisher.port.ts`) com o adaptador `SocketIoLibraryPublisher` (`server/src/infrastructure/library-publisher/`). Publica `library:changed` e `library:imagePresentationChanged` em `TableServerEvents` (contracts `LibraryServerEvents`).
 
-## Ativação e expulsão
-
-- **`scene:activate { actionId, campaignId, sceneId }`** (mestre; `activateSceneCommandDto`, na fila da mesa) → `SceneActivationService.activate(userId, campaignId, sceneId)` (`scenes/scene-activation.service.ts`, montado no `createScenesModule` → `activation`): `memberAccessOf` → `requireMaster` (jogador → `FORBIDDEN`, nada travado) → transação com `CampaignsDao.lockById` (`FOR NO KEY UPDATE`: espera um `scene:watch` ou uma edição da biblioteca) → `ScenesDao.findInCampaign` (grid de outra mesa → `SCENE_NOT_FOUND`) → `setActiveScene` → commit → `audience.moveTable` → `publisher.sceneActivated` (`scene:activated { campaignId, sceneId, previousSceneId, at }` à sala da mesa) → `publisher.libraryChanged`. Ativar o grid que já é do grupo não grava nem avisa nada. Persiste no banco (reinício mantém).
-- **`SceneAudiencePort`** (`scenes/scene-audience.port.ts`; adaptador `server/src/infrastructure/scene-audience/socket-io-scene-audience.ts`, por `io.in(sala).fetchSockets()`):
-  - `moveTable({ campaignId, sceneId, previous: { sceneId, playersKeepTabs } | null, at })`: todo socket da sala da mesa **entra primeiro** nas salas do grid novo (as do grupo levam também a ficha e a lista de condições) e depois sai das do antigo, salvo se o abriu como aba (`watchedSceneIds`) e ainda o alcança (mestre sempre; jogador só se o antigo é público — `playersKeepTabs`). O jogador que tinha o antigo privado como aba perde a aba e recebe `scene:closed { reason: 'private' }`.
-  - `evict({ campaignId, sceneId, audience: 'players' | 'everyone', reason, at })`: tira das salas do grid (mestre fica quando `players`; o mestre é quem está em `campaign:<id>:masters`), esquece a aba e manda `scene:closed { campaignId, sceneId, reason, at }` só àquele socket.
-- **`LibraryService`**: `updateScene` com `visibility: 'private'` num grid que **não** é o do grupo chama `evict(players, 'private')`; `deleteScene` chama `evict(everyone, 'deleted')`. Os dois **depois do commit e antes** do `library:changed` (`editAndEvict`; o `edit` comum não expulsa). Privar o grid do grupo não expulsa (o grupo continua nele). A dependência nova do plugin é `audience`.
-- **Fiação:** o `wireRealtime` do `build-app` cria o `SocketIoSceneAudience` e o `SocketIoLibraryPublisher` (que também publica o `sceneActivated`) e os devolve (`RealtimeOutlets`) para o plugin da biblioteca; o scenes module os recebe (`audience`, `libraryPublisher`) e o board gateway liga o `scene:activate` (`sceneActivation`). O seed de estresse passa portas mudas.
-- **Corrida conhecida (risco):** o `session:join` lê o grid do grupo sem trava (`enterGroupGrid`); uma ativação que confirma entre essa leitura e o `join` das salas deixa o socket também nas salas do grid antigo até a próxima mudança. O client relê pelo `scene:activated`, mas um grid antigo privado poderia chegar a esse socket.
-
 ## Duplicar
 
 - `duplicate`: `findInCampaign` → `scenes.insert(toSceneCopyPo(source, sceneCopyName(…)))` (mesmo grid, fundo e visão, mesma pasta, **privado**, versão 0) → `tokens` → `walls` → `lights` → `drawings` → `effectAreas` `.copyScene(from, to)`, tudo no `tx`.
 - `copyScene` é `INSERT … SELECT` montado por `server/src/database/copy-rows.ts`: `copyRowsSql(table, replaced, source)` copia toda coluna como está, troca as de `replaced` e pula coluna identity/gerada (as `*_order` renumeram na ordem do `ORDER BY`); `sceneRowsCopySql` é o caso "linhas de uma cena com ids novos"; `uuidArray(ids)` passa ids como um `uuid[]` só.
 - `TokensDao.copyScene` sorteia os ids novos no banco (`gen_random_uuid()`), copia os tokens por um `unnest(old[], new[]) AS copy_map` (toda coluna, a aura inclusive: a cópia leva a aura de cada token, ver [`tokens/aura.md`](tokens/aura.md)) e, pelo mesmo mapa, barras, controle e condições (`appliedRound` nulo: fora de combate); devolve o mapa velho → novo. Combate (`combats`) e principal (`main_tokens`) não vão.
 - Os tokens copiam o `created_at` da origem (a ordem de desenho é por ele); tokens que empatavam no `created_at` podem trocar de ordem entre si na cópia (o desempate é o id novo).
-
-## Testes
-
-- Unit: `server/test/modules/scenes/scene-access.bo.spec.ts` (mestre em privado fora do grupo, jogador no do grupo privado e em público, privado fora do grupo → `SCENE_NOT_FOUND`, mesa sem grid do grupo, não membro) e `server/test/modules/library/scene-library.bo.spec.ts` (mover à raiz, ciclo em si/filha/descendente, 5 níveis passa e 6 não, pasta de outra mesa, criar no 5º e no 6º, `removal` para a raiz e para o pai, `SCENE_IS_ACTIVE`, `visibleTo` de jogador e mestre).
-- Unit (A3–A5): `server/test/modules/library/library.service.spec.ts` (diário `lock → save → commit → publish`; recusa sem publicar; jogador sem contagem; exclusão de pasta `moveChildren → moveScenes → delete`; ciclo; duplicar `lock → save → copy ×5 → commit → publish`, nome cortado), `library.mapper.spec.ts`, `server/test/database/copy-rows.spec.ts` (o SQL gerado) e `packages/contracts/test/library/library.dto.spec.ts`.
-- Integração: `library.spec.ts` (grids pela borda, `library:changed` a Ana e Bia e não à Quelm, reinício), `library-folders.spec.ts` (criar, renomear, mover à raiz, excluir sobe ao pai/raiz, ciclo, 6º nível, 403, pasta da Quelm) e `library-copy.spec.ts` (cópia inteira com ids novos, porta aberta, luz apagada, autores, Envenenado com `appliedRound` nulo, sem combate nem principal, original intacta, grid vazio, 403, 404, reinício). O harness `useTokenTable` tem `http(user | null, request)` (o `inject` com o cookie da sessão).
-- Unit (ativação): `server/test/modules/scenes/scene-activation.service.spec.ts` (diário `lock → setActiveScene → commit → move audience → publish activated → publish`, a Bia → `FORBIDDEN` sem nada, Quelm → `SCENE_NOT_FOUND`, Salão privado → `playersKeepTabs: false`, mesa sem grid do grupo, mesmo grid = nada), `library.service.spec.ts` (privar a Torre → `evict players` entre commit e publish; o do grupo e renomear não expulsam; excluir → `evict everyone`) e `server/test/infrastructure/scene-audience/socket-io-scene-audience.spec.ts` (fakes de socket e de `io.in`).
-- Integração (ativação): `scene-activation.spec.ts` (os três recebem `scene:activated` e o `token:moved` da Estrada; o Salão privado some para todos; o Salão público aberto pela Bia continua só para ela; o privado aberto pela Bia → `scene:closed private`; ficha e `condition:define` chegam pela Estrada; `FORBIDDEN`; Quelm; `userId` forjado; reinício; privar a Torre → `scene:closed private` à Bia e nada mais; fechada = esquecida; privar o do grupo não fecha; excluir → `scene:closed deleted` à Ana) e a corrida de 100 rodadas em `scene-rooms.spec.ts`.
-- Integração: `server/test/integration/library-dao.spec.ts` — pastas (ordem, `CHECK` de 0 e 41 caracteres, pai de outra mesa recusado, isolamento, cascata da mesa), grids (nasce privado, lista com visibilidade/pasta/pixels do fundo/`tokenCount`, `findInCampaign`, `updateLibrary` parcial, pasta de outra mesa recusada, apagar a pasta → sem pasta, apagar o pai → subpasta na raiz, `delete` com cascata dos tokens, isolamento) e a migração sobre um banco de rascunho até a `0032` (a cena que existia sai `public` e sem pasta).
-
-## Armadilhas
-
-- **Postgres de teste compartilhado.** Dois agentes (ou terminais) rodando a integração ao mesmo tempo no mesmo `DATABASE_URL` se atropelam no `truncateAllTables` (falhas soltas de "no row", `ZodError` no `createTable`). Para rodar em paralelo, crie um banco próprio no mesmo container (`CREATE DATABASE …`) e aponte o `DATABASE_URL` para ele.
-
-- **`SET NULL` de FK composta.** O drizzle-kit gera `ON DELETE set null`, que anularia também o `campaign_id` (`NOT NULL`) e faria a exclusão falhar. A `0033` foi editada à mão para `SET NULL ("parent_id")` / `SET NULL ("folder_id")` (Postgres 15+). Ao gerar a próxima migração, conferir que o drizzle-kit não tenta "corrigir" essas FKs; FK composta nova com `set null` precisa da mesma edição.
-
-- **Nome do grid mora no snapshot.** A sala lê o nome da aba e do tabuleiro do `scene` do board (snapshot + `scene:updated`), não da biblioteca: mudança no `scenes` que a sala mostra precisa somar a versão do grid e publicar `scene:updated`; o `library:changed` só relê a lista do modal.
 
 ## Documentos
 
@@ -119,13 +96,4 @@ A pasta também guarda **modelos de ficha** (`sheet_templates`) e **fichas** (`t
 
 ## Pasta privada
 
-`scene_folders.visibility` (enum `scene_visibility`, padrão **`public`**, migração `0093_scene_folder_visibility`; o enum mora em `scenes/scene-visibility.po.ts` porque `scenes.po` importa `scene-folders.po`). O mestre escolhe ao criar (`createSceneFolderRequestDto.visibility`, opcional) e por `PATCH` (`updateSceneFolderRequestDto.visibility`); `sceneFolderDto` sempre leva o campo.
-
-Uma pasta privada esconde de quem não é mestre (jogador e espectador) tudo que está nela e nas subpastas, **mesmo item público**, na lista e no acesso direto por id. Tornar a pasta pública devolve cada item ao que estava marcado.
-
-- **Onde se decide:** cada DAO calcula a coluna `hiddenByFolder` no SQL (`hiddenByFolderSql('"tabela"."folder_id"')`, `src/database/hidden-by-folder-sql.ts`, recursiva sobre `parent_id`) e cada BO de acesso a recebe como campo obrigatório: `SceneAccessBo` (`GridReach`), `DocumentAccessBo`, `SheetAccessBo` (`SheetReach`), `LibraryMapAccessBo`/`isMapOpenToTable` e `canReadLibraryImage`. Linha nova que chega a um desses BOs precisa da coluna: o `tsc` acusa a falta. `FolderPrivacyBo` dá a mesma resposta para uma árvore já em memória, e é o que o agregado `GET …/library` usa: ele já lê as pastas, então o `listOfCampaign` de imagens, documentos, mapas e fichas vem **sem** a coluna (tipos `LibraryImageListedRow`, `DocumentSummaryPo`, `LibraryMapListedRow`, `SheetListedPo`) e o `LibraryImageService.list` a completa com `privacy.hides(folderId)`. A recursiva fica nas leituras de um item e na lista de grids (`ScenesDao.listOfCampaign`, lida também pela edição de pastas e pelo `scene-watch`). As fichas da lista vêm também sem o `values` (até 256 KiB cada), pelo `columnsWithout` (`src/database/columns-without.ts`).
-- **Continua visível apesar da pasta:** o grid do grupo, o mapa Principal, a imagem apresentada, a imagem já ligada a um documento que o leitor vê (`DocumentAssetReadPolicy`), a ficha que o leitor controla e o documento de que é dono. A pasta aparece para ele no caminho desses itens (`visibleTo`), só com eles dentro.
-- **Ficha em token:** o `toSheetAccessBo` também esconde a ficha de quem só a lê como mesa quando o grid do token está em pasta privada (salvo o grid do grupo).
-- **Expulsão:** tornar a pasta privada, mover uma pasta ou mover um grid para dentro de uma cadeia privada tira quem tinha o grid aberto (`scene:closed`, `private`), depois do commit e antes do `library:changed` (`SceneLibraryBo.gridsHiddenBy` compara a tabela antes e depois). Documento, imagem, mapa e ficha não têm sala: somem no `library:changed` e na próxima leitura.
-- **Excluir pasta privada** sobe o conteúdo ao pai, e os itens públicos passam a aparecer: a confirmação do client avisa.
-- Testes: `folder-privacy.bo.spec.ts`, os specs dos BOs de acesso e `server/test/integration/library-folder-privacy.spec.ts`.
+`scene_folders.visibility` esconde de quem não é mestre tudo que está na pasta e nas subpastas: [pasta-privada.md](library/pasta-privada.md).

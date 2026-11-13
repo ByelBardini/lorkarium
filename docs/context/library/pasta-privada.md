@@ -1,0 +1,14 @@
+# Library · pasta privada
+
+Hub: [`../library.md`](../library.md).
+
+`scene_folders.visibility` (enum `scene_visibility`, padrão **`public`**, migração `0093_scene_folder_visibility`; o enum mora em `scenes/scene-visibility.po.ts` porque `scenes.po` importa `scene-folders.po`). O mestre escolhe ao criar (`createSceneFolderRequestDto.visibility`, opcional) e por `PATCH` (`updateSceneFolderRequestDto.visibility`); `sceneFolderDto` sempre leva o campo.
+
+Uma pasta privada esconde de quem não é mestre (jogador e espectador) tudo que está nela e nas subpastas, **mesmo item público**, na lista e no acesso direto por id. Tornar a pasta pública devolve cada item ao que estava marcado.
+
+- **Onde se decide:** cada DAO calcula a coluna `hiddenByFolder` no SQL (`hiddenByFolderSql('"tabela"."folder_id"')`, `src/database/hidden-by-folder-sql.ts`, recursiva sobre `parent_id`) e cada BO de acesso a recebe como campo obrigatório: `SceneAccessBo` (`GridReach`), `DocumentAccessBo`, `SheetAccessBo` (`SheetReach`), `LibraryMapAccessBo`/`isMapOpenToTable` e `canReadLibraryImage`. Linha nova que chega a um desses BOs precisa da coluna: o `tsc` acusa a falta. `FolderPrivacyBo` dá a mesma resposta para uma árvore já em memória, e é o que o agregado `GET …/library` usa: ele já lê as pastas, então o `listOfCampaign` de imagens, documentos, mapas e fichas vem **sem** a coluna (tipos `LibraryImageListedRow`, `DocumentSummaryPo`, `LibraryMapListedRow`, `SheetListedPo`) e o `LibraryImageService.list` a completa com `privacy.hides(folderId)`. A recursiva fica nas leituras de um item e na lista de grids (`ScenesDao.listOfCampaign`, lida também pela edição de pastas e pelo `scene-watch`). As fichas da lista vêm também sem o `values` (até 256 KiB cada), pelo `columnsWithout` (`src/database/columns-without.ts`).
+- **Continua visível apesar da pasta:** o grid do grupo, o mapa Principal, a imagem apresentada, a imagem já ligada a um documento que o leitor vê (`DocumentAssetReadPolicy`), a ficha que o leitor controla e o documento de que é dono. A pasta aparece para ele no caminho desses itens (`visibleTo`), só com eles dentro.
+- **Ficha em token:** o `toSheetAccessBo` também esconde a ficha de quem só a lê como mesa quando o grid do token está em pasta privada (salvo o grid do grupo).
+- **Expulsão:** tornar a pasta privada, mover uma pasta ou mover um grid para dentro de uma cadeia privada tira quem tinha o grid aberto (`scene:closed`, `private`), depois do commit e antes do `library:changed` (`SceneLibraryBo.gridsHiddenBy` compara a tabela antes e depois). Documento, imagem, mapa e ficha não têm sala: somem no `library:changed` e na próxima leitura.
+- **Excluir pasta privada** sobe o conteúdo ao pai, e os itens públicos passam a aparecer: a confirmação do client avisa.
+- Testes: `folder-privacy.bo.spec.ts`, os specs dos BOs de acesso e `server/test/integration/library-folder-privacy.spec.ts`.
