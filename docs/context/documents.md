@@ -1,6 +1,6 @@
 # Documentos
 
-Documentos livres de texto da biblioteca, independentes de sistema de RPG. O detalhe (`schemaVersion: 2`) lista as abas visíveis ao leitor, sem corpo; cada aba guarda o próprio JSON fechado (árvore Tiptap, `schemaVersion: 1`) e a própria versão. Novo documento: oculto, sem donos, versão zero, título “Documento sem nome” e uma aba "Geral" com um parágrafo vazio.
+Documentos livres de texto da biblioteca, independentes de sistema de RPG. O detalhe (`schemaVersion: 2`) lista as abas visíveis ao leitor, sem corpo; cada aba guarda o próprio JSON fechado (árvore Tiptap, `schemaVersion: 1`) e a própria versão. Novo documento: oculto, sem donos, versão zero, título “Documento sem nome”, prévia vazia e uma aba "Geral" com um parágrafo vazio. A **prévia** (resumo e/ou capa, `PATCH …/:documentId/preview`, de quem edita) é o que a biblioteca mostra no lugar do corpo: [contratos](documents/contratos.md), [servidor](documents/server.md), [imagens](documents/imagens.md) (a capa) e [cliente](client/documents.md).
 
 ## Referências
 
@@ -20,7 +20,7 @@ O servidor calcula `canEdit`/`canManage`; a lista de donos só aparece para mest
 
 ## Tempo real
 
-- **Estrutura** (criar, renomear, ocultar, reordenar ou excluir aba; renomear, administrar, excluir documento) → `library:changed` `{ campaignId, at }` para a sala da mesa: a biblioteca e o documento aberto releem pela rota.
+- **Estrutura** (criar, renomear, ocultar, reordenar ou excluir aba; renomear, mudar a prévia, administrar, excluir documento) → `library:changed` `{ campaignId, at }` para a sala da mesa: a biblioteca e o documento aberto releem pela rota.
 - **Corpo de uma aba** (`PATCH …/tabs/:tabId/content` aplicado) → **só** `document:tabChanged` `{ campaignId, documentId, tabId, version, at }` (`documentTabChangedDto`, `DOCUMENT_EVENTS.tabChanged`; `version` é a nova versão da aba), depois do commit; nunca `library:changed`, então ninguém relê a biblioteca por uma edição. Vai para a sala da mesa (`campaignRoom`); aba `masters` vai só para a sala dos mestres (`campaignMastersRoom`). Recibo repetido (mesmo `actionId`) e pedido recusado não publicam. Quem tem aquela aba aberta com versão menor relê a aba pela rota (`GET …/tabs/:tabId`, que reautoriza); outra aba, outro documento ou versão igual/menor são ignorados.
 
 **"Aparece em".** `GET /campaigns/:campaignId/documents/:documentId/map-appearances` lista as regiões de mapa ligadas ao documento, para quem pode lê-lo: quem não lê leva `DOCUMENT_NOT_FOUND`, e cada um só vê as regiões que pode ver (ligada a aba `masters`, só o mestre). A linha cita a aba quando o link é para uma ("Mundo › Capital · aba Itens"). Mora no módulo dos mapas; ver [regiões do mapa](library-maps/regioes.md).
