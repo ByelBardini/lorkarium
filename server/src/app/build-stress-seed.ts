@@ -14,6 +14,7 @@ import type { CharacterPublisherPort } from '../modules/characters/character-pub
 import { createCharactersModule } from '../modules/characters/characters.plugin';
 import type { PresenceReaderPort } from '../modules/campaigns/presence-reader.port';
 import { CampaignsDao } from '../modules/campaigns/campaigns.dao';
+import { UserBlocksDao } from '../modules/friends/user-blocks.dao';
 import type { MemberRoleChangedPort } from '../modules/campaigns/member-role-changed.port';
 import { MemberRoleService } from '../modules/campaigns/member-role.service';
 import { createLightsModule } from '../modules/lights/lights.plugin';
@@ -64,7 +65,7 @@ export function buildStressSceneSeed(db: Database): StressSceneSeedService {
     users: new UsersDao(db),
     campaigns: campaignsModule.service,
     join: new CampaignJoinService({
-      ...{ campaigns, members, hasher, clock },
+      ...{ campaigns, members, hasher, clock, blocks: new UserBlocksDao(db) },
       transaction: campaignJoinTransactionOver(db),
     }),
     roles: new MemberRoleService({

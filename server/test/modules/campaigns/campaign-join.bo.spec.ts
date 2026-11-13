@@ -10,6 +10,7 @@ function joinOf(
   hasPassword: boolean,
   isPublic = false,
   readerIsAdmin = false,
+  blockedByOwner = false,
 ): CampaignJoinBo {
   return new CampaignJoinBo({
     campaignId: VHARN_ID,
@@ -17,10 +18,33 @@ function joinOf(
     hasPassword,
     isPublic,
     readerIsAdmin,
+    blockedByOwner,
+    userId: CAIO_ID,
   });
 }
 
+const CAIO_ID = 'caio-id';
+
 describe('CampaignJoinBo', () => {
+  it('a reader the owner blocked is refused with CAMPAIGN_NOT_FOUND, as if the table did not exist', () => {
+    expect(() => joinOf(false, false, true, false, true).requireNotBlocked()).toThrow(
+      expect.objectContaining({
+        code: 'CAMPAIGN_NOT_FOUND',
+        message: expect.stringContaining(CAIO_ID),
+      }),
+    );
+  });
+
+  it('the block holds for an admin too', () => {
+    expect(() => joinOf(false, false, true, true, true).requireNotBlocked()).toThrow(
+      expect.objectContaining({ code: 'CAMPAIGN_NOT_FOUND' }),
+    );
+  });
+
+  it('a reader the owner did not block passes the block check', () => {
+    expect(() => joinOf(false, false, true, false, false).requireNotBlocked()).not.toThrow();
+  });
+
   it.each([
     ['an admin at a private table', true, false, true, true],
     ['an admin at a public table with a password', true, true, true, true],

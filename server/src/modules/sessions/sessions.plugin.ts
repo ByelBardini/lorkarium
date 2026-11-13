@@ -7,6 +7,7 @@ import type { SceneWatchService } from '../scenes/scene-watch.service';
 import type { PresenceRegistryPort } from './presence-registry.port';
 import type { SchedulerPort } from './scheduler.port';
 import type { SessionPublisherPort } from './session-publisher.port';
+import type { TableOpenedPort } from './table-opened.port';
 import { createSessionsGateway } from './sessions.gateway';
 import { TableSessionService } from './sessions.service';
 
@@ -17,6 +18,7 @@ export type SessionsModuleOptions = Readonly<{
   registry: PresenceRegistryPort;
   scheduler: SchedulerPort;
   publisher: SessionPublisherPort;
+  tables: TableOpenedPort;
   realtime: Pick<Realtime, 'reauthenticate'>;
   /** The same bucket per connection as the board commands. */
   rate: CommandRateGuard;
@@ -35,8 +37,8 @@ export type SessionsModule = Readonly<{
  *
  *  Example: `realtime.onConnection(createSessionsModule(options).gateway)` */
 export function createSessionsModule(options: SessionsModuleOptions): SessionsModule {
-  const { campaigns, clock, registry, scheduler, publisher, groupGrid } = options;
-  const presence = { registry, scheduler, publisher, clock };
+  const { campaigns, clock, registry, scheduler, publisher, groupGrid, tables } = options;
+  const presence = { registry, scheduler, publisher, tables, clock };
   const service = new TableSessionService({ campaigns, grids: groupGrid, ...presence });
   const { realtime, rate, log } = options;
   const gateway = createSessionsGateway({ service, groupGrid, realtime, rate, log });

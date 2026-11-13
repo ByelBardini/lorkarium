@@ -9,6 +9,7 @@ import { ConnectionTablesBo, type ConnectionTablesOutcome } from './connection-t
 import type { PresenceRegistryPort } from './presence-registry.port';
 import type { SchedulerPort } from './scheduler.port';
 import type { SessionPublisherPort } from './session-publisher.port';
+import type { TableOpenedPort } from './table-opened.port';
 import {
   toCampaignDeletedDto,
   toCampaignUpdatedDto,
@@ -44,6 +45,8 @@ export type TableSessionServiceDeps = Readonly<{
   registry: PresenceRegistryPort;
   scheduler: SchedulerPort;
   publisher: SessionPublisherPort;
+  /** The account's presence: the tables each tab has open and whether it stands still. */
+  tables: TableOpenedPort;
   clock: ClockPort;
 }>;
 
@@ -65,6 +68,7 @@ export class TableSessionService {
       this.announceArrival(campaignId, userId, members, outcome);
     }
     if (outcome.change === 'came-back') this.announceActivity(campaignId, userId, outcome);
+    this.deps.tables.tableOpened({ userId, campaignId, socketId });
     return toSessionStateDto(campaignId, members, outcome.roster, this.deps.clock.now());
   }
 
@@ -88,6 +92,7 @@ export class TableSessionService {
       ? presence.markAway(userId, socketId, this.deps.clock.now())
       : presence.markActive(userId, socketId);
     this.apply(campaignId, userId, outcome);
+    this.deps.tables.activityChanged(userId, socketId, away);
   }
 
   expire(campaignId: string, userId: string): void {
@@ -143,6 +148,7 @@ export class TableSessionService {
    *
    *  Example: `await sessions.memberRemoved({ campaignId, userId: rootId })` */
   async memberRemoved({ campaignId, userId }: MemberRemoval): Promise<void> {
+    this.deps.tables.tableLeftEverywhere(userId, campaignId);
     const roster = this.deps.registry.rosterOf(campaignId);
     if (!roster) return;
     const outcome = new TablePresenceBo(roster).remove(userId);
@@ -179,6 +185,9 @@ export class TableSessionService {
     const roster = this.deps.registry.rosterOf(campaignId);
     for (const userId of roster?.inGrace ?? []) {
       this.deps.scheduler.cancel(graceKey(campaignId, userId));
+    }
+    for (const userId of roster?.sockets.keys() ?? []) {
+      this.deps.tables.tableLeftEverywhere(userId, campaignId);
     }
     if (roster) this.deps.registry.save(campaignId, EMPTY_ROSTER);
     const event = toCampaignDeletedDto(campaignId, this.deps.clock.now());
@@ -232,6 +241,7 @@ export class TableSessionService {
   ): PresenceOutcome {
     const at = this.deps.clock.now();
     const outcome = this.presenceAt(campaignId).disconnect(userId, socketId, reason, at);
+    this.deps.tables.tableClosed({ userId, campaignId, socketId });
     return this.apply(campaignId, userId, outcome);
   }
 
