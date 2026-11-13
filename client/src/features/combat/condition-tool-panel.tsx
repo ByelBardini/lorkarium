@@ -15,7 +15,7 @@ export type ConditionToolPanelProps = Readonly<{
   board: StoreApi<BoardStore>;
   conditionTool: StoreApi<ConditionToolStore>;
   campaignId: string;
-  /** The master also gets the way to the table's list when it is empty. */
+  /** Only the master gets the way to the table's conditions page (the room's top has no link). */
   isMaster: boolean;
 }>;
 
@@ -47,6 +47,11 @@ export function ConditionToolPanel(props: ConditionToolPanelProps): React.JSX.El
           <ConditionChoices definitions={definitions} conditionTool={props.conditionTool} />
           <RoundsField conditionTool={props.conditionTool} />
           <p className="text-[13px] text-muted-foreground">{REMOVE_CONDITION_HINT}</p>
+          {props.isMaster && (
+            <ConditionsPageLink campaignId={props.campaignId}>
+              Editar condições da mesa…
+            </ConditionsPageLink>
+          )}
         </>
       )}
     </section>
@@ -124,13 +129,22 @@ function EmptyConditions({
     <div className="flex flex-col gap-2 text-[13px] text-muted-foreground">
       <p>{NO_TABLE_CONDITIONS}</p>
       {isMaster && (
-        <Link
-          to={`/campaigns/${encodeURIComponent(campaignId)}/table/conditions`}
-          className="text-primary underline-offset-4 hover:underline"
-        >
-          Configurar condições
-        </Link>
+        <ConditionsPageLink campaignId={campaignId}>Configurar condições</ConditionsPageLink>
       )}
     </div>
+  );
+}
+
+function ConditionsPageLink({
+  campaignId,
+  children,
+}: Readonly<{ campaignId: string; children: string }>) {
+  return (
+    <Link
+      to={`/campaigns/${encodeURIComponent(campaignId)}/table/conditions`}
+      className="text-[13px] text-primary underline-offset-4 hover:underline"
+    >
+      {children}
+    </Link>
   );
 }
