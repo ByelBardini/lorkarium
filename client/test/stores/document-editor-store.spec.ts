@@ -299,3 +299,37 @@ describe('one draft per document tab', () => {
     expect(api.detailCalls).toBe(reads + 1);
   });
 });
+
+const COVER_ID = '20000000-0000-4000-8000-0000000000c1';
+describe('document preview', () => {
+  it('sends the pending name first, then the preview against the version the name left', async () => {
+    const { api, store } = await setup();
+    store.getState().edit({ name: 'Carta nova' });
+    const result = await store
+      .getState()
+      .savePreview({ summary: 'Selada.', imageAssetId: COVER_ID });
+    expect(result.ok).toBe(true);
+    expect(api.saves.map(({ name }) => name)).toEqual(['Carta nova']);
+    expect(api.previewSaves).toEqual([
+      {
+        actionId: DOCUMENT_ACTION_ID,
+        expectedVersion: 1,
+        summary: 'Selada.',
+        imageAssetId: COVER_ID,
+      },
+    ]);
+    expect(store.getState().confirmed).toMatchObject({
+      version: 2,
+      preview: { summary: 'Selada.', imageAssetId: COVER_ID },
+    });
+  });
+  it('a conflict reads the document again and leaves the confirmed preview', async () => {
+    const { api, store } = await setup();
+    api.previewResult = { ok: false, failure: { kind: 'conflict' } };
+    const reads = api.detailCalls;
+    const result = await store.getState().savePreview({ summary: 'Selada.', imageAssetId: null });
+    expect(result).toEqual({ ok: false, failure: { kind: 'conflict' } });
+    await vi.waitFor(() => expect(api.detailCalls).toBe(reads + 1));
+    expect(store.getState().confirmed?.preview).toEqual({ summary: null, imageAssetId: null });
+  });
+});

@@ -20,6 +20,9 @@ type DocumentImagePickerProps = Readonly<{
   tabId: string;
   images: readonly LibraryImageDto[];
   onChoose: (asset: AssetDto | null) => void;
+  /** Another use of the same picker (the preview's cover): its own title and explanation. */
+  title?: string;
+  description?: string;
 }>;
 
 /** Reuses the existing sender against the open tab's image routes. Example: `new DocumentImageAssets(api, campaignId, documentId, tabId)`. */
@@ -67,8 +70,10 @@ export function DocumentImagePicker(props: DocumentImagePickerProps): React.JSX.
     <Dialog open onOpenChange={(open) => !open && props.onChoose(null)}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Inserir imagem no documento</DialogTitle>
-          <DialogDescription>A imagem será guardada com o documento.</DialogDescription>
+          <DialogTitle>{props.title ?? 'Inserir imagem no documento'}</DialogTitle>
+          <DialogDescription>
+            {props.description ?? 'A imagem será guardada com o documento.'}
+          </DialogDescription>
         </DialogHeader>
         <ImagePicker
           campaignId={props.campaignId}
