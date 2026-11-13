@@ -57,6 +57,13 @@ describe('the library drawer', () => {
     const { router } = await openLibrary(deps);
     await userEvent.click(screen.getByRole('button', { name: 'Biblioteca' }));
     await waitFor(() => expect(router.state.location.pathname).toBe(ROOM_PATH));
+    // The router moves before React draws the strip again: click the button the person sees.
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Biblioteca' })).toHaveAttribute(
+        'aria-pressed',
+        'false',
+      ),
+    );
     await userEvent.click(screen.getByRole('button', { name: 'Biblioteca' }));
     await waitFor(() => expect(router.state.location.pathname).toBe(`${ROOM_PATH}/library`));
   });
