@@ -7,3 +7,11 @@ export const REALTIME_MESSAGE_MAX_BYTES = 5 * 1024 * 1024;
 /** Messages from this size on go compressed (`perMessageDeflate`): the snapshot and the big
  *  pastes; the small, frequent ones (the drag preview) are not worth the CPU. */
 export const REALTIME_COMPRESSION_THRESHOLD_BYTES = 4096;
+
+/** Ceilings of the friends list, equal for every plan: they stop mass requests, not real use. */
+export const FRIENDS_MAX = 200;
+export const BLOCKS_MAX = 200;
+export const OUTGOING_REQUESTS_MAX = 50;
+
+/** The longest direct message between friends, as the table chat. */
+export const DIRECT_MESSAGE_MAX_LENGTH = 2000;
