@@ -6,6 +6,7 @@ import { cellCenterOf } from './support/board-cells';
 import { adminCredentials, signIn } from './support/sign-in';
 import {
   boardOf,
+  chooseFromTableMenu,
   createTableAndReadCode,
   enterFromTheList,
   joinAsSpectatorAndEnter,
@@ -21,7 +22,7 @@ const PICTURE = fileURLToPath(new URL('./fixtures/token.png', import.meta.url));
 const ASSET_SRC = /^\/api\/assets\//;
 
 async function openConditionsPage(master: Page): Promise<void> {
-  await master.getByRole('link', { name: 'Condições', exact: true }).click();
+  await chooseFromTableMenu(master, 'Condições da mesa');
   await expect(master).toHaveURL((url) => url.pathname.endsWith('/table/conditions'));
   await expect(master.getByRole('heading', { level: 1, name: 'Condições da mesa' })).toBeVisible();
 }
@@ -265,5 +266,7 @@ test('a spectator has no condition tool and no way to the list', async ({ newPla
 
   await expect(watcher.getByRole('button', { name: 'Selecionar (V)' })).toBeVisible();
   await expect(watcher.getByRole('button', { name: 'Condição (C)' })).toHaveCount(0);
-  await expect(watcher.getByRole('link', { name: 'Condições', exact: true })).toHaveCount(0);
+  await watcher.getByRole('button', { name: 'Menu da mesa', exact: true }).click();
+  await expect(watcher.getByRole('menuitem', { name: 'Sair da mesa' })).toBeVisible();
+  await expect(watcher.getByRole('menuitem', { name: 'Condições da mesa' })).toHaveCount(0);
 });

@@ -1,16 +1,63 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
-/** Opens the library over the room by the "Biblioteca" link of its top bar and waits for the list.
+/** Opens the library drawer beside the board by the "Biblioteca" button of the tabs strip (only
+ *  when it is not open yet: the button toggles) and, unless `narrow`, widens it to the tree and the
+ *  item side by side ("Ampliar biblioteca", remembered by the page); waits for the list.
  *
- *  Example: `const library = await openLibrary(admin); await library.getByRole('button', { name: 'Novo grid' }).click()` */
-export async function openLibrary(page: Page): Promise<Locator> {
-  await page.getByRole('link', { name: 'Biblioteca', exact: true }).click();
-  const library = page.getByRole('dialog', { name: 'Biblioteca', exact: true });
+ *  Example: `const library = await openLibrary(admin); await openNewItem(library)` */
+export async function openLibrary(
+  page: Page,
+  { narrow = false }: Readonly<{ narrow?: boolean }> = {},
+): Promise<Locator> {
+  const toggle = libraryToggleOf(page);
+  if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click();
+  const library = libraryOf(page);
   await expect(treeOf(library)).toBeVisible();
+  const widen = library.getByRole('button', {
+    name: narrow ? 'Reduzir biblioteca' : 'Ampliar biblioteca',
+  });
+  if (await widen.isVisible()) await widen.click();
   return library;
 }
 
-/** The tree of the open library ("Grids e pastas"): folders, grids and "Sem pasta". */
+/** Closes the library drawer, when open, by the "Biblioteca" button of the tabs strip (the drawer
+ *  has no close button of its own; Esc, ⇧B and a press outside close it too).
+ *
+ *  Example: `await closeLibrary(admin)` */
+export async function closeLibrary(page: Page): Promise<void> {
+  const toggle = libraryToggleOf(page);
+  if ((await toggle.getAttribute('aria-pressed')) === 'true') await toggle.click();
+  await expect(libraryOf(page)).toHaveCount(0);
+}
+
+/** The "Biblioteca" button of the tabs strip, which opens and closes the drawer. */
+export function libraryToggleOf(page: Page): Locator {
+  return page
+    .getByRole('region', { name: 'Abas da sala' })
+    .getByRole('button', { name: 'Biblioteca', exact: true });
+}
+
+/** Opens an item of the tree (not a folder) by a double click: a grid, document, sheet, map or
+ *  template in a room tab, an image in its viewer. The drawer stays open.
+ *
+ *  Example: `await openItemOf(library, 'Diário')` */
+export async function openItemOf(library: Locator, name: string): Promise<void> {
+  await gridItemOf(library, name).dblclick();
+}
+
+/** The master's "Novo" of the header: "Novo item" at the root.
+ *
+ *  Example: `await openNewItem(library); await chooseNewItemKind(admin, 'Grid')` */
+export async function openNewItem(library: Locator): Promise<void> {
+  await library.getByRole('button', { name: 'Novo', exact: true }).click();
+}
+
+/** The library drawer of the room (a `complementary` "Biblioteca", not a dialog). */
+export function libraryOf(page: Page): Locator {
+  return page.getByRole('complementary', { name: 'Biblioteca', exact: true });
+}
+
+/** The tree of the open library ("Itens e pastas"): folders, items and "Sem pasta". */
 export function treeOf(library: Locator): Locator {
   return library.getByRole('tree', { name: 'Itens e pastas' });
 }
@@ -84,7 +131,7 @@ export async function createBlankGrid(page: Page): Promise<void> {
  *
  *  Example: `await createGrid(library, 'Torre')` */
 export async function createGrid(library: Locator, name: string): Promise<void> {
-  await library.getByRole('button', { name: 'Criar item' }).click();
+  await openNewItem(library);
   await createBlankGrid(library.page());
   await nameNewGrid(library, name);
 }
@@ -101,14 +148,23 @@ export async function nameNewGrid(library: Locator, name: string): Promise<void>
   await expect(gridItemOf(library, name)).toBeVisible();
 }
 
-/** "Nova pasta" inside the folder open in the tree; the new folder opens.
+/** "Novo item" → "Pasta": at the root by the header's "Novo", or inside `parent` by its tree
+ *  menu ("Criar novo item"). The new folder is picked.
  *
- *  Example: `await createFolder(library, 'Ato 1')` */
-export async function createFolder(library: Locator, name: string): Promise<void> {
-  await library.getByRole('button', { name: 'Nova pasta' }).click();
-  const field = library.getByRole('textbox', { name: 'Nome da nova pasta' });
+ *  Example: `await createFolder(library, 'Norte', 'Ato 1')` */
+export async function createFolder(library: Locator, name: string, parent?: string): Promise<void> {
+  const page = library.page();
+  if (parent) {
+    await gridItemOf(library, parent).click({ button: 'right', position: { x: 50, y: 16 } });
+    await page.getByRole('menuitem', { name: 'Criar novo item', exact: true }).click();
+  } else {
+    await openNewItem(library);
+  }
+  const dialog = await chooseNewItemKind(page, 'Pasta');
+  const field = dialog.getByRole('textbox', { name: 'Nome', exact: true });
   await field.fill(name);
   await field.press('Enter');
+  await expect(dialog).toBeHidden();
   await expect(library.getByRole('treeitem', { name, exact: true })).toHaveAttribute(
     'aria-selected',
     'true',

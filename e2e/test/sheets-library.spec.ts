@@ -1,6 +1,6 @@
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { BIA } from './support/dev-players';
-import { gridItemOf, gridTabsOf, openLibrary } from './support/library';
+import { closeLibrary, gridItemOf, gridTabsOf, openLibrary } from './support/library';
 import { test } from './support/player-pages';
 import {
   campaignIdOf,
@@ -19,6 +19,7 @@ import {
   createTableAndReadCode,
   enterFromTheList,
   joinByCodeAndEnter,
+  showRoomTab,
 } from './support/tables';
 
 type LibraryTable = Readonly<{ admin: Page; bia: Page; campaignId: string }>;
@@ -37,18 +38,13 @@ async function openTableWithoutTokens(newPlayerPage: () => Promise<Page>): Promi
   return { admin, bia, campaignId: campaignIdOf(admin) };
 }
 
-async function closeLibrary(library: Locator): Promise<void> {
-  await library.getByRole('button', { name: 'Fechar biblioteca' }).click();
-  await expect(boardOf(library.page())).toBeVisible();
-}
-
 // "Abrir modelo em aba" moves the library's editor to a room tab; "Fechar modelo" closes it.
 async function expectTemplateOpensInTab(admin: Page, template: string): Promise<void> {
   const library = await openLibrary(admin);
   await gridItemOf(library, template).click();
   const editor = library.getByRole('region', { name: 'Editor do modelo' });
   await editor.getByRole('button', { name: 'Abrir modelo em aba' }).click();
-  await expect(library).toBeHidden();
+  await closeLibrary(admin);
   const tab = gridTabsOf(admin).getByRole('tab', { name: `Modelo · ${template}`, exact: true });
   await expect(tab).toHaveAttribute('aria-selected', 'true');
   const roomEditor = admin.getByRole('region', { name: 'Editor do modelo' });
@@ -73,7 +69,7 @@ test('Ana opens the template in a tab, gives a library sheet to Bia before she h
     'sem dono, só mestres',
   );
   expect((await readSheet(bia, campaignId, diary.sheetId)).status).toBe(404);
-  await bia.getByRole('tab', { name: 'Na mesa' }).click();
+  await showRoomTab(bia, 'Na mesa');
   await expect(
     bia
       .getByRole('region', { name: /^Jogadores/ })
@@ -82,7 +78,7 @@ test('Ana opens the template in a tab, gives a library sheet to Bia before she h
   await expect(sheetButtonOf(bia, 'Bia')).toHaveCount(0);
   const biaLibrary = await openLibrary(bia);
   await expect(gridItemOf(biaLibrary, diary.name)).toHaveCount(0);
-  await closeLibrary(biaLibrary);
+  await closeLibrary(bia);
 
   // "Dar a ▸ Bia": the sheet goes to her character (its main sheet); her card opens it.
   await giveLibrarySheetTo(library, diary.name, 'Bia');
@@ -96,9 +92,10 @@ test('Ana opens the template in a tab, gives a library sheet to Bia before she h
   // A second sheet for Bia (by "Dono" in the dialog): the card's one icon becomes the menu, which
   // lists both, and she opens the second through it.
   const spells = await createSheetInLibrary(library, 'Caderno de magias', 1);
-  await closeLibrary(library);
+  await closeLibrary(admin);
+  await expect(boardOf(admin)).toBeVisible();
   await bia.getByRole('tab', { name: /^Cena 1/ }).click();
-  await bia.getByRole('tab', { name: 'Na mesa' }).click();
+  await showRoomTab(bia, 'Na mesa');
   await expect(sheetButtonOf(bia, 'Bia')).toHaveCount(0);
   await sheetsMenuOf(bia, 'Bia').click();
   const menu = bia.getByRole('menu');

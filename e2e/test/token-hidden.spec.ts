@@ -3,7 +3,12 @@ import { cellCenterOf, dragBetweenCells } from './support/board-cells';
 import { BIA, CAIO } from './support/dev-players';
 import { test } from './support/player-pages';
 import { adminCredentials, signIn } from './support/sign-in';
-import { createTableAndReadCode, enterFromTheList, joinByCodeAndEnter } from './support/tables';
+import {
+  createTableAndReadCode,
+  enterFromTheList,
+  joinByCodeAndEnter,
+  showRoomTab,
+} from './support/tables';
 import { cardOf, createTokenFor, openCard } from './support/token-cards';
 
 function sceneRowOf(page: Page, name: string): Locator {
@@ -13,7 +18,7 @@ function sceneRowOf(page: Page, name: string): Locator {
 }
 
 async function expectInScene(page: Page, name: string, count: 0 | 1): Promise<void> {
-  await page.getByRole('tab', { name: 'Combate' }).click();
+  await showRoomTab(page, 'Combate');
   await expect(sceneRowOf(page, name)).toHaveCount(count);
 }
 
