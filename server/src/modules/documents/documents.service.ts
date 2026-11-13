@@ -8,6 +8,7 @@ import {
   type DocumentReceiptDto,
   type DocumentWriteResponseDto,
   type UpdateDocumentContentRequestDto,
+  type UpdateDocumentPreviewRequestDto,
   type UpdateDocumentRequestDto,
 } from '@lorkarium/contracts';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
@@ -18,6 +19,7 @@ import { LibraryImageNotFoundError } from '../library/library-image.error';
 import { toAssetDto } from '../assets/assets.mapper';
 import type { DocumentPo } from './documents.po';
 import { DocumentTabsBo, FIRST_DOCUMENT_TAB_NAME } from './document-tabs.bo';
+import { DocumentPreviewBo } from './document-preview.bo';
 import {
   DocumentWriteSteps,
   commandFingerprint,
@@ -27,11 +29,12 @@ import {
   type DocumentsServiceDeps,
 } from './document-writes.service';
 
-type WriteInput = UpdateDocumentRequestDto | UpdateDocumentContentRequestDto;
-type WriteKind = Readonly<{ operation: 'content' | 'update'; manage: boolean }>;
+type WriteInput =
+  UpdateDocumentRequestDto | UpdateDocumentContentRequestDto | UpdateDocumentPreviewRequestDto;
+type WriteKind = Readonly<{ operation: 'content' | 'update' | 'preview'; manage: boolean }>;
 
-/** The document itself: create (with its "Geral" tab), read, rename, administer, delete, and the
- *  image associations of a tab the requester edits.
+/** The document itself: create (with its "Geral" tab), read, rename, set the library preview,
+ *  administer, delete, and the image associations of a tab the requester edits.
  *
  *  Example: `await service.create(requester, { actionId })` */
 export class DocumentsService {
@@ -81,6 +84,24 @@ export class DocumentsService {
         updatedAt: this.steps.now(),
       }),
     );
+  }
+  /** Sets the library card (master or owner), apart from the body; `library:changed` tells the
+   *  library to read it again. */
+  async updatePreview(
+    requester: LibraryRequester,
+    documentId: string,
+    input: UpdateDocumentPreviewRequestDto,
+  ): Promise<DocumentWriteResponseDto> {
+    const kind = { operation: 'preview', manage: false } as const;
+    return this.write(requester, documentId, input, kind, async (scope) => {
+      await this.requirePreviewImage(scope, input.imageAssetId);
+      return scope.daos.documents.update(requester.campaignId, documentId, {
+        previewSummary: input.summary,
+        previewAssetId: input.imageAssetId,
+        version: scope.row.version + 1,
+        updatedAt: this.steps.now(),
+      });
+    });
   }
   async update(
     requester: LibraryRequester,
@@ -163,6 +184,12 @@ export class DocumentsService {
       await daos.assets.prepare(requester.campaignId, documentId, tabId, row.asset.id);
       return toAssetDto(row.asset);
     });
+  }
+  private async requirePreviewImage(scope: DocumentScope, assetId: string | null): Promise<void> {
+    const { campaignId, id, previewAssetId } = scope.row;
+    const tabs = await scope.daos.tabs.listOfDocument(campaignId, id);
+    const references = await scope.daos.assets.ofDocument(campaignId, id);
+    new DocumentPreviewBo(scope.document, tabs, references, previewAssetId).requireImage(assetId);
   }
   private async editedTab(scope: DocumentScope, tabId: string): Promise<void> {
     const tabs = await scope.daos.tabs.listOfDocument(scope.row.campaignId, scope.row.id);

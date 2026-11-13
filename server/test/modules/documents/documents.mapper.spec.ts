@@ -16,6 +16,15 @@ const SECRET = documentTabPo({
   visibility: 'masters',
 });
 describe('document mappers', () => {
+  it('summary carries the library preview under its own names, not the columns', () => {
+    const summary = toDocumentSummary(
+      documentPo({ previewSummary: 'Selada.', previewAssetId: GERAL_TAB_ID }),
+      [],
+      new CampaignAccessBo({ campaignId: VHARN_ID, userId: BIA_ID, role: 'player' }),
+    );
+    expect(summary.preview).toEqual({ summary: 'Selada.', imageAssetId: GERAL_TAB_ID });
+    expect(summary).not.toHaveProperty('previewAssetId');
+  });
   it('summary omits body and owners from a public reader while preserving read capabilities', () => {
     const summary = toDocumentSummary(
       documentPo({ visibility: 'public' }),

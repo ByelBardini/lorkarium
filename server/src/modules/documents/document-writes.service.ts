@@ -31,6 +31,7 @@ export type DocumentDaos = Readonly<{
   documents: Pick<
     DocumentsDao,
     | 'findInCampaign'
+    | 'withAsset'
     | 'insert'
     | 'update'
     | 'delete'
