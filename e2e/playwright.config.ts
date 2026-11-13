@@ -77,6 +77,7 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
     'characters',
   ],
   dice: ['dice'],
+  friends: ['friends'],
   // The sandbox proof of the sheets (B1), the sheets in the room (B9), in the library (S5) and
   // the template's `.lksheet` file between two tables.
   sheets: ['sheet-sandbox', 'sheets', 'sheets-library', 'sheet-template-file'],
