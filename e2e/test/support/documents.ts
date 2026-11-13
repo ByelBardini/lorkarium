@@ -1,6 +1,16 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { chooseNewItemKind, gridTabsOf, pickGrid } from './library';
+import {
+  chooseNewItemKind,
+  closeLibrary,
+  gridTabsOf,
+  openItemOf,
+  openNewItem,
+  pickGrid,
+} from './library';
+
+// The name the server gives a document created without one (`UNNAMED_DOCUMENT_NAME`).
+const UNNAMED_DOCUMENT = 'Documento sem nome';
 
 export type DocumentTabRecord = Readonly<{
   id: string;
@@ -28,11 +38,12 @@ export function documentUrl(page: Page, documentId: string): string {
   return `/api/campaigns/${campaignIdOf(page)}/documents/${documentId}`;
 }
 
-/** Creates a document from the library header, expands it and names it; resolves to its id.
+/** Creates a document from the library header ("Novo" → "Documento"), opens it in a room tab
+ *  by a double click on the tree, closes the library and names it; resolves to its id.
  *
  *  Example: `const id = await createDocument(master, await openLibrary(master), 'Diário')` */
 export async function createDocument(page: Page, library: Locator, name: string): Promise<string> {
-  await library.getByRole('button', { name: 'Criar item' }).click();
+  await openNewItem(library);
   const created = page.waitForResponse(
     (response) => response.request().method() === 'POST' && response.url().endsWith('/documents'),
   );
@@ -41,11 +52,10 @@ export async function createDocument(page: Page, library: Locator, name: string)
   const response = await created;
   expect(response.status()).toBe(201);
   const answer: { document: DocumentRecord } = await response.json();
-  await library.getByRole('button', { name: 'Expandir documento', exact: true }).click();
-  await expect(library).toBeHidden();
+  await openItemOf(library, UNNAMED_DOCUMENT);
+  await closeLibrary(page);
   const panel = documentPanelOf(page);
   const title = panel.getByRole('textbox', { name: 'Nome do documento' });
-  await expect(title).toBeFocused();
   await title.fill(name);
   await expect.poll(async () => (await readDocument(page, answer.document.id)).name).toBe(name);
   await expect(savedStatusOf(panel)).toBeVisible();
@@ -56,15 +66,16 @@ export async function createDocument(page: Page, library: Locator, name: string)
   return answer.document.id;
 }
 
-/** Picks a document in the open library, checks its read-only preview and expands it.
+/** Picks a document in the open library, checks its read-only preview, opens it in a room tab
+ *  by a double click on the tree and closes the library.
  *
  *  Example: `const panel = await expandDocument(bia, await openLibrary(bia), 'Diário')` */
 export async function expandDocument(page: Page, library: Locator, name: string): Promise<Locator> {
   await pickGrid(library, name);
   await expect(library.getByRole('region', { name: 'Prévia do documento' })).toBeVisible();
   await expect(library.getByRole('toolbar', { name: 'Formatação do documento' })).toHaveCount(0);
-  await library.getByRole('button', { name: 'Expandir documento', exact: true }).click();
-  await expect(library).toBeHidden();
+  await openItemOf(library, name);
+  await closeLibrary(page);
   const panel = documentPanelOf(page);
   await expect(panel).toBeVisible();
   return panel;

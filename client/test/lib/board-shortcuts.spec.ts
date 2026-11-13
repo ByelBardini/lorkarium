@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  OWNS_ROOM_KEYS_ATTRIBUTE,
   editShortcutFor,
   homeShortcutFor,
   shortcutFor,
+  tabShortcutFor,
   type ShortcutKey,
 } from '@/lib/board-shortcuts';
 
@@ -209,5 +211,83 @@ describe('homeShortcutFor', () => {
 
   it('another letter with Shift is nothing', () => {
     expect(homeShortcutFor(press('V', { shiftKey: true }))).toBeNull();
+  });
+});
+
+describe('tabShortcutFor', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('Ctrl+Tab is the next tab, Ctrl+Shift+Tab the previous one', () => {
+    expect(tabShortcutFor(press('Tab', { ctrlKey: true }))).toBe('next-tab');
+    expect(tabShortcutFor(press('Tab', { ctrlKey: true, shiftKey: true }))).toBe('previous-tab');
+  });
+
+  it.each([1, 3, 9])('Ctrl+%i is that tab', (n) => {
+    expect(tabShortcutFor(press(String(n), { ctrlKey: true }))).toEqual({ nth: n });
+  });
+
+  it('Ctrl+W closes the tab', () => {
+    expect(tabShortcutFor(press('w', { ctrlKey: true }))).toBe('close-tab');
+    expect(tabShortcutFor(press('W', { ctrlKey: true }))).toBe('close-tab');
+  });
+
+  it.each([
+    ['Alt+W', press('w', { altKey: true })],
+    ['Ctrl+Alt+Tab', press('Tab', { ctrlKey: true, altKey: true })],
+    ['⌘+W', press('w', { metaKey: true })],
+    ['⌘+Tab', press('Tab', { metaKey: true })],
+    ['Ctrl+0', press('0', { ctrlKey: true })],
+    ['Ctrl+Shift+W', press('W', { ctrlKey: true, shiftKey: true })],
+    ['Tab', press('Tab')],
+  ])('%s is no tab shortcut', (_name, key) => {
+    expect(tabShortcutFor(key)).toBeNull();
+  });
+
+  it('Ctrl+W typed in a field belongs to the field', () => {
+    const field = mounted('<textarea data-target></textarea>');
+    expect(tabShortcutFor(press('w', { ctrlKey: true, target: field }))).toBeNull();
+  });
+});
+
+describe('shortcutFor: library and panel', () => {
+  it('Shift+B toggles the library, B alone still draws', () => {
+    expect(shortcutFor(press('B', { shiftKey: true }))).toBe('toggle-library');
+    expect(shortcutFor(press('b'))).toBe('draw-tool');
+  });
+
+  it('\\ toggles the panel', () => {
+    expect(shortcutFor(press('\\'))).toBe('toggle-panel');
+    // [ and ] walk the selection between tokens (board-keys), never the panel.
+    expect(shortcutFor(press(']'))).toBeNull();
+  });
+
+  it('Ctrl+Shift+B is not the library', () => {
+    expect(shortcutFor(press('B', { shiftKey: true, ctrlKey: true }))).toBeNull();
+  });
+});
+
+describe('keys inside a part that owns the room keys (the library drawer)', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('the room keys and the homes stay there', () => {
+    const item = mounted(`<aside ${OWNS_ROOM_KEYS_ATTRIBUTE}><div data-target></div></aside>`);
+    expect(shortcutFor(press('r', { target: item }))).toBeNull();
+    expect(shortcutFor(press('Escape', { target: item }))).toBeNull();
+    expect(homeShortcutFor(press('M', { shiftKey: true, target: item }))).toBeNull();
+    expect(editShortcutFor(press('c', { ctrlKey: true, target: item }))).toBeNull();
+  });
+
+  it('Shift+B still closes the library from there', () => {
+    const item = mounted(`<aside ${OWNS_ROOM_KEYS_ATTRIBUTE}><div data-target></div></aside>`);
+    expect(shortcutFor(press('B', { shiftKey: true, target: item }))).toBe('toggle-library');
+  });
+
+  it('Shift+B typed in a field there is a capital B', () => {
+    const field = mounted(`<aside ${OWNS_ROOM_KEYS_ATTRIBUTE}><input data-target /></aside>`);
+    expect(shortcutFor(press('B', { shiftKey: true, target: field }))).toBeNull();
   });
 });

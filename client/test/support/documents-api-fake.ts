@@ -10,6 +10,7 @@ import type {
   DocumentWriteResponseDto,
   ReorderDocumentTabsRequestDto,
   UpdateDocumentContentRequestDto,
+  UpdateDocumentPreviewRequestDto,
   UpdateDocumentRequestDto,
   UpdateDocumentTabContentRequestDto,
   UpdateDocumentTabRequestDto,
@@ -47,6 +48,8 @@ export class DocumentsApiFake implements DocumentsApi {
   saves: UpdateDocumentContentRequestDto[] = [];
   updates: UpdateDocumentRequestDto[] = [];
   updateResult: DocumentsResult<DocumentWriteResponseDto> | null = null;
+  previewSaves: UpdateDocumentPreviewRequestDto[] = [];
+  previewResult: DocumentsResult<DocumentWriteResponseDto> | null = null;
   imageResult: DocumentsResult<AssetDto> = { ok: false, failure: { kind: 'offline' } };
   imageRequests: {
     operation: 'upload' | 'import' | 'library';
@@ -107,6 +110,21 @@ export class DocumentsApiFake implements DocumentsApi {
     this.document = {
       ...this.document,
       ...administrationOf(input),
+      version: input.expectedVersion + 1,
+    };
+    return { ok: true, value: documentWrite(this.document) };
+  }
+  async savePreview(
+    _campaignId: string,
+    _documentId: string,
+    input: UpdateDocumentPreviewRequestDto,
+  ): Promise<DocumentsResult<DocumentWriteResponseDto>> {
+    this.previewSaves.push(input);
+    if (this.previewResult) return this.previewResult;
+    const { summary, imageAssetId } = input;
+    this.document = {
+      ...this.document,
+      preview: { summary, imageAssetId },
       version: input.expectedVersion + 1,
     };
     return { ok: true, value: documentWrite(this.document) };

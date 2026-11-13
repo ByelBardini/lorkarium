@@ -8,6 +8,7 @@ import {
   joinByCodeAndEnter,
   openRoomPeople,
   presenceOf,
+  showRoomTab,
 } from './support/tables';
 import { createCharacterTokenWithPv } from './support/token-cards';
 
@@ -31,7 +32,7 @@ test('the card and the presence reach the other browser, and a reload keeps the 
   await enterFromTheList(admin, name);
   await expect(presenceOf(admin, 'Bia')).toHaveAccessibleName('online');
   await createCharacterTokenWithPv(admin, 'Lyra', 'Bia');
-  await admin.getByRole('tab', { name: 'Na mesa' }).click();
+  await showRoomTab(admin, 'Na mesa');
 
   // Bia writes her CA and a nickname on her own card; the master sees both.
   const ownCard = playerCardOf(bia, 'Lyra');

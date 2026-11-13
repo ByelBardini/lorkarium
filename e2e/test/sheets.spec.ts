@@ -10,19 +10,21 @@ import {
   readSheet,
   setSheetVisibility,
   sheetButtonOf,
+  sheetFrameOf,
   sheetRegionOf,
   sheetTabOf,
   sheetFilesOf,
   type SheetSourceCode,
 } from './support/sheets';
 import { cardOf, openCard } from './support/token-cards';
+import { showRoomTab } from './support/tables';
 
 function historyOf(page: Page): Locator {
   return page.getByRole('list', { name: 'Histórico de rolagens' }).getByRole('listitem');
 }
 
 async function expectSheetRollOn(page: Page): Promise<void> {
-  await page.getByRole('tab', { name: 'Dados' }).click();
+  await showRoomTab(page, 'Dados');
   const newest = historyOf(page).first();
   await expect(newest).toContainText('Ficha Tormenta · Ataque');
   // The starter rolls 1d20+5: "…" while the dice fly, then a total.
@@ -78,8 +80,10 @@ test('Ana makes a sheet on Lyra; Bia takes 5 PV, rolls the attack and keeps For�
     .toEqual({
       forca: 14,
     });
+  // The F5 brings back the sheet that was open, with what was saved.
   await bia.reload();
-  const reloaded = await openSheetFromCard(bia, 'Lyra', sheetName);
+  await expect(sheetRegionOf(bia, sheetName)).toBeVisible();
+  const reloaded = sheetFrameOf(bia, sheetName);
   await expect(reloaded.getByRole('spinbutton', { name: 'Força' })).toHaveValue('14');
   await expect(reloaded.locator('#pv')).toHaveText('5 / 10');
 });

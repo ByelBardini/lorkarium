@@ -1,3 +1,4 @@
+import type { RoomTab } from '@/stores/room-layout-store';
 import {
   TOKEN_PATROLS_RUNNING_MAX,
   TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX,
@@ -259,3 +260,10 @@ function countOf(count: number, one: string, many: string): string | null {
   if (count === 0) return null;
   return `${count} ${count === 1 ? one : many}`;
 }
+
+/** The name of each panel tab, said by the rail and as the panel's title. */
+export const ROOM_TAB_NAME: Readonly<Record<RoomTab, string>> = {
+  combat: 'Combate',
+  people: 'Na mesa',
+  dice: 'Dados',
+};

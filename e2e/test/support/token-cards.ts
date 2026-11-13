@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { cellCenterOf } from './board-cells';
+import { showRoomTab } from './tables';
 
 /** The status line of the board, where moves, selections and refusals are said. */
 export function statusOf(page: Page): Locator {
@@ -24,7 +25,7 @@ export function cardOf(page: Page, name: string): Locator {
  *
  *  Example: `await openCard(bia, 'Lyra'); await expect(cardOf(bia, 'Lyra')).toContainText('Coluna 5')` */
 export async function openCard(page: Page, name: string): Promise<void> {
-  await page.getByRole('tab', { name: 'Combate' }).click();
+  await showRoomTab(page, 'Combate');
   const row = page
     .getByRole('list', { name: 'Na cena' })
     .getByRole('button', { name: new RegExp(`^${name}`) });

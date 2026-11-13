@@ -58,3 +58,11 @@ export class DocumentTabVersionConflictError extends DocumentError {
     );
   }
 }
+export class DocumentPreviewAssetNotFoundError extends DocumentError {
+  constructor(documentId: string, assetId: string) {
+    super(
+      'DOCUMENT_ASSET_NOT_FOUND',
+      `Preview image ${assetId} of document ${documentId}; expected the current cover or an image of a tab the requester sees`,
+    );
+  }
+}

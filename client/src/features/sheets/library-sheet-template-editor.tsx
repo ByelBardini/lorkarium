@@ -38,15 +38,13 @@ export type LibrarySheetTemplateEditorProps = Readonly<{
   /** Where the preview reads the table's public documents. */
   documentSources?: SheetDocumentSources;
   onRegisterLeave?: RegisterLeave;
-  /** After "Abrir modelo em aba": the library goes back to the room, where the tab is. */
-  onOpenedTab: () => void;
 }>;
 
 /** The template editor inside the library. A template already open in a room tab shares that
  *  tab's draft (one text, nothing asked on leaving the library: the tab keeps it); "Abrir modelo
  *  em aba" and "Abrir modelo em janela" hand the library's draft, unsaved text included, over.
  *
- *  Example: `<LibrarySheetTemplateEditor key={id} campaign={campaign} templateId={id} templateName="Ficha Tormenta" api={api} live tabs={table.tabs} workspace={workspace} onOpenedTab={backToRoom} />` */
+ *  Example: `<LibrarySheetTemplateEditor key={id} campaign={campaign} templateId={id} templateName="Ficha Tormenta" api={api} live tabs={table.tabs} workspace={workspace} />` */
 export function LibrarySheetTemplateEditor(
   props: LibrarySheetTemplateEditorProps,
 ): React.JSX.Element {
@@ -97,10 +95,8 @@ function movesOf(
       draft,
     });
   return {
-    openTab: () => {
-      open();
-      props.onOpenedTab();
-    },
+    // The tab shows behind the library, which stays open.
+    openTab: () => void open(),
     openWindow:
       chatWindowHost &&
       (() =>

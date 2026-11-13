@@ -147,3 +147,21 @@ function templateEntries(library: MixedLibrary): SheetTemplateEntry[] {
     visibility: 'private',
   }));
 }
+
+/** How many items of each type the library has, for the type filter (`all` = every one).
+ *
+ *  Example: `libraryTypeCounts(library).grid // 4` */
+export function libraryTypeCounts(
+  library: MixedLibrary,
+): Readonly<Record<LibraryTypeFilter, number>> {
+  const byType = {
+    grid: library.scenes.length,
+    image: library.images?.length ?? 0,
+    map: library.maps?.length ?? 0,
+    document: library.documents?.length ?? 0,
+    'sheet-template': library.sheetTemplates?.length ?? 0,
+    sheet: library.sheets?.length ?? 0,
+  };
+  const all = Object.values(byType).reduce((sum, count) => sum + count, 0);
+  return { ...byType, all };
+}

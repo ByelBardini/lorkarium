@@ -48,6 +48,44 @@ describe('document HTTP API', () => {
     });
   });
 });
+describe('document preview over HTTP', () => {
+  const input = {
+    actionId: DOCUMENT_ACTION_ID,
+    expectedVersion: 0,
+    summary: 'Uma carta selada.',
+    imageAssetId: null,
+  };
+  it('sends the whole preview to its route and validates the written document', async () => {
+    const answer = documentWrite(
+      documentFixture({
+        version: 1,
+        preview: { summary: 'Uma carta selada.', imageAssetId: null },
+      }),
+      'preview',
+    );
+    const transport = new HttpTransportFake().respondWith(200, answer);
+    const result = await new HttpDocumentsApi(transport).savePreview(
+      DOCUMENT_CAMPAIGN_ID,
+      DOCUMENT_ID,
+      input,
+    );
+    expect(result).toEqual({ ok: true, value: answer });
+    expect(transport.requests[0]).toMatchObject({
+      method: 'PATCH',
+      path: `/campaigns/${DOCUMENT_CAMPAIGN_ID}/documents/${DOCUMENT_ID}/preview`,
+      body: input,
+    });
+  });
+  it('reports a cover the author may not use as not found', async () => {
+    const transport = new HttpTransportFake().respondWith(404, {
+      code: 'DOCUMENT_ASSET_NOT_FOUND',
+      message: 'Document not available',
+    });
+    expect(
+      await new HttpDocumentsApi(transport).savePreview(DOCUMENT_CAMPAIGN_ID, DOCUMENT_ID, input),
+    ).toEqual({ ok: false, failure: { kind: 'not_found' } });
+  });
+});
 const TAB_PATH = `/campaigns/${DOCUMENT_CAMPAIGN_ID}/documents/${DOCUMENT_ID}/tabs`;
 describe('document tabs over HTTP', () => {
   it('reads one validated tab body', async () => {

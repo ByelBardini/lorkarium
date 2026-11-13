@@ -39,6 +39,8 @@ export function documentPo(overrides: Partial<DocumentPo> = {}): DocumentPo {
     folderId: null,
     name: 'Documento sem nome',
     visibility: 'private',
+    previewSummary: null,
+    previewAssetId: null,
     version: 0,
     createdBy: ANA_ID,
     createdAt: new Date('2026-10-29T15:00:00Z'),
@@ -81,6 +83,16 @@ export class DocumentsDaoFake implements DocumentOperations {
   async findInCampaign(campaignId: string, documentId: string): Promise<DocumentRow | undefined> {
     const found = this.rows.find((row) => row.campaignId === campaignId && row.id === documentId);
     return found && Object.assign(found, { hiddenByFolder: false });
+  }
+  /** The image rows `withAsset` looks into; the harness links its `DocumentAssetsDaoFake`. */
+  assetRows: readonly DocumentAssetPo[] = [];
+  async withAsset(campaignId: string, assetId: string): Promise<DocumentRow[]> {
+    const inATab = (id: string): boolean =>
+      this.assetRows.some((row) => row.documentId === id && row.assetId === assetId);
+    return this.rows
+      .filter((row) => row.campaignId === campaignId)
+      .filter((row) => row.previewAssetId === assetId || inATab(row.id))
+      .map((row) => Object.assign(row, { hiddenByFolder: false }));
   }
   async insert(input: NewDocumentPo): Promise<DocumentPo> {
     const row = documentPo(input);
@@ -260,6 +272,7 @@ export class DocumentsHarness {
   };
   failCommit = false;
   constructor() {
+    Object.defineProperty(this.documents, 'assetRows', { get: () => this.assets.rows });
     // Ana masters Vharn and Bia plays (the library harness); Caio plays without owning anything.
     this.library.members.rows.push(
       campaignMemberPo({ userId: CAIO_ID, role: 'player', campaignId: VHARN_ID }),

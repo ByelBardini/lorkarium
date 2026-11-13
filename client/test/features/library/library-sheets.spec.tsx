@@ -12,6 +12,7 @@ import {
   menuItemNames,
   newItemDialog,
   openTreeMenu,
+  pickLibraryType,
   pickNewItemKind,
   startHeaderNewItem,
   treeItem,
@@ -82,7 +83,7 @@ function givenWith(skippedBars: string[]) {
 }
 
 async function filterSheets(): Promise<void> {
-  await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Tipo de item' }), 'sheet');
+  await pickLibraryType('Fichas');
 }
 
 describe('sheets in the library', () => {
@@ -90,32 +91,29 @@ describe('sheets in the library', () => {
     const deps = withSheets();
     await openWithHolders(deps);
     await filterSheets();
-    expect(treeItemNames()).toEqual([
-      'Ato 1',
-      'Kael de Vharn',
-      'Sem pasta',
-      'Goblin chefe',
-      'Ficha reserva',
-    ]);
+    expect(treeItemNames()).toEqual(['Ato 1', 'Kael de Vharn', 'Goblin chefe', 'Ficha reserva']);
     expect(treeItem('Kael de Vharn')).toHaveAccessibleDescription('Ficha · de Caio (Kael)');
     expect(treeItem('Goblin chefe')).toHaveAccessibleDescription('Ficha · token Goblin');
     expect(treeItem('Ficha reserva')).toHaveAccessibleDescription('Ficha · sem dono, só mestres');
   });
 
-  it('picking a sheet shows it with "Abrir ficha", which opens its tab in the room', async () => {
+  it('picking a sheet shows it with only "Abrir ficha em janela"; a double click opens its tab behind the library', async () => {
     const deps = withSheets();
     const { router } = await openWithHolders(deps);
     await userEvent.click(treeItem('Ficha reserva'));
     const panel = screen.getByRole('region', { name: 'Ficha escolhida' });
     expect(within(panel).getByText('Ficha · sem dono, só mestres')).toBeInTheDocument();
     expect(within(panel).getByText('Modelo · Ficha Tormenta')).toBeInTheDocument();
-    await userEvent.click(within(panel).getByRole('button', { name: 'Abrir ficha' }));
+    expect(
+      within(panel)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['Abrir ficha em janela']);
+    await userEvent.dblClick(treeItem('Ficha reserva'));
     expect(deps.documentWorkspace.getState().sheets.map(({ sheetId }) => sheetId)).toEqual([
       SPARE_SHEET_ID,
     ]);
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe(`/campaigns/${VHARN.id}/table`),
-    );
+    expect(router.state.location.pathname).toBe(`/campaigns/${VHARN.id}/table/library`);
     act(() => deps.documentWorkspace.getState().clear());
   });
 
@@ -131,16 +129,17 @@ describe('sheets in the library', () => {
     act(() => deps.documentWorkspace.getState().clear());
   });
 
-  it('a player sees only the sheets the server gave them, with the "Fichas" filter and "Abrir"', async () => {
+  it('a player sees only the sheets the server gave them, with the "Fichas" filter, and Enter opens one', async () => {
     const deps = testDependencies();
     deps.libraryApi.answer('list', { ok: true, value: playerLibrary({ sheets: [lyraSummary()] }) });
     await openLibrary(deps, { role: 'player' });
     await filterSheets();
-    expect(treeItemNames()).toEqual(['Sem pasta', 'Lyra de Vharn']);
+    expect(treeItemNames()).toEqual(['Lyra de Vharn']);
     await userEvent.click(treeItem('Lyra de Vharn'));
     const panel = screen.getByRole('region', { name: 'Ficha escolhida' });
     expect(within(panel).queryByText(/^Modelo ·/u)).not.toBeInTheDocument();
-    await userEvent.click(within(panel).getByRole('button', { name: 'Abrir ficha' }));
+    treeItem('Lyra de Vharn').focus();
+    await userEvent.keyboard('{Enter}');
     expect(deps.documentWorkspace.getState().sheets.map(({ sheetId }) => sheetId)).toEqual([
       LYRA_SHEET_ID,
     ]);

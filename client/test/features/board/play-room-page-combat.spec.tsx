@@ -71,7 +71,7 @@ describe('play room: a grouped entry on turn', () => {
   it('the top bar reads "Rodada 2 · Vez de Inimigos"', async () => {
     await fighting(groupCombat());
 
-    const header = screen.getByRole('region', { name: 'Topo da sala' });
+    const header = screen.getByRole('region', { name: 'Abas da sala' });
     expect(within(header).getByText('Rodada 2 · Vez de Inimigos')).toBeInTheDocument();
   });
 

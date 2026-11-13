@@ -18,7 +18,7 @@ afterEach(() => {
   current = null;
 });
 
-// The master picks Ficha Tormenta in the library, types, and takes it to a room tab.
+// The master picks Ficha Tormenta in the library, types, takes it to a room tab and closes the library.
 async function tormentaInTab(): Promise<TestDependencies> {
   const deps = testDependencies();
   current = deps;
@@ -31,6 +31,10 @@ async function tormentaInTab(): Promise<TestDependencies> {
   await screen.findByRole('textbox', { name: 'Arquivo index.html' });
   replaceCode('Arquivo index.html', '<p>meu</p>');
   await userEvent.click(screen.getByRole('button', { name: 'Abrir modelo em aba' }));
+  // The tab opens behind the library, which stays open until Esc.
+  expect(screen.getByRole('tree')).toBeInTheDocument();
+  treeItem('Ficha Tormenta').focus();
+  await userEvent.keyboard('{Escape}');
   await waitFor(() => expect(screen.queryByRole('tree')).not.toBeInTheDocument());
   await screen.findByRole('region', { name: 'Editor do modelo' });
   return deps;

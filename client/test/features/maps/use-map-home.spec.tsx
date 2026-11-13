@@ -96,11 +96,14 @@ describe('the home of the table', { timeout: 20_000 }, () => {
     expect(button).not.toHaveTextContent(VHARN.name);
   });
 
-  it('the name of the table stays text, as the heading of the room', async () => {
+  it('the name of the table opens the table menu, not the main map', async () => {
     await enterRoom();
     const heading = screen.getByRole('heading', { level: 1, name: VHARN.name });
     expect(heading).not.toContainElement(homeButton());
-    expect(within(heading).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(heading).getByRole('button', { name: VHARN.name })).toHaveAttribute(
+      'aria-haspopup',
+      'menu',
+    );
   });
 
   it('Shift+M goes back to the main map, even from a document on screen', async () => {
@@ -109,6 +112,14 @@ describe('the home of the table', { timeout: 20_000 }, () => {
     fireEvent.keyDown(document.body, { key: 'M', shiftKey: true });
     expect(activeKey()).toBe(MAP_KEY);
     expect(openMaps()).toBe(1);
+  });
+
+  it('Shift+M with the main map on screen goes back to the document shown before', async () => {
+    await enterRoom();
+    const doc = openDocument();
+    act(() => void fireEvent.keyDown(document.body, { key: 'M', shiftKey: true }));
+    act(() => void fireEvent.keyDown(document.body, { key: 'M', shiftKey: true }));
+    expect(activeKey()).toBe(doc);
   });
 
   it('the button is the current place while the main map is on screen', async () => {
@@ -153,7 +164,8 @@ describe('the home of the table', { timeout: 20_000 }, () => {
   it('leaving the table and entering again opens the main map again', async () => {
     const router = await enterRoom();
     backToBoard();
-    await userEvent.click(screen.getByRole('button', { name: 'Sair da mesa' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Menu da mesa' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Sair da mesa' }));
     await waitFor(() => expect(deps.openTables.getState().tables).toEqual([]));
     // Back only once the room is gone, as a person would from the home: navigating while React has
     // not unmounted it yet keeps the same room mounted, and the table it closed never reopens.
@@ -233,7 +245,7 @@ describe('the home of the table', { timeout: 20_000 }, () => {
     await enterRoom();
     expect(screen.getByRole('heading', { level: 1, name: VHARN.name })).toBeInTheDocument();
     expect(queryHomeButton()).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sair da mesa' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Menu da mesa' })).toBeInTheDocument();
     expect(openMaps()).toBe(0);
   });
 

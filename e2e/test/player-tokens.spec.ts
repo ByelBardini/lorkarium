@@ -2,7 +2,12 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { BIA, CAIO } from './support/dev-players';
 import { test } from './support/player-pages';
 import { adminCredentials, signIn } from './support/sign-in';
-import { createTableAndReadCode, enterFromTheList, joinByCodeAndEnter } from './support/tables';
+import {
+  chooseFromTableMenu,
+  createTableAndReadCode,
+  enterFromTheList,
+  joinByCodeAndEnter,
+} from './support/tables';
 import { cardOf, chooseController, openCard } from './support/token-cards';
 
 const CREATE_SETTING = 'Jogadores criam e editam tokens';
@@ -17,7 +22,7 @@ async function setTokenSettings(
   master: Page,
   settings: Readonly<Record<string, boolean>>,
 ): Promise<void> {
-  await master.getByRole('link', { name: 'Configurações da mesa' }).click();
+  await chooseFromTableMenu(master, 'Configurações da mesa');
   const form = settingsFormOf(master);
   await expect(form).toBeVisible();
   for (const [name, on] of Object.entries(settings)) {

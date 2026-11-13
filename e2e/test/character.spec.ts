@@ -1,7 +1,13 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { test } from './support/player-pages';
 import { BIA } from './support/dev-players';
-import { createGrid, gridItemOf, openLibrary, takeTheGroupTo } from './support/library';
+import {
+  closeLibrary,
+  createGrid,
+  gridItemOf,
+  openLibrary,
+  takeTheGroupTo,
+} from './support/library';
 import { adminCredentials, signIn } from './support/sign-in';
 import {
   boardOf,
@@ -77,7 +83,7 @@ test('the character crosses grids: linked to the token, added to the Estrada, wi
   await nameField.fill('Salão');
   await nameField.press('Enter');
   await expect(gridItemOf(library, 'Salão')).toBeVisible();
-  await library.getByRole('button', { name: 'Fechar biblioteca' }).click();
+  await closeLibrary(admin);
   await expect(boardOf(admin)).toHaveAccessibleName(/^Tabuleiro: Salão/);
   await createCharacterTokenWithPv(admin, 'Lyra', 'Bia');
   await lightLyraHere(admin);
@@ -88,6 +94,7 @@ test('the character crosses grids: linked to the token, added to the Estrada, wi
   await createGrid(estradaLibrary, 'Estrada');
   await estradaLibrary.getByRole('button', { name: 'Abrir pra preparar' }).click();
   await expect(boardOf(admin)).toHaveAccessibleName(/^Tabuleiro: Estrada/);
+  await closeLibrary(admin);
   await admin.getByRole('button', { name: 'Adicionar jogadores' }).click();
   await openCard(admin, 'Lyra');
 
@@ -97,12 +104,7 @@ test('the character crosses grids: linked to the token, added to the Estrada, wi
 
   // Ana takes the group to the Estrada: Bia's Lyra there has the PV and the condition.
   await takeTheGroupTo(await openLibrary(admin), 'Estrada');
-  await admin
-    .getByRole('dialog', { name: 'Biblioteca', exact: true })
-    .getByRole('button', {
-      name: 'Fechar biblioteca',
-    })
-    .click();
+  await closeLibrary(admin);
   await expect(boardOf(bia)).toHaveAccessibleName(/^Tabuleiro: Estrada/);
   await expectHurtAndPoisoned(bia);
 

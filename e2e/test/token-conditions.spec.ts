@@ -3,7 +3,12 @@ import { test } from './support/player-pages';
 import { BIA } from './support/dev-players';
 import { cellCenterOf } from './support/board-cells';
 import { adminCredentials, signIn } from './support/sign-in';
-import { createTableAndReadCode, enterFromTheList, joinByCodeAndEnter } from './support/tables';
+import {
+  createTableAndReadCode,
+  enterFromTheList,
+  joinByCodeAndEnter,
+  showRoomTab,
+} from './support/tables';
 import { createTokenFor } from './support/token-cards';
 
 // A new token lands at the middle of the default scene.
@@ -39,7 +44,7 @@ test('the card of a hovered token lists all its conditions, the looks first, the
   await joinByCodeAndEnter(bia, code, admin);
   await enterFromTheList(admin, name);
   // The token's detail lives on the "Combate" tab; entering the table opens "Na mesa".
-  await admin.getByRole('tab', { name: 'Combate' }).click();
+  await showRoomTab(admin, 'Combate');
 
   await createTokenFor(admin, 'Kael', 'Bia');
   await admin.getByRole('button', { name: 'Selecionar (V)' }).click();

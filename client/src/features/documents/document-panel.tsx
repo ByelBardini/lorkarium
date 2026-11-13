@@ -23,6 +23,7 @@ import { useLibrarySubmit, type LibrarySubmit } from '@/features/library/use-lib
 import { DocumentSharing } from './document-sharing';
 import { DOCUMENT_SAVE_LABEL } from './document-messages';
 import { DocumentPanelDialog, type DocumentPanelConfirmation } from './document-panel-dialog';
+import { DocumentPreviewFields } from './document-preview-fields';
 import { DocumentTabBody } from './document-tab-body';
 import { DocumentTabStrip } from './document-tab-strip';
 import { DraftProblemActions } from './draft-problem-actions';
@@ -250,6 +251,15 @@ function DocumentPanelContent(
         onDiscard={() => state.discard()}
         onConfirmReload={askReload}
         onRetry={() => void state.flush()}
+      />
+      <DocumentPreviewFields
+        document={document}
+        api={props.api}
+        campaignId={props.campaign.id}
+        library={props.library}
+        tabId={activeTabId}
+        canEdit={editable && props.live}
+        onSave={(preview) => state.savePreview(preview)}
       />
       {props.mapAppearances}
       <DocumentTabStrip

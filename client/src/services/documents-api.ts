@@ -14,6 +14,7 @@ import {
   type CreateDocumentRequestDto,
   type ReorderDocumentTabsRequestDto,
   type UpdateDocumentContentRequestDto,
+  type UpdateDocumentPreviewRequestDto,
   type UpdateDocumentRequestDto,
   type UpdateDocumentTabContentRequestDto,
   type UpdateDocumentTabRequestDto,
@@ -73,6 +74,12 @@ export interface DocumentsApi {
     campaignId: string,
     documentId: string,
     input: UpdateDocumentRequestDto,
+  ): Promise<DocumentsResult<DocumentWriteResponseDto>>;
+  /** The library card (summary and cover), against the document's version. */
+  savePreview(
+    campaignId: string,
+    documentId: string,
+    input: UpdateDocumentPreviewRequestDto,
   ): Promise<DocumentsResult<DocumentWriteResponseDto>>;
   remove(
     campaignId: string,
@@ -167,6 +174,14 @@ export class HttpDocumentsApi implements DocumentsApi {
     input: UpdateDocumentRequestDto,
   ): Promise<DocumentsResult<DocumentWriteResponseDto>> {
     return this.answer('PATCH', pathOf(campaignId, documentId), documentWriteResponseDto, input);
+  }
+  savePreview(
+    campaignId: string,
+    documentId: string,
+    input: UpdateDocumentPreviewRequestDto,
+  ): Promise<DocumentsResult<DocumentWriteResponseDto>> {
+    const path = `${pathOf(campaignId, documentId)}/preview`;
+    return this.answer('PATCH', path, documentWriteResponseDto, input);
   }
   async remove(
     campaignId: string,

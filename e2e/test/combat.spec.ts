@@ -3,7 +3,12 @@ import { test } from './support/player-pages';
 import { BIA, CAIO } from './support/dev-players';
 import { cellCenterOf } from './support/board-cells';
 import { adminCredentials, signIn } from './support/sign-in';
-import { createTableAndReadCode, enterFromTheList, joinByCodeAndEnter } from './support/tables';
+import {
+  createTableAndReadCode,
+  enterFromTheList,
+  joinByCodeAndEnter,
+  showRoomTab,
+} from './support/tables';
 import { chooseController, statusOf } from './support/token-cards';
 
 // Only the entries: the tokens of a group are list items nested inside them.
@@ -31,7 +36,7 @@ function recapOf(page: Page): Locator {
 }
 
 function turnLine(page: Page): Locator {
-  return page.getByRole('region', { name: 'Topo da sala' }).getByLabel('Rodada e vez');
+  return page.getByRole('region', { name: 'Abas da sala' }).getByLabel('Rodada e vez');
 }
 
 async function choose(page: Page, menu: string, item: string): Promise<void> {
@@ -51,7 +56,7 @@ async function deleteFromTheBoard(admin: Page, token: Locator, question: string)
 }
 
 async function showCombat(page: Page): Promise<void> {
-  await page.getByRole('tab', { name: 'Combate' }).click();
+  await showRoomTab(page, 'Combate');
 }
 
 async function createToken(

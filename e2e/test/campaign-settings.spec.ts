@@ -3,7 +3,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { BIA, CAIO } from './support/dev-players';
 import { test } from './support/player-pages';
 import { adminCredentials, signIn } from './support/sign-in';
-import { createTableAndReadCode, joinByCodeAndEnter } from './support/tables';
+import { chooseFromTableMenu, createTableAndReadCode, joinByCodeAndEnter } from './support/tables';
 
 const WIDE_IMAGE = fileURLToPath(new URL('./fixtures/mapa-1400x700.png', import.meta.url));
 
@@ -55,7 +55,7 @@ function settingsHeaderOf(page: Page): Locator {
 }
 
 // The server only takes the settings of a table its master has open: in the room first, then
-// its "Configurações da mesa" button.
+// "Configurações da mesa" in its table menu.
 async function enterAndOpenSettings(master: Page, name: string): Promise<void> {
   await master
     .getByRole('main')
@@ -66,7 +66,7 @@ async function enterAndOpenSettings(master: Page, name: string): Promise<void> {
     .getByRole('button', { name: 'Entrar na mesa' })
     .click();
   await expect(master).toHaveURL((url) => url.pathname.endsWith('/table'));
-  await master.getByRole('link', { name: 'Configurações da mesa' }).click();
+  await chooseFromTableMenu(master, 'Configurações da mesa');
   await expect(master).toHaveURL((url) => url.pathname.endsWith('/table/settings'));
   await expect(settingsFormOf(master)).toBeVisible();
 }

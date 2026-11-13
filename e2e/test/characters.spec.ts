@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { test } from './support/player-pages';
 import { BIA, CAIO } from './support/dev-players';
-import { createGrid, gridItemOf, openLibrary } from './support/library';
+import { closeLibrary, createGrid, gridItemOf, openLibrary } from './support/library';
 import { createStarterTemplate, newSheetFromCard, openSheetFromCard } from './support/sheets';
 import { adminCredentials, signIn } from './support/sign-in';
 import {
@@ -10,6 +10,7 @@ import {
   enterFromTheList,
   joinAsSpectatorAndEnter,
   openRoomPeople,
+  showRoomTab,
   spectatorsOf,
 } from './support/tables';
 import { cardOf, createCharacterTokenWithPv, openCard, statusOf } from './support/token-cards';
@@ -39,7 +40,7 @@ async function nameTheSalao(admin: Page): Promise<void> {
   await nameField.fill('Salão');
   await nameField.press('Enter');
   await expect(gridItemOf(library, 'Salão')).toBeVisible();
-  await library.getByRole('button', { name: 'Fechar biblioteca' }).click();
+  await closeLibrary(admin);
   await expect(boardOf(admin)).toHaveAccessibleName(/^Tabuleiro: Salão/);
 }
 
@@ -54,12 +55,14 @@ async function caioOpensTheEstrada(admin: Page, caio: Page): Promise<void> {
   await createGrid(library, 'Estrada');
   await library.getByRole('button', { name: 'Abrir pra preparar' }).click();
   await expect(boardOf(admin)).toHaveAccessibleName(/^Tabuleiro: Estrada/);
+  await closeLibrary(admin);
   await admin.getByRole('button', { name: 'Adicionar jogadores' }).click();
   await openCard(admin, 'Lyra');
   const caioLibrary = await openLibrary(caio);
   await gridItemOf(caioLibrary, 'Estrada').click();
   await caioLibrary.getByRole('button', { name: 'Abrir pra preparar' }).click();
   await expect(boardOf(caio)).toHaveAccessibleName(/^Tabuleiro: Estrada/);
+  await closeLibrary(caio);
 }
 
 // Bia, in the Salão, takes 7 PV off her Lyra through the balloon of the dock.
@@ -74,7 +77,7 @@ async function hurtLyra(bia: Page): Promise<void> {
 }
 
 async function writeArmorClass(bia: Page): Promise<void> {
-  await bia.getByRole('tab', { name: 'Na mesa' }).click();
+  await showRoomTab(bia, 'Na mesa');
   const armor = playerCardOf(bia, 'Lyra').getByRole('textbox', { name: 'CA de Lyra' });
   await armor.fill('15');
   await armor.press('Enter');

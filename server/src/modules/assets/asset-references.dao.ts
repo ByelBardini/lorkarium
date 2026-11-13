@@ -5,6 +5,7 @@ import { campaigns } from '../campaigns/campaigns.po';
 import { characters } from '../characters/characters.po';
 import { conditionDefinitions } from '../conditions/conditions.po';
 import { libraryDocumentAssets } from '../documents/document-assets.po';
+import { libraryDocuments } from '../documents/documents.po';
 import { libraryImages } from '../library/library-images.po';
 import { libraryMaps } from '../library-maps/library-maps.po';
 import { scenes } from '../scenes/scenes.po';
@@ -32,6 +33,7 @@ const ASSET_FOREIGN_KEYS: readonly AssetForeignKey[] = [
   { table: libraryImages, column: libraryImages.assetId },
   { table: libraryMaps, column: libraryMaps.assetId },
   { table: libraryDocumentAssets, column: libraryDocumentAssets.assetId },
+  { table: libraryDocuments, column: libraryDocuments.previewAssetId },
   { table: sheetAssets, column: sheetAssets.assetId },
 ];
 

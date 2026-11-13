@@ -3,7 +3,12 @@ import { cellCenterOf, dragBetweenCells } from './support/board-cells';
 import { BIA, CAIO } from './support/dev-players';
 import { test } from './support/player-pages';
 import { adminCredentials, signIn } from './support/sign-in';
-import { createTableAndReadCode, enterFromTheList, joinByCodeAndEnter } from './support/tables';
+import {
+  createTableAndReadCode,
+  enterFromTheList,
+  joinByCodeAndEnter,
+  showRoomTab,
+} from './support/tables';
 import { cardOf, createTokenFor, openCard, statusOf } from './support/token-cards';
 
 const STALE_UNDO = 'Alguém mexeu nisso depois; não dá para desfazer.';
@@ -86,7 +91,7 @@ test('drawings, copy and undo: drawn for everyone, on their own layer, pasted, u
   await admin.mouse.move(target.x, target.y);
   await admin.keyboard.press('Control+v');
   // "Na cena" lives on the "Combate" tab; entering the table opens "Na mesa".
-  for (const page of [admin, bia, caio]) await page.getByRole('tab', { name: 'Combate' }).click();
+  for (const page of [admin, bia, caio]) await showRoomTab(page, 'Combate');
   for (const page of [admin, bia, caio]) await expect(goblinsOf(page)).toHaveCount(2);
 
   // Ctrl+Z undoes the paste for the three of them.

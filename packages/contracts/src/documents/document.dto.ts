@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { sceneVisibilityDto } from '../library/library.dto';
 import { documentTabSummaryDto } from './document-tab.dto';
 import { documentVersionDto, versionedActionShape } from './document-version.dto';
+import { documentPreviewDto } from './document-preview.dto';
 
 export const DOCUMENT_NAME_MAX_LENGTH = 60;
 export const UNNAMED_DOCUMENT_NAME = 'Documento sem nome';
@@ -19,6 +20,7 @@ export const documentSummaryDto = z.strictObject({
   canEdit: z.boolean(),
   canManage: z.boolean(),
   ownerIds: documentOwnerIdsDto.optional(),
+  preview: documentPreviewDto,
 });
 export type DocumentSummaryDto = z.infer<typeof documentSummaryDto>;
 export const documentDto = documentSummaryDto.extend({
@@ -71,6 +73,7 @@ export const documentReceiptDto = z.strictObject({
     'tab-reorder',
     'tab-delete',
     'tab-content',
+    'preview',
   ]),
 });
 export type DocumentReceiptDto = z.infer<typeof documentReceiptDto>;

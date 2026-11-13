@@ -12,11 +12,11 @@ import {
 } from '../../support/library-fixtures';
 import { openLibrary } from '../../support/library-harness';
 import {
-  libraryTree,
   menuItemNames,
   openCatacumbas,
   openTreeMenu,
   pickNewItemKind,
+  treeArea,
   treeItem,
 } from '../../support/library-tree';
 import { VHARN_SCENE } from '../../support/table-session-fixtures';
@@ -35,13 +35,6 @@ describe('the context menu of the library tree', () => {
   async function choose(target: HTMLElement, action: string): Promise<void> {
     const menu = await openTreeMenu(target);
     await userEvent.click(within(menu).getByRole('menuitem', { name: action }));
-  }
-
-  // The empty space under the tree belongs to the root, like "Sem pasta".
-  function treeArea(): HTMLElement {
-    const area = libraryTree().parentElement;
-    if (!area) throw new Error('the tree has no scroll area around it');
-    return area;
   }
 
   describe('what each place offers', () => {
@@ -67,12 +60,12 @@ describe('the context menu of the library tree', () => {
       ]);
     });
 
-    it('"Sem pasta" and the empty area offer creating at the root', async () => {
+    it('the empty area of the tree offers creating at the root', async () => {
       await openLibrary(deps);
-      const atRoot = ['Criar novo item', 'Importar modelo…'];
-      expect(menuItemNames(await openTreeMenu(treeItem('Sem pasta')))).toEqual(atRoot);
-      await userEvent.keyboard('{Escape}');
-      expect(menuItemNames(await openTreeMenu(treeArea()))).toEqual(atRoot);
+      expect(menuItemNames(await openTreeMenu(treeArea()))).toEqual([
+        'Criar novo item',
+        'Importar modelo…',
+      ]);
     });
 
     it('the menu key on the focused item opens the menu of that item', async () => {
@@ -108,7 +101,7 @@ describe('the context menu of the library tree', () => {
 
     it('a grid and a folder created on the root go without folder', async () => {
       await openLibrary(deps);
-      await createBlank(treeItem('Sem pasta'), 'Grid');
+      await createBlank(treeArea(), 'Grid');
       expect(deps.libraryApi.callsOf('createScene')).toEqual([[{ folderId: null }]]);
       await choose(treeArea(), 'Criar novo item');
       const dialog = await pickNewItemKind('Pasta');
@@ -148,7 +141,7 @@ describe('the context menu of the library tree', () => {
       await userEvent.clear(field);
       await userEvent.type(field, 'Cidade{Escape}');
       expect(screen.queryByRole('textbox', { name: 'Nome da pasta' })).toBeNull();
-      expect(screen.getByRole('dialog', { name: 'Biblioteca' })).toBeInTheDocument();
+      expect(screen.getByRole('complementary', { name: 'Biblioteca' })).toBeInTheDocument();
       await choose(treeItem('Lugares fixos'), 'Renomear');
       await userEvent.type(screen.getByRole('textbox', { name: 'Nome da pasta' }), '{Enter}');
       expect(deps.libraryApi.callsOf('updateFolder')).toEqual([]);
@@ -289,7 +282,7 @@ describe('the context menu of the library tree', () => {
         LUGARES_FIXOS.id,
       );
       await userEvent.click(screen.getByRole('button', { name: 'Mover' }));
-      const library = screen.getByRole('dialog', { name: 'Biblioteca' });
+      const library = screen.getByRole('complementary', { name: 'Biblioteca' });
       await waitFor(() =>
         expect(within(library).getByRole('status')).toHaveTextContent(
           'Uma pasta não entra nela mesma nem numa pasta de dentro dela.',
@@ -301,7 +294,7 @@ describe('the context menu of the library tree', () => {
   it('while reconnecting every item of every menu is disabled', async () => {
     await openLibrary(deps);
     deps.tableSessionApi.emit({ kind: 'status', status: 'reconnecting' });
-    for (const target of [treeItem('Ato 1'), treeItem('Cena 1'), treeItem('Sem pasta')]) {
+    for (const target of [treeItem('Ato 1'), treeItem('Cena 1'), treeArea()]) {
       const menu = await openTreeMenu(target);
       for (const item of within(menu).getAllByRole('menuitem')) {
         expect(item).toHaveAttribute('aria-disabled', 'true');

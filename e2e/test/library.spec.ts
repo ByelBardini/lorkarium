@@ -2,18 +2,21 @@ import { expect } from '@playwright/test';
 import { test } from './support/player-pages';
 import { BIA } from './support/dev-players';
 import {
+  closeLibrary,
   createBlankGrid,
   createFolder,
   createGrid,
+  expectTabsOf,
   gridItemOf,
   gridNoticeOf,
-  expectTabsOf,
   gridTabsOf,
+  libraryOf,
   nameNewGrid,
   openLibrary,
   pickGrid,
   setGridVisibility,
   takeTheGroupTo,
+  treeOf,
 } from './support/library';
 import { adminCredentials, signIn } from './support/sign-in';
 import {
@@ -38,19 +41,21 @@ test('the library between master and player: a private grid stays hidden, a publ
   await joinByCodeAndEnter(bia, code, admin);
   await enterFromTheList(admin, name);
 
-  // Ana prepares the Torre in a subfolder, with Bia's Lyra on it; a new grid is born private.
+  // Ana prepares the Torre, with Bia's Lyra on it; a new grid is born private. Opening it in a
+  // tab leaves the library open beside the board.
   const library = await openLibrary(admin);
   await createFolder(library, 'Ato 1');
-  await createFolder(library, 'Norte');
+  await createFolder(library, 'Norte', 'Ato 1');
   await createGrid(library, 'Torre');
   await expect(gridItemOf(library, 'Torre')).toHaveAccessibleDescription(/^Grid · Privado/);
   await library.getByRole('button', { name: 'Abrir pra preparar' }).click();
-  await expect(library).toBeHidden();
   await expect(gridTabsOf(admin).getByRole('tab', { name: 'Torre' })).toHaveAttribute(
     'aria-selected',
     'true',
   );
   await expect(boardOf(admin)).toHaveAccessibleName(/^Tabuleiro: Torre/);
+  await expect(library).toBeVisible();
+  await closeLibrary(admin);
   await createTokenFor(admin, 'Lyra', 'Bia');
 
   // Bia's library only has the group grid.
@@ -63,8 +68,8 @@ test('the library between master and player: a private grid stays hidden, a publ
   await setGridVisibility(adminLibrary, 'Torre', 'Público');
   await pickGrid(biaLibrary, 'Torre');
   await biaLibrary.getByRole('button', { name: 'Abrir', exact: true }).click();
-  await expect(biaLibrary).toBeHidden();
   await expect(boardOf(bia)).toHaveAccessibleName(/^Tabuleiro: Torre/);
+  await closeLibrary(bia);
 
   // Bia moves Lyra there and Ana, on the same grid, sees it.
   await openCard(bia, 'Lyra');
@@ -73,7 +78,7 @@ test('the library between master and player: a private grid stays hidden, a publ
   await expect(statusOf(bia)).toContainText('Lyra selecionado, coluna 11, linha 7');
   await bia.keyboard.press('ArrowRight');
   await expect(statusOf(bia)).toContainText('Lyra foi para a coluna 12, linha 7');
-  await adminLibrary.getByRole('button', { name: 'Fechar biblioteca' }).click();
+  await closeLibrary(admin);
   await openCard(admin, 'Lyra');
   await expect(cardOf(admin, 'Lyra')).toContainText('Coluna 12, linha 7');
 
@@ -85,12 +90,12 @@ test('the library between master and player: a private grid stays hidden, a publ
 
   // Ana creates the Estrada at the root by the tree's menu and takes the group there: Bia's
   // group tab becomes the Estrada.
-  const estradaLibrary = admin.getByRole('dialog', { name: 'Biblioteca', exact: true });
-  // The row of "Sem pasta" itself: the center of the open item falls on its grids.
-  await gridItemOf(estradaLibrary, 'Sem pasta').click({
-    button: 'right',
-    position: { x: 60, y: 16 },
-  });
+  const estradaLibrary = libraryOf(admin);
+  // The empty space under the tree gives the menu of the root (there is no "Sem pasta" row).
+  const treeArea = treeOf(estradaLibrary).locator('..');
+  const area = await treeArea.boundingBox();
+  if (!area) throw new Error('the tree area of the library has no box');
+  await treeArea.click({ button: 'right', position: { x: 40, y: area.height - 12 } });
   await admin.getByRole('menuitem', { name: 'Criar novo item', exact: true }).click();
   await createBlankGrid(admin);
   await nameNewGrid(estradaLibrary, 'Estrada');
@@ -98,7 +103,7 @@ test('the library between master and player: a private grid stays hidden, a publ
   await expect(gridNoticeOf(bia)).toHaveText('O mestre levou o grupo para Estrada.');
   await expect(gridTabsOf(bia).getByRole('tab')).toHaveText([/^Estrada\s*Grupo$/i]);
   await expect(boardOf(bia)).toHaveAccessibleName(/^Tabuleiro: Estrada/);
-  await estradaLibrary.getByRole('button', { name: 'Fechar biblioteca' }).click();
+  await closeLibrary(admin);
   await expectTabsOf(admin, [/^Estrada/, 'Torre'], []);
 
   // An F5 keeps the tabs of each one.

@@ -10,7 +10,7 @@ import {
 } from '@/lib/library-entries';
 import type { LibraryContents, TreeFolder, TreeScene, VisibilityFilter } from '@/lib/folder-tree';
 
-/** The tree item of the grids without folder; a folder's item is its id. */
+/** The root as a drop target (out of any folder); a folder's tree item is its id. */
 export const NO_FOLDER = 'loose';
 
 const SCENE_KEY_PREFIX = 'scene:';
@@ -28,7 +28,7 @@ export function sceneKey(sceneId: string): string {
     : `${SCENE_KEY_PREFIX}${sceneId}`;
 }
 
-/** The grid of a tree item, or `null` for a folder, "Sem pasta" or nothing.
+/** The grid of a tree item, or `null` for a folder, the root or nothing.
  *
  *  Example: `sceneIdOf(sceneKey(ossuarioId)) // ossuarioId` */
 export function sceneIdOf(key: string | null): string | null {
@@ -61,9 +61,26 @@ export function folderForNew(
   return library.folders.some(({ id }) => id === key) ? key : null;
 }
 
+const TYPE_FILTERS: readonly LibraryTypeFilter[] = [
+  'all',
+  'grid',
+  'image',
+  'map',
+  'document',
+  'sheet-template',
+  'sheet',
+];
+
+/** The type filter asked by the address (`?type=grid`); anything else shows every type.
+ *
+ *  Example: `libraryTypeOf(searchParams.get('type')) // 'grid'` */
+export function libraryTypeOf(raw: string | null): LibraryTypeFilter {
+  return TYPE_FILTERS.find((type) => type === raw) ?? 'all';
+}
+
 /** What the library shows right now; nothing of it goes to the server. */
 export type LibraryView = Readonly<{
-  /** The tree item picked: a folder id, `NO_FOLDER`, a `sceneKey` or nothing. */
+  /** The tree item picked: a folder id, an item key (`sceneKey`, `imageKey`…) or nothing. */
   pickedKey: string | null;
   query: string;
   visibility: VisibilityFilter;
@@ -77,10 +94,10 @@ export type LibraryView = Readonly<{
 /** The local state of the library: the item picked in the tree, the search and the filter.
  *
  *  Example: `const view = useLibraryView(); view.pick(sceneKey(ossuarioId))` */
-export function useLibraryView(): LibraryView {
+export function useLibraryView(initialType: LibraryTypeFilter = 'all'): LibraryView {
   const [pickedKey, pick] = useState<string | null>(null);
   const [query, search] = useState('');
   const [visibility, filter] = useState<VisibilityFilter>('all');
-  const [type, filterType] = useState<LibraryTypeFilter>('all');
+  const [type, filterType] = useState<LibraryTypeFilter>(initialType);
   return { pickedKey, query, visibility, pick, search, filter, type, filterType };
 }

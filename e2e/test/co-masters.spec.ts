@@ -4,10 +4,12 @@ import { test } from './support/player-pages';
 import { adminCredentials, signIn } from './support/sign-in';
 import {
   boardOf,
+  chooseFromTableMenu,
   createTableAndReadCode,
   enterFromTheList,
   joinAsSpectatorAndEnter,
   openRoomPeople,
+  showRoomTab,
   spectatorsOf,
 } from './support/tables';
 import { cardOf, openCard, statusOf } from './support/token-cards';
@@ -27,7 +29,7 @@ function wolfRowOf(page: Page): Locator {
 }
 
 async function expectWolfInScene(page: Page, count: 0 | 1): Promise<void> {
-  await page.getByRole('tab', { name: 'Combate' }).click();
+  await showRoomTab(page, 'Combate');
   await expect(wolfRowOf(page)).toHaveCount(count);
 }
 
@@ -59,11 +61,7 @@ async function enterAsJuggernaut(admin: Page, name: string): Promise<void> {
 }
 
 async function leaveJuggernautMode(admin: Page): Promise<void> {
-  await admin
-    .getByRole('region', { name: 'Topo da sala' })
-    .getByRole('button', { name: 'Mais ações da mesa' })
-    .click();
-  await admin.getByRole('menuitem', { name: 'Sair do modo juggernaut' }).click();
+  await chooseFromTableMenu(admin, 'Sair do modo juggernaut');
   await expect(admin).toHaveURL(/\/campaigns\/public$/);
 }
 

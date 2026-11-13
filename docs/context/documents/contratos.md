@@ -24,7 +24,9 @@ Orçamento: 512 KiB JSON UTF-8, 100000 caracteres de texto, 10000 nós, profundi
 - `importDocumentImageRequestDto`: `url` com a regra já existente de importação de assets.
 - `documentImageFromLibraryRequestDto`: `imageId` UUID; resposta de imagem é `assetResponseDto`.
 
-`DocumentSummaryDto`: id, name, folderId, visibility, version, updatedAt, canEdit, canManage e ownerIds opcional (só mestre). `DocumentDto` acrescenta `schemaVersion: 2` e `tabs: DocumentTabSummaryDto[]` (obrigatório), sem corpo: o conteúdo vem por aba. `documentResponseDto` envolve em `{document}`; escrita envolve `{document, receipt}`. Recibo leva actionId, documentId, `tabId?`, version e operation (`create`, `content`, `update`, `delete`, `tab-create`, `tab-update`, `tab-reorder`, `tab-delete`, `tab-content`), sem corpo.
+`DocumentSummaryDto`: id, name, folderId, visibility, version, updatedAt, canEdit, canManage, ownerIds opcional (só mestre) e `preview` obrigatório. `DocumentDto` acrescenta `schemaVersion: 2` e `tabs: DocumentTabSummaryDto[]` (obrigatório), sem corpo: o conteúdo vem por aba. `documentResponseDto` envolve em `{document}`; escrita envolve `{document, receipt}`. Recibo leva actionId, documentId, `tabId?`, version e operation (`create`, `content`, `update`, `delete`, `tab-create`, `tab-update`, `tab-reorder`, `tab-delete`, `tab-content`, `preview`), sem corpo.
+
+**Prévia** (`document-preview.dto.ts`): o cartão da biblioteca, à parte do corpo (nunca derivado dele). `documentPreviewDto` `{ summary, imageAssetId }`: `summary` aparado 1–280 (`DOCUMENT_PREVIEW_SUMMARY_MAX_LENGTH`) ou `null` (em branco não é resumo: o client manda `null`), `imageAssetId` uuid ou `null`; `EMPTY_DOCUMENT_PREVIEW` = os dois nulos. `updateDocumentPreviewRequestDto` = `versionedActionShape` + a prévia **inteira** a cada vez (`null` limpa); resposta `documentWriteResponseDto`.
 
 `documentVersionDto` (inteiro não negativo) e `versionedActionShape` (`actionId` + `expectedVersion`) moram em `document-version.dto.ts`, compartilhados por `document.dto.ts` e `document-tab.dto.ts` sem um importar o outro em ciclo.
 
