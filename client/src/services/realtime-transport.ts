@@ -19,7 +19,8 @@ export interface RealtimeTransport {
   disconnect(): void;
   isConnected(): boolean;
   emit(event: string, payload: unknown): void;
-  /** Rejects when no ack arrives within `timeoutMs`. */
+  /** Rejects when no ack arrives within `timeoutMs`. `payload` `undefined` sends the ack alone,
+   *  for an event whose handler takes no payload (`presence:sync`). */
   emitWithAck(event: string, payload: unknown, timeoutMs: number): Promise<unknown>;
   on(event: string, listener: (payload: unknown) => void): Unsubscribe;
   onLifecycle(listener: (change: RealtimeLifecycle) => void): Unsubscribe;
@@ -63,7 +64,8 @@ export class SocketIoRealtimeTransport implements RealtimeTransport {
   }
 
   emitWithAck(event: string, payload: unknown, timeoutMs: number): Promise<unknown> {
-    return this.socket.timeout(timeoutMs).emitWithAck(event, payload);
+    const timed = this.socket.timeout(timeoutMs);
+    return payload === undefined ? timed.emitWithAck(event) : timed.emitWithAck(event, payload);
   }
 
   on(event: string, listener: (payload: unknown) => void): Unsubscribe {

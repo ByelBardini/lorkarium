@@ -1,5 +1,11 @@
 import type { AuthUserDto } from '@lorkarium/contracts';
-import { CompassIcon, LayoutListIcon, PanelLeftCloseIcon, PanelLeftOpenIcon } from 'lucide-react';
+import {
+  CompassIcon,
+  LayoutListIcon,
+  UsersRoundIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { NavLink, useMatch } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
@@ -7,18 +13,22 @@ import { BrandMark } from '@/components/brand-mark';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { EXPLORE_PATH } from '@/features/explore/explore-path';
+import { FRIENDS_PATH } from '@/features/friends/friends-path';
 import { cn } from '@/lib/utils';
 import type { OpenTablesStore } from '@/stores/open-tables-store';
 import { useRail, type RailStore } from '@/stores/rail-store';
 import { OpenTablesNav } from './open-tables-nav';
 import { railLinkClass } from './rail-link-class';
-import { UserMenu } from './user-menu';
+import { UserMenu, type UserMenuPresence } from './user-menu';
 
 export type AppRailProps = Readonly<{
   railStore: StoreApi<RailStore>;
   openTables: StoreApi<OpenTablesStore>;
   user: AuthUserDto;
   onSignOut: () => Promise<void>;
+  /** Received friend requests plus unread direct messages: the badge of "Amigos". */
+  friendsBadge?: number;
+  presence?: UserMenuPresence;
   /** Forced collapsed with no toggle, leaving the stored preference alone (the play room). */
   compact?: boolean;
   /** Off in the desktop app, whose title bar already shows the logo right above. */
@@ -35,6 +45,8 @@ export function AppRail({
   openTables,
   user,
   onSignOut,
+  friendsBadge = 0,
+  presence,
   compact = false,
   showBrand = true,
   className,
@@ -51,10 +63,10 @@ export function AppRail({
       )}
     >
       {showBrand && <RailBrand expanded={expanded} />}
-      <RailNav expanded={expanded} />
+      <RailNav expanded={expanded} friendsBadge={friendsBadge} />
       <OpenTablesNav openTables={openTables} expanded={expanded} />
       <div className="mt-auto flex flex-col gap-1 border-t border-border p-2">
-        <UserMenu user={user} expanded={expanded} onSignOut={onSignOut} />
+        <UserMenu user={user} expanded={expanded} onSignOut={onSignOut} presence={presence} />
         {!compact && <RailToggle expanded={expanded} onToggle={toggle} />}
       </div>
     </aside>
@@ -70,10 +82,19 @@ export function RailBrand({ expanded }: Readonly<{ expanded: boolean }>): React.
   );
 }
 
-export type RailNavProps = Readonly<{ expanded: boolean; onNavigate?: () => void }>;
+export type RailNavProps = Readonly<{
+  expanded: boolean;
+  onNavigate?: () => void;
+  friendsBadge?: number;
+}>;
 
-/** The "Principal" nav; collapsed, each link keeps its name for screen readers and in a tooltip. */
-export function RailNav({ expanded, onNavigate }: RailNavProps): React.JSX.Element {
+/** The "Principal" nav; collapsed, each link keeps its name for screen readers and in a tooltip.
+ *  "Amigos" carries the badge of what waits there, gone at zero. */
+export function RailNav({
+  expanded,
+  onNavigate,
+  friendsBadge = 0,
+}: RailNavProps): React.JSX.Element {
   return (
     <TooltipProvider>
       <nav aria-label="Principal" className="flex flex-col gap-1 p-2">
@@ -91,6 +112,15 @@ export function RailNav({ expanded, onNavigate }: RailNavProps): React.JSX.Eleme
           expanded={expanded}
           onNavigate={onNavigate}
         />
+        <RailLink
+          to={FRIENDS_PATH}
+          label="Amigos"
+          icon={UsersRoundIcon}
+          expanded={expanded}
+          onNavigate={onNavigate}
+          badge={friendsBadge}
+          end={false}
+        />
       </nav>
     </TooltipProvider>
   );
@@ -102,6 +132,9 @@ type RailLinkProps = Readonly<{
   icon: LucideIcon;
   expanded: boolean;
   onNavigate?: () => void;
+  badge?: number;
+  /** `false`: also the current page under its path (`/friends/:userId`). */
+  end?: boolean;
 }>;
 
 function RailLink({
@@ -110,12 +143,20 @@ function RailLink({
   icon: Icon,
   expanded,
   onNavigate,
+  badge = 0,
+  end = true,
 }: RailLinkProps): React.JSX.Element {
-  const active = useMatch({ path: to, end: true }) !== null;
+  const active = useMatch({ path: to, end }) !== null;
   const link = (
-    <NavLink to={to} end onClick={onNavigate} className={railLinkClass(active, expanded)}>
+    <NavLink
+      to={to}
+      end={end}
+      onClick={onNavigate}
+      className={cn(railLinkClass(active, expanded), 'relative')}
+    >
       <Icon aria-hidden="true" className="size-4 shrink-0" />
       <span className={expanded ? undefined : 'sr-only'}>{label}</span>
+      {badge > 0 && <RailBadge count={badge} expanded={expanded} />}
     </NavLink>
   );
   if (expanded) return link;
@@ -124,6 +165,26 @@ function RailLink({
       <TooltipTrigger asChild>{link}</TooltipTrigger>
       <TooltipContent side="right">{label}</TooltipContent>
     </Tooltip>
+  );
+}
+
+function RailBadge({
+  count,
+  expanded,
+}: Readonly<{ count: number; expanded: boolean }>): React.JSX.Element {
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        className={cn(
+          'min-w-4 rounded-sm bg-primary px-1 text-center text-[11px] leading-4 font-semibold text-primary-foreground tabular-nums',
+          expanded ? 'ml-auto' : 'absolute top-1 right-1',
+        )}
+      >
+        {count > 99 ? '99+' : count}
+      </span>
+      <span className="sr-only">{`, ${count} ${count === 1 ? 'novidade' : 'novidades'}`}</span>
+    </>
   );
 }
 
