@@ -160,8 +160,8 @@ export interface TableSessionApi {
 
 /** `TableSessionApi` over the realtime transport; rejoins and syncs the board on every
  *  reconnection, since the snapshot (not the socket's own recovery) is the source of truth
- *  (spec §5.6). Every open table shares one connection: it connects with the first and
- *  disconnects after the last closes.
+ *  (spec §5.6). Every open table shares the account's connection (`AccountRealtime` connects
+ *  and disconnects it); a table opened before it is up joins on its `connected`.
  *
  *  `prefetchImage` gets each snapshot's background url before the board does.
  *
@@ -178,10 +178,8 @@ export class RealtimeTableSessionApi implements TableSessionApi {
   open(campaignId: string, listener: TableSessionListener): TableSessionHandle {
     const { transport, newActionId, prefetchImage } = this;
     const visit = new TableVisit(transport, newActionId, campaignId, listener, prefetchImage);
-    const isFirst = this.visits.size === 0;
     this.visits.add(visit);
     visit.start(this.transport.isConnected());
-    if (isFirst) this.transport.connect();
     return {
       close: () => this.close(visit),
       resync: () => void visit.syncBoard(),
@@ -194,6 +192,5 @@ export class RealtimeTableSessionApi implements TableSessionApi {
   private close(visit: TableVisit): void {
     if (!this.visits.delete(visit)) return;
     visit.close();
-    if (this.visits.size === 0) this.transport.disconnect();
   }
 }
