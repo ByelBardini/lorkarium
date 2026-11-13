@@ -17,6 +17,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 - `src/chat/` — chat da mesa (Socket.IO): `chat:send`, ack e `chat:sent`, sem versão
 - `src/plans/` — planos da conta: `USER_PLANS`, recursos do `PLAN_LIMIT`, a grade `PLAN_LIMITS` e `planLimitsDto`; [contratos](contracts/planos.md)
 - `src/sheets/` — fichas personalizadas: modelo (código do mestre), ficha na biblioteca (nome, pasta, dono opcional: token ou jogador), valores com orçamento, `sheet:changed`, `sheet:adjustBar` e a ponte frame ↔ host; [contratos](sheets/contratos.md). `src/utf8-length.ts` conta bytes UTF-8 sem `TextEncoder`
+- `src/friends/` e `src/direct-messages/` — amigos, pedidos, bloqueio (HTTP), presença da conta e mensagens diretas efêmeras (Socket.IO), tetos `FRIENDS_MAX`/`BLOCKS_MAX`/`OUTGOING_REQUESTS_MAX`/`DIRECT_MESSAGE_MAX_LENGTH` e o `typedUsernameDto` (tira o "@"); [contratos](contracts/amigos.md)
 - `test/<área>/` — specs só de DTO com regra própria (`transform`, `pipe`, `refine`)
 
 ## DTOs

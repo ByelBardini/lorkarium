@@ -12,6 +12,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Peças da mesa: capa, status, avisos, tags, prévia, `update`/código/excluir, eventos ao vivo    | [`campaign-parts.md`](client/campaign-parts.md)                 |
 | Página "Configurações da mesa" na sala: rota, moldura, ação, rascunho, seções, pendência       | [`campaign-settings.md`](client/campaign-settings.md)           |
 | Tempo real: transporte Socket.IO, sessão da mesa, mesas abertas da aba, presença e versão      | [`realtime.md`](client/realtime.md)                             |
+| Amigos: tela `/friends`, conexão da conta, `FriendsApi`, stores, status e mensagens locais     | [`friends.md`](client/friends.md)                               |
 | Sala de jogo: tabuleiro, renderer, câmera, ferramentas, sync e comandos                        | [`board.md`](client/board.md)                                   |
 | Renderer PixiJS: câmera, entrada, `BoardView`, hover, faixas, adaptador                        | [`board-renderer.md`](client/board-renderer.md)                 |
 | Atalhos da sala e do tabuleiro: F, Esc, ferramentas, câmera, edição                            | [`board-atalhos.md`](client/board-atalhos.md)                   |
