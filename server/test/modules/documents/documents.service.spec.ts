@@ -4,7 +4,9 @@ import {
   ACTION_ID,
   DOCUMENT_ID,
   GERAL_TAB_ID,
+  SEGREDOS_TAB_ID,
   DocumentsHarness,
+  documentAssetPo,
   documentPo,
 } from '../../support/documents-fakes';
 import { BIA_ID } from '../../support/campaigns-factories';
@@ -116,5 +118,99 @@ describe('DocumentsService', () => {
       code: 'DOCUMENT_NOT_FOUND',
     });
     expect(harness.documents.rows[0]?.name).toBe('Saved');
+  });
+});
+
+const MAPA = '1a1a1a1a-1a1a-4a1a-8a1a-1a1a1a1a1a1a';
+const SELO = '1b1b1b1b-1b1b-4b1b-8b1b-1b1b1b1b1b1b';
+describe('DocumentsService.updatePreview', () => {
+  // "Diário" v3 owned by Bia: the map prepared in "Geral", the seal only in "Segredos".
+  function diary(): DocumentsHarness {
+    const harness = new DocumentsHarness().withSecretTab({ visibility: 'public' });
+    harness.documents.ownerRows[DOCUMENT_ID] = [BIA_ID];
+    harness.assets.rows.push(
+      documentAssetPo({ assetId: MAPA, tabId: GERAL_TAB_ID }),
+      documentAssetPo({ assetId: SELO, tabId: SEGREDOS_TAB_ID }),
+    );
+    return harness;
+  }
+  const bia = (harness: DocumentsHarness) => ({ ...harness.requester, userId: BIA_ID });
+  const preview = { actionId: ACTION_ID, expectedVersion: 3, summary: 'Selada.' };
+
+  it('the owner sets summary and cover, bumping the version, and it is published after the commit', async () => {
+    const harness = diary();
+    const result = await new DocumentsService(harness.deps).updatePreview(
+      bia(harness),
+      DOCUMENT_ID,
+      { ...preview, imageAssetId: MAPA },
+    );
+    expect(result.document).toMatchObject({
+      version: 4,
+      preview: { summary: 'Selada.', imageAssetId: MAPA },
+    });
+    expect(result.receipt).toMatchObject({ operation: 'preview', version: 4 });
+    expect(harness.journal.slice(-2)).toEqual(['commit', 'publish']);
+  });
+  it('null clears both', async () => {
+    const harness = diary();
+    harness.documents.rows[0]!.previewSummary = 'Velho';
+    harness.documents.rows[0]!.previewAssetId = MAPA;
+    const result = await new DocumentsService(harness.deps).updatePreview(
+      harness.requester,
+      DOCUMENT_ID,
+      { ...preview, summary: null, imageAssetId: null },
+    );
+    expect(result.document.preview).toEqual({ summary: null, imageAssetId: null });
+  });
+  it('refuses the owner a cover only in the masters-only tab and writes nothing', async () => {
+    const harness = diary();
+    await expect(
+      new DocumentsService(harness.deps).updatePreview(bia(harness), DOCUMENT_ID, {
+        ...preview,
+        imageAssetId: SELO,
+      }),
+    ).rejects.toMatchObject({ code: 'DOCUMENT_ASSET_NOT_FOUND' });
+    expect(harness.documents.rows[0]).toMatchObject({ version: 3, previewAssetId: null });
+    expect(harness.journal).not.toContain('publish');
+  });
+  it('a player who does not own the public document is forbidden', async () => {
+    const harness = diary();
+    harness.documents.ownerRows[DOCUMENT_ID] = [];
+    await expect(
+      new DocumentsService(harness.deps).updatePreview(bia(harness), DOCUMENT_ID, {
+        ...preview,
+        imageAssetId: null,
+      }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
+  it('a stale version is a conflict and keeps the preview', async () => {
+    const harness = diary();
+    await expect(
+      new DocumentsService(harness.deps).updatePreview(harness.requester, DOCUMENT_ID, {
+        ...preview,
+        expectedVersion: 2,
+        imageAssetId: null,
+      }),
+    ).rejects.toMatchObject({ code: 'DOCUMENT_VERSION_CONFLICT' });
+    expect(harness.documents.rows[0]?.previewSummary).toBeNull();
+  });
+  it('the same action replays without publishing twice', async () => {
+    const harness = diary();
+    const service = new DocumentsService(harness.deps);
+    const input = { ...preview, imageAssetId: MAPA };
+    const first = await service.updatePreview(harness.requester, DOCUMENT_ID, input);
+    const repeated = await service.updatePreview(harness.requester, DOCUMENT_ID, input);
+    expect(repeated).toEqual(first);
+    expect(harness.journal.filter((item) => item === 'publish')).toEqual(['publish']);
+  });
+  it('a document of another table is not found', async () => {
+    const harness = diary();
+    harness.documents.rows[0]!.campaignId = '0e0e0e0e-0e0e-4e0e-8e0e-0e0e0e0e0e0e';
+    await expect(
+      new DocumentsService(harness.deps).updatePreview(harness.requester, DOCUMENT_ID, {
+        ...preview,
+        imageAssetId: null,
+      }),
+    ).rejects.toMatchObject({ code: 'DOCUMENT_NOT_FOUND' });
   });
 });

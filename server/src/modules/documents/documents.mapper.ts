@@ -24,6 +24,7 @@ export function toDocumentSummary(
     canEdit: permissions.canEdit(),
     canManage: permissions.canManage(),
     ...(access.isMaster() ? { ownerIds } : {}),
+    preview: { summary: row.previewSummary, imageAssetId: row.previewAssetId },
   };
 }
 /** The opened document with only the tabs its reader may see, never their bodies.
