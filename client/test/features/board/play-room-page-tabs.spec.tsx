@@ -73,6 +73,10 @@ describe('play room: grid tabs', () => {
     return screen.getByRole('region', { name: 'Topo da sala' });
   }
 
+  function tabStrip(): HTMLElement {
+    return screen.getByRole('region', { name: 'Abas da sala' });
+  }
+
   async function createToken(name: string): Promise<void> {
     await userEvent.click(screen.getByRole('button', { name: 'Novo token' }));
     const dialog = await screen.findByRole('dialog', { name: 'Novo token' });
@@ -80,14 +84,12 @@ describe('play room: grid tabs', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Criar token' }));
   }
 
-  it('the top bar has the open grids and "Biblioteca", which leads to the library of the table', async () => {
+  it('the tabs strip has the open grids and "Biblioteca", the top band neither', async () => {
     await showTorre();
-    const tabs = within(header()).getByRole('tablist', { name: 'Grids abertos' });
+    const tabs = within(tabStrip()).getByRole('tablist', { name: 'Grids abertos' });
     expect(within(tabs).getAllByRole('tab')).toHaveLength(2);
-    expect(within(header()).getByRole('link', { name: 'Biblioteca' })).toHaveAttribute(
-      'href',
-      `/campaigns/${VHARN.id}/table/library`,
-    );
+    expect(within(tabStrip()).getByRole('button', { name: 'Biblioteca' })).toBeInTheDocument();
+    expect(within(header()).queryByRole('tablist')).toBeNull();
   });
 
   it('a document tab keeps the board mounted and blocks its tools and global shortcuts until a grid is selected', async () => {
@@ -235,10 +237,10 @@ describe('play room: grid tabs', () => {
 
   it('the turn line and the tracker follow the tab shown', async () => {
     await showTorre();
-    expect(within(header()).getByText('Rodada 3 · Vez de Kael')).toBeInTheDocument();
+    expect(within(tabStrip()).getByText('Rodada 3 · Vez de Kael')).toBeInTheDocument();
     expect(screen.getByRole('tabpanel', { name: 'Combate' })).toHaveTextContent('Kael');
     await userEvent.click(screen.getByRole('tab', { name: /Cena 1/ }));
-    expect(within(header()).queryByText('Rodada 3 · Vez de Kael')).toBeNull();
+    expect(within(tabStrip()).queryByText('Rodada 3 · Vez de Kael')).toBeNull();
     expect(screen.getByRole('tabpanel', { name: 'Combate' })).toHaveTextContent('Fora de combate');
   });
 
@@ -293,7 +295,7 @@ describe('play room: grid tabs', () => {
   it('while reconnecting the tabs stay and the tab shown sends nothing', async () => {
     await showTorre();
     deps.tableSessionApi.emit({ kind: 'status', status: 'reconnecting' });
-    expect(within(header()).getAllByRole('tab')).toHaveLength(2);
+    expect(within(tabStrip()).getAllByRole('tab')).toHaveLength(2);
     expect(deps.boardRenderers.latest().lastView?.tokens[0]?.draggable).toBe(false);
   });
 });
@@ -338,10 +340,10 @@ describe('play room: the chat at the foot of the board', () => {
     return popup;
   }
 
-  it('the side panel has only "Combate", "Na mesa" and "Dados"', () => {
-    const panel = screen.getByRole('complementary', { name: 'Painel da mesa' });
-    const tabs = within(panel).getAllByRole('tab');
-    expect(tabs.map((tab) => tab.textContent?.replace(/\d+$/, ''))).toEqual([
+  it('the rail of the side panel has only "Combate", "Na mesa" and "Dados"', () => {
+    const rail = screen.getByRole('tablist', { name: 'Painel da mesa' });
+    const tabs = within(rail).getAllByRole('tab');
+    expect(tabs.map((tab) => tab.getAttribute('aria-label'))).toEqual([
       'Combate',
       'Na mesa',
       'Dados',
@@ -365,10 +367,12 @@ describe('play room: the chat at the foot of the board', () => {
     );
   });
 
-  it('with the panel collapsed, "Abrir painel" carries no chat count: the bar does', async () => {
-    await userEvent.click(screen.getByRole('button', { name: 'Recolher painel' }));
+  it('with the panel collapsed, its rail carries no chat count: the bar does', async () => {
+    await userEvent.click(screen.getByRole('tab', { name: 'Combate' }));
     deps.tableSessionApi.emit({ kind: 'chatSent', event: chatSent() });
-    expect(screen.getByRole('button', { name: 'Abrir painel' })).not.toHaveAccessibleDescription();
+    expect(screen.getByRole('tab', { name: 'Combate' })).not.toHaveAccessibleDescription(
+      /mensagem/,
+    );
     expect(within(bar()).getByRole('button', { name: 'Abrir chat' })).toHaveAccessibleDescription(
       '1 mensagem não lida',
     );

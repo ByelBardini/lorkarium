@@ -24,7 +24,7 @@ Complementa [`library.md`](library.md). O contrato e a autorização ficam em [`
 - Cada `OpenTable` tem uma `imagePresentation` com versão independente da cena/presença. `TableVisit` valida o evento e o escopo da campanha; após cada join confirmado a store relê o snapshot.
 - Uma versão menor/igual não substitui a atual. Eventos e HTTP convergem na mesma função `apply`, evitando que um GET lento apague um evento novo.
 - Fechar guarda a apresentação dispensada no `sessionStorage`, por conta e campanha. Reconexão/F5 na mesma aba preserva o fechamento; ID novo da mesma imagem abre somente para quem está na sala. Storage indisponível conserva o fechamento em memória.
-- `RoomImagePresentation` fica em `PlayRoomPage`, fora do modal da biblioteca e das abas de grid. Só a campanha atualmente montada apresenta. Fechar biblioteca ou trocar de grid não interfere; saída/logout desmonta a janela e limpa o estado pelo ciclo de vida da mesa.
+- `RoomImagePresentation` fica em `PlayRoomPage`, fora da gaveta da biblioteca e das abas de grid. Só a campanha atualmente montada apresenta. Fechar biblioteca ou trocar de grid não interfere; saída/logout desmonta a janela e limpa o estado pelo ciclo de vida da mesa.
 - `ImageViewer` é compartilhado pela prévia e apresentação: imagem inteira com `object-contain`, aviso de carregamento e erro com nova tentativa. Modal tem título, descrição, foco contido, Escape e “Fechar imagem”; teclado não chega ao tabuleiro. Uma nova apresentação substitui a anterior sem empilhar.
 - Falha ao recuperar a apresentação mostra aviso com “Tentar apresentação de novo”; o rejoin também tenta recuperar automaticamente.
 

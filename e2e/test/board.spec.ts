@@ -9,6 +9,7 @@ import {
   createTableAndReadCode,
   enterFromTheList,
   joinByCodeAndEnter,
+  showRoomTab,
 } from './support/tables';
 
 function zoomLabelOf(page: Page) {
@@ -112,7 +113,7 @@ test('the board comes back after losing its WebGL context, at the same zoom', as
   // The token born at the center cell (10, 6) still answers a click.
   const goblin = await cellCenterOf(admin, 10, 6);
   await admin.mouse.click(goblin.x, goblin.y);
-  await admin.getByRole('tab', { name: 'Combate' }).click();
+  await showRoomTab(admin, 'Combate');
   await expect(sceneTokensOf(admin).filter({ hasText: 'Goblin' })).toHaveAttribute(
     'aria-pressed',
     'true',

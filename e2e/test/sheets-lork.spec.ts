@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { expect, type FrameLocator, type Locator, type Page } from '@playwright/test';
-import { openLibrary } from './support/library';
+import { closeLibrary, openLibrary } from './support/library';
 import { test } from './support/player-pages';
 import {
   importSheetTemplate,
@@ -12,7 +12,7 @@ import {
   setSheetVisibility,
   sheetRegionOf,
 } from './support/sheets';
-import { boardOf } from './support/tables';
+import { boardOf, showRoomTab } from './support/tables';
 
 // The Lork sheet as a real template: built by fixtures/ficha-lork/build-lksheet.ts from the
 // sources in fixtures/ficha-lork/modelo (files, manifest with four permissions and four bars,
@@ -43,7 +43,7 @@ async function importLorkTemplate(admin: Page): Promise<void> {
   await expect(confirm).toContainText('4 fontes e imagens vão junto.');
   await confirm.getByRole('button', { name: 'Importar', exact: true }).click();
   await expect(confirm).toBeHidden();
-  await library.getByRole('button', { name: 'Fechar biblioteca' }).click();
+  await closeLibrary(admin);
   await expect(boardOf(admin)).toBeVisible();
 }
 
@@ -55,7 +55,7 @@ function playerCardOf(page: Page, character: string): Locator {
 
 /** One bar of Lyra on the master's card of the "Na mesa" tab ("Editar MP de Lyra"). */
 async function lyraBarOf(admin: Page, label: string): Promise<Locator> {
-  await admin.getByRole('tab', { name: 'Na mesa' }).click();
+  await showRoomTab(admin, 'Na mesa');
   return playerCardOf(admin, 'Lyra').getByRole('button', { name: `Editar ${label} de Lyra` });
 }
 
@@ -133,7 +133,7 @@ test('Ana imports the Lork sheet and gives it to Lyra; the armor Bia wears is th
   await expect(armor.locator('.ca-val')).toHaveText('14');
 
   // The sheet wrote it by character.set: Ana's card of Lyra reads CA 14.
-  await admin.getByRole('tab', { name: 'Na mesa' }).click();
+  await showRoomTab(admin, 'Na mesa');
   await expect(
     playerCardOf(admin, 'Lyra').getByRole('textbox', { name: 'CA de Lyra' }),
   ).toHaveValue('14');

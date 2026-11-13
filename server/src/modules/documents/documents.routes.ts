@@ -14,6 +14,7 @@ import {
   importDocumentImageRequestDto,
   documentImageFromLibraryRequestDto,
   updateDocumentContentRequestDto,
+  updateDocumentPreviewRequestDto,
   updateDocumentRequestDto,
 } from '@lorkarium/contracts';
 import type {
@@ -99,6 +100,13 @@ function registerDocumentRoutes(app: FastifyInstance, service: DocumentsService)
       requesterOf(app, request),
       documentIdOf(request),
       updateDocumentContentRequestDto.parse(request.body),
+    ),
+  );
+  app.patch(`${DOCUMENT}/preview`, options, (request) =>
+    service.updatePreview(
+      requesterOf(app, request),
+      documentIdOf(request),
+      updateDocumentPreviewRequestDto.parse(request.body),
     ),
   );
   app.patch(DOCUMENT, options, (request) =>

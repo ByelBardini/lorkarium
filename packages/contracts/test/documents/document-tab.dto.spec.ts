@@ -30,6 +30,7 @@ const documentSummary = {
   updatedAt,
   canEdit: true,
   canManage: true,
+  preview: { summary: null, imageAssetId: null },
 };
 const tabIds = (count: number): string[] =>
   Array.from(

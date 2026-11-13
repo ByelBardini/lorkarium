@@ -12,7 +12,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 - `src/sessions/` — sessão ao vivo da mesa (Socket.IO): comandos, eventos e acks
 - `src/assets/` — imagem enviada à mesa (arquivo ou link) e a leitura dela
 - `src/library/` — biblioteca de grids: grids e pastas da mesa por REST, `library:changed`
-- `src/documents/` — documentos da biblioteca: conteúdo rico fechado, comandos versionados, resumos e imagens; [contratos](documents/contratos.md).
+- `src/documents/` — documentos da biblioteca: conteúdo rico fechado, comandos versionados, resumos, a prévia da biblioteca (`document-preview.dto.ts`) e imagens; [contratos](documents/contratos.md).
 - `src/dice/` — rolagem de dados (Socket.IO): comando, ack e eventos com o trajeto 3D; rolagens salvas (REST)
 - `src/chat/` — chat da mesa (Socket.IO): `chat:send`, ack e `chat:sent`, sem versão
 - `src/plans/` — planos da conta: `USER_PLANS`, recursos do `PLAN_LIMIT`, a grade `PLAN_LIMITS` e `planLimitsDto`; [contratos](contracts/planos.md)

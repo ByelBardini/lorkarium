@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ConditionDefinitionDto } from '@lorkarium/contracts';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
 import { ConditionToolPanel } from '@/features/combat/condition-tool-panel';
@@ -126,6 +126,41 @@ describe('ConditionToolPanel', () => {
     );
     expect(screen.queryByRole('listbox')).toBeNull();
     expect(screen.queryByLabelText('Rodadas')).toBeNull();
+  });
+
+  it('the master gets "Editar condições da mesa…", which opens the conditions page', async () => {
+    board
+      .getState()
+      .apply({ kind: 'board', state: vharnBoard({ conditionDefinitions: [ABENCOADO] }) });
+    const conditionsPath = `/campaigns/${VHARN.id}/table/conditions`;
+    render(
+      <MemoryRouter initialEntries={[`/campaigns/${VHARN.id}/table`]}>
+        <Routes>
+          <Route
+            path="/campaigns/:campaignId/table"
+            element={
+              <ConditionToolPanel
+                board={board}
+                conditionTool={conditionTool}
+                campaignId={VHARN.id}
+                isMaster
+              />
+            }
+          />
+          <Route path={conditionsPath} element={<p>Página das condições</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await userEvent.click(screen.getByRole('link', { name: 'Editar condições da mesa…' }));
+    expect(screen.getByText('Página das condições')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['player', [ABENCOADO]],
+    ['spectator', [ENVENENADO, PARALISADO]],
+  ] as const)('a %s does not get "Editar condições da mesa…"', (_who, definitions) => {
+    const panel = renderPanel(definitions, false);
+    expect(within(panel).queryByRole('link')).toBeNull();
   });
 
   it('a player at a table without conditions gets no link', () => {

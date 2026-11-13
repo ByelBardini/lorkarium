@@ -1,7 +1,7 @@
 import { expect, type APIResponse, type Locator, type Page } from '@playwright/test';
 import { BIA, CAIO } from './support/dev-players';
 import { campaignIdOf } from './support/documents';
-import { openLibrary } from './support/library';
+import { openLibrary, openNewItem } from './support/library';
 import { test } from './support/player-pages';
 import { setPlanOf } from './support/plans';
 import { adminCredentials, signIn } from './support/sign-in';
@@ -98,7 +98,7 @@ test.describe('plans', () => {
 
     const sentence = 'Esta mesa usa o plano Grátis, que permite até 5 grids. O Narrador libera 20.';
     const library = await openLibrary(bia);
-    await library.getByRole('button', { name: 'Criar item' }).click();
+    await openNewItem(library);
     const gridCard = bia
       .getByRole('dialog', { name: 'Novo item', exact: true })
       .getByRole('button', { name: 'Grid', exact: true });

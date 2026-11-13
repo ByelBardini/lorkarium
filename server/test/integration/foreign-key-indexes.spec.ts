@@ -27,6 +27,7 @@ const ACCEPTED_WITHOUT_INDEX: Record<string, string> = {
   'library_document_assets.campaign_id,document_id,tab_id':
     'the primary key leads by (campaign_id, document_id): the images of one document',
   'library_documents.created_by': ACCOUNT_DELETION,
+  'library_documents.preview_asset_id': ASSET_GOES_WITH_ITS_TABLE,
   'library_image_presentations.campaign_id,image_id':
     'one row per campaign: the primary key on campaign_id answers it',
   'library_images.campaign_id,asset_id': 'the unique asset_id answers it',

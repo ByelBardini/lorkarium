@@ -9,9 +9,22 @@ import {
 } from '@playwright/test';
 import { cellCenterOf } from './board-cells';
 import { BIA, CAIO } from './dev-players';
-import { chooseNewItemKind, gridItemOf, gridTabsOf, openLibrary } from './library';
+import {
+  chooseNewItemKind,
+  closeLibrary,
+  gridItemOf,
+  gridTabsOf,
+  openLibrary,
+  openNewItem,
+} from './library';
 import { adminCredentials, signIn } from './sign-in';
-import { boardOf, createTableAndReadCode, enterFromTheList, joinByCodeAndEnter } from './tables';
+import {
+  boardOf,
+  createTableAndReadCode,
+  enterFromTheList,
+  joinByCodeAndEnter,
+  showRoomTab,
+} from './tables';
 import { createCharacterTokenWithPv } from './token-cards';
 
 /** What the e2e needs of a new sheet, from the answer of `POST /api/campaigns/:c/sheets`: its id
@@ -82,7 +95,7 @@ export function campaignIdOf(page: Page): string {
  *  Example: `await createStarterTemplate(admin, 'Ficha Tormenta')` */
 export async function createStarterTemplate(master: Page, name: string): Promise<void> {
   const library = await openLibrary(master);
-  await library.getByRole('button', { name: 'Criar item' }).click();
+  await openNewItem(library);
   const dialog = await chooseNewItemKind(master, 'Modelo de ficha');
   await dialog.getByRole('button', { name: 'Criar', exact: true }).click();
   const editor = library.getByRole('region', { name: 'Editor do modelo' });
@@ -91,7 +104,7 @@ export async function createStarterTemplate(master: Page, name: string): Promise
   await nameField.fill(name);
   await editor.getByRole('button', { name: 'Salvar', exact: true }).click();
   await expect(editor.getByText('Salvo.', { exact: true })).toBeVisible();
-  await library.getByRole('button', { name: 'Fechar biblioteca' }).click();
+  await closeLibrary(master);
   await expect(boardOf(master)).toBeVisible();
 }
 
@@ -128,7 +141,7 @@ export async function exportSheetTemplate(library: Locator, template: string): P
 export async function importSheetTemplate(library: Locator, filePath: string): Promise<void> {
   const page = library.page();
   const chooser = page.waitForEvent('filechooser');
-  await library.getByRole('button', { name: 'Criar item' }).click();
+  await openNewItem(library);
   const dialog = await chooseNewItemKind(page, 'Modelo de ficha');
   await dialog.getByRole('button', { name: 'Importar de um arquivo', exact: true }).click();
   await (await chooser).setFiles(filePath);
@@ -164,7 +177,7 @@ export async function newSheetFromCard(
   template: string,
 ): Promise<LibrarySheet> {
   const created = master.waitForResponse(isSheetCreation);
-  await master.getByRole('tab', { name: 'Na mesa' }).click();
+  await showRoomTab(master, 'Na mesa');
   await sheetsMenuOf(master, character).click();
   await master.getByRole('menuitem', { name: 'Nova ficha', exact: true }).click();
   await master.getByRole('menuitem', { name: template, exact: true }).click();
@@ -201,7 +214,7 @@ export async function createSheetInLibrary(
 ): Promise<LibrarySheet> {
   const page = library.page();
   const created = page.waitForResponse(isSheetCreation);
-  await library.getByRole('button', { name: 'Criar item' }).click();
+  await openNewItem(library);
   const dialog = await chooseNewItemKind(page, 'Ficha');
   await dialog.getByRole('textbox', { name: 'Nome', exact: true }).fill(name);
   await dialog.getByRole('combobox', { name: 'Dono' }).click();
@@ -243,7 +256,7 @@ export async function openSheetFromCard(
   character: string,
   sheet: string,
 ): Promise<FrameLocator> {
-  await page.getByRole('tab', { name: 'Na mesa' }).click();
+  await showRoomTab(page, 'Na mesa');
   await sheetButtonOf(page, character).click();
   await expect(sheetRegionOf(page, sheet)).toBeVisible();
   return sheetFrameOf(page, sheet);
@@ -257,7 +270,7 @@ export async function openSheetFromCardMenu(
   character: string,
   sheet: string,
 ): Promise<FrameLocator> {
-  await page.getByRole('tab', { name: 'Na mesa' }).click();
+  await showRoomTab(page, 'Na mesa');
   await sheetsMenuOf(page, character).click();
   await page.getByRole('menuitem', { name: sheet, exact: true }).click();
   await expect(sheetRegionOf(page, sheet)).toBeVisible();

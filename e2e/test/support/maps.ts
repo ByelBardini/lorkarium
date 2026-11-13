@@ -2,7 +2,14 @@ import { fileURLToPath } from 'node:url';
 import { expect, type Locator, type Page, type Response } from '@playwright/test';
 import { BIA } from './dev-players';
 import { campaignIdOf, changeDocument, type DocumentRecord } from './documents';
-import { chooseNewItemKind, gridItemOf, openLibrary, pickGrid } from './library';
+import {
+  chooseNewItemKind,
+  closeLibrary,
+  gridItemOf,
+  openLibrary,
+  openNewItem,
+  pickGrid,
+} from './library';
 import { adminCredentials, signIn } from './sign-in';
 import { createTableAndReadCode, enterFromTheList, joinByCodeAndEnter } from './tables';
 
@@ -171,7 +178,7 @@ export function rectangleAround(center: MapSpot, halfWidth: number, halfHeight: 
   ];
 }
 
-/** "Criar item" → "Mapa", with the 1400 × 700 fixture, at the root of the open library.
+/** "Novo" → "Mapa", with the 1400 × 700 fixture, at the root of the open library.
  *
  *  Example: `await createMap(library, 'Mundo', 'Público')` */
 export async function createMap(
@@ -180,7 +187,7 @@ export async function createMap(
   visibility: MapVisibility,
 ): Promise<void> {
   const page = library.page();
-  await library.getByRole('button', { name: 'Criar item' }).click();
+  await openNewItem(library);
   const form = await chooseNewItemKind(page, 'Mapa');
   await form.getByRole('textbox', { name: 'Nome', exact: true }).fill(name);
   await form.getByLabel('Arquivo de imagem').setInputFiles(MAP_IMAGE);
@@ -203,13 +210,14 @@ function mapDetailsOf(library: Locator): Locator {
   return library.getByRole('region', { name: 'Mapa escolhido' });
 }
 
-/** Picks a map in the open library and opens it in the room's map tab; the library closes.
+/** Picks a map in the open library and opens it in the room's map tab (the library stays open), then closes the library.
  *
  *  Example: `await openMapOf(library, 'Mundo')` */
 export async function openMapOf(library: Locator, name: string): Promise<void> {
   await pickGrid(library, name);
   await mapDetailsOf(library).getByRole('button', { name: 'Abrir', exact: true }).click();
-  await expect(library).toBeHidden();
+  await expect(library).toBeVisible();
+  await closeLibrary(library.page());
   await expectMapOnScreen(library.page(), name);
 }
 

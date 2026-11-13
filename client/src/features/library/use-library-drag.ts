@@ -14,6 +14,7 @@ import {
 } from '@/lib/library-entries';
 import type { LibraryIntent } from './library-intents';
 import { NO_FOLDER, sceneIdOf } from './library-view';
+import { isLeafKey } from './tree-navigation';
 import type { LibrarySubmit } from './use-library-submit';
 
 // The type Lorkarium puts on the drag; the text one is for browsers that drag only with text.
@@ -21,11 +22,14 @@ const DRAG_TYPE = 'application/x-lorkarium-library';
 
 type DragProps = Readonly<Record<string, unknown>>;
 
-/** The native drag and drop of the library: grids and folders of the tree onto a folder (or
- *  "Sem pasta"). A target that cannot take what is dragged says `aria-dropeffect="none"`; a
- *  grid is no target, so a drop on it lands in its folder. */
+/** The native drag and drop of the library: items and folders of the tree onto a folder, or
+ *  onto the tree's area (the root: out of any folder). A target that cannot take what is dragged
+ *  says `aria-dropeffect="none"`; an item is no target, so a drop on it lands in its folder (an
+ *  item without folder hands it on to the area). */
 export type LibraryDrag = Readonly<{
   treeItemProps: (key: string) => DragProps;
+  /** For the tree's scrolling area. */
+  rootProps: DragProps;
 }>;
 
 type DragOptions = Readonly<{
@@ -58,20 +62,15 @@ export function useLibraryDrag({ library, enabled, submit }: DragOptions): Libra
           if (intent) void submit(intent);
         })
       : {};
-  if (!enabled) return { treeItemProps: () => ({}) };
+  if (!enabled) return { treeItemProps: () => ({}), rootProps: {} };
+  // Items are only dragged; folders (and the root area) also take drops.
   return {
+    rootProps: target(NO_FOLDER),
     treeItemProps: (key) => {
       if (isLeafKey(key)) return sourceOf(library, key, sources);
       return { ...sourceOf(library, key, sources), ...target(key) };
     },
   };
-}
-
-// Items are only dragged; folders (and "Sem pasta") also take drops.
-function isLeafKey(key: string): boolean {
-  return [sceneIdOf, imageIdOf, mapIdOf, documentIdOf, sheetTemplateIdOf, sheetIdOf].some(
-    (idOf) => idOf(key) !== null,
-  );
 }
 
 function sourceOf(

@@ -17,6 +17,7 @@ import { campaignMembers } from '../campaigns/campaign-members.po';
 import { users } from '../auth/users.po';
 import { sceneFolders } from '../library/scene-folders.po';
 import { sceneVisibility } from '../scenes/scenes.po';
+import { assets } from '../assets/assets.po';
 
 export const libraryDocuments = pgTable(
   'library_documents',
@@ -29,6 +30,10 @@ export const libraryDocuments = pgTable(
     name: text('name').notNull(),
     visibility: sceneVisibility('visibility').notNull().default('private'),
     version: integer('version').notNull().default(0),
+    // The library card, set apart from the body (never derived from it): a short text and/or a
+    // cover. The cover is readable by whoever reads the document, whatever tab it came from.
+    previewSummary: text('preview_summary'),
+    previewAssetId: uuid('preview_asset_id').references(() => assets.id, { onDelete: 'set null' }),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -43,6 +48,10 @@ export const libraryDocuments = pgTable(
     }).onDelete('set null'),
     check('library_documents_name_length', sql`char_length(${t.name}) between 1 and 60`),
     check('library_documents_version_nonnegative', sql`${t.version} >= 0`),
+    check(
+      'library_documents_preview_summary_length',
+      sql`char_length(${t.previewSummary}) between 1 and 280`,
+    ),
   ],
 );
 export const libraryDocumentOwners = pgTable(
@@ -87,7 +96,16 @@ export const libraryDocumentActions = pgTable(
 export type DocumentPo = typeof libraryDocuments.$inferSelect;
 export type NewDocumentPo = typeof libraryDocuments.$inferInsert;
 export type DocumentChangesPo = Partial<
-  Pick<DocumentPo, 'name' | 'folderId' | 'visibility' | 'version' | 'updatedAt'>
+  Pick<
+    DocumentPo,
+    | 'name'
+    | 'folderId'
+    | 'visibility'
+    | 'previewSummary'
+    | 'previewAssetId'
+    | 'version'
+    | 'updatedAt'
+  >
 >;
 // Written and read without its age: only the housekeeping looks at `created_at`.
 export type DocumentActionPo = Omit<typeof libraryDocumentActions.$inferSelect, 'createdAt'>;

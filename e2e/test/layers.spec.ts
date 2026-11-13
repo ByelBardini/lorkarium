@@ -3,7 +3,12 @@ import { cellCenterOf, dragBetweenCells } from './support/board-cells';
 import { BIA, CAIO } from './support/dev-players';
 import { test } from './support/player-pages';
 import { adminCredentials, signIn } from './support/sign-in';
-import { createTableAndReadCode, enterFromTheList, joinByCodeAndEnter } from './support/tables';
+import {
+  createTableAndReadCode,
+  enterFromTheList,
+  joinByCodeAndEnter,
+  showRoomTab,
+} from './support/tables';
 import { cardOf, createTokenFor, openCard, statusOf } from './support/token-cards';
 
 // Every new token lands at the center of the framed view: cell (10, 6), "Coluna 11, linha 7".
@@ -86,7 +91,7 @@ test('layers: a player never picks what is off the tokens layer, a marquee moves
 
   // Caio draws a rectangle over Kael and Bram and drags Kael: both go, in one move.
   await dragBetweenCells(caio, [2, 2], [5, 4]);
-  await caio.getByRole('tab', { name: 'Combate' }).click();
+  await showRoomTab(caio, 'Combate');
   await expect(caio.getByText('2 selecionados')).toBeVisible();
   await dragBetweenCells(caio, [3, 3], [3, 9]);
   await expectCell(bia, 'Kael', 3, 9);

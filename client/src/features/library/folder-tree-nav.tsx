@@ -3,23 +3,16 @@ import { useId, useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { LibraryEntry } from '@/lib/library-entries';
 import type { FolderTree } from '@/lib/folder-tree';
 import { LibraryTreeMenu, type TreeMaster } from './library-tree-menu';
-import { NO_FOLDER } from './library-view';
 import {
   ancestorKeysOf,
   expandableKeysOf,
+  isLeafKey,
   treeItemId,
   treeMove,
   visibleTreeItems,
   type VisibleTreeItem,
 } from './tree-navigation';
-import { NewFolderButton } from './tree-name-fields';
-import {
-  FolderItem,
-  LooseItem,
-  NewFolderEntry,
-  type TreeContext,
-  type TreeItemExtras,
-} from './tree-rows';
+import { FolderItem, SceneItems, type TreeContext, type TreeItemExtras } from './tree-rows';
 import { useTreeEditing, type TreeEditingControls } from './use-tree-editing';
 
 export type LibraryTree = FolderTree<SceneFolderDto, LibraryEntry>;
@@ -31,6 +24,8 @@ export type FolderTreeNavProps = Readonly<{
   filtering: boolean;
   pickedKey: string | null;
   onPick: (key: string) => void;
+  /** A double click or Enter on an item (not a folder): opens it in the room. */
+  onOpen?: (key: string) => void;
   groupSceneId: string | null;
   playersOnline: number;
   now: Date;
@@ -39,23 +34,25 @@ export type FolderTreeNavProps = Readonly<{
   /** Said under the tree when the filter left nothing, or `null`. */
   emptyMessage: string | null;
   itemExtras?: TreeItemExtras;
-  /** The master's menu, fields and "Nova pasta"; `null` for a player. */
+  /** The master's menu and fields; `null` for a player. */
   master: TreeMaster | null;
+  /** Drops onto the root (the empty area, or an item without folder): out of any folder. */
+  rootDropProps?: Readonly<Record<string, unknown>>;
 }>;
 
-/** The library as a `role="tree"`: the nested folders with their grids and "Sem pasta". Arrows
- *  walk it (→ opens, ← closes or goes up), Enter or a click picks an item (and opens or closes
- *  a folder); the master's right click opens the menu of the item, or of the root.
+/** The library as a `role="tree"`: the nested folders, then the items without folder. Arrows
+ *  walk it (→ opens, ← closes or goes up); a click or Space picks an item (and opens or closes a
+ *  folder); a double click or Enter on an item opens it (`onOpen`), Enter on a folder is a click;
+ *  the master's right click opens the menu of the item, or of the root.
  *
  *  Example: `<FolderTreeNav tree={tree} filtering={false} pickedKey={key} onPick={view.pick} … master={null} />` */
 export function FolderTreeNav(props: FolderTreeNavProps): React.JSX.Element {
   const state = useTreeState(props);
   return (
-    <div className="flex min-h-0 flex-col bg-panel">
-      <TreeHeader master={props.master} onNewFolder={state.controls.startNewFolder} />
-      {props.notice && <p className="px-5 pb-2 text-sm text-muted-foreground">{props.notice}</p>}
+    <div className="flex min-h-0 flex-1 flex-col pt-2">
+      {props.notice && <p className="px-5 py-2 text-sm text-muted-foreground">{props.notice}</p>}
       <TreeArea master={props.master} controls={state.controls} focusItem={state.focusItem}>
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+        <div {...props.rootDropProps} className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
           <TreeList {...props} context={state.context} onKeyDown={state.onKeyDown} />
           {props.emptyMessage && (
             <p className="px-2 pt-3 text-sm text-muted-foreground">{props.emptyMessage}</p>
@@ -69,7 +66,7 @@ export function FolderTreeNav(props: FolderTreeNavProps): React.JSX.Element {
 type TreeListProps = FolderTreeNavProps &
   Readonly<{ context: TreeContext; onKeyDown: (event: KeyboardEvent<HTMLUListElement>) => void }>;
 
-function TreeList({ tree, filtering, context, onKeyDown }: TreeListProps): React.JSX.Element {
+function TreeList({ tree, context, onKeyDown }: TreeListProps): React.JSX.Element {
   return (
     <ul
       role="tree"
@@ -77,14 +74,10 @@ function TreeList({ tree, filtering, context, onKeyDown }: TreeListProps): React
       onKeyDown={onKeyDown}
       className="flex flex-col gap-0.5"
     >
-      <NewFolderEntry context={context} parentId={null} />
       {tree.roots.map((node) => (
         <FolderItem key={node.folder.id} context={context} node={node} />
       ))}
-      <li role="none" aria-hidden="true" className="mx-2 my-2 h-px bg-divider" />
-      {(!filtering || tree.looseScenes.length > 0) && (
-        <LooseItem context={context} scenes={tree.looseScenes} />
-      )}
+      <SceneItems context={context} scenes={tree.looseScenes} level={1} />
     </ul>
   );
 }
@@ -109,13 +102,6 @@ function useTreeState(props: FolderTreeNavProps): TreeState {
     props.onPick(key);
     if (items.find((item) => item.key === key)?.hasChildren) toggle(key);
   };
-  const controls: TreeEditingControls = {
-    ...editingControls,
-    startNewFolder: (parentId) => {
-      if (parentId) setExpanded((open) => withKey(open, parentId, true));
-      editingControls.startNewFolder(parentId);
-    },
-  };
   const context: TreeContext = {
     ...props,
     baseId,
@@ -126,8 +112,17 @@ function useTreeState(props: FolderTreeNavProps): TreeState {
     onFocus: setFocused,
     editing: editingControls.editing,
   };
-  const moves = { items, expanded, setExpanded, activate, focusItem };
-  return { context, controls, focusItem, onKeyDown: (event) => onTreeKey(event, moves) };
+  const open = (key: string): void => {
+    activate(key);
+    props.onOpen?.(key);
+  };
+  const moves = { items, expanded, setExpanded, activate, open, focusItem };
+  return {
+    context,
+    controls: editingControls,
+    focusItem,
+    onKeyDown: (event) => onTreeKey(event, moves),
+  };
 }
 
 type TreeMoves = Readonly<{
@@ -135,6 +130,7 @@ type TreeMoves = Readonly<{
   expanded: ReadonlySet<string>;
   setExpanded: ExpandedFolders[1];
   activate: (key: string) => void;
+  open: (key: string) => void;
   focusItem: (key: string) => void;
 }>;
 
@@ -143,36 +139,13 @@ function onTreeKey(event: KeyboardEvent<HTMLUListElement>, moves: TreeMoves): vo
   if (key === null) return;
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault();
-    return moves.activate(key);
+    return event.key === 'Enter' && isLeafKey(key) ? moves.open(key) : moves.activate(key);
   }
   const move = treeMove(moves.items, key, event.key, moves.expanded);
   if (!move) return;
   event.preventDefault();
   if (move.kind === 'focus') moves.focusItem(move.key);
   else moves.setExpanded((open) => withKey(open, move.key, move.kind === 'expand'));
-}
-
-type TreeHeaderProps = Readonly<{
-  master: TreeMaster | null;
-  onNewFolder: (parentId: string | null) => void;
-}>;
-
-function TreeHeader({ master, onNewFolder }: TreeHeaderProps): React.JSX.Element {
-  const start = (): void => {
-    master?.resetFilter();
-    onNewFolder(master?.newParentId ?? null);
-  };
-  return (
-    <div className="flex h-12 shrink-0 items-center justify-between px-5">
-      <span
-        aria-hidden="true"
-        className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase"
-      >
-        Itens e pastas
-      </span>
-      {master && <NewFolderButton live={master.live} onStart={start} />}
-    </div>
-  );
 }
 
 type TreeAreaProps = Readonly<{
@@ -202,10 +175,10 @@ type ExpandedFolders = readonly [
   React.Dispatch<React.SetStateAction<ReadonlySet<string>>>,
 ];
 
-// What the user expanded ("Sem pasta" starts open), plus what must show: the parents of the item
+// What the user expanded, plus what must show: the parents of the item
 // picked each time it changes (a grid created in a closed folder), or every folder a search left.
 function useExpandedFolders(props: FolderTreeNavProps): ExpandedFolders {
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set([NO_FOLDER]));
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const reveal = props.filtering
     ? expandableKeysOf(props.tree)
     : ancestorKeysOf(props.tree, props.pickedKey ?? '');

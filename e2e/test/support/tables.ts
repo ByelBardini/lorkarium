@@ -15,7 +15,30 @@ export function boardOf(page: Page): Locator {
  *  Example: `await openRoomPeople(admin); await expect(presenceOf(admin, 'Bia')).toHaveAccessibleName('online')` */
 export async function openRoomPeople(page: Page): Promise<void> {
   await expect(boardOf(page)).toBeVisible();
-  await page.getByRole('tab', { name: 'Na mesa' }).click();
+  await showRoomTab(page, 'Na mesa');
+}
+
+export type RoomTabName = 'Combate' | 'Na mesa' | 'Dados';
+
+/** Shows a tab of the room panel by its icon on the rail at the right ("Painel da mesa"). A click
+ *  on the tab already shown collapses the panel, so it clicks only when that tab is not shown.
+ *
+ *  Example: `await showRoomTab(bia, 'Dados')` */
+export async function showRoomTab(page: Page, name: RoomTabName): Promise<void> {
+  const tab = page
+    .getByRole('tablist', { name: 'Painel da mesa' })
+    .getByRole('tab', { name, exact: true });
+  await expect(tab).toBeVisible();
+  if ((await tab.getAttribute('aria-selected')) !== 'true') await tab.click();
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+}
+
+/** Picks an entry of the table menu, the arrow after the table name in the room top ("Menu da mesa").
+ *
+ *  Example: `await chooseFromTableMenu(admin, 'Configurações da mesa')` */
+export async function chooseFromTableMenu(page: Page, entry: string): Promise<void> {
+  await page.getByRole('button', { name: 'Menu da mesa', exact: true }).click();
+  await page.getByRole('menuitem', { name: entry, exact: true }).click();
 }
 
 /** The presence symbol of `name` in the "Na mesa" tab of the room on screen (open it with

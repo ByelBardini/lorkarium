@@ -1,4 +1,4 @@
-import { and, eq, getTableColumns, sql } from 'drizzle-orm';
+import { and, eq, exists, getTableColumns, or, sql } from 'drizzle-orm';
 import { hiddenByFolderSql } from '../../database/hidden-by-folder-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import {
@@ -10,6 +10,7 @@ import {
   type DocumentChangesPo,
   type DocumentActionPo,
 } from './documents.po';
+import { libraryDocumentAssets } from './document-assets.po';
 
 export type DocumentSummaryPo = Omit<DocumentPo, 'createdBy' | 'createdAt'>;
 /** A document as its gates read it: the row and whether a private folder above it hides it. */
@@ -24,6 +25,20 @@ export class DocumentsDao {
       .where(and(eq(libraryDocuments.campaignId, campaignId), eq(libraryDocuments.id, documentId)));
     return row;
   }
+  /** The documents that show `assetId`, as their library cover or in a tab, as their gates read
+   *  them: one query for the image read, which asks nothing more when no document has it. */
+  async withAsset(campaignId: string, assetId: string): Promise<DocumentRow[]> {
+    const d = libraryDocuments;
+    const a = libraryDocumentAssets;
+    const inATab = this.db
+      .select({ one: sql`1` })
+      .from(a)
+      .where(and(eq(a.campaignId, campaignId), eq(a.documentId, d.id), eq(a.assetId, assetId)));
+    return this.db
+      .select({ ...getTableColumns(d), hiddenByFolder: HIDDEN_BY_FOLDER })
+      .from(d)
+      .where(and(eq(d.campaignId, campaignId), or(eq(d.previewAssetId, assetId), exists(inATab))));
+  }
   /** The library lines of the table, without the folder chain: the caller decides it over the
    *  folders it already read. */
   async listOfCampaign(campaignId: string): Promise<DocumentSummaryPo[]> {
@@ -35,6 +50,8 @@ export class DocumentsDao {
         folderId: t.folderId,
         name: t.name,
         visibility: t.visibility,
+        previewSummary: t.previewSummary,
+        previewAssetId: t.previewAssetId,
         version: t.version,
         updatedAt: t.updatedAt,
       })

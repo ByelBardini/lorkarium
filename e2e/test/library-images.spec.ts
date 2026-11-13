@@ -3,10 +3,12 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { BIA, CAIO } from './support/dev-players';
 import {
   chooseNewItemKind,
+  closeLibrary,
   createFolder,
   createGrid,
   gridItemOf,
   openLibrary,
+  openNewItem,
 } from './support/library';
 import { test } from './support/player-pages';
 import { adminCredentials, signIn } from './support/sign-in';
@@ -50,7 +52,7 @@ async function createImage(
     await gridItemOf(library, folder).click({ button: 'right', position: { x: 50, y: 16 } });
     await page.getByRole('menuitem', { name: 'Criar novo item', exact: true }).click();
   } else {
-    await library.getByRole('button', { name: 'Criar item' }).click();
+    await openNewItem(library);
   }
   const form = await chooseNewItemKind(page, 'Imagem');
   await form.getByRole('textbox', { name: 'Nome', exact: true }).fill(name);
@@ -85,12 +87,6 @@ async function closeImage(page: Page, name: string): Promise<void> {
 
 async function assetStatus(page: Page, image: ImageRecord): Promise<number> {
   return (await page.request.get(`/api/assets/${image.asset.id}`)).status();
-}
-
-async function closeLibrary(page: Page): Promise<void> {
-  const library = page.getByRole('dialog', { name: 'Biblioteca', exact: true });
-  if (await library.isVisible())
-    await library.getByRole('button', { name: 'Fechar biblioteca' }).click();
 }
 
 test('private image reaches player and spectator across grids; local close survives reload and a new presentation reopens it', async ({

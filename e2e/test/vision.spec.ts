@@ -1,20 +1,21 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { cellCenterOf, dragBetweenCells } from './support/board-cells';
 import { BIA } from './support/dev-players';
-import { test } from './support/player-pages';
+import { test, WIDE_ROOM } from './support/player-pages';
 import { adminCredentials, signIn } from './support/sign-in';
 import {
   boardOf,
   createTableAndReadCode,
   enterFromTheList,
   joinByCodeAndEnter,
+  showRoomTab,
 } from './support/tables';
 import { cardOf, openCard, statusOf, chooseController, sceneTokensOf } from './support/token-cards';
 
 const WALL_BLOCKS = 'Uma parede bloqueia o caminho.';
 
 async function showSceneTokens(page: Page): Promise<void> {
-  await page.getByRole('tab', { name: 'Combate' }).click();
+  await showRoomTab(page, 'Combate');
 }
 
 // Runs in the page (the e2e workspace has no DOM types): decodes the PNG and averages its pixels.
@@ -115,8 +116,8 @@ test('vision, walls and doors live: the dark, a wall, a grate, a door opened, lo
 }) => {
   test.setTimeout(240_000);
   const name = `Mesa escura ${Date.now()}`;
-  const admin = await newPlayerPage();
-  const bia = await newPlayerPage();
+  const admin = await newPlayerPage(WIDE_ROOM);
+  const bia = await newPlayerPage(WIDE_ROOM);
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   await signIn(bia, BIA);

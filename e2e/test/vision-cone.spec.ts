@@ -8,6 +8,7 @@ import {
   createTableAndReadCode,
   enterFromTheList,
   joinByCodeAndEnter,
+  showRoomTab,
 } from './support/tables';
 import { cardOf, chooseController, openCard, statusOf, sceneTokensOf } from './support/token-cards';
 
@@ -126,7 +127,7 @@ test('field of view: Bia sees ahead and not behind, feels the goblin at her back
 
   // Lyra looks right: the ogre ahead at (14, 6) is seen, the troll behind at (6, 6) is not, and
   // the goblin right at her back, at (9, 6), is felt by the ring.
-  await bia.getByRole('tab', { name: 'Combate' }).click();
+  await showRoomTab(bia, 'Combate');
   await expect(sceneTokensOf(bia)).toHaveCount(3);
   await expect(sceneTokensOf(bia)).toContainText(['Goblin', 'Lyra', 'Ogro']);
   await expect.poll(() => luminanceAt(bia, [12, 6])).toBeGreaterThan(0.05);

@@ -6,7 +6,7 @@ import {
   sheetIdOf,
   sheetTemplateIdOf,
 } from '@/lib/library-entries';
-import { NO_FOLDER, sceneIdOf, sceneKey } from './library-view';
+import { sceneIdOf, sceneKey } from './library-view';
 
 /** One item the tree shows now, in the order the arrows walk them. */
 export type VisibleTreeItem = Readonly<{
@@ -22,7 +22,7 @@ export function treeItemId(baseId: string, key: string): string {
   return `${baseId}-item-${key}`;
 }
 
-function sceneItems(scenes: readonly TreeScene[], parentKey: string): VisibleTreeItem[] {
+function sceneItems(scenes: readonly TreeScene[], parentKey: string | null): VisibleTreeItem[] {
   return scenes.map(({ id }) => ({ key: sceneKey(id), parentKey, hasChildren: false }));
 }
 
@@ -40,8 +40,8 @@ function visibleFolders<F extends TreeFolder, S extends TreeScene>(
 }
 
 /** The folders above the tree item `key`, from the root down: what must be expanded for it to
- *  show. A grid without folder is under `NO_FOLDER`; empty for a root folder, "Sem pasta" or a
- *  key the tree does not have.
+ *  show. Empty for a root folder, an item without folder (it sits at the root) or a key the
+ *  tree does not have.
  *
  *  Example: `ancestorKeysOf(tree, sceneKey(ossuarioId)) // [ato1Id, catacumbasId]` */
 export function ancestorKeysOf<F extends TreeFolder, S extends TreeScene>(
@@ -50,8 +50,15 @@ export function ancestorKeysOf<F extends TreeFolder, S extends TreeScene>(
 ): string[] {
   const sceneId = isEntryKey(key) ? key : sceneIdOf(key);
   if (!sceneId) return pathTo(tree.roots, (node) => node.folder.id === key)?.slice(0, -1) ?? [];
-  if (tree.looseScenes.some(({ id }) => id === sceneId)) return [NO_FOLDER];
   return pathTo(tree.roots, (node) => node.scenes.some(({ id }) => id === sceneId)) ?? [];
+}
+
+/** Whether a tree key is an item (grid, image, map, document, template, sheet), not a folder:
+ *  only items are dragged without taking drops, and only items open in the room.
+ *
+ *  Example: `isLeafKey(sceneKey(ossuarioId)) // true` */
+export function isLeafKey(key: string): boolean {
+  return sceneIdOf(key) !== null || isEntryKey(key);
 }
 
 // Images, maps, documents, templates and sheets keep their prefixed key as their tree id.
@@ -73,28 +80,26 @@ function pathTo<F extends TreeFolder, S extends TreeScene>(
   return null;
 }
 
-/** Every item of the tree that can expand: each folder and "Sem pasta" (a search opens them all).
+/** Every item of the tree that can expand: each folder (a search opens them all).
  *
- *  Example: `expandableKeysOf(tree) // [ato1Id, catacumbasId, NO_FOLDER]` */
+ *  Example: `expandableKeysOf(tree) // [ato1Id, catacumbasId]` */
 export function expandableKeysOf<F extends TreeFolder, S extends TreeScene>(
   tree: FolderTree<F, S>,
 ): string[] {
   const walk = (nodes: readonly FolderNode<F, S>[]): string[] =>
     nodes.flatMap((node) => [node.folder.id, ...walk(node.children)]);
-  return [...walk(tree.roots), NO_FOLDER];
+  return walk(tree.roots);
 }
 
 /** The items of the tree from top to bottom: the folders (inside the expanded ones, their
- *  folders and then their grids) and "Sem pasta" with its grids.
+ *  folders and then their items), then the items without folder, at the root.
  *
  *  Example: `visibleTreeItems(tree, new Set([ato1Id])).map(({ key }) => key)` */
 export function visibleTreeItems<F extends TreeFolder, S extends TreeScene>(
   tree: FolderTree<F, S>,
   expanded: ReadonlySet<string>,
 ): VisibleTreeItem[] {
-  const loose = { key: NO_FOLDER, parentKey: null, hasChildren: tree.looseScenes.length > 0 };
-  const looseInside = expanded.has(NO_FOLDER) ? sceneItems(tree.looseScenes, NO_FOLDER) : [];
-  return [...visibleFolders(tree.roots, null, expanded), loose, ...looseInside];
+  return [...visibleFolders(tree.roots, null, expanded), ...sceneItems(tree.looseScenes, null)];
 }
 
 /** What an arrow key does on a tree item (the WAI-ARIA tree pattern). */

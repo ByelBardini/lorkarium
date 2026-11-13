@@ -30,8 +30,8 @@ type Listening = Readonly<{
 }>;
 
 /** Rings a short sound for each new important message of the table's chat (a mention or a
- *  whisper to the viewer, `chatNoticeOf`), never for the viewer's own nor for the conversation on
- *  screen, at most once per `CHAT_SOUND_GAP_MS`. Prepared on entering (or on unmuting); muted
+ *  whisper to the viewer, `chatNoticeOf`), even in the conversation on screen, never for the
+ *  viewer's own, at most once per `CHAT_SOUND_GAP_MS`. Prepared on entering (or on unmuting); muted
  *  while "Som do chat" is off; destroyed when the table closes or the hook unmounts.
  *
  *  Example: `useChatSound({ chat, clock: browserClock, viewerId, chatPreferences, createChatSound })` */
@@ -70,12 +70,12 @@ function listenFor(listening: Listening): () => void {
 }
 
 function ringer(listening: Listening): ChatMessageListener {
-  const { chat, clock, viewerIdOf, preferences, sound } = listening;
+  const { clock, viewerIdOf, preferences, sound } = listening;
   let lastRungAt = Number.NEGATIVE_INFINITY;
   return (message, key, calls) => {
     if (!preferences.getState().sound) return;
-    const shownKey = chat.getState().activeKey;
-    const notice = chatNoticeOf({ message, key, calls, viewerId: viewerIdOf(), shownKey });
+    // A call rings even in the conversation on screen: the drawer open is no proof it is being read.
+    const notice = chatNoticeOf({ message, key, calls, viewerId: viewerIdOf(), shownKey: null });
     if (!notice.important || clock.now() - lastRungAt < CHAT_SOUND_GAP_MS) return;
     lastRungAt = clock.now();
     sound.play();

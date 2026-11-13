@@ -45,6 +45,15 @@ describe('SceneTabs', () => {
     expect(screen.getByRole('button', { name: 'Fechar Torre' })).not.toBeNull();
   });
 
+  it('the close of a tab not shown is hidden from the eye only, until hover or focus', () => {
+    act(() => table.tabs.getState().show(GROUP_TAB));
+    const close = screen.getByRole('button', { name: 'Fechar Torre' });
+    expect(close).toHaveClass('opacity-0');
+    expect(close).toHaveClass('focus-visible:opacity-100');
+    act(() => table.tabs.getState().show(TORRE_SCENE.id));
+    expect(screen.getByRole('button', { name: 'Fechar Torre' })).not.toHaveClass('opacity-0');
+  });
+
   it('marks the tab shown as selected, the only one in the Tab order', () => {
     const [group, torre] = within(tablist()).getAllByRole('tab');
     expect(torre).toHaveAttribute('aria-selected', 'true');

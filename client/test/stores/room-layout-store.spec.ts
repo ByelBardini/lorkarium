@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ROOM_CHAT_HEIGHT_STORAGE_KEY,
   ROOM_CHAT_STORAGE_KEY,
+  ROOM_LIBRARY_WIDTH_STORAGE_KEY,
   ROOM_PANEL_STORAGE_KEY,
   createRoomLayoutStore,
   isRoomTab,
@@ -42,6 +43,31 @@ describe('room layout store', () => {
     store.getState().showTab('people');
     expect(store.getState()).toMatchObject({ panel: 'open', tab: 'people' });
     expect([...storage.values.keys()]).toEqual([ROOM_PANEL_STORAGE_KEY]);
+  });
+
+  describe('toggleTab', () => {
+    it('on the tab already open closes the panel and remembers it', () => {
+      const storage = new StorageFake();
+      const store = createRoomLayoutStore(storage);
+      store.getState().toggleTab('combat');
+      expect(store.getState()).toMatchObject({ panel: 'closed', tab: 'combat' });
+      expect(storage.values.get(ROOM_PANEL_STORAGE_KEY)).toBe('closed');
+    });
+
+    it('with the panel closed opens it on that tab and remembers it open', () => {
+      const storage = new StorageFake();
+      const store = createRoomLayoutStore(storage);
+      store.getState().togglePanel();
+      store.getState().toggleTab('dice');
+      expect(store.getState()).toMatchObject({ panel: 'open', tab: 'dice' });
+      expect(storage.values.get(ROOM_PANEL_STORAGE_KEY)).toBe('open');
+    });
+
+    it('on another tab keeps the panel open and moves to it', () => {
+      const store = createRoomLayoutStore(new StorageFake());
+      store.getState().toggleTab('people');
+      expect(store.getState()).toMatchObject({ panel: 'open', tab: 'people' });
+    });
   });
 
   it('toggleFocus turns focus mode on and off, and exitFocus only turns it off', () => {
@@ -201,5 +227,33 @@ describe('room layout store', () => {
     ['notes', false],
   ])('isRoomTab(%s) is %s', (value, expected) => {
     expect(isRoomTab(value)).toBe(expected);
+  });
+  describe('the library drawer width', () => {
+    it('starts at 420 px with nothing remembered', () => {
+      expect(createRoomLayoutStore(new StorageFake()).getState().libraryWidth).toBe(420);
+    });
+
+    it('setLibraryWidth(612.4) keeps and remembers the rounded width', () => {
+      const storage = new StorageFake();
+      const store = createRoomLayoutStore(storage);
+      store.getState().setLibraryWidth(612.4);
+      expect(store.getState().libraryWidth).toBe(612);
+      expect(storage.values.get(ROOM_LIBRARY_WIDTH_STORAGE_KEY)).toBe('612');
+      expect(createRoomLayoutStore(storage).getState().libraryWidth).toBe(612);
+    });
+
+    it.each([Number.NaN, 0, -10])('setLibraryWidth(%s) is ignored', (width) => {
+      const storage = new StorageFake();
+      const store = createRoomLayoutStore(storage);
+      store.getState().setLibraryWidth(width);
+      expect(store.getState().libraryWidth).toBe(420);
+      expect(storage.values.has(ROOM_LIBRARY_WIDTH_STORAGE_KEY)).toBe(false);
+    });
+
+    it('a remembered width that is not a number starts at 420 px', () => {
+      const storage = new StorageFake();
+      storage.values.set(ROOM_LIBRARY_WIDTH_STORAGE_KEY, 'wide');
+      expect(createRoomLayoutStore(storage).getState().libraryWidth).toBe(420);
+    });
   });
 });

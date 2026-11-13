@@ -1,13 +1,14 @@
 import { expect, type Page } from '@playwright/test';
 import { cellCenterOf, holdDragBetweenCells } from './support/board-cells';
 import { BIA } from './support/dev-players';
-import { test } from './support/player-pages';
+import { test, WIDE_ROOM } from './support/player-pages';
 import { adminCredentials, signIn } from './support/sign-in';
 import {
   boardOf,
   createTableAndReadCode,
   enterFromTheList,
   joinByCodeAndEnter,
+  showRoomTab,
 } from './support/tables';
 import { cardOf, openCard, statusOf, chooseController, sceneTokensOf } from './support/token-cards';
 
@@ -112,8 +113,8 @@ test('lighting live: a torch on the map shows the ogre, put out it hides it, and
 }) => {
   test.setTimeout(240_000);
   const name = `Mesa iluminada ${Date.now()}`;
-  const admin = await newPlayerPage();
-  const bia = await newPlayerPage();
+  const admin = await newPlayerPage(WIDE_ROOM);
+  const bia = await newPlayerPage(WIDE_ROOM);
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   await signIn(bia, BIA);
@@ -123,7 +124,7 @@ test('lighting live: a torch on the map shows the ogre, put out it hides it, and
   await setVisionDark(admin);
   await createBlindLyra(admin);
   await createFarOgre(admin);
-  await bia.getByRole('tab', { name: 'Combate' }).click();
+  await showRoomTab(bia, 'Combate');
   await expect(sceneTokensOf(bia)).toHaveCount(1);
 
   // The master puts a torch on the ogre: Bia, with no darkvision, now sees him by its light.
@@ -159,7 +160,7 @@ test('lighting live: a torch on the map shows the ogre, put out it hides it, and
 
   // After F5 the torch of the map and the torch of Lyra are still out.
   await bia.reload();
-  await bia.getByRole('tab', { name: 'Combate' }).click();
+  await showRoomTab(bia, 'Combate');
   await expect(sceneTokensOf(bia)).toHaveCount(1);
   await expect
     .poll(async () => luminanceAt(bia, await cellCenterOf(bia, 12, 6)))
@@ -171,8 +172,8 @@ test('colored light: an infernal torch tints the floor red for Bia, kept on F5, 
 }) => {
   test.setTimeout(180_000);
   const name = `Mesa colorida ${Date.now()}`;
-  const admin = await newPlayerPage();
-  const bia = await newPlayerPage();
+  const admin = await newPlayerPage(WIDE_ROOM);
+  const bia = await newPlayerPage(WIDE_ROOM);
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   await signIn(bia, BIA);
@@ -220,8 +221,8 @@ test('torch dragged live: the ogre shows before the drop, to Bia dragging and to
 }) => {
   test.setTimeout(240_000);
   const name = `Mesa da tocha ${Date.now()}`;
-  const admin = await newPlayerPage();
-  const bia = await newPlayerPage();
+  const admin = await newPlayerPage(WIDE_ROOM);
+  const bia = await newPlayerPage(WIDE_ROOM);
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, name);
   await signIn(bia, BIA);
@@ -233,7 +234,7 @@ test('torch dragged live: the ogre shows before the drop, to Bia dragging and to
   await createFarOgre(admin);
   await giveLyraATorch(admin);
   await moveLyraAwayFromTheOgre(admin);
-  await bia.getByRole('tab', { name: 'Combate' }).click();
+  await showRoomTab(bia, 'Combate');
   await expect(sceneTokensOf(bia)).toHaveCount(1);
 
   // Bia holds Lyra by the ogre: her torch shows him before she drops; Esc puts her back.

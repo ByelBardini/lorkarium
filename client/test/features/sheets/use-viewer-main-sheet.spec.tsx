@@ -1,6 +1,7 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { CharacterDto } from '@lorkarium/contracts';
+import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it } from 'vitest';
 import { RoomName } from '@/features/maps/room-name';
 import { useViewerMainSheet } from '@/features/sheets/use-viewer-main-sheet';
@@ -21,8 +22,16 @@ const BUTTON = 'Abrir a ficha de Lyra';
 // The top bar's wiring: the title with the viewer's main sheet beside the table's name.
 function TitleOf({ viewerId }: Readonly<{ viewerId: string | null }>) {
   const mainSheet = useViewerMainSheet(viewerId);
+  // RoomName links back to "Suas mesas", so it needs a router.
   return (
-    <RoomName campaign={detailOf(VHARN)} tabs={null} workspace={undefined} mainSheet={mainSheet} />
+    <MemoryRouter>
+      <RoomName
+        campaign={detailOf(VHARN)}
+        tabs={null}
+        workspace={undefined}
+        mainSheet={mainSheet}
+      />
+    </MemoryRouter>
   );
 }
 

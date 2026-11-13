@@ -3,6 +3,7 @@ import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { buildRoutes } from '@/app/router';
+import { LIBRARY_DRAWER_WIDE_WIDTH } from '@/lib/library-drawer-width';
 import type { OpenTable } from '@/stores/open-tables-store';
 import type { TestDependencies } from './app-dependencies';
 import { ANA } from './auth-api-fake';
@@ -19,6 +20,8 @@ export type LibraryRoomOptions = Readonly<{
   state?: SessionStateDto;
   /** The table's plan limits (its owner's); Amigo do Dono's by default. */
   limits?: PlanLimits;
+  /** The library drawer width; wide by default, where the tree and the panel sit side by side. */
+  libraryWidth?: number;
 }>;
 
 /** VHARN's play room, live on the group grid, as the master (or a player with `role`).
@@ -26,8 +29,14 @@ export type LibraryRoomOptions = Readonly<{
  *  Example: `const { table } = await openRoom(deps, { role: 'player' })` */
 export async function openRoom(
   deps: TestDependencies,
-  { role = 'master', state = vharnState(), limits = VHARN.limits }: LibraryRoomOptions = {},
+  {
+    role = 'master',
+    state = vharnState(),
+    limits = VHARN.limits,
+    libraryWidth = LIBRARY_DRAWER_WIDE_WIDTH,
+  }: LibraryRoomOptions = {},
 ): Promise<LibraryRoom> {
+  deps.roomLayout.getState().setLibraryWidth(libraryWidth);
   deps.authApi.answerMeWith(ANA);
   const joinCode = role === 'master' ? 'VHRN7K2Q' : null;
   deps.campaignsApi.answer('detail', {
@@ -50,7 +59,7 @@ export async function openRoom(
   return { router, table };
 }
 
-/** The room with the library open by its "Biblioteca" link, once the list has come.
+/** The room with the library open by its "Biblioteca" button, once the list has come.
  *
  *  Example: `const { table } = await openLibrary(deps); screen.getByRole('tree')` */
 export async function openLibrary(
@@ -58,7 +67,7 @@ export async function openLibrary(
   options: LibraryRoomOptions = {},
 ): Promise<LibraryRoom> {
   const room = await openRoom(deps, options);
-  await userEvent.click(screen.getByRole('link', { name: 'Biblioteca' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Biblioteca' }));
   await screen.findByRole('tree', { name: 'Itens e pastas' });
   return room;
 }

@@ -17,7 +17,7 @@ export function treeItem(name: string): HTMLElement {
 
 /** The names of the items the tree shows, top to bottom.
  *
- *  Example: `expect(treeItemNames()).toEqual(['Ato 1', 'Lugares fixos', 'Sem pasta', 'Cena 1'])` */
+ *  Example: `expect(treeItemNames()).toEqual(['Ato 1', 'Lugares fixos', 'Cena 1'])` */
 export function treeItemNames(): string[] {
   return within(libraryTree())
     .queryAllByRole('treeitem')
@@ -65,10 +65,48 @@ export async function pickNewItemKind(kind: string): Promise<HTMLElement> {
   return dialog;
 }
 
-/** The header's "Criar item" with the type already picked; resolves to the dialog.
+/** The header's "Novo" with the type already picked on its card; resolves to the dialog.
  *
  *  Example: `const dialog = await startHeaderNewItem('Grid')` */
 export async function startHeaderNewItem(kind: string): Promise<HTMLElement> {
-  await userEvent.click(screen.getByRole('button', { name: 'Criar item' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Novo' }));
   return pickNewItemKind(kind);
+}
+
+/** The tree's scrolling area around the items: its empty space is the root (menu, drops).
+ *
+ *  Example: `await openTreeMenu(treeArea())` */
+export function treeArea(): HTMLElement {
+  const area = libraryTree().parentElement;
+  if (!area) throw new Error('the tree has no scroll area around it');
+  return area;
+}
+
+/** The filters popover of the search, open; resolves to it.
+ *
+ *  Example: `within(await openLibraryFilters()).getByRole('radiogroup', { name: 'Tipo de item' })` */
+export async function openLibraryFilters(): Promise<HTMLElement> {
+  await userEvent.click(screen.getByRole('button', { name: 'Filtrar itens' }));
+  return screen.findByRole('dialog');
+}
+
+/** Picks a type in the filters popover ("Tudo", "Grids", "Modelos de ficha"…), closing it after.
+ *
+ *  Example: `await pickLibraryType('Mapas')` */
+export async function pickLibraryType(label: string): Promise<void> {
+  const filters = await openLibraryFilters();
+  const types = within(filters).getByRole('radiogroup', { name: 'Tipo de item' });
+  await userEvent.click(within(types).getByRole('radio', { name: label }));
+  await userEvent.keyboard('{Escape}');
+}
+
+/** Picks who sees the items in the filters popover ("Toda", "Públicos", "Privados"), closing it
+ *  after.
+ *
+ *  Example: `await filterLibraryVisibility('Privados')` */
+export async function filterLibraryVisibility(label: string): Promise<void> {
+  const filters = await openLibraryFilters();
+  const group = within(filters).getByRole('radiogroup', { name: 'Visibilidade' });
+  await userEvent.click(within(group).getByRole('radio', { name: label }));
+  await userEvent.keyboard('{Escape}');
 }

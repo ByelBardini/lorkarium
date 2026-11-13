@@ -70,6 +70,7 @@ export * from './library/campaign-library.dto';
 export * from './documents/document-content.dto';
 export * from './documents/document-tab.dto';
 export * from './documents/document.dto';
+export * from './documents/document-preview.dto';
 export * from './documents/document-image.dto';
 export * from './sheets/sheet-manifest.dto';
 export * from './sheets/sheet-template.dto';

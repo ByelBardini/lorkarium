@@ -59,4 +59,17 @@ describe('DocumentAssetReadPolicy', () => {
     const { policy } = policyHarness({ tabId: GERAL_TAB_ID, inContent: false });
     expect(await policy.canRead(ANA_ID, VHARN_ID, DOCUMENT_ID)).toBe(false);
   });
+  it('the cover is read by every reader of the document, even when prepared in the masters-only tab', async () => {
+    const { harness, policy } = policyHarness({ tabId: SEGREDOS_TAB_ID, inContent: false });
+    harness.documents.rows[0]!.previewAssetId = ACTION_ID;
+    expect(await policy.canRead(CAIO_ID, VHARN_ID, ACTION_ID)).toBe(true);
+  });
+  it('the cover of a document the reader no longer reads is refused', async () => {
+    const { harness, policy } = policyHarness();
+    harness.documents.rows[0]!.previewAssetId = ACTION_ID;
+    harness.documents.rows[0]!.visibility = 'private';
+    expect(await policy.canRead(CAIO_ID, VHARN_ID, ACTION_ID)).toBe(false);
+    harness.documents.ownerRows[DOCUMENT_ID] = [CAIO_ID];
+    expect(await policy.canRead(CAIO_ID, VHARN_ID, ACTION_ID)).toBe(true);
+  });
 });
