@@ -9,6 +9,7 @@ import {
   createTableAndReadCode,
   enterFromTheList,
   joinByCodeAndEnter,
+  showRoomTab,
 } from './support/tables';
 
 type DiceTable = Readonly<{ name: string; admin: Page; bia: Page; caio: Page | null }>;
@@ -37,7 +38,7 @@ async function openDiceTable(
 
 async function openDiceTab(page: Page): Promise<void> {
   await expect(boardOf(page)).toBeVisible();
-  await page.getByRole('tab', { name: 'Dados' }).click();
+  await showRoomTab(page, 'Dados');
 }
 
 function historyOf(page: Page): Locator {
@@ -95,7 +96,7 @@ test('detached dice rolls stay live alongside the chat window and return when cl
   const total = await revealedTotalOf(admin);
   await expect(newestTotalOf(dice)).toHaveText(total);
   await dice.close();
-  await bia.getByRole('tab', { name: 'Dados' }).click();
+  await showRoomTab(bia, 'Dados');
   await expect(bia.getByLabel('Fórmula')).toBeVisible();
   await expect(newestTotalOf(bia)).toHaveText(total);
   expect(chat.isClosed()).toBe(false);

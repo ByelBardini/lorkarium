@@ -3,7 +3,12 @@ import { test } from './support/player-pages';
 import { BIA } from './support/dev-players';
 import { cellCenterOf } from './support/board-cells';
 import { adminCredentials, signIn } from './support/sign-in';
-import { createTableAndReadCode, enterFromTheList, joinByCodeAndEnter } from './support/tables';
+import {
+  createTableAndReadCode,
+  enterFromTheList,
+  joinByCodeAndEnter,
+  showRoomTab,
+} from './support/tables';
 import {
   createCharacterTokenWithPv,
   createTokenFor,
@@ -60,7 +65,7 @@ test("the dock shows the token of Bia's character in the grid, without it the ch
   await createCharacterTokenWithPv(admin, 'Lyra', 'Bia');
 
   // With nothing selected, the foot of the "Combate" tab already shows her Lyra.
-  await bia.getByRole('tab', { name: 'Combate' }).click();
+  await showRoomTab(bia, 'Combate');
   const lyraDock = characterTokenDockOf(bia, 'Lyra');
   await expect(lyraDock).toContainText('Principal');
   await expect(lyraDock.getByRole('button', { name: 'Editar PV de Lyra' })).toBeVisible();
@@ -85,6 +90,6 @@ test("the dock shows the token of Bia's character in the grid, without it the ch
   await expect(characterTokenDockOf(bia, 'Lyra')).toBeVisible();
 
   await bia.reload();
-  await bia.getByRole('tab', { name: 'Combate' }).click();
+  await showRoomTab(bia, 'Combate');
   await expect(characterTokenDockOf(bia, 'Lyra')).toContainText('8 / 10');
 });

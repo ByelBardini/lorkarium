@@ -10,7 +10,7 @@ import {
   sendChat,
 } from './support/chat';
 import { test } from './support/player-pages';
-import { boardOf } from './support/tables';
+import { boardOf, showRoomTab } from './support/tables';
 import { createTokenFor } from './support/token-cards';
 
 test('table and whispers: public messages reach everyone; a whisper reaches Bia and excludes Caio', async ({
@@ -97,7 +97,7 @@ test('slash rolls: /r and a saved /ataque produce matching totals in both chat f
   await bia.screenshot({ path: testInfo.outputPath('chat-shortcuts.png'), animations: 'disabled' });
   await bia.keyboard.press('Escape');
   await expect(shortcuts).toBeHidden();
-  await bia.getByRole('tab', { name: 'Dados', exact: true }).click();
+  await showRoomTab(bia, 'Dados');
   const dice = bia.getByRole('tabpanel', { name: 'Dados' });
   await dice.getByLabel('Fórmula').fill('1d20+5');
   await dice.getByRole('button', { name: 'Salvar esta rolagem' }).click();
@@ -120,7 +120,7 @@ test('character speech: Bia speaks as Lyra and the other browser paints a tempor
 }) => {
   test.setTimeout(120_000);
   const { admin, bia } = await openChatTable(newPlayerPage);
-  await admin.getByRole('tab', { name: 'Combate', exact: true }).click();
+  await showRoomTab(admin, 'Combate');
   await createTokenFor(admin, 'Lyra', 'Bia');
   // The open drawer covers the centre cell, where the token and its balloon are.
   await collapseChat(admin);
@@ -169,7 +169,7 @@ test('detached window: popup menus and sending work, changing the room tab keeps
     .getByRole('button', { name: /, 1 não lida$/ })
     .click();
   await expect(chatFeedOf(bia)).toContainText('Privado pela outra janela.');
-  await admin.getByRole('tab', { name: 'Dados', exact: true }).click();
+  await showRoomTab(admin, 'Dados');
   await expect(popup.getByRole('combobox', { name: 'Mensagem' })).toBeVisible();
   await popup.close();
   await openChatDrawer(admin);
@@ -186,7 +186,7 @@ test('another panel tab: Bia on "Combate" sees the new message in the bar, a gol
   const { bia, caio } = await openChatTable(newPlayerPage, true);
   if (!caio) throw new Error('expected Caio at the chat table');
   await collapseChat(bia);
-  await bia.getByRole('tab', { name: 'Combate', exact: true }).click();
+  await showRoomTab(bia, 'Combate');
 
   await sendChat(caio, 'Vou abrir a porta.');
   const preview = bia

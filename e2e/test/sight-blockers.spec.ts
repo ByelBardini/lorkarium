@@ -3,13 +3,14 @@ import { cellCenterOf, dragBetweenCells } from './support/board-cells';
 import { meanChannelsAt } from './support/canvas-pixels';
 import { cutOutBandPng } from './support/cut-out-png';
 import { BIA } from './support/dev-players';
-import { test } from './support/player-pages';
+import { test, WIDE_ROOM } from './support/player-pages';
 import { adminCredentials, signIn } from './support/sign-in';
 import {
   boardOf,
   createTableAndReadCode,
   enterFromTheList,
   joinByCodeAndEnter,
+  showRoomTab,
 } from './support/tables';
 import { cardOf, chooseController, openCard, statusOf } from './support/token-cards';
 
@@ -155,7 +156,7 @@ async function openTheStage(admin: Page, bia: Page, table: string): Promise<void
   await createTokenWalking(admin, 'Ogro', Array<string>(4).fill('ArrowRight'));
   await createTokenWalking(admin, 'Goblin', [...Array<string>(4).fill('ArrowRight'), 'ArrowUp']);
   await createStatue(admin);
-  await bia.getByRole('tab', { name: 'Combate' }).click();
+  await showRoomTab(bia, 'Combate');
   for (const name of ['Lyra', 'Ogro', 'Goblin', 'Estátua']) {
     await expect(sceneRowOf(bia, name)).toHaveCount(1);
   }
@@ -183,8 +184,8 @@ test('sight blocker live: a cut-out image hides what is behind its outline, movi
   newPlayerPage,
 }) => {
   test.setTimeout(300_000);
-  const admin = await newPlayerPage();
-  const bia = await newPlayerPage();
+  const admin = await newPlayerPage(WIDE_ROOM);
+  const bia = await newPlayerPage(WIDE_ROOM);
   await openTheStage(admin, bia, `Mesa da estátua ${Date.now()}`);
 
   // The master turns it on: the ogre leaves the list and the canvas of Bia, the master keeps it.
@@ -224,8 +225,8 @@ test('sight blocker edges: a hidden statue blocks nothing, and the block outlive
   newPlayerPage,
 }) => {
   test.setTimeout(300_000);
-  const admin = await newPlayerPage();
-  const bia = await newPlayerPage();
+  const admin = await newPlayerPage(WIDE_ROOM);
+  const bia = await newPlayerPage(WIDE_ROOM);
   await openTheStage(admin, bia, `Mesa da estátua oculta ${Date.now()}`);
   await turnOnTheBlock(admin);
   await expectOgreBehindTheStatue(bia);
@@ -247,7 +248,7 @@ test('sight blocker edges: a hidden statue blocks nothing, and the block outlive
 
   // After F5 the player is cut by the same outline, read again from the server.
   await bia.reload();
-  await bia.getByRole('tab', { name: 'Combate' }).click();
+  await showRoomTab(bia, 'Combate');
   await expect(sceneRowOf(bia, 'Lyra')).toHaveCount(1);
   await expectOgreBehindTheStatue(bia);
 
@@ -263,8 +264,8 @@ test('sight blocker with no image: the disc it is drawn as casts the shadow, not
   newPlayerPage,
 }) => {
   test.setTimeout(180_000);
-  const admin = await newPlayerPage();
-  const bia = await newPlayerPage();
+  const admin = await newPlayerPage(WIDE_ROOM);
+  const bia = await newPlayerPage(WIDE_ROOM);
   const table = `Mesa do pilar ${Date.now()}`;
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, table);
@@ -286,8 +287,8 @@ test('sight blocker with no image in the penumbra: its silhouette is the disc, l
   newPlayerPage,
 }) => {
   test.setTimeout(180_000);
-  const admin = await newPlayerPage();
-  const bia = await newPlayerPage();
+  const admin = await newPlayerPage(WIDE_ROOM);
+  const bia = await newPlayerPage(WIDE_ROOM);
   const table = `Mesa do pilar na penumbra ${Date.now()}`;
   await signIn(admin, adminCredentials());
   const code = await createTableAndReadCode(admin, table);

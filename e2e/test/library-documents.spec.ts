@@ -11,7 +11,7 @@ import {
   readTabContent,
   showDocumentTab,
 } from './support/documents';
-import { gridItemOf, gridTabsOf, openLibrary, pickGrid } from './support/library';
+import { closeLibrary, gridItemOf, gridTabsOf, openLibrary, pickGrid } from './support/library';
 import { test } from './support/player-pages';
 import { adminCredentials, signIn } from './support/sign-in';
 import {
@@ -217,7 +217,7 @@ test('document popup opens directly from preview and saves while the primary win
   const popup = await opened;
   const panel = popup.getByRole('region', { name: 'Documento escolhido' });
   await expect(panel).toBeVisible();
-  await library.getByRole('button', { name: 'Fechar biblioteca', exact: true }).click();
+  await closeLibrary(master);
   await expect(boardOf(master)).toBeVisible();
   await expect(gridTabsOf(master).getByRole('tab', { name: /Grupo/ })).toHaveAttribute(
     'aria-selected',
