@@ -12,6 +12,7 @@ import { CampaignNotFoundError } from '../../src/modules/campaigns/campaigns.err
 import type { CampaignsService } from '../../src/modules/campaigns/campaigns.service';
 import type { PresenceRegistryPort } from '../../src/modules/sessions/presence-registry.port';
 import type { SchedulerPort } from '../../src/modules/sessions/scheduler.port';
+import type { TableOpenedPort, TableVisit } from '../../src/modules/sessions/table-opened.port';
 import type {
   MemberRemovedEvents,
   MemberRoleMove,
@@ -156,5 +157,34 @@ export class PrivateGridsFake implements Pick<SceneWatchService, 'privateGridIds
   async privateGridIdsOf(campaignId: string): Promise<string[]> {
     this.reads.push(campaignId);
     return [...(this.grids[campaignId] ?? [])];
+  }
+}
+
+/** One call the live table session made to the account's presence. */
+export type TableOpenedCall =
+  | Readonly<{ kind: 'opened' | 'closed'; visit: TableVisit }>
+  | Readonly<{ kind: 'left-everywhere'; userId: string; campaignId: string }>
+  | Readonly<{ kind: 'activity'; userId: string; socketId: string; away: boolean }>;
+
+/** The account's presence as the table session tells it; `calls` keeps every call, in order.
+ *
+ *  Example: `expect(tables.calls).toEqual([{ kind: 'opened', visit }])` */
+export class TableOpenedFake implements TableOpenedPort {
+  readonly calls: TableOpenedCall[] = [];
+
+  tableOpened(visit: TableVisit): void {
+    this.calls.push({ kind: 'opened', visit });
+  }
+
+  tableClosed(visit: TableVisit): void {
+    this.calls.push({ kind: 'closed', visit });
+  }
+
+  tableLeftEverywhere(userId: string, campaignId: string): void {
+    this.calls.push({ kind: 'left-everywhere', userId, campaignId });
+  }
+
+  activityChanged(userId: string, socketId: string, away: boolean): void {
+    this.calls.push({ kind: 'activity', userId, socketId, away });
   }
 }

@@ -8,6 +8,7 @@ import type { AssetRemovalLog } from '../assets/asset-object-removal';
 import type { AssetStoragePort } from '../assets/asset-storage.port';
 import { AssetsDao } from '../assets/assets.dao';
 import { ConditionsDao } from '../conditions/conditions.dao';
+import { UserBlocksDao } from '../friends/user-blocks.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
 import { CachedMemberships } from './cached-memberships';
 import type { CampaignChangedPort } from './campaign-changed.port';
@@ -74,7 +75,7 @@ export function createCampaignsModule(options: CampaignsModuleOptions): Campaign
   const memberships = new CachedMemberships(members);
   const readDeps = { campaigns, members, memberships, presence };
   const service = new CampaignsService({ ...readDeps, transaction, codes, hasher, clock });
-  const joinDeps = { campaigns, members, hasher, clock };
+  const joinDeps = { campaigns, members, hasher, clock, blocks: new UserBlocksDao(options.db) };
   const join = new CampaignJoinService({
     ...joinDeps,
     transaction: campaignJoinTransactionOver(options.db),
