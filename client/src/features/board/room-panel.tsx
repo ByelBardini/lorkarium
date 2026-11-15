@@ -12,6 +12,12 @@ import type { BoardStore } from '@/stores/board-store';
 import type { CharactersStore } from '@/stores/characters-store';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import { DESKTOP_QUERY, useMediaQuery } from '@/lib/use-media-query';
+import { watchesOnly } from '@/lib/table-role';
+import {
+  diceTrayStoreOf,
+  useDiceTrayPartCount,
+  type DiceTrayStore,
+} from '@/stores/dice-tray-store';
 import { isRoomTab, useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store';
 import { ROOM_TAB_NAME } from './board-messages';
 import { RoomRail } from './room-rail';
@@ -68,9 +74,18 @@ export function RoomSidePanel(props: RoomPanelProps): React.JSX.Element | null {
           <RoomPanelTabs {...props} withList={false} />
         </aside>
       )}
-      <RoomRail roomLayout={props.roomLayout} presence={props.table?.presence ?? null} />
+      <RoomRail
+        roomLayout={props.roomLayout}
+        presence={props.table?.presence ?? null}
+        diceTray={diceTrayOf(props.dice)}
+      />
     </>
   );
+}
+
+// A spectator rolls nothing: no tray, no badge.
+function diceTrayOf(dice: RoomPanelProps['dice']): StoreApi<DiceTrayStore> | null {
+  return watchesOnly(dice.role) ? null : diceTrayStoreOf(dice.openTables, dice.campaignId);
 }
 
 // The chat's counter is not here: "Chat" (`ChatPhoneButton`) is its own button beside this one.
@@ -113,7 +128,10 @@ function RoomPanelTabs(props: PanelTabsProps): React.JSX.Element {
               Na mesa
               {table && <OnlinePill presence={table.presence} />}
             </TabsTrigger>
-            <TabsTrigger value="dice">Dados</TabsTrigger>
+            <TabsTrigger value="dice">
+              Dados
+              <TrayPartsPill diceTray={diceTrayOf(props.dice)} />
+            </TabsTrigger>
           </TabsList>
         ) : (
           <h2 className="h-10 min-w-0 flex-1 content-center font-display text-base font-semibold">
@@ -193,6 +211,20 @@ function RoomDice({ dice, table, diceWindow }: RoomPanelProps): React.JSX.Elemen
       )}
       <DicePanel {...dice} presence={table?.presence ?? null} />
     </>
+  );
+}
+
+// On the phone's sheet, like the online pill: for the eye (the tab's name stays "Dados").
+function TrayPartsPill({ diceTray }: Readonly<{ diceTray: StoreApi<DiceTrayStore> | null }>) {
+  const parts = useDiceTrayPartCount(diceTray);
+  if (parts === 0) return null;
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-grid h-5 min-w-5 place-items-center rounded-full bg-primary/15 px-1.5 text-[11px] text-primary tabular-nums"
+    >
+      {parts}
+    </span>
   );
 }
 

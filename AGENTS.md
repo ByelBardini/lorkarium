@@ -108,7 +108,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | lights           | Luzes do mapa: ponto, alcance, cor, cone, aceso/apagado, só o mestre                  | [`docs/context/lights.md`](docs/context/lights.md)                     |
 | pings            | Ping no mapa: anel efêmero com o nome, alcance pela sala do grid, sem versão          | [`docs/context/pings.md`](docs/context/pings.md)                       |
 | sheets           | Fichas: modelo e ficha na biblioteca, dono (jogador ou token), sandbox, SDK, console  | [`docs/context/sheets.md`](docs/context/sheets.md)                     |
-| dice             | Dados: física no server, ondas, até 20 modelos, secreta, balde próprio, salvas        | [`docs/context/dice.md`](docs/context/dice.md)                         |
+| dice             | Dados: física no server, ondas, até 20 modelos, secreta, balde, salvas, bandeja       | [`docs/context/dice.md`](docs/context/dice.md)                         |
 | chat             | Chat da mesa (efêmero): Mesa, sussurro, privado, grupo, falar como token, salas       | [`docs/context/chat.md`](docs/context/chat.md)                         |
 | sessions         | Sessão ao vivo da mesa (Socket.IO): presença, ausência, snapshot, versão              | [`docs/context/sessions.md`](docs/context/sessions.md)                 |
 | account-security | Conta: senha, sessões ativas, troca de e-mail, 2FA da conta, avisos por e-mail        | [`docs/context/account-security.md`](docs/context/account-security.md) |

@@ -182,6 +182,30 @@ test('Bia saves "Acerto", rolls its tag and the history and the board notice sho
   );
 });
 
+test('Bia sums her saved "Acerto" and "Bênção" by their "+", rolls once and the admin sees both parts', async ({
+  newPlayerPage,
+}) => {
+  test.setTimeout(180_000);
+  const { admin, bia } = await openDiceTable(newPlayerPage, false);
+  const panel = bia.getByRole('tabpanel', { name: 'Dados' });
+  await saveExpression(panel, '1d20', 'Acerto');
+  await saveExpression(panel, '1d4+5', 'Bênção');
+
+  await panel.getByRole('button', { name: 'Adicionar Acerto à rolagem' }).click();
+  await panel.getByRole('button', { name: 'Adicionar Bênção à rolagem' }).click();
+  const pieces = panel.getByRole('list', { name: 'Partes na rolagem' }).getByRole('listitem');
+  await expect(pieces).toHaveText(['Acerto · 1d20', 'Bênção · 1d4+5']);
+  await expect(panel.getByRole('status', { name: 'Prévia da rolagem' })).toHaveText('1d20 + 1d4+5');
+  await panel.getByRole('button', { name: 'Rolar', exact: true }).click();
+
+  const total = Number(await revealedTotalOf(admin));
+  expect(total).toBeGreaterThanOrEqual(7);
+  expect(total).toBeLessThanOrEqual(29);
+  await expect(historyOf(admin).first()).toContainText('Acerto');
+  await expect(historyOf(admin).first()).toContainText('Bênção');
+  await expect(panel.getByRole('list', { name: 'Partes na rolagem' })).toHaveCount(0);
+});
+
 async function saveExpression(panel: Locator, expression: string, name: string): Promise<void> {
   await panel.getByLabel('Fórmula').fill(expression);
   await panel.getByRole('button', { name: 'Salvar esta rolagem' }).click();

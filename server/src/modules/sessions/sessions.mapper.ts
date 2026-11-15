@@ -13,6 +13,7 @@ import type {
 import { memberColorOf } from '@lorkarium/game-core';
 import type { CampaignMemberRow } from '../campaigns/campaign-members.dao';
 import { accountSealFieldsOf } from '../campaigns/campaigns.mapper';
+import { customizationAllowed } from '../plans/plan-limits.bo';
 import { TablePresenceBo, type PresenceRoster } from './table-presence.bo';
 
 /** Members + roster → the snapshot a joining client starts from (the `session:state` of §7.2);
@@ -117,6 +118,8 @@ function profileOf(member: CampaignMemberRow): Omit<SessionMemberDto, 'online' |
     username: member.username,
     color: memberColorOf(member.userId, member.colorChoice),
     avatarId: member.avatarId,
+    // Like the profile card: a banner kept from a lapsed plan is not shown.
+    bannerId: customizationAllowed(member.account) ? member.bannerId : null,
     bio: member.bio,
     role: member.role,
     juggernaut: member.juggernaut,

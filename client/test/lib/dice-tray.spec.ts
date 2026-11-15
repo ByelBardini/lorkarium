@@ -97,8 +97,8 @@ describe('savedRollPartsOf', () => {
 });
 
 describe('the tray’s shape', () => {
-  it('the empty tray is only an empty formula', () => {
-    expect(EMPTY_TRAY).toEqual({ loose: '' });
+  it('the empty tray is an empty formula without pieces', () => {
+    expect(EMPTY_TRAY).toEqual({ loose: '', pieces: [] });
   });
 });
 

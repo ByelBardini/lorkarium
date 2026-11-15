@@ -410,6 +410,7 @@ function memberRowOf(row: CampaignMemberPo, name: string, owner: boolean): Campa
     username,
     colorChoice: null,
     avatarId: null,
+    bannerId: null,
     bio: null,
     role: row.role,
     owner,

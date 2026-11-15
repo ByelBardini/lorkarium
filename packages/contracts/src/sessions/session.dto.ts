@@ -37,6 +37,7 @@ export type SessionCommandDto = z.infer<typeof sessionCommandDto>;
 
 /** A member of the table; `awaySince` is when every tab of theirs stood still (null: active).
  *  `name` is the nickname, `username` the @, `color` the effective one (chosen or drawn).
+ *  `bannerId` is the profile's 3:1 banner (null: none), the faded backdrop of their row.
  *  `juggernaut`: an admin in juggernaut mode (`role` is `master`), listed only while online.
  *  `plan` is the account's stored plan, `admin` the global role and `lorkariumOwner` the Dono do
  *  Lorkarium: what the table's one seal is picked from (the limits ride in the campaign). */
@@ -46,6 +47,7 @@ export const sessionMemberDto = z.strictObject({
   username: z.string(),
   color: memberColorDto,
   avatarId: z.uuid().nullable(),
+  bannerId: z.uuid().nullable(),
   bio: z.string().nullable(),
   role: campaignRoleDto,
   juggernaut: z.boolean(),

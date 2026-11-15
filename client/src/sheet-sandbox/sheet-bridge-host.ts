@@ -13,7 +13,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { RateWindowRule } from '@/lib/rate-window';
 import type { AssetsApi } from '@/services/assets-api';
-import type { DiceCommands, DiceRollFailure } from '@/services/dice-commands';
+import type { DiceCommands } from '@/services/dice-commands';
 import type { SheetCommands } from '@/services/sheet-commands';
 import type { SheetImage, SheetsApi } from '@/services/sheets-api';
 import type { SheetStoreState } from '@/stores/sheet-store';
@@ -25,7 +25,13 @@ import {
   type SheetRateStamps,
 } from './sheet-bridge-answer';
 import { readSheetAsset, uploadSheetImage } from './sheet-bridge-assets';
-import { diceSettled, sheetRollOf } from './sheet-bridge-dice';
+import { diceRefusalOf, diceSettled, sheetRollOf } from './sheet-bridge-dice';
+import {
+  answerSheetTray,
+  isSheetTrayRequest,
+  type SheetTrayRequest,
+  type SheetTrayTarget,
+} from './sheet-bridge-tray';
 import {
   isSheetDocumentRead,
   readSheetDocuments,
@@ -80,6 +86,9 @@ export type SheetBridgeHostOptions = Readonly<{
   clock: InteractionClock;
   /** Width / height of the roller's window: the physics box of the roll. */
   diceAspect: () => number;
+  /** The room's tray and saved rolls of who looks (`dice.tray.*`, `dice.saved.list`); absent or
+   *  `null` = no tray here (a spectator): those requests are refused `FORBIDDEN`. */
+  diceTray?: SheetTrayTarget | null;
   /** The frame said `ready`: the room's watchdog stops waiting for it. */
   onReady?: () => void;
   /** The frame's console lines, past the host's own rate limit; absent = dropped (a player). */
@@ -211,7 +220,7 @@ async function receive(bridge: Bridge, data: unknown): Promise<void> {
 
 type EditRequest = Exclude<
   SheetFrameRequestDto,
-  { type: 'ready' | 'dice.roll' | 'assets.read' } | SheetDocumentRead
+  { type: 'ready' | 'dice.roll' | 'assets.read' } | SheetDocumentRead | SheetTrayRequest
 >;
 
 // The manifest first (what the template may ask at all), then the viewer's own right to edit.
@@ -220,6 +229,7 @@ async function answerOf(bridge: Bridge, request: SheetFrameRequestDto): Promise<
   const undeclared = permissionRefusalOf(request.type, declaredOf(bridge));
   if (undeclared) return refusedWith(undeclared.code, undeclared.message);
   if (request.type === 'dice.roll') return roll(bridge, request);
+  if (isSheetTrayRequest(request)) return tray(bridge, request);
   if (request.type === 'assets.read') {
     const read = () => readSheetAsset(bridge.options.images, request.assetId);
     return limited(bridge, 'reads', request.type, read);
@@ -350,6 +360,17 @@ function characterTargetOf(bridge: Bridge): SheetCharacterTarget {
   return { campaignId: bridge.options.campaignId, character, commands: bridge.options.characters };
 }
 
+// Builds the viewer's own roll, so a read-only sheet may too; it shares the rolls' pace.
+function tray(bridge: Bridge, request: SheetTrayRequest): Promise<SheetBridgeAnswer> {
+  const { campaignId, sheet, dice, clock, diceAspect, diceTray } = bridge.options;
+  const templateName = sheet.getState().template?.name ?? 'Ficha';
+  const context = {
+    ...{ target: diceTray ?? null, campaignId, dice, clock, diceAspect },
+    pieceLabelOf: (label: string | null | undefined) => sheetRollLabelOf(templateName, label),
+  };
+  return limited(bridge, 'rolls', request.type, () => answerSheetTray(context, request));
+}
+
 async function roll(
   bridge: Bridge,
   request: Extract<SheetFrameRequestDto, { type: 'dice.roll' }>,
@@ -362,16 +383,9 @@ async function roll(
   const parts = [{ label: null, expression: request.expression }];
   const visibility = request.visibility;
   const result = await dice.roll(campaignId, { label, parts, visibility, aspect: diceAspect() });
-  if (!result.ok) return rollRefusalOf(result.failure);
+  if (!result.ok) return diceRefusalOf('dice.roll', result.failure);
   await diceSettled(clock, result.settlesInMs);
   return { ok: true, value: sheetRollOf(result) };
-}
-
-function rollRefusalOf(failure: DiceRollFailure): SheetBridgeAnswer {
-  if (failure.kind === 'invalid_expression') {
-    return refusedWith('INVALID_DICE_EXPRESSION', failure.message);
-  }
-  return refusedWith(failure.kind.toUpperCase(), `dice.roll refused with ${failure.kind}`);
 }
 
 // `null` = the sheet has no token; 'waiting' = its source has not got the token yet.

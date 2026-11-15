@@ -4,6 +4,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import { moveFocusAlongTabs } from '@/lib/tab-focus';
 import { DESKTOP_QUERY, useMediaQuery } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
+import { useDiceTrayPartCount, type DiceTrayStore } from '@/stores/dice-tray-store';
 import { useRoomLayout, type RoomLayoutStore, type RoomTab } from '@/stores/room-layout-store';
 import { ROOM_TAB_NAME } from './board-messages';
 import {
@@ -24,6 +25,8 @@ export type RoomRailProps = Readonly<{
   roomLayout: StoreApi<RoomLayoutStore>;
   /** `null` until the table opens: "Na mesa" goes without its count. */
   presence: StoreApi<TablePresenceStore> | null;
+  /** The tray of this table: "Dados" carries how many parts it holds (`null` for a spectator). */
+  diceTray?: StoreApi<DiceTrayStore> | null;
 }>;
 
 /** The 46px rail of icons at the right of the room, beside the board (tablet and desktop): a
@@ -31,7 +34,8 @@ export type RoomRailProps = Readonly<{
  *  there is no rail: the "Painel" sheet keeps its own tabs.
  *
  *  Example: `<RoomRail roomLayout={roomLayout} presence={table?.presence ?? null} />` */
-export function RoomRail({ roomLayout, presence }: RoomRailProps): React.JSX.Element | null {
+export function RoomRail(props: RoomRailProps): React.JSX.Element | null {
+  const { roomLayout, presence } = props;
   const desktop = useMediaQuery(DESKTOP_QUERY);
   const open = useRoomLayout(roomLayout, (state) => state.panel === 'open');
   const shown = useRoomLayout(roomLayout, (state) => state.tab);
@@ -51,6 +55,7 @@ export function RoomRail({ roomLayout, presence }: RoomRailProps): React.JSX.Ele
           selected={open && tab === shown}
           open={open}
           presence={tab === 'people' ? presence : null}
+          diceTray={tab === 'dice' ? (props.diceTray ?? null) : null}
           onClick={() => roomLayout.getState().toggleTab(tab)}
         />
       ))}
@@ -64,13 +69,17 @@ type RailTabProps = Readonly<{
   /** Whether the panel is open, whatever its tab (`aria-expanded`). */
   open: boolean;
   presence: StoreApi<TablePresenceStore> | null;
+  diceTray: StoreApi<DiceTrayStore> | null;
   onClick: () => void;
 }>;
 
-function RailTab({ tab, selected, open, presence, onClick }: RailTabProps): React.JSX.Element {
+function RailTab(props: RailTabProps): React.JSX.Element {
+  const { tab, selected, open, presence, diceTray } = props;
   const Icon = ROOM_TAB_ICON[tab];
   const name = ROOM_TAB_NAME[tab];
   const countId = useId();
+  const parts = useDiceTrayPartCount(diceTray);
+  const described = presence !== null || parts > 0;
   return (
     <button
       type="button"
@@ -79,9 +88,9 @@ function RailTab({ tab, selected, open, presence, onClick }: RailTabProps): Reac
       title={name}
       aria-selected={selected}
       aria-expanded={open}
-      aria-describedby={presence ? countId : undefined}
+      aria-describedby={described ? countId : undefined}
       tabIndex={selected || (!open && tab === 'combat') ? 0 : -1}
-      onClick={onClick}
+      onClick={props.onClick}
       className={cn(
         'relative grid size-9 cursor-pointer place-items-center rounded-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring',
         selected ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground',
@@ -89,8 +98,13 @@ function RailTab({ tab, selected, open, presence, onClick }: RailTabProps): Reac
     >
       <Icon aria-hidden="true" className="size-4.5" />
       {presence && <OnlinePill presence={presence} id={countId} />}
+      {parts > 0 && <CountPill id={countId} count={parts} said={trayPartsSaid(parts)} />}
     </button>
   );
+}
+
+function trayPartsSaid(count: number): string {
+  return `${count} ${count === 1 ? 'parte' : 'partes'} na rolagem`;
 }
 
 // The count for the eye; the description says it ("3 online"), as the top no longer does.
@@ -98,14 +112,22 @@ type OnlinePillProps = Readonly<{ presence: StoreApi<TablePresenceStore>; id: st
 
 function OnlinePill({ presence, id }: OnlinePillProps): React.JSX.Element {
   const online = useTablePresence(presence, selectOnlineCount);
+  return <CountPill id={id} count={online} said={`${online} online`} />;
+}
+
+type CountPillProps = Readonly<{ id: string; count: number; said: string }>;
+
+function CountPill({ id, count, said }: CountPillProps): React.JSX.Element {
   return (
     <>
-      <span id={id} className="sr-only">{`${online} online`}</span>
+      <span id={id} className="sr-only">
+        {said}
+      </span>
       <span
         aria-hidden="true"
         className="absolute -top-0.5 -right-0.5 inline-grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] text-primary-foreground tabular-nums"
       >
-        {online}
+        {count}
       </span>
     </>
   );

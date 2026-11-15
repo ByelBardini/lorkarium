@@ -17,6 +17,8 @@ import {
   SAMPLE_SHEET_PREVIEW_DATA,
   type SheetPreviewData,
 } from '@/lib/sheet-preview-data';
+import { EMPTY_TRAY, type DiceTray } from '@/lib/dice-tray';
+import { addPiece } from '@/lib/dice-tray-pieces';
 import { resolveSheetBar } from './resolve-sheet-bar';
 import { admitted, type SheetRateStamps } from './sheet-bridge-answer';
 import {
@@ -26,12 +28,14 @@ import {
   type SheetDocumentSources,
 } from './sheet-bridge-documents';
 import { SHEET_DOCUMENT_READ_RATE, type SheetHostPort } from './sheet-bridge-host';
+import { savedRollMissing, trayAddAnswerOf } from './sheet-bridge-tray';
 import { createConsoleIntake, type SheetConsoleSink } from './sheet-console';
 import { permissionRefusalOf } from './sheet-permissions';
 
 export { SHEET_PREVIEW_BAR_ID, SHEET_PREVIEW_TOKEN_NAME } from '@/lib/sheet-preview-data';
 
 const DICE_IN_PREVIEW = 'Prévia do editor: os dados só rolam na ficha de um token, na sala.';
+const PREVIEW_PIECE_ID = (): string => crypto.randomUUID();
 const DOCUMENTS_IN_PREVIEW = 'Prévia sem mesa: os documentos só são lidos com a mesa aberta.';
 
 /** Where the preview reads the table's public documents (only reads: nothing changes there). */
@@ -54,6 +58,8 @@ type Preview = {
   documents: SheetPreviewDocumentPorts | null;
   documentReads: SheetRateStamps;
   now: () => number;
+  /** The test tray of `dice.tray.add`: kept here, never rolled. */
+  tray: DiceTray;
 };
 
 export type SheetPreviewHost = Readonly<{
@@ -97,7 +103,7 @@ export function createSheetPreviewHost(
     newAssetId: options.newAssetId ?? (() => crypto.randomUUID()),
     console: createConsoleIntake(now, options.onConsole ?? noConsole),
     ...{ disposed: false, documents: options.documents ?? null, documentReads: { stamps: [] } },
-    now,
+    ...{ now, tray: EMPTY_TRAY },
   };
   const onMessage = (event: { data: unknown }): void => receive(preview, event.data);
   port.addEventListener('message', onMessage);
@@ -175,8 +181,11 @@ const DONE: Answer = { ok: true };
 function answerOf(preview: Preview, request: SheetFrameRequestDto): Answer {
   const undeclared = permissionRefusalOf(request.type, preview.permissions);
   if (undeclared) return { ok: false, ...undeclared };
-  if (request.type === 'dice.roll')
+  if (request.type === 'dice.roll' || request.type === 'dice.tray.roll')
     return { ok: false, code: 'PREVIEW_ONLY', message: DICE_IN_PREVIEW };
+  if (request.type === 'dice.tray.add') return addToTestTray(preview, request);
+  if (request.type === 'dice.tray.addSaved') return savedRollMissing(request.savedRollId);
+  if (request.type === 'dice.saved.list') return { ok: true, value: { rolls: [] } };
   if (request.type === 'bars.adjust') return adjustBar(preview, request);
   if (request.type === 'bars.spend') return spend(preview, request);
   if (request.type === 'bars.create') return createBar(preview, request);
@@ -203,6 +212,20 @@ function keep(preview: Preview, request: SheetFrameRequestDto): Answer {
     preview.data = { ...data, character: { ...data.character, ...request.changes } };
   if (request.type === 'character.setImage') preview.portrait = request.image;
   return DONE;
+}
+
+// No account here: the preview has no saved rolls, only the pieces the sheet adds.
+function addToTestTray(
+  preview: Preview,
+  request: Extract<SheetFrameRequestDto, { type: 'dice.tray.add' }>,
+): Answer {
+  const ask = { label: request.label ?? 'Ficha', expression: request.expression };
+  return trayAddAnswerOf(() => {
+    const next = addPiece(preview.tray, ask, PREVIEW_PIECE_ID);
+    if (next === preview.tray) return false;
+    preview.tray = next;
+    return true;
+  });
 }
 
 function keepImage(preview: Preview, image: SheetFrameImageDto): Answer {
