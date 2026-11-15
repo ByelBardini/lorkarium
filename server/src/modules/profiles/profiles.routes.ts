@@ -30,9 +30,12 @@ const STATUS_BY_CODE: Readonly<Record<ProfileErrorCode, number>> = {
   AVATAR_TOO_LARGE: 413,
   DICE_TEXTURE_NOT_FOUND: 404,
   DICE_TEXTURE_TOO_LARGE: 413,
+  BANNER_NOT_FOUND: 404,
+  BANNER_TOO_LARGE: 413,
   LINK_BLOCKED: 422,
   LINK_UNREACHABLE: 422,
   LINK_NOT_IMAGE: 422,
+  PROFILE_NOT_FOUND: 404,
   RATE_LIMITED: 429,
 };
 
@@ -43,9 +46,12 @@ const PUBLIC_MESSAGE: Readonly<Record<ProfileErrorCode, string>> = {
   AVATAR_TOO_LARGE: 'The photo is larger than 5 MB',
   DICE_TEXTURE_NOT_FOUND: 'Dice texture not found',
   DICE_TEXTURE_TOO_LARGE: 'The texture is larger than 5 MB',
+  BANNER_NOT_FOUND: 'Banner not found',
+  BANNER_TOO_LARGE: 'The banner is larger than 5 MB',
   LINK_BLOCKED: 'This link cannot be used',
   LINK_UNREACHABLE: 'The link could not be opened',
   LINK_NOT_IMAGE: 'The link is not a PNG, JPEG, WebP or GIF image',
+  PROFILE_NOT_FOUND: 'Account not found',
   RATE_LIMITED: 'Too many changes in a row',
 };
 
@@ -53,10 +59,11 @@ const PUBLIC_MESSAGE: Readonly<Record<ProfileErrorCode, string>> = {
  *  send or take off the photo and the dice texture, and read either by id. The account is always
  *  the session's, never the body's.
  *
- *  Example: `app.register(profilesRoutes(service, profileImageEdgesOf(service)), { prefix: '/api' })` */
+ *  Example: `app.register(profilesRoutes(service, edges, registerCard), { prefix: '/api' })` */
 export function profilesRoutes(
   service: ProfilesService,
   edges: readonly ProfileImageEdge[],
+  registerCard: (app: FastifyInstance) => void,
 ): (app: FastifyInstance) => Promise<void> {
   return async (app: FastifyInstance): Promise<void> => {
     await app.register(rateLimit, { global: false, errorResponseBuilder: rateLimitedError });
@@ -65,6 +72,7 @@ export function profilesRoutes(
     );
     app.setErrorHandler(withPlanLimitReply(errorHandlerFor(edges)));
     registerProfileRoutes(app, service);
+    registerCard(app);
     for (const edge of edges) registerImageRoutes(app, edge);
   };
 }

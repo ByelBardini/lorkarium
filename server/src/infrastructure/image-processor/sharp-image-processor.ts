@@ -19,7 +19,7 @@ const CONVERTED_WEBP_QUALITY = 85;
 const EXPECTED = 'expected png, jpeg, webp or gif';
 
 // SVG is left out on purpose: it decodes through a renderer that may carry script. GIF stays a GIF
-// only with an animation budget (aura, sheet image); everywhere else it keeps its first frame as a
+// only with an animation budget (aura, sheet image, the table's images on a paid plan); everywhere else it keeps its first frame as a
 // PNG, so any image field takes one.
 const STILL_FORMATS: Readonly<Record<string, AssetMimeTypeDto>> = {
   png: 'image/png',
@@ -52,7 +52,7 @@ export class SharpImageProcessor implements ImageProcessorPort {
     if (!inspected.ok) return inspected;
     const image =
       inspected.mimeType === 'image/gif'
-        ? await this.animated(bytes, inspected.frames, options)
+        ? await this.animated(bytes, inspected, options)
         : await this.still(bytes, options, inspected);
     return image ? { ok: true, image } : notAnImage(bytes);
   }
@@ -111,11 +111,16 @@ export class SharpImageProcessor implements ImageProcessorPort {
     return stats?.isOpaque ?? false;
   }
 
-  private async animated(bytes: Uint8Array, frames: number, options: NormalizeOptions) {
-    const { animation } = options;
+  private async animated(
+    bytes: Uint8Array,
+    inspected: Readonly<{ size: ImageSize; frames: number }>,
+    options: NormalizeOptions,
+  ) {
+    const { animation, frame, maxSide } = options;
     if (!animation) return null;
-    const target = { maxSide: options.maxSide, animation, maxInputPixels: this.maxInputPixels };
-    return keptAnimatedGif(bytes, frames, target);
+    const box = frame ? frameBoxOf(inspected.size, frame.aspect, frame.crop) : undefined;
+    const target = { maxSide, animation, maxInputPixels: this.maxInputPixels };
+    return keptAnimatedGif(bytes, inspected.frames, box ? { ...target, box } : target);
   }
 
   private async inspect(bytes: Uint8Array, options: NormalizeOptions): Promise<Inspected> {

@@ -21,7 +21,7 @@ import type { SessionEndedPort } from '../auth/session-ended.port';
 import type { UserPo } from '../auth/users.po';
 import type { CampaignMembersDao, RevokedAdminSeat } from '../campaigns/campaign-members.dao';
 import type { ProfileChangedPort } from '../profiles/profile-changed.port';
-import { avatarKeyOf, diceTextureKeyOf } from '../profiles/profiles.mapper';
+import { avatarKeyOf, bannerKeyOf, diceTextureKeyOf } from '../profiles/profiles.mapper';
 import type { OwnerLimitsPort } from './owner-limits.port';
 import type { RevokedSeatsPort } from './revoked-seats.port';
 import { deletionVerdict, requireOtherAccount } from './user-admin.bo';
@@ -184,6 +184,7 @@ export class UserAdminService {
     this.deps.memberships.forgetUser(userId);
     if (row.avatarId) await this.deps.storage.remove(avatarKeyOf(row.avatarId));
     if (row.diceTextureId) await this.deps.storage.remove(diceTextureKeyOf(row.diceTextureId));
+    if (row.bannerId) await this.deps.storage.remove(bannerKeyOf(row.bannerId));
   }
 
   private async requireAccount(

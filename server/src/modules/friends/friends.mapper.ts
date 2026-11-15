@@ -11,7 +11,7 @@ import type { RelatedAccountRow, RelationReadingRow } from './friendships.dao';
 /** PO → DTO: the public profile of the other account, with the effective color.
  *
  *  Example: `toFriendProfileDto(row).color // the drawn color when the account chose none` */
-export function toFriendProfileDto(row: RelatedAccountRow): FriendProfileDto {
+export function toFriendProfileDto(row: Omit<RelatedAccountRow, 'at'>): FriendProfileDto {
   return {
     userId: row.userId,
     username: row.username,

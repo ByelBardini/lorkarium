@@ -1,4 +1,9 @@
-import { BLOCKS_MAX, FRIENDS_MAX, OUTGOING_REQUESTS_MAX } from '@lorkarium/contracts';
+import {
+  BLOCKS_MAX,
+  FRIENDS_MAX,
+  FRIEND_SEARCH_LIMIT,
+  OUTGOING_REQUESTS_MAX,
+} from '@lorkarium/contracts';
 import type { FastifyInstance } from 'fastify';
 import type { Database } from '../../database/database';
 import { runInTransaction } from '../../database/transaction';
@@ -7,6 +12,7 @@ import { UsersDao } from '../auth/users.dao';
 import type { CachedMemberships } from '../campaigns/cached-memberships';
 import { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import type { MemberRemovedPort } from '../campaigns/member-removed.port';
+import { FriendCandidatesDao } from './friend-candidates.dao';
 import { FriendRequestsDao } from './friend-requests.dao';
 import type { FriendsChangedPort } from './friends-changed.port';
 import { friendsRoutes } from './friends.routes';
@@ -38,6 +44,7 @@ export function createFriendsModule(options: FriendsModuleOptions): FriendsModul
     friendships: new FriendshipsDao(db),
     requests: new FriendRequestsDao(db),
     blocks: new UserBlocksDao(db),
+    candidates: new FriendCandidatesDao(db),
   };
   const limits = {
     friendsMax: FRIENDS_MAX,
@@ -46,8 +53,9 @@ export function createFriendsModule(options: FriendsModuleOptions): FriendsModul
   };
   const accounts = new UsersDao(db);
   const transaction = friendsTransactionOver(db);
+  const searchLimit = FRIEND_SEARCH_LIMIT;
   const deps = { reads, accounts, transaction, changed, removed, memberships, clock, limits };
-  const service = new FriendsService(deps);
+  const service = new FriendsService({ ...deps, searchLimit });
   return { plugin: friendsRoutes(service), service };
 }
 

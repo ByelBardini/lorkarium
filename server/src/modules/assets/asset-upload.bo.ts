@@ -43,19 +43,28 @@ export function frameFor(
 /** How much a kept image may animate (the contract's `AURA_ANIMATION_LIMITS`). */
 export type AnimationLimits = Readonly<{ maxFrames: number; maxDecodedPixels: number }>;
 
-// The aura moves on the board and a sheet image in its frame; a token, a background, a cover or a
-// condition stays still (its GIF keeps the first frame).
+// The aura moves on the board and a sheet image in its frame, on any plan; the three images of
+// the table move only on an owner with the customizations (on Grátis their GIF keeps the first
+// frame, never refused). A token, a background or a condition stays still.
 const ANIMATED_PURPOSES: ReadonlySet<AssetPurpose> = new Set(['aura', 'sheet_image']);
+const PAID_ANIMATED_PURPOSES: ReadonlySet<AssetPurpose> = new Set([
+  'campaign_photo',
+  'cover',
+  'campaign_banner',
+]);
 
-/** How much an image sent for `purpose` may keep animating; `null` = it must be still (a GIF or
- *  an animated WebP comes out with its first frame).
+/** How much an image sent for `purpose` may keep animating, `ownerCustomizes` being the
+ *  `customizationAllowed` of the table owner; `null` = it must be still (a GIF or an animated
+ *  WebP comes out with its first frame).
  *
- *  Example: `animationFor('aura', AURA_ANIMATION_LIMITS) // { maxFrames: 120, maxDecodedPixels: 16_000_000 }` */
+ *  Example: `animationFor('cover', AURA_ANIMATION_LIMITS, true) // { maxFrames: 120, maxDecodedPixels: 16_000_000 }` */
 export function animationFor(
   purpose: AssetPurpose,
   limits: AnimationLimits,
+  ownerCustomizes: boolean,
 ): AnimationLimits | null {
-  return ANIMATED_PURPOSES.has(purpose) ? limits : null;
+  if (ANIMATED_PURPOSES.has(purpose)) return limits;
+  return ownerCustomizes && PAID_ANIMATED_PURPOSES.has(purpose) ? limits : null;
 }
 
 /** Refuses a file above the byte limit before anything decodes it.

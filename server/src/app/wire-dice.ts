@@ -8,6 +8,7 @@ import type { ClockPort } from '../modules/auth/clock.port';
 import { CommandRateLimitedError } from '../modules/board/board.error';
 import type { MembershipReader } from '../modules/campaigns/cached-memberships';
 import { CampaignsDao } from '../modules/campaigns/campaigns.dao';
+import { DiceStatsDao } from '../modules/dice/dice-stats.dao';
 import { createDiceModule } from '../modules/dice/dice.plugin';
 import { ProfilesDao } from '../modules/profiles/profiles.dao';
 import { CommandRateGuard } from '../realtime/command-rate-guard';
@@ -40,6 +41,7 @@ export function wireDice(realtime: Realtime, wiring: DiceWiring): void {
     physics: new CannonDicePhysics(random),
     random,
     publisher: new SocketIoDicePublisher(realtime.io),
+    stats: new DiceStatsDao(db),
     clock,
     newId: randomUUID,
     realtime,
