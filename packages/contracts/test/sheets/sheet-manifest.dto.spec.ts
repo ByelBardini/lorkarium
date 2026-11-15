@@ -40,6 +40,7 @@ describe('sheet template manifest', () => {
       'sheet:images',
       'documents:read',
       'character:bars',
+      'dice:saved',
     ]));
   it('accepts empty lists and reads a missing list as empty', () => {
     expect(sheetTemplateManifestDto.parse({ permissions: [], bars: [] })).toEqual({
@@ -66,7 +67,7 @@ describe('sheet template manifest', () => {
   });
   it('refuses an unknown permission citing it and the known ones', () =>
     expect(issueOf(sheetTemplateManifestDto.safeParse({ permissions: ['network'] }))).toBe(
-      'permission "network"; expected one of character:stats, character:portrait, sheet:images, documents:read, character:bars',
+      'permission "network"; expected one of character:stats, character:portrait, sheet:images, documents:read, character:bars, dice:saved',
     ));
   it('refuses a permission declared twice', () =>
     expect(
