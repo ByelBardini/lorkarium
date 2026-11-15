@@ -47,6 +47,10 @@ export const RUI_BLOCKED: BlockedUserDto = {
   at: AT,
 };
 
+/** Accounts the "Adicionar amigo" search finds: no relation with me yet. */
+export const NINA_FOUND = profile('1b2c3d4e-5f60-4a71-8b82-9c93d4e5f606', 'nina', 'Nina');
+export const NICO_FOUND = profile('1b2c3d4e-5f60-4a71-8b82-9c93d4e5f607', 'nico', 'Nico');
+
 /** The overview with Bia and Caio as friends, one request each way and Rui blocked. */
 export function friendsOverview(changes: Partial<FriendsOverviewDto> = {}): FriendsOverviewDto {
   return {

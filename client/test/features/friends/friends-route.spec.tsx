@@ -9,6 +9,8 @@ import {
   BIA,
   CAIO,
   DUDA_ASKED,
+  NICO_FOUND,
+  NINA_FOUND,
   RUI_BLOCKED,
   THIAGO_ASKS,
   dmSent,
@@ -138,45 +140,61 @@ describe('friends route ("Amigos")', () => {
     expect(await screen.findByRole('link', { name: /Bia/ })).toBeInTheDocument();
   });
 
-  it('"Adicionar" sends the request to the exact @ and says so', async () => {
+  async function searchFor(typed: string): Promise<HTMLElement> {
+    await userEvent.click(await screen.findByRole('button', { name: 'Adicionar' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Adicionar amigo' });
+    await userEvent.type(within(dialog).getByLabelText('Buscar pelo @usuário'), typed);
+    return dialog;
+  }
+
+  it('"Adicionar" opens the search; one letter searches nothing yet', async () => {
+    renderAt('/friends');
+    const dialog = await searchFor('n');
+    expect(within(dialog).getByText('Digite pelo menos 2 letras do @.')).toBeInTheDocument();
+    expect(deps.friendsApi.answers.callsOf('search')).toEqual([]);
+  });
+
+  it('the search lists who it found and sends to each one chosen', async () => {
+    deps.friendsApi.answers.answer('search', { ok: true, value: [NINA_FOUND, NICO_FOUND] });
     deps.friendsApi.answers.answer('sendRequest', { ok: true, value: 'sent' });
     renderAt('/friends');
-    await userEvent.click(await screen.findByRole('button', { name: 'Adicionar' }));
-    await userEvent.type(screen.getByLabelText('Adicionar pelo @usuário'), '@Thiagaum');
-    await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
-    expect(await screen.findByRole('status')).toHaveTextContent('Pedido enviado pra @thiagaum.');
-    expect(deps.friendsApi.answers.callsOf('sendRequest')).toEqual(['thiagaum']);
+    const dialog = await searchFor('@Ni');
+    const found = await within(dialog).findByRole('list', { name: 'Pessoas encontradas' });
+    await userEvent.click(within(found).getByRole('button', { name: 'Enviar pedido pra @nina' }));
+    await userEvent.click(within(found).getByRole('button', { name: 'Enviar pedido pra @nico' }));
+    expect(
+      await within(found).findByRole('button', { name: 'Pedido enviado pra @nico' }),
+    ).toBeDisabled();
+    expect(within(found).getByRole('button', { name: 'Pedido enviado pra @nina' })).toBeDisabled();
+    expect(deps.friendsApi.answers.callsOf('search')).toEqual(['ni']);
+    expect(deps.friendsApi.answers.callsOf('sendRequest')).toEqual(['nina', 'nico']);
   });
 
-  it('a @ nobody has is refused under the field, keeping the text', async () => {
-    deps.friendsApi.answers.answer('sendRequest', {
-      ok: false,
-      failure: { kind: 'user_not_found' },
-    });
+  it('nobody found says so', async () => {
     renderAt('/friends');
-    await userEvent.click(await screen.findByRole('button', { name: 'Adicionar' }));
-    const field = screen.getByLabelText('Adicionar pelo @usuário');
-    await userEvent.type(field, 'xis');
-    await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
-    expect(await screen.findByText('Não achamos ninguém com @xis.')).toHaveAttribute(
-      'role',
-      'alert',
-    );
-    expect(field).toHaveValue('xis');
+    const dialog = await searchFor('zz');
+    expect(
+      await within(dialog).findByText('Ninguém com esse @ para adicionar.'),
+    ).toBeInTheDocument();
   });
 
-  it('a ceiling is refused with its number', async () => {
+  it('a refused request says why on its row and keeps the button', async () => {
+    deps.friendsApi.answers.answer('search', { ok: true, value: [NINA_FOUND] });
     deps.friendsApi.answers.answer('sendRequest', {
       ok: false,
       failure: { kind: 'outgoing_request_limit', limit: 50 },
     });
     renderAt('/friends');
-    await userEvent.click(await screen.findByRole('button', { name: 'Adicionar' }));
-    await userEvent.type(screen.getByLabelText('Adicionar pelo @usuário'), 'novo');
-    await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+    const dialog = await searchFor('ni');
+    await userEvent.click(
+      await within(dialog).findByRole('button', { name: 'Enviar pedido pra @nina' }),
+    );
     expect(
-      await screen.findByText('Você chegou ao teto de 50 pedidos enviados esperando resposta.'),
-    ).toBeInTheDocument();
+      await within(dialog).findByText(
+        'Você chegou ao teto de 50 pedidos enviados esperando resposta.',
+      ),
+    ).toHaveAttribute('role', 'alert');
+    expect(within(dialog).getByRole('button', { name: 'Enviar pedido pra @nina' })).toBeEnabled();
   });
 
   it('"Pedidos" accepts, refuses and cancels requests', async () => {

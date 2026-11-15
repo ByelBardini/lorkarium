@@ -21,6 +21,7 @@ import { AccountLinksApiFake } from './account-links-api-fake';
 import { AccountPlanApiFake } from './account-plan-api-fake';
 import { AccountSecurityApiFake } from './account-security-api-fake';
 import { UserAdminApiFake } from './user-admin-api-fake';
+import { UserReportsApiFake } from './user-reports-api-fake';
 import { AssetsApiFake } from './assets-api-fake';
 import { AuthApiFake } from './auth-api-fake';
 import { BoardRenderersFake } from './board-renderer-fake';
@@ -59,6 +60,7 @@ import { createDirectMessagesStore } from '@/stores/direct-messages-store';
 import { createFriendsStore } from '@/stores/friends-store';
 import { DirectMessageCommandsFake } from './direct-message-commands-fake';
 import { FriendsApiFake } from './friends-api-fake';
+import { ProfileCardApiFake } from './profile-card-api-fake';
 import { RealtimeTransportFake } from './realtime-transport-fake';
 
 export type TestDependencies = AppDependencies & {
@@ -69,6 +71,7 @@ export type TestDependencies = AppDependencies & {
   accountSecurityApi: AccountSecurityApiFake;
   accountPlanApi: AccountPlanApiFake;
   userAdminApi: UserAdminApiFake;
+  userReportsApi: UserReportsApiFake;
   accountLinksApi: AccountLinksApiFake;
   libraryApi: LibraryApiFake;
   libraryMapsApi: LibraryMapsApiFake;
@@ -136,6 +139,7 @@ export type TestDependencies = AppDependencies & {
   /** The socket under `accountRealtime`, for specs to play the connection. */
   accountTransport: RealtimeTransportFake;
   friendsApi: FriendsApiFake;
+  profileCardApi: ProfileCardApiFake;
   /** The commands under `directMessages`. */
   directMessageCommands: DirectMessageCommandsFake;
   /** The `localStorage` under `directMessages`. */
@@ -214,6 +218,7 @@ export function testDependencies(): TestDependencies {
     accountSecurityApi: new AccountSecurityApiFake(TEST_NOW),
     accountPlanApi: new AccountPlanApiFake(),
     userAdminApi: new UserAdminApiFake(TEST_NOW),
+    userReportsApi: new UserReportsApiFake(),
     accountLinksApi: new AccountLinksApiFake(),
     libraryApi: new LibraryApiFake(),
     libraryMapsApi,
@@ -298,6 +303,7 @@ export function testDependencies(): TestDependencies {
     presenceChoiceStorage,
     presenceChoice,
     friendsApi,
+    profileCardApi: new ProfileCardApiFake(),
     friends: createFriendsStore(friendsApi),
     directMessageCommands,
     directMessagesStorage,

@@ -2,6 +2,7 @@ import type {
   BlockRequestDto,
   BlockedUserDto,
   FriendDto,
+  FriendProfileDto,
   FriendsOverviewDto,
 } from '@lorkarium/contracts';
 import type { FriendRequestOutcome, FriendsApi, FriendsResult } from '@/services/friends-api';
@@ -10,6 +11,7 @@ import { ScriptedAnswers } from './scripted-answers';
 
 type Answers = {
   overview: FriendsResult<FriendsOverviewDto>;
+  search: FriendsResult<FriendProfileDto[]>;
   sendRequest: FriendsResult<FriendRequestOutcome>;
   acceptRequest: FriendsResult<FriendDto>;
   dropRequest: FriendsResult<null>;
@@ -30,6 +32,10 @@ export class FriendsApiFake implements FriendsApi {
 
   overview(): Promise<FriendsResult<FriendsOverviewDto>> {
     return this.answers.reply('overview', null, () => ({ ok: true, value: this.lists }));
+  }
+
+  search(prefix: string): Promise<FriendsResult<FriendProfileDto[]>> {
+    return this.answers.reply('search', prefix, () => ({ ok: true, value: [] }));
   }
 
   sendRequest(username: string): Promise<FriendsResult<FriendRequestOutcome>> {
