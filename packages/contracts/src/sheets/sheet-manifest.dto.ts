@@ -11,13 +11,15 @@ import { SHEET_TEMPLATE_ASSETS_MAX, sheetManifestAssetDto } from './sheet-templa
 /** What a template may ask the table for beyond values, bars and dice (which every sheet has):
  *  `character:stats` writes AC and DC, `character:portrait` swaps the portrait, `sheet:images`
  *  uploads images to the sheet, `documents:read` reads the public documents of the table,
- *  `character:bars` creates on the holder a bar it does not have yet. */
+ *  `character:bars` creates on the holder a bar it does not have yet, `dice:saved` lists the saved
+ *  rolls of who looks at the sheet (to sum them to the room's tray). */
 export const SHEET_MANIFEST_PERMISSIONS = [
   'character:stats',
   'character:portrait',
   'sheet:images',
   'documents:read',
   'character:bars',
+  'dice:saved',
 ] as const;
 
 const permissionList = SHEET_MANIFEST_PERMISSIONS.join(', ');

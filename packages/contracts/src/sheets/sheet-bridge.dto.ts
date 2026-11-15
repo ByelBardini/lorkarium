@@ -14,6 +14,7 @@ import {
   diceVisibilityDto,
   dieStatusDto,
 } from '../dice/dice.dto';
+import { SAVED_ROLLS_MAX, savedRollDto } from '../dice/saved-roll.dto';
 import { createSheetBarResponseDto, sheetBarCostDto, sheetBarCreationDto } from './sheet.dto';
 import { sheetFrameDocumentResultDtos } from './sheet-bridge-documents.dto';
 import { sheetValuePathPatchesDto, sheetValuesDto, sheetValuesPatchDto } from './sheet-values.dto';
@@ -125,6 +126,16 @@ export const sheetFrameMessageDto = z.discriminatedUnion('type', [
     label: diceRollLabelDto.optional(),
     visibility: diceVisibilityDto.default('public'),
   }),
+  // The tray of the room: always the tray and the saved rolls of who looks at the sheet.
+  z.strictObject({
+    type: z.literal('dice.tray.add'),
+    ...requestShape,
+    expression: diceRollPartDto.shape.expression,
+    label: diceRollLabelDto.optional(),
+  }),
+  z.strictObject({ type: z.literal('dice.tray.addSaved'), ...requestShape, savedRollId: z.uuid() }),
+  z.strictObject({ type: z.literal('dice.tray.roll'), ...requestShape }),
+  z.strictObject({ type: z.literal('dice.saved.list'), ...requestShape }),
   z.strictObject({ type: z.literal('values.set'), ...requestShape, changes: sheetValuesPatchDto }),
   z.strictObject({
     type: z.literal('values.patch'),
@@ -196,13 +207,34 @@ export const sheetFrameRollDto = z.strictObject({
 });
 export type SheetFrameRollDto = z.infer<typeof sheetFrameRollDto>;
 
+/** What `dice.tray.roll` resolves with: the grand total and each part of the tray as rolled, in
+ *  the tray's order (the loose formula first, unlabeled).
+ *
+ *  Example: `sheetFrameTrayRollDto.parse({ total: 25, parts: [{ label: 'Acerto', expression: '1d20', total: 17, dice }] })` */
+export const sheetFrameTrayRollDto = z.strictObject({
+  total: z.number().int(),
+  parts: z.array(sheetFrameRollDto.extend({ label: z.string().nullable() })).min(1),
+});
+export type SheetFrameTrayRollDto = z.infer<typeof sheetFrameTrayRollDto>;
+
+/** What `dice.saved.list` answers: the viewer's saved rolls at the table (no owner, no dates).
+ *
+ *  Example: `sheetFrameSavedRollsDto.parse({ rolls: [{ id, name: 'Acerto', folderId: null, parts }] })` */
+export const sheetFrameSavedRollsDto = z.strictObject({
+  rolls: z.array(savedRollDto).max(SAVED_ROLLS_MAX),
+});
+export type SheetFrameSavedRollsDto = z.infer<typeof sheetFrameSavedRollsDto>;
+
 /** What a `result` carries back: the new asset (`assets.upload`), the bar (`bars.create`), the
- *  bytes (`assets.read`), the roll (`dice.roll`) or a document read (`documents.*`). */
+ *  bytes (`assets.read`), the roll (`dice.roll`, `dice.tray.roll`), the saved rolls
+ *  (`dice.saved.list`) or a document read (`documents.*`). */
 export const sheetBridgeResultValueDto = z.union([
   z.strictObject({ assetId: z.uuid() }),
   createSheetBarResponseDto,
   sheetFrameImageDto,
   sheetFrameRollDto,
+  sheetFrameTrayRollDto,
+  sheetFrameSavedRollsDto,
   ...sheetFrameDocumentResultDtos,
 ]);
 export type SheetBridgeResultValueDto = z.infer<typeof sheetBridgeResultValueDto>;
