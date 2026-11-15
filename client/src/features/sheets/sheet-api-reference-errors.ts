@@ -5,7 +5,7 @@ import type { ReferenceRow } from './sheet-api-reference-content';
 export const SHEET_ERROR_CODES: readonly ReferenceRow[] = [
   [
     'FORBIDDEN',
-    'Quem olha não pode editar esta ficha (canEdit: false) ou a mesa recusou o pedido.',
+    'Quem olha não pode editar esta ficha (canEdit: false), é espectador (sem bandeja de dados) ou a mesa recusou o pedido.',
   ],
   [
     'OFFLINE',
@@ -45,6 +45,15 @@ export const SHEET_ERROR_CODES: readonly ReferenceRow[] = [
     'O dono já tem o máximo de barras: o bars.create não criou nada. A message cita a barra e o limite.',
   ],
   ['SHEET_HAS_NO_TOKEN', 'A ficha não está com ninguém: o bars.create não tem onde criar a barra.'],
+  ['TRAY_EMPTY', 'O dice.tray.roll foi pedido com "Montar rolagem" vazia: nada rolou.'],
+  [
+    'TRAY_FULL',
+    'A bandeja já tem o máximo de partes por rolagem: a parte nova não entrou. A message cita o limite.',
+  ],
+  [
+    'SAVED_ROLL_NOT_FOUND',
+    'Quem olha a ficha não tem essa rolagem salva nesta mesa (o id vem na message).',
+  ],
   ['ASSET_NOT_FOUND', 'A imagem não existe ou quem olha não pode lê-la.'],
   [
     'DOCUMENT_NOT_FOUND',

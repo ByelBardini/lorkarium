@@ -19,6 +19,7 @@ import {
 } from '@/sheet-sandbox/sheet-bridge-host';
 import { SHEET_VALUES_BATCH_MS } from '@/stores/sheet-store';
 import { DOCUMENT_SDK_CALLS } from './sheet-api-reference-documents';
+import { TRAY_SDK_CALLS } from './sheet-api-reference-tray';
 import { SHEET_READY_TIMEOUT_MS } from './sheet-sandbox-view';
 
 export { SHEET_ERROR_CODES } from './sheet-api-reference-errors';
@@ -278,6 +279,7 @@ const d20 = rolagem.dice[0].value;
 const texto = d20 === 20 ? rolagem.total + ' (crítico!)' : String(rolagem.total);
 document.getElementById('ataque').textContent = texto;`,
   },
+  ...TRAY_SDK_CALLS,
   {
     signature: 'lorkarium.html.sanitize(html)',
     summary:
@@ -402,13 +404,20 @@ export const INPUT_BINDING_EXAMPLE = `<!-- HTML: data-lk="caminho" carrega e gra
 <button data-lk-roll="1d20+@atributos.forca.total" data-lk-label="Força">Força</button>
 <button data-lk-roll="1d8+@{golpe-duplo.dano}" data-lk-visibility="masters">Golpe</button>
 
+<!-- Montar a rolagem com buffs: data-lk-tray soma em "Montar rolagem" (a aba Dados de quem
+     olha), sem rolar; data-lk-tray-roll rola tudo de uma vez -->
+<button data-lk-tray="1d20+@atributos.forca.total" data-lk-label="Ataque">Ataque</button>
+<button data-lk-tray="1d4" data-lk-label="Bênção">+ Bênção</button>
+<button data-lk-tray="+@bonus.flanco" data-lk-label="Flanco">+ Flanco</button>
+<button data-lk-tray-roll>Rolar</button>
+
 <!-- Regras:
   - caminho de 1 a 8 chaves separadas por ponto; um inválido vai ao console com o elemento,
     e os outros campos seguem ligados;
   - o campo em que alguém digita não é sobrescrito pelo estado novo;
   - número vazio apaga o valor; checkbox grava true/false; só leitura (canEdit: false) não grava;
-  - no data-lk-roll o valor precisa ser inteiro; se faltar, a rolagem não sai e o console diz
-    qual @caminho; chave com hífen vai entre chaves. -->
+  - no data-lk-roll e no data-lk-tray o valor precisa ser inteiro; se faltar, nada sai e o
+    console diz qual @caminho; chave com hífen vai entre chaves. -->
 
 // JS: um elemento criado depois (um item de lista) se liga sozinho.
 lorkarium.lists.add('habilidades', { nome: 'Golpe' }).then((id) => {
