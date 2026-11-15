@@ -1,57 +1,141 @@
-import { SETTINGS_SECTIONS } from './settings-sections';
+import { useEffect, useId, useState } from 'react';
+import { memberCountLabel } from '@/lib/campaign-meta';
+import { cn } from '@/lib/utils';
+import { jumpToSettingsSection, SECTION_TOP_GAP } from './settings-section-jump';
+import { sectionSummaryOf } from './settings-section-summary';
+import { SETTINGS_SECTIONS, type SettingsSectionKey } from './settings-sections';
+import type { SettingsValues } from './use-campaign-settings-draft';
 
-const SECTION_LIST = Object.values(SETTINGS_SECTIONS);
+const SECTION_KEYS = Object.keys(SETTINGS_SECTIONS) as readonly SettingsSectionKey[];
 
-// Room above a section once jumped to, so its title does not touch the top edge (24px = `pt-6`).
-const SECTION_TOP_GAP = 24;
+const CREATED_AT_FORMAT = new Intl.DateTimeFormat('pt-BR', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
 
-const LINK_CLASS =
-  'shrink-0 rounded-sm px-2 py-1.5 text-left text-[13px] font-semibold whitespace-nowrap text-muted-foreground outline-offset-2 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring motion-reduce:transition-none';
+export type SettingsSectionNavProps = Readonly<{
+  /** "Zona de perigo" is on the page (owner powers only). */
+  withDanger: boolean;
+  /** The draft: each item says the state of its section. */
+  values: SettingsValues;
+  createdAt: string;
+  memberCount: number;
+}>;
 
-/** The side menu of the settings page (a row on top below `md`): jumps to a section of the one
- *  form, scrolling to it and moving the focus there. `withDanger`: "Zona de perigo" is on the
- *  page (owner powers only).
+/** The side menu of the settings page (a row on top below `md`): each item names a section of
+ *  the one form, is described by its state ("Pública · sem senha") and jumps there, scrolling the
+ *  page and moving the focus. The section in view is marked. At the foot, when the table was
+ *  created and how many are in it.
  *
- *  Example: `<SettingsSectionNav withDanger />` */
-export function SettingsSectionNav({
-  withDanger,
-}: Readonly<{ withDanger: boolean }>): React.JSX.Element {
-  const sections = withDanger
-    ? SECTION_LIST
-    : SECTION_LIST.filter(({ id }) => id !== SETTINGS_SECTIONS.danger.id);
+ *  Example: `<SettingsSectionNav withDanger values={draft.values} createdAt={c.createdAt} memberCount={c.memberCount} />` */
+export function SettingsSectionNav(props: SettingsSectionNavProps): React.JSX.Element {
+  const keys = sectionKeysOf(props.withDanger);
+  const [active, setActive] = useActiveSection(props.withDanger);
   return (
     <nav
       aria-label="Seções das configurações"
-      className="sticky top-0 z-10 -mx-4 flex gap-1 overflow-x-auto border-b border-border bg-background px-4 py-2 sm:-mx-8 sm:px-8 md:top-6 md:mx-0 md:flex-col md:self-start md:overflow-visible md:border-0 md:p-0"
+      className="flex shrink-0 gap-1 overflow-x-auto border-b border-divider bg-panel px-3 py-2 md:w-56 md:flex-col md:gap-0.5 md:overflow-y-auto md:border-r md:border-b-0 md:px-2.5 md:py-4 xl:w-60"
     >
-      {sections.map((section) => (
-        <button
-          key={section.id}
-          type="button"
-          className={LINK_CLASS}
-          onClick={() => jumpTo(section.id)}
-        >
-          {'menuTitle' in section ? section.menuTitle : section.title}
-        </button>
+      {keys.map((key) => (
+        <SectionLink
+          key={key}
+          section={key}
+          summary={sectionSummaryOf(key, props.values)}
+          current={active === key}
+          onJump={() => {
+            setActive(key);
+            jumpToSettingsSection(key);
+          }}
+        />
       ))}
+      <TableFacts createdAt={props.createdAt} memberCount={props.memberCount} />
     </nav>
   );
 }
 
-// Buttons, not `#hash` links: one form with one bar, so the URL stays the page's and the
-// router never sees a hash-only navigation.
-function jumpTo(sectionId: string): void {
-  const section = document.getElementById(sectionId);
-  if (!section) return;
-  scrollPageTo(section);
-  section.focus({ preventScroll: true });
+type SectionLinkProps = Readonly<{
+  section: SettingsSectionKey;
+  summary: string;
+  current: boolean;
+  onJump: () => void;
+}>;
+
+function SectionLink({ section, summary, current, onJump }: SectionLinkProps): React.JSX.Element {
+  const summaryId = useId();
+  const entry: Readonly<{ title: string; menuTitle?: string }> = SETTINGS_SECTIONS[section];
+  const title = entry.menuTitle ?? entry.title;
+  return (
+    <button
+      type="button"
+      aria-label={title}
+      aria-describedby={summaryId}
+      aria-current={current ? 'location' : undefined}
+      onClick={onJump}
+      className={cn(
+        'flex shrink-0 flex-col gap-0.5 rounded-md px-3 py-2 text-left text-muted-foreground outline-offset-2 transition-colors hover:bg-card hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring motion-reduce:transition-none md:w-full',
+        current && 'bg-card text-foreground md:shadow-[inset_2px_0_0_var(--color-primary)]',
+      )}
+    >
+      <span
+        className={cn(
+          'text-sm font-semibold whitespace-nowrap',
+          section === 'danger' && 'text-destructive-text',
+        )}
+      >
+        {title}
+      </span>
+      <span id={summaryId} className="hidden truncate text-xs text-placeholder md:block">
+        {summary}
+      </span>
+    </button>
+  );
 }
 
-// Only the page's own scroller moves: `scrollIntoView` also scrolls every clipped ancestor, and
-// the room under the page is one, which pushed the header and the menu off the screen.
-function scrollPageTo(section: HTMLElement): void {
-  const scroller = section.closest<HTMLElement>('[data-settings-scroller]');
-  if (!scroller) return;
-  const offset = section.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
-  scroller.scrollTo?.({ top: scroller.scrollTop + offset - SECTION_TOP_GAP, behavior: 'smooth' });
+type TableFactsProps = Readonly<{ createdAt: string; memberCount: number }>;
+
+function TableFacts({ createdAt, memberCount }: TableFactsProps): React.JSX.Element {
+  return (
+    <div className="mt-auto hidden flex-col gap-1 rounded-md border border-divider bg-card px-3 py-2.5 md:flex">
+      <span className="text-[11px] font-semibold tracking-[0.12em] text-placeholder uppercase">
+        Mesa
+      </span>
+      <span className="text-xs text-muted-foreground">
+        Criada em {CREATED_AT_FORMAT.format(new Date(createdAt))}
+      </span>
+      <span className="text-xs text-muted-foreground">{memberCountLabel(memberCount)}</span>
+    </div>
+  );
+}
+
+// The section whose top crossed the top of the page scroller, refreshed as it scrolls.
+function useActiveSection(
+  withDanger: boolean,
+): [SettingsSectionKey, (key: SettingsSectionKey) => void] {
+  const [active, setActive] = useState<SettingsSectionKey>('general');
+  useEffect(() => {
+    const scroller = document.querySelector<HTMLElement>('[data-settings-scroller]');
+    if (!scroller) return;
+    const sync = (): void => setActive(sectionInView(scroller, sectionKeysOf(withDanger)));
+    scroller.addEventListener('scroll', sync, { passive: true });
+    return () => scroller.removeEventListener('scroll', sync);
+  }, [withDanger]);
+  return [active, setActive];
+}
+
+function sectionKeysOf(withDanger: boolean): readonly SettingsSectionKey[] {
+  return withDanger ? SECTION_KEYS : SECTION_KEYS.filter((key) => key !== 'danger');
+}
+
+function sectionInView(
+  scroller: HTMLElement,
+  keys: readonly SettingsSectionKey[],
+): SettingsSectionKey {
+  const line = scroller.getBoundingClientRect().top + SECTION_TOP_GAP * 4;
+  let inView: SettingsSectionKey = 'general';
+  for (const key of keys) {
+    const section = document.getElementById(SETTINGS_SECTIONS[key].id);
+    if (section && section.getBoundingClientRect().top <= line) inView = key;
+  }
+  return inView;
 }

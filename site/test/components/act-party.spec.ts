@@ -24,6 +24,13 @@ describe('ActParty', () => {
     expect(act.body.textContent).toMatch(/jogador/);
   });
 
+  it('lists the characters and the friends of act II', async () => {
+    const act = await renderAstro(ActParty);
+
+    const titles = [...act.querySelectorAll('ul h3')].map((title) => title.textContent?.trim());
+    expect(titles).toEqual(['Personagens da mesa', 'Amigos e perfil']);
+  });
+
   it('asks for an invite by e-mail', async () => {
     const act = await renderAstro(ActParty);
 

@@ -25,6 +25,7 @@ import {
 import { signUpAndLogin } from '../support/sign-in';
 import { createTable, joinByCode, type Table } from '../support/tables';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
+import { setAccountPlan } from '../support/account-plans';
 
 describe('the photo and the banner in the campaign settings', () => {
   const env: Env = { ...readEnv(process.env), adminSeed: null };
@@ -48,6 +49,8 @@ describe('the photo and the banner in the campaign settings', () => {
     app = await buildApp({ env, db: connection.db });
     const baseUrl = await app.listen({ port: 0, host: '127.0.0.1' });
     const anaUser = await signUpAndLogin(app, connection.db, 'Ana');
+    // The banner and the cover image are campaignArt: from Narrador up.
+    await setAccountPlan(connection.db, anaUser.id, 'narrador');
     const biaUser = await signUpAndLogin(app, connection.db, 'Bia');
     const caioUser = await signUpAndLogin(app, connection.db, 'Caio');
     ana = anaUser.token;

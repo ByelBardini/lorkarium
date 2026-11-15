@@ -47,5 +47,9 @@ export const planLimitsDto = z.strictObject({
   conditionImage: z.boolean(),
   desktopWindows: z.boolean(),
   customColor: z.boolean(),
+  /** The table's own cover and banner images, and its three images animated (a GIF). Without
+   *  it the cover and the banner come from the photo and a GIF keeps its first frame. */
+  campaignArt: z.boolean(),
+  privateCampaign: z.boolean(),
 });
 export type PlanLimits = z.infer<typeof planLimitsDto>;

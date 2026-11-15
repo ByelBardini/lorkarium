@@ -16,13 +16,14 @@ import { PlanAccountsFake, planAccount } from '../../support/plan-account-fakes'
 import { ScenesDaoFake } from '../../support/scenes-fakes';
 
 const NOW = new Date('2026-11-11T21:00:00Z');
-const NEW_CAMPAIGN = {
+const NEW_CAMPAIGN_WITHOUT_VISIBILITY = {
   name: 'A Torre',
   system: null,
   status: 'building',
   description: null,
-  visibility: 'private',
 } as const;
+
+const NEW_CAMPAIGN = { ...NEW_CAMPAIGN_WITHOUT_VISIBILITY, visibility: 'public' } as const;
 
 describe('CampaignsService.create against the owner plan', () => {
   let campaigns: CampaignsDaoFake;
@@ -74,6 +75,29 @@ describe('CampaignsService.create against the owner plan', () => {
     owners.set(ANA_ID, planAccount({ plan: 'free' }));
 
     await expect(service.create(ANA_ID, NEW_CAMPAIGN)).resolves.toMatchObject({ name: 'A Torre' });
+  });
+
+  it('a free owner who sends no visibility gets a public table', async () => {
+    owners.set(ANA_ID, planAccount({ plan: 'free' }));
+    await expect(service.create(ANA_ID, NEW_CAMPAIGN_WITHOUT_VISIBILITY)).resolves.toMatchObject({
+      visibility: 'public',
+    });
+  });
+
+  it('a Narrador owner who sends no visibility gets a private table', async () => {
+    owners.set(ANA_ID, planAccount({ plan: 'narrador' }));
+    await expect(service.create(ANA_ID, NEW_CAMPAIGN_WITHOUT_VISIBILITY)).resolves.toMatchObject({
+      visibility: 'private',
+    });
+  });
+
+  it('a free owner asking for a private table is refused privateCampaign, nothing inserted', async () => {
+    owners.set(ANA_ID, planAccount({ plan: 'free' }));
+
+    const refusal = service.create(ANA_ID, { ...NEW_CAMPAIGN, visibility: 'private' });
+
+    await expect(refusal).rejects.toMatchObject({ resource: 'privateCampaign', plan: 'free' });
+    expect(runner.writesInside).not.toContain('campaigns.insert');
   });
 
   it('a free owner with one table is refused PLAN_LIMIT campaigns 1 free, and nothing is written', async () => {

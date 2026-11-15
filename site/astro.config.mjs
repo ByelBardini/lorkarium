@@ -9,7 +9,9 @@ const SITE_URL = process.env.SITE_URL;
 export default defineConfig({
   site: SITE_URL ?? 'http://localhost:4321',
   trailingSlash: 'always',
-  integrations: [sitemap({ filter: (page) => !page.includes('/obrigado/') })],
+  integrations: [
+    sitemap({ filter: (page) => !['/obrigado/', '/planos/'].some((path) => page.includes(path)) }),
+  ],
   env: {
     schema: {
       PUBLIC_APP_URL: envField.string({ context: 'client', access: 'public', url: true }),

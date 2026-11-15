@@ -121,6 +121,7 @@ describe('the campaign events', () => {
     cover: { kind: 'drawn', drawing: 0, tone: 1 },
     photoAssetId: null,
     bannerAssetId: null,
+    campaignArt: false,
     contentWarnings: [],
     tags: [],
     playersCreateTokens: false,

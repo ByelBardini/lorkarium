@@ -14,7 +14,14 @@ describe('ActScene', () => {
     const act = await renderAstro(ActScene);
 
     const titles = [...act.querySelectorAll('h3')].map((title) => title.textContent?.trim());
-    expect(titles).toEqual(['Biblioteca de grids', 'Grid de combate', 'Visão, luz e paredes']);
+    expect(titles).toEqual([
+      'Biblioteca da mesa',
+      'Mapas interativos',
+      'Documentos com abas',
+      'Grid de combate',
+      'Patrulhas',
+      'Visão, luz e paredes',
+    ]);
     expect(act.body.textContent).toContain(landingCopy.features[4]?.text);
   });
 

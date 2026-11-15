@@ -61,4 +61,33 @@ describe('campaignImageOf', () => {
   it('the cover format ignores the photo and the banner', () => {
     expect(campaignImageOf(ALL_THREE, 'cover')).toEqual(COVER_IMAGE);
   });
+
+  describe('without campaignArt (Grátis and Apoiador)', () => {
+    const PHOTO_IMAGE = { kind: 'image', assetId: PHOTO_ID } as const;
+    const FREE = { cover: COVER_DRAWN, photoAssetId: PHOTO_ID, campaignArt: false } as const;
+
+    it.each(['cover', 'banner'] as const)(
+      'the %s format is the photo, cropped by the screen',
+      (format) => {
+        expect(campaignImageOf(FREE, format)).toEqual(PHOTO_IMAGE);
+      },
+    );
+
+    it.each(['cover', 'banner'] as const)(
+      'without a photo the %s format is the drawing',
+      (format) => {
+        expect(campaignImageOf({ ...FREE, photoAssetId: null }, format)).toEqual(COVER_DRAWN);
+      },
+    );
+
+    it('a cover and a banner image set before still show (grandfathering)', () => {
+      const kept = { ...ALL_THREE, campaignArt: false };
+      expect(campaignImageOf(kept, 'cover')).toEqual(COVER_IMAGE);
+      expect(campaignImageOf(kept, 'banner')).toEqual({ kind: 'image', assetId: BANNER_ID });
+    });
+
+    it('with campaignArt the drawn cover stays the drawing even with a photo', () => {
+      expect(campaignImageOf({ ...FREE, campaignArt: true }, 'cover')).toEqual(COVER_DRAWN);
+    });
+  });
 });

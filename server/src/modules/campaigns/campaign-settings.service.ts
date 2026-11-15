@@ -5,10 +5,12 @@ import type { AssetStoragePort } from '../assets/asset-storage.port';
 import type { AssetsDao } from '../assets/assets.dao';
 import type { ClockPort } from '../auth/clock.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
+import { effectiveLimitsOf } from '../plans/plan-limits.bo';
 import type { CachedMemberships } from './cached-memberships';
 import type { CampaignChangedPort } from './campaign-changed.port';
 import type { CampaignCodePort } from './campaign-code.port';
 import type { CampaignMembersDao } from './campaign-members.dao';
+import { requireCampaignPlanFor } from './campaign-plan.bo';
 import type { CampaignImageSlot, CampaignSettingsBo } from './campaign-settings.bo';
 import type { CampaignsDao } from './campaigns.dao';
 import { CampaignCodeExhaustedError, CampaignNotFoundError } from './campaigns.error';
@@ -30,7 +32,10 @@ export type CampaignRemovalTransactionRunner = <T>(
 export type CampaignSettingsServiceDeps = Readonly<{
   /** `findById`: the owner, who alone (with a juggernaut) deletes the campaign; `idsOwnedBy`: the
    *  tables whose limits follow a plan the backoffice changed. */
-  campaigns: Pick<CampaignsDao, 'findById' | 'update' | 'replaceJoinCode' | 'idsOwnedBy'>;
+  campaigns: Pick<
+    CampaignsDao,
+    'findById' | 'findOwnerPlan' | 'update' | 'replaceJoinCode' | 'idsOwnedBy'
+  >;
   removal: CampaignRemovalTransactionRunner;
   /** Where the objects of a deleted table's files are removed, after the commit. */
   objects: Pick<AssetStoragePort, 'remove'>;
@@ -64,6 +69,7 @@ export class CampaignSettingsService {
   ): Promise<CampaignDetailDto> {
     const settings = await this.masterSettings(userId, campaignId, 'change the campaign settings');
     await this.checkImages(settings, campaignId, input);
+    await this.checkPlan(userId, campaignId, input);
     const passwordHash = await this.passwordHashOf(settings, input.password);
     const patch = toCampaignPatch(input, { passwordHash, updatedAt: this.deps.clock.now() });
     const row = await this.deps.campaigns.update(campaignId, patch);
@@ -146,6 +152,18 @@ export class CampaignSettingsService {
       const asset = await this.deps.assets.findInCampaign(campaignId, assetId);
       settings.requireCampaignImage(slot, { assetId, purpose: asset?.purpose ?? null });
     }
+  }
+
+  // Unlocked like the image checks: a plan changed in the backoffice mid-request decides the next.
+  private async checkPlan(
+    userId: string,
+    campaignId: string,
+    input: UpdateCampaignRequestDto,
+  ): Promise<void> {
+    const stored = await this.deps.campaigns.findById(campaignId);
+    const owner = await this.deps.campaigns.findOwnerPlan(campaignId);
+    if (!stored || !owner) throw new CampaignNotFoundError({ campaignId, userId });
+    requireCampaignPlanFor(stored, input, effectiveLimitsOf(owner));
   }
 
   private async passwordHashOf(

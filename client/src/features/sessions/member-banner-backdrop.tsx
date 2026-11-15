@@ -25,7 +25,7 @@ export function MemberBannerBackdrop({
     <span
       aria-hidden="true"
       data-banner-backdrop
-      className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
+      className="pointer-events-none absolute inset-0 -z-10 overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_30%,black_70%,transparent)]"
     >
       <BannerStill url={url} />
       {/* Over the still: while the moving one loads, the first frame stays. */}

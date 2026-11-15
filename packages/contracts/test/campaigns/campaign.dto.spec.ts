@@ -25,6 +25,7 @@ const SUMMARY = {
   cover: { kind: 'drawn', drawing: 1, tone: 2 },
   photoAssetId: null,
   bannerAssetId: null,
+  campaignArt: false,
   contentWarnings: ['horror'],
   tags: ['sandbox'],
   playersCreateTokens: false,

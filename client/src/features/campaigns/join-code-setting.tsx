@@ -48,13 +48,16 @@ export function JoinCodeSetting({
   return (
     <div className="flex flex-col gap-2">
       <span className="text-[13px] text-label">Código da mesa</span>
-      <span className="font-brand text-2xl tracking-[0.2em] text-primary">{formatted}</span>
-      <div className="flex flex-wrap items-center gap-3">
-        <CopyCodeButton code={formatted} clipboard={clipboard} />
-        <Button type="button" variant="outline" size="lg" onClick={() => setConfirming(true)}>
-          <RefreshCwIcon aria-hidden="true" />
-          Gerar outro
-        </Button>
+      {/* Code and actions on one row: on a wide card a column of them left the right side empty. */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        <span className="font-brand text-2xl tracking-[0.2em] text-primary">{formatted}</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <CopyCodeButton code={formatted} clipboard={clipboard} />
+          <Button type="button" variant="outline" onClick={() => setConfirming(true)}>
+            <RefreshCwIcon aria-hidden="true" />
+            Gerar outro
+          </Button>
+        </div>
       </div>
       <p role="status" className="text-[13px] text-placeholder">
         {renewed

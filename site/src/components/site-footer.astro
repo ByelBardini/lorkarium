@@ -3,6 +3,7 @@ import { PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
 import BrandWordmark from '@/components/brand-wordmark.astro';
 
 const footerLinks: ReadonlyArray<{ label: string; href: string }> = [
+  { label: 'Planos', href: '/planos/' },
   { label: 'Termos de uso', href: '/termos/' },
   { label: 'Privacidade', href: '/privacidade/' },
   { label: 'Contato', href: `mailto:${PUBLIC_CONTACT_EMAIL}` },

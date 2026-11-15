@@ -92,6 +92,11 @@ describe('CampaignSettingsService', () => {
     build();
   });
 
+  function onFreePlan(): void {
+    const owner = campaigns.rows[0]!.ownerId;
+    campaigns.ownerPlans.set(owner, { role: 'user', plan: 'free', lorkariumOwner: false });
+  }
+
   function masterAwayFromTable(): void {
     presence = new PresenceReaderFake({ [VHARN_ID]: [BIA_ID], [QUELM_ID]: [ANA_ID] });
     build();
@@ -165,6 +170,30 @@ describe('CampaignSettingsService', () => {
         update(ANA_ID, { cover: { kind: 'image', assetId: COVER_ID } }),
       ).rejects.toMatchObject({ code: 'INVALID_BODY' });
       expect(campaigns.writes).toEqual([]);
+    });
+
+    it('on a Grátis owner a new cover image is refused campaignArt and nothing is written', async () => {
+      onFreePlan();
+      await expect(
+        update(ANA_ID, { cover: { kind: 'image', assetId: COVER_ID } }),
+      ).rejects.toMatchObject({ code: 'PLAN_LIMIT', resource: 'campaignArt', plan: 'free' });
+      expect(campaigns.writes).toEqual([]);
+    });
+
+    it('on a Grátis owner turning the public table private is refused privateCampaign', async () => {
+      onFreePlan();
+      campaigns.rows[0]!.visibility = 'public';
+      await expect(update(ANA_ID, { visibility: 'private' })).rejects.toMatchObject({
+        resource: 'privateCampaign',
+      });
+      expect(campaigns.writes).toEqual([]);
+    });
+
+    it('on a Grátis owner the private table keeps saving other fields while private', async () => {
+      onFreePlan();
+      campaigns.rows[0]!.visibility = 'private';
+      const detail = await update(ANA_ID, { name: 'Vharn', visibility: 'private' });
+      expect(detail).toMatchObject({ name: 'Vharn', visibility: 'private' });
     });
 
     it('a cover asset of another table is refused with INVALID_BODY', async () => {

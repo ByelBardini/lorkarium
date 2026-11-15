@@ -27,6 +27,7 @@ import { ANA_ID } from '../../support/auth-factories';
 import {
   BIA_ID,
   DUDA_ID,
+  FREE_ACCOUNT,
   VHARN_ID,
   campaignListingRow,
   campaignMemberPo,
@@ -58,7 +59,7 @@ const BANNER_ID = '6f5e4d3c-2b1a-4f0e-9d8c-7b6a5f4e3d2c';
 
 function publicRowOf(campaign: ReturnType<typeof campaignPo>) {
   const master = { masterIds: [ANA_ID], masterName: 'Ana', masterUsername: 'ana' };
-  return { campaign, ...master, memberCount: 1, myRole: null };
+  return { campaign, ...master, memberCount: 1, myRole: null, owner: FREE_ACCOUNT };
 }
 
 function detailView(overrides: Partial<CampaignDetailView> = {}): CampaignDetailView {
@@ -105,6 +106,7 @@ describe('campaigns mapper', () => {
       cover: { kind: 'drawn', ...defaultCoverOf(VHARN_ID) },
       photoAssetId: null,
       bannerAssetId: null,
+      campaignArt: false,
       contentWarnings: [],
       tags: [],
       playersCreateTokens: false,
@@ -126,6 +128,7 @@ describe('campaigns mapper', () => {
       masterUsername: 'bia',
       memberCount: 3,
       myRole,
+      owner: FREE_ACCOUNT,
     });
     const nobody: ReadonlySet<string> = new Set();
 
@@ -471,10 +474,26 @@ describe("the plan in the mapper: the members' seals and the owner's limits", ()
     expect(toCampaignSummaryDto(row).limits).toEqual(PLAN_LIMITS.narrador);
   });
 
+  it('campaignArt follows the owner: off on Grátis and Apoiador, on from Narrador up', () => {
+    const artOf = (plan: 'free' | 'apoiador' | 'narrador') =>
+      toCampaignSummaryDto(campaignListingRow({ owner: { ...FREE_ACCOUNT, plan } })).campaignArt;
+    expect([artOf('free'), artOf('apoiador'), artOf('narrador')]).toEqual([false, false, true]);
+  });
+
+  it('the explore card says whether the owner has campaignArt, read from the row', () => {
+    const campaign = campaignPo({ visibility: 'public' });
+    const paid = { ...publicRowOf(campaign), owner: { ...FREE_ACCOUNT, plan: 'lenda' as const } };
+    expect(toPublicCampaignDto(publicRowOf(campaign), false, NOBODY_ONLINE).campaignArt).toBe(
+      false,
+    );
+    expect(toPublicCampaignDto(paid, false, NOBODY_ONLINE).campaignArt).toBe(true);
+  });
+
   it('the explore card leaves the limits out and passes the strict DTO', () => {
     const row = { campaign: campaignPo({ visibility: 'public' }), masterIds: [ANA_ID] };
     const owned = { masterName: 'Ana', masterUsername: 'ana', memberCount: 1, myRole: null };
-    const card = toPublicCampaignDto({ ...row, ...owned }, false, NOBODY_ONLINE);
+    const plan = { owner: FREE_ACCOUNT };
+    const card = toPublicCampaignDto({ ...row, ...owned, ...plan }, false, NOBODY_ONLINE);
     expect(card).not.toHaveProperty('limits');
     expect(publicCampaignDto.safeParse(card).success).toBe(true);
   });

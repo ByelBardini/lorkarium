@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
+import { PLAN_LIMITS } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildRoutes } from '@/app/router';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
@@ -266,5 +267,20 @@ describe('CreateCampaignDialog', () => {
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(deps.campaignsApi.callsOf('create')).toEqual([]);
+  });
+
+  it('on Grátis "Pública" comes checked, "Privada" is disabled with the plan hint', async () => {
+    const limits = { ...PLAN_LIMITS.free, maxCampaigns: null };
+    deps.authApi.answerMeWith({ ...ANA, plan: 'free', limits, customization: false });
+    const dialog = await openDialog();
+    expect(within(dialog).getByRole('radio', { name: 'Pública' })).toBeChecked();
+    const privada = within(dialog).getByRole('radio', { name: 'Privada' });
+    expect(privada).toBeDisabled();
+    expect(privada).toHaveAccessibleDescription('Disponível no Narrador');
+    await typeName(dialog);
+    await submit(dialog);
+    await waitFor(() =>
+      expect(deps.campaignsApi.callsOf('create')[0]).toMatchObject({ visibility: 'public' }),
+    );
   });
 });

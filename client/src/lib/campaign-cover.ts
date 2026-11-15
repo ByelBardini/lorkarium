@@ -5,11 +5,12 @@ import { defaultCoverOf } from '@lorkarium/game-core';
 export type CampaignImageFormat = 'photo' | 'cover' | 'banner';
 
 /** What a campaign carries for its three formats. `undefined` (a server or a stored list from
- *  before the photo and the banner) reads as `null`. */
+ *  before the photo and the banner) reads as `null`; `campaignArt` absent reads as `true`. */
 export type CampaignImages = Readonly<{
   cover: CampaignCoverDto;
   photoAssetId?: string | null;
   bannerAssetId?: string | null;
+  campaignArt?: boolean;
 }>;
 
 /** The cover a campaign shows before its own is known (a table reopened from what an older tab
@@ -21,7 +22,8 @@ export function fallbackCoverOf(campaignId: string): DrawnCampaignCoverDto {
 }
 
 /** The image a screen shows in a format: the photo or the banner when the master set one,
- *  otherwise the cover (image or drawing). The cover format never reads the other two.
+ *  otherwise the cover. The cover is its image, or — when the owner's plan lacks `campaignArt` —
+ *  the photo (the screen crops it to the centre), or else the drawing.
  *
  *  Example: `campaignImageOf(campaign, 'photo') // { kind: 'image', assetId: campaign.photoAssetId }` */
 export function campaignImageOf(
@@ -29,7 +31,14 @@ export function campaignImageOf(
   format: CampaignImageFormat,
 ): CampaignCoverDto {
   const own = ownAssetIdOf(campaign, format);
-  return own ? { kind: 'image', assetId: own } : campaign.cover;
+  return own ? { kind: 'image', assetId: own } : coverShownOf(campaign);
+}
+
+// A cover image set before the plan lost `campaignArt` still shows (grandfathering).
+function coverShownOf(campaign: CampaignImages): CampaignCoverDto {
+  const { cover, photoAssetId } = campaign;
+  if (cover.kind === 'image' || campaign.campaignArt !== false || !photoAssetId) return cover;
+  return { kind: 'image', assetId: photoAssetId };
 }
 
 function ownAssetIdOf(campaign: CampaignImages, format: CampaignImageFormat): string | null {

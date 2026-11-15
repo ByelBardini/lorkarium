@@ -9,6 +9,7 @@ import { users } from '../../src/modules/auth/users.po';
 import type { SignedInUser } from '../support/sign-in';
 import type { Table } from '../support/tables';
 import { useTokenTable } from '../support/token-table';
+import { setAccountPlan } from '../support/account-plans';
 
 const live = useTokenTable();
 
@@ -35,6 +36,7 @@ function setRole(user: SignedInUser, targetId: string, role: string) {
 
 async function ermoOfEva(): Promise<Table> {
   const eva = await live.signUp('Eva');
+  await setAccountPlan(live.connection.db, eva.id, 'narrador');
   const payload = { name: 'Ermo', visibility: 'private', password: 'sino' };
   const response = await live.http(eva, { method: 'POST', url: '/api/campaigns', payload });
   const { id, joinCode } = campaignResponseDto.parse(response.json()).campaign;
