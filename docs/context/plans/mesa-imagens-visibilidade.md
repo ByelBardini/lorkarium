@@ -1,0 +1,6 @@
+# Planos — imagens e visibilidade da mesa
+
+- `campaignArt` (grade; falso no Grátis e no Apoiador): sem ele, o envio de Capa ou Banner (arquivo e link, antes de baixar) é `PLAN_LIMIT` `campaignArt` (`requireCampaignArtFor` em `assets/asset-upload.bo.ts`), e o `PATCH` da mesa que põe uma Capa ou Banner **diferente** do gravado também (`requireCampaignPlanFor` em `campaigns/campaign-plan.bo.ts`, lido sem trava como a conferência das imagens). A Foto vale em todo plano. A tela desenha Capa e Banner a partir da Foto (detalhe em [`../client/campaign-parts.md`](../client/campaign-parts.md)).
+- `privateCampaign` (grade; idem): sem ele, `POST /campaigns` com `visibility: 'private'` e o `PATCH` que leva uma mesa pública a privada são `PLAN_LIMIT` `privateCampaign`. A mesa criada **sem** `visibility` nasce privada com o recurso e pública sem ele (`creationVisibilityOf`, na transação que trava o dono).
+- O que a mesa já tem fica (grandfathering): Capa e Banner gravados continuam aparecendo e podem sair; a mesa privada continua privada e salva os outros campos; só a troca por uma imagem nova e a volta a privada depois de pública são barradas.
+- Provado em `server/test/modules/campaigns/campaign-plan.bo.spec.ts`, `campaign-settings.service.spec.ts`, `campaigns.service-plan.spec.ts`, `assets/asset-upload.bo.spec.ts` e `assets/assets.service.spec.ts`.

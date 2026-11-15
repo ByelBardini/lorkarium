@@ -10,7 +10,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Tokens de cor, tipografia, forma, componentes base e regras anti-template                      | [`design-system.md`](client/design-system.md)                   |
 | Shell (trilho, menu, gaveta), home, diálogos de mesa e detalhe                                 | [`home.md`](client/home.md)                                     |
 | Peças da mesa: capa, status, avisos, tags, prévia, `update`/código/excluir, eventos ao vivo    | [`campaign-parts.md`](client/campaign-parts.md)                 |
-| Página "Configurações da mesa" na sala: rota, moldura, ação, rascunho, seções, pendência       | [`campaign-settings.md`](client/campaign-settings.md)           |
+| Página "Configurações da mesa" na sala: rota, moldura, salvar no topo, seções, imagens, prévia | [`campaign-settings.md`](client/campaign-settings.md)           |
 | Tempo real: transporte Socket.IO, sessão da mesa, mesas abertas da aba, presença e versão      | [`realtime.md`](client/realtime.md)                             |
 | Card de perfil (Brasão): popover, modal, votos, ⋯, denúncia, onde abre                         | [`profile-card.md`](client/profile-card.md)                     |
 | Amigos: tela `/friends`, conexão da conta, `FriendsApi`, stores, status e mensagens locais     | [`friends.md`](client/friends.md)                               |
