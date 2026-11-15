@@ -32,6 +32,10 @@ const CALLS = [
   'bars.spend',
   'bars.create',
   'dice.roll',
+  'dice.tray.add',
+  'dice.tray.addSaved',
+  'dice.tray.roll',
+  'dice.saved.list',
   'html.sanitize',
   'character.get',
   'character.set',
@@ -60,6 +64,9 @@ const CODES = [
   'INSUFFICIENT_BAR',
   'BAR_LIMIT',
   'SHEET_HAS_NO_TOKEN',
+  'TRAY_EMPTY',
+  'TRAY_FULL',
+  'SAVED_ROLL_NOT_FOUND',
   'ASSET_NOT_FOUND',
   'DOCUMENT_NOT_FOUND',
   'DOCUMENT_TAB_NOT_FOUND',
@@ -97,7 +104,7 @@ describe('SheetApiReference', () => {
 
   it('every lorkarium call the guide cites exists in the SDK the frame gets', () => {
     const cited = new Set(
-      [...allDocumentedCode().matchAll(/lorkarium\.([a-zA-Z]+(?:\.[a-zA-Z]+)?)\(/gu)].map(
+      [...allDocumentedCode().matchAll(/lorkarium\.([a-zA-Z]+(?:\.[a-zA-Z]+){0,2})\(/gu)].map(
         (match) => match[1] ?? '',
       ),
     );

@@ -3,15 +3,19 @@ import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
 import type { AppDependencies } from '@/app/router';
 import { WorkspaceItemSurface } from '@/features/documents/workspace-item-surface';
+import { watchesOnly } from '@/lib/table-role';
 import { useOpenTable } from '@/features/sessions/use-open-table';
 import {
   characterSource,
   firstTokenSource,
   type SheetHolderSource,
 } from '@/sheet-sandbox/sheet-token-source';
+import type { SheetTrayTarget } from '@/sheet-sandbox/sheet-bridge-tray';
+import { diceTrayStoreOf } from '@/stores/dice-tray-store';
 import { workspaceItemTitle, type SheetWorkspaceEntry } from '@/stores/document-workspace-store';
 import { useOpenTables, type OpenTable } from '@/stores/open-tables-store';
 import type { SceneTab, SceneTabsStore } from '@/stores/scene-tabs-store';
+import { savedRollsStoreOf } from '@/stores/saved-rolls-store';
 import type { SheetStoreState } from '@/stores/sheet-store';
 import { SheetPanel, type SheetPanelServices } from './sheet-panel';
 
@@ -31,6 +35,7 @@ export function WorkspaceSheet({
   );
   useForwardSheetChanges(table?.tabs ?? null, entry.store);
   const tokens = useSheetTokenSource(table, entry.store);
+  const diceTray = useSheetDiceTray(deps, entry);
   const services = useMemo<SheetPanelServices>(
     () => ({
       sheetsApi: deps.sheetsApi,
@@ -65,6 +70,7 @@ export function WorkspaceSheet({
           store={entry.store}
           tokens={tokens}
           services={services}
+          diceTray={diceTray}
           compact={surface.detached}
           onOpenWindow={surface.openWindow}
           onClose={surface.close}
@@ -72,6 +78,22 @@ export function WorkspaceSheet({
       )}
     </WorkspaceItemSurface>
   );
+}
+
+// The same tray the "Dados" tab shows, and the saved rolls it lists: those of who looks.
+function useSheetDiceTray(
+  deps: AppDependencies,
+  entry: SheetWorkspaceEntry,
+): SheetTrayTarget | null {
+  const { id: campaignId, myRole } = entry.campaign;
+  const { openTables, savedRolls } = deps;
+  return useMemo(() => {
+    if (watchesOnly(myRole)) return null;
+    return {
+      tray: diceTrayStoreOf(openTables, campaignId),
+      savedRolls: savedRollsStoreOf(savedRolls, campaignId),
+    };
+  }, [openTables, savedRolls, campaignId, myRole]);
 }
 
 function useForwardSheetChanges(

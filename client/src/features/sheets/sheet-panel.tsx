@@ -12,6 +12,7 @@ import type { SheetTemplateAssetReader } from '@/services/sheet-templates-api';
 import type { SheetsApi } from '@/services/sheets-api';
 import type { SheetCharacterCommands } from '@/sheet-sandbox/sheet-bridge-character';
 import type { SheetDocumentSources } from '@/sheet-sandbox/sheet-bridge-documents';
+import type { SheetTrayTarget } from '@/sheet-sandbox/sheet-bridge-tray';
 import { createSheetBridgeHost } from '@/sheet-sandbox/sheet-bridge-host';
 import { consoleEntryOf, type SheetConsoleSink } from '@/sheet-sandbox/sheet-console';
 import type { SheetChannel } from '@/sheet-sandbox/sheet-frame';
@@ -51,6 +52,8 @@ export type SheetPanelProps = Readonly<{
    *  the sheet are known (and for a sheet nobody holds, which the frame sees with `token: null`). */
   tokens: SheetHolderSource | null;
   services: SheetPanelServices;
+  /** The room's tray and saved rolls of who looks; `null`/absent = none (a spectator). */
+  diceTray?: SheetTrayTarget | null;
   compact?: boolean;
   onOpenWindow?: () => void;
   onClose?: () => void;
@@ -175,7 +178,7 @@ function useBridgeOf(
   holderless: boolean,
   onConsole: SheetConsoleSink | undefined,
 ) {
-  const { campaignId, store, tokens, services } = props;
+  const { campaignId, store, tokens, services, diceTray } = props;
   return useCallback(
     (port: MessagePort, onReady: () => void) =>
       createSheetBridgeHost({
@@ -191,10 +194,11 @@ function useBridgeOf(
         dice: services.dice,
         clock: services.clock,
         diceAspect: () => rollAspectOf({ width: window.innerWidth, height: window.innerHeight }),
+        diceTray,
         onReady,
         onConsole,
       }),
-    [campaignId, store, tokens, services, holderless, onConsole],
+    [campaignId, store, tokens, services, diceTray, holderless, onConsole],
   );
 }
 
