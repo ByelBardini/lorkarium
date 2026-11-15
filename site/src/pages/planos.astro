@@ -1,0 +1,68 @@
+---
+import { PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
+import ActPoints from '@/components/act-points.astro';
+import { inviteMailto } from '@/copy/landing-copy';
+import { plansCopy } from '@/copy/plans-copy';
+import SiteLayout from '@/layouts/site-layout.astro';
+---
+
+<SiteLayout
+  title="Planos do Lorkarium · Em construção"
+  description="Os planos do Lorkarium ainda estão em construção e não estão à venda. Durante o acesso antecipado, toda conta começa no plano Grátis."
+  noindex
+>
+  <section class="act relative isolate overflow-clip">
+    <div class="site-wrap flex flex-col gap-12">
+      <div class="flex max-w-[860px] flex-col gap-5">
+        <span class="eyebrow">Em construção</span>
+        <h1 class="act-title m-0">Planos</h1>
+        <p
+          data-plans-notice
+          role="note"
+          class="m-0 border-l-2 border-gold bg-gold/6 px-4 py-3 text-[15px] leading-[1.6] text-label"
+        >
+          Os planos ainda estão em construção e não estão abertos: não há como assinar nem pagar, e
+          os números abaixo podem mudar. Durante o acesso antecipado, toda conta nova começa no
+          plano Grátis, sem custo.
+        </p>
+      </div>
+      <ul
+        aria-label="Planos"
+        class="m-0 grid list-none border-t border-l border-edge p-0 md:grid-cols-2 xl:grid-cols-4"
+      >
+        {plansCopy.plans.map((plan) => (
+          <li data-plan={plan.name} class="flex flex-col gap-5 border-r border-b border-edge p-7">
+            <div class="flex flex-col gap-3">
+              <span
+                data-plan-status
+                class:list={[
+                  'text-xs font-bold tracking-[0.12em] uppercase',
+                  plan.available ? 'text-gold' : 'text-faint',
+                ]}
+              >
+                {plan.available ? 'Disponível no acesso antecipado' : 'Ainda não disponível'}
+              </span>
+              <h2 class="m-0 font-wordmark text-[26px] font-bold tracking-[0.04em] text-parchment uppercase">
+                {plan.name}
+              </h2>
+              <p class="m-0 text-[15px] leading-relaxed text-muted">{plan.pitch}</p>
+            </div>
+            <ActPoints points={plan.limits} />
+          </li>
+        ))}
+      </ul>
+      <div class="flex max-w-[860px] flex-col gap-5">
+        <h2 class="m-0 font-wordmark text-xl font-semibold tracking-[0.04em] text-parchment">
+          Como os limites funcionam
+        </h2>
+        <ActPoints points={plansCopy.rules} />
+        <p class="m-0 text-[15px] leading-relaxed text-muted">
+          Ainda não tem conta?{' '}
+          <a href={inviteMailto(PUBLIC_CONTACT_EMAIL)} class="font-semibold">
+            Pedir convite
+          </a>
+        </p>
+      </div>
+    </div>
+  </section>
+</SiteLayout>

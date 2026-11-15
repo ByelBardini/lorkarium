@@ -28,6 +28,16 @@ describe('FaqList', () => {
     expect(price?.textContent).toContain('gratuito durante o acesso antecipado');
   });
 
+  it('sends the price answer to the plans page, saying plans are not on sale', async () => {
+    const faq = await renderAstro(FaqList);
+
+    const price = [...faq.querySelectorAll('details')].find((item) =>
+      item.querySelector('summary')?.textContent?.includes('Quanto custa?'),
+    );
+    expect(price?.textContent).toContain('não estão à venda');
+    expect(price?.querySelector('p')?.lastElementChild?.getAttribute('href')).toBe('/planos/');
+  });
+
   it('titles the questions in the voice of the table', async () => {
     const faq = await renderAstro(FaqList);
 
