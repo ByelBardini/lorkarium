@@ -12,7 +12,7 @@ type CardPartProps = Readonly<{ card: ProfileCardDto; full: boolean }>;
 const LABEL_CLASS = 'font-brand text-[10px] font-semibold tracking-[0.14em] uppercase';
 
 /** The top of the card: the paid banner image, or the profile color fading into the card, with
- *  "Desde" on the right.
+ *  "Desde" on the right (clear of the modal's close button).
  *
  *  Example: `<ProfileCardBanner card={card} full={false} />` */
 export function ProfileCardBanner({ card, full }: CardPartProps): React.JSX.Element {
@@ -20,7 +20,12 @@ export function ProfileCardBanner({ card, full }: CardPartProps): React.JSX.Elem
     <div
       data-testid="profile-card-banner"
       style={{ backgroundColor: memberColorCss(card.color) }}
-      className={cn('relative overflow-hidden', full ? 'h-36' : 'h-24')}
+      // The fade is a mask, not a card-colored overlay: the centered modal lands on a half pixel
+      // and the image leaked a thin bright line under the overlay's last row.
+      className={cn(
+        'relative overflow-hidden [mask-image:linear-gradient(to_bottom,#000_calc(100%-2.5rem),transparent)]',
+        full ? 'h-36' : 'h-24',
+      )}
     >
       {card.bannerId !== null && (
         <img
@@ -30,14 +35,14 @@ export function ProfileCardBanner({ card, full }: CardPartProps): React.JSX.Elem
           className="absolute inset-0 size-full object-cover"
         />
       )}
-      <span className="absolute inset-x-0 bottom-0 h-10 bg-linear-to-b from-transparent to-card" />
       <span
         className={cn(
           LABEL_CLASS,
-          'absolute top-2.5 right-3 rounded-full bg-black/45 px-2.5 py-1 text-[#efe3c8]',
+          'absolute top-2.5 rounded-full bg-black/45 px-2.5 py-1 text-[#efe3c8]',
+          full ? 'right-12' : 'right-3',
         )}
       >
-        {memberSinceTag(card.memberSince)}
+        {memberSinceTag(card)}
       </span>
     </div>
   );

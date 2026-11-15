@@ -50,21 +50,19 @@ const STATUS_LABEL: Readonly<Record<Exclude<TablePresenceState['status'], 'faile
  *
  *  Example: `<SessionPresencePanel store={table.presence} board={table.board} characters={table.characters} interaction={interaction} isMaster />` */
 export function SessionPresencePanel(props: SessionPresencePanelProps): React.JSX.Element {
-  const titleId = useId();
   const status = useTablePresence(props.store, (state) => state.status);
   const failure = useTablePresence(props.store, (state) => state.failure);
+  // The room panel already titles the tab "Na mesa": a second visible heading only repeated it.
   return (
-    <section aria-labelledby={titleId} className="flex flex-col gap-3">
-      <header className="flex items-baseline justify-between gap-3 border-b border-border pb-2">
-        <h2 id={titleId} className="text-[13px] font-semibold text-label">
-          Na mesa
-        </h2>
-        {status !== 'failed' && (
-          <p role="status" className="text-xs tracking-[0.12em] text-muted-foreground uppercase">
-            {STATUS_LABEL[status]}
-          </p>
-        )}
-      </header>
+    <section aria-label="Na mesa" className="flex flex-col gap-3">
+      {status !== 'failed' && (
+        <p
+          role="status"
+          className="text-xs tracking-[0.12em] text-muted-foreground uppercase empty:hidden"
+        >
+          {STATUS_LABEL[status]}
+        </p>
+      )}
       {failure && failure !== 'unauthenticated' ? (
         <p role="alert" className="text-sm text-destructive-text">
           {sessionFailureMessage(failure)}
