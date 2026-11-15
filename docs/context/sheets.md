@@ -9,7 +9,7 @@ O mestre escreve um **modelo** de ficha (uma lista de arquivos HTML, CSS e JS, c
 | Arquivo                                                              | O que cobre                                                                                                                                                          |
 | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`sheets/sandbox.md`](sheets/sandbox.md)                             | Sandbox do client: flags do iframe, CSP do `srcdoc`, estilo base, `frame-src` do app, bootstrap/SDK, console, porta, 2º `load`                                       |
-| [`sheets/ligacao-declarativa.md`](sheets/ligacao-declarativa.md)     | `data-lk` (campo ↔ valor por `values.patch`), `data-lk-roll` (`@caminho` na rolagem) e `lorkarium.lists` (id estável)                                                |
+| [`sheets/ligacao-declarativa.md`](sheets/ligacao-declarativa.md)     | `data-lk` (campo ↔ valor por `values.patch`), `data-lk-roll` (`@caminho` na rolagem), `data-lk-tray` (buff na bandeja) e `lists` (id estável)                        |
 | [`sheets/contratos.md`](sheets/contratos.md)                         | DTOs Zod de modelo, ficha (resumo, dono), valores, criar barra e ponte (`console`, `bar` por nome ou id, resultado da rolagem)                                       |
 | [`sheets/arquivos.md`](sheets/arquivos.md)                           | Modelo em arquivos (`files`, `0099`), `<lk-include>`, assets do modelo (`sheet_template_asset`, `0100`, rota, leitura), `asset:` → `data:`                           |
 | [`sheets/documentos.md`](sheets/documentos.md)                       | Leitura de documentos pelo SDK: só públicos e abas `document`, igual para todos, `documents:read`, limite, prévia real                                               |
@@ -31,6 +31,9 @@ O mestre escreve um **modelo** de ficha (uma lista de arquivos HTML, CSS e JS, c
 - O console da ficha na sala é só de quem gerencia (`canManage`, o mestre); o jogador não recebe linha nenhuma.
 
 ## Armadilhas
+
+- **Permissão nova do manifesto mexe em mais que o enum:** `SHEET_MANIFEST_PERMISSIONS` (contracts), `PERMISSION_WORDS` de `client/src/features/sheets/sheet-manifest-messages.ts` (o typecheck cobra) e `PERMISSION_BY_REQUEST` de `sheet-permissions.ts` (ninguém cobra: sem a linha, o pedido passa sem permissão); e a frase "expected one of …" está escrita inteira em `sheet-manifest.dto.spec.ts`, `sheet-template-manifest.spec.ts` e `sheet-code-tabs.spec.tsx`.
+- **Chamada do SDK com 3 níveis (`lorkarium.dice.tray.add`) precisa entrar em `SDK_CALLS`** (`sheet-api-reference-content.ts`): o `sheet-sdk-completions.spec.ts` compara o autocompletar com o SDK que o frame recebe, e o `sheet-api-reference.spec.tsx` lê as chamadas citadas por um regex de até 3 níveis.
 
 - **Nonce herda para `import()`: o CSP da ficha usa hash, nunca nonce** (o `import()` de CDN saía para a rede; detalhe em [`sheets/sandbox.md`](sheets/sandbox.md)).
 - **Ficha em janela travava no cão de guarda ("A ficha não respondeu"):** o portal desenha o frame na auxiliar, mas o `postMessage` da porta sai do código da janela da sala, então o `event.source` no frame é a sala e não o `parent`. O bootstrap exigia `source === parent`, descartava a porta e o `ready` nunca saía. Agora aceita qualquer janela fora do frame (`sheet-bridge-bootstrap.spec.ts`, "not its parent"); a prévia do editor em janela também passou a funcionar. Spec com fake de janela precisa de `parent` (o `FrameWindowRefFake`, ele mesmo no topo).

@@ -1,6 +1,6 @@
 # Fichas — ligação declarativa e listas
 
-O que o autor do modelo escreve no HTML para ligar campos aos valores sem JS (`data-lk`, `data-lk-roll`) e as listas repetíveis com id estável (`lorkarium.lists`). Vive dentro do frame, no texto serializado de `client/src/sheet-sandbox/sheet-frame-bindings.ts`. Hub: [`../sheets.md`](../sheets.md); bootstrap e SDK: [`sandbox.md`](sandbox.md).
+O que o autor do modelo escreve no HTML para ligar campos aos valores sem JS (`data-lk`, `data-lk-roll`, `data-lk-tray`) e as listas repetíveis com id estável (`lorkarium.lists`). Vive dentro do frame, no texto serializado de `client/src/sheet-sandbox/sheet-frame-bindings.ts`. Hub: [`../sheets.md`](../sheets.md); bootstrap e SDK: [`sandbox.md`](sandbox.md).
 
 ## Arquivo
 
@@ -18,6 +18,12 @@ O que o autor do modelo escreve no HTML para ligar campos aos valores sem JS (`d
 - Clique (no botão ou em algo dentro dele, por `closest`) troca cada `@caminho` pelo número do valor e chama `dice.roll`; `data-lk-label` e `data-lk-visibility` (`masters`) vão como `label` e `visibility`.
 - `@caminho` sem chaves para no `-` (`@mod-@pen` é subtração); chave com hífen vai entre chaves: `@{golpe-duplo.dano}`.
 - O valor precisa ser inteiro (número ou texto de um inteiro). O sinal fica um só: `+@a` com `a = -2` vira `-2`, `-@a` vira `+2` (a notação lê um sinal por termo). Valor ausente, fracionário ou texto → `console.error` (`data-lk-roll "1d20+@bonus" needs @bonus, which is not a whole number in the values`) e **nenhuma** rolagem.
+
+## `data-lk-tray="expressão"` e `data-lk-tray-roll`
+
+- `data-lk-tray` monta a rolagem com buffs sem JS: o clique (também por `closest`) troca `@caminho` **pela mesma regra** do `data-lk-roll` (o mesmo `resolvedRoll`) e chama `dice.tray.add({ expression, label })` com o `data-lk-label`: a parte entra em "Montar rolagem" da aba Dados de quem olha, sem rolar (sem `data-lk-visibility`: vale o "Quem vê" da bandeja). Valor ausente ou fracionário → `console.error` (`data-lk-tray "1d4+@bonus" needs @bonus, which is not a whole number in the values`) e nada sai; recusa do host → `console.error` (`… was not added to the tray`).
+- `data-lk-tray-roll` (sem valor) chama `dice.tray.roll()`: rola a bandeja inteira. Recusa → `console.error` (`data-lk-tray-roll did not roll`).
+- Um só ouvinte de clique decide pelo atributo do `closest('[data-lk-roll], [data-lk-tray], [data-lk-tray-roll]')`.
 
 ## `lorkarium.lists`
 
