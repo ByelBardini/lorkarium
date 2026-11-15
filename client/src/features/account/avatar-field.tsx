@@ -39,6 +39,7 @@ export function AvatarField({
     <SettingsRow
       title="Foto"
       group
+      stacked
       busy={upload.sending || removal.busy}
       descriptionId={hintId}
       description="Arraste para o círculo, escolha ou use um link · PNG, JPEG, WebP ou GIF (animado também) até 5 MB. Sem foto, usamos suas iniciais na sua cor."

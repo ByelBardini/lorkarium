@@ -18,7 +18,7 @@ import { ProfilePreview } from './profile-preview';
 import { FieldError, ProfileTextRow } from './profile-text-row';
 import { SectionHeading } from './section-heading';
 import { SettingsLayout } from './settings-layout';
-import { SettingsRow } from './settings-row';
+import { SettingsRow, SettingsRowPair } from './settings-row';
 import { PREFERENCE_MAX_LENGTH, type ProfileDraft } from './use-profile-draft';
 import type { ProfileEditor } from './use-profile-editor';
 
@@ -31,9 +31,9 @@ export type ProfileSectionProps = Readonly<{
   chatPreferences: StoreApi<ChatPreferencesStore>;
 }>;
 
-/** "Perfil": photo, nickname, the read-only @, color, "Sobre você" and the dice ("Seus dados",
+/** "Perfil": photo and banner (by plan) side by side, nickname, the read-only @, color, "Sobre você" and the dice ("Seus dados",
  *  "Dados 3D", "Som dos dados") and "Som do chat", one setting per row, with the preview held beside from `xl`.
- *  Banner (on its own, by plan), systems, schedule and contact too.
+ *  Systems, schedule and contact too.
  *  Nickname, color, bio, preferences and the dice number color wait in the page's draft for the bar.
  *
  *  Example: `<ProfileSection profile={profile} editor={editor} profileApi={profileApi} sessionStore={sessionStore} dicePreferences={dicePreferences} chatPreferences={chatPreferences} />` */
@@ -71,7 +71,10 @@ function ProfileRows(props: ProfileSectionProps): React.JSX.Element {
   const images = { profileApi: props.profileApi, sessionStore: props.sessionStore };
   return (
     <>
-      <AvatarField profile={profile} {...images} />
+      <SettingsRowPair>
+        <AvatarField profile={profile} {...images} />
+        <BannerField profile={profile} {...images} />
+      </SettingsRowPair>
       <NicknameRow draft={draft} />
       <UsernameRow profile={profile} />
       <ColorRow draft={draft} />
@@ -83,7 +86,6 @@ function ProfileRows(props: ProfileSectionProps): React.JSX.Element {
         max={PROFILE_BIO_MAX_LENGTH}
         rows={5}
       />
-      <BannerField profile={profile} {...images} />
       <PreferenceRows draft={draft} />
       <DiceAppearanceField profile={profile} draft={draft} {...images} />
       <DiceDeviceSwitches dicePreferences={props.dicePreferences} />

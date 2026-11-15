@@ -14,8 +14,12 @@ export type SettingsRowProps = Readonly<{
   /** The row is a `group` named by the title (a photo with its buttons). */
   group?: boolean;
   busy?: boolean;
+  /** Title and explanation above the control, with no line of its own: a half of `SettingsRowPair`. */
+  stacked?: boolean;
   children: React.ReactNode;
 }>;
+
+const ROW_LINE = 'border-t border-divider py-8 first:border-t-0 first:pt-2';
 
 /** One setting of "Minha conta": title and explanation on the left, the control on the right,
  *  rows apart by a thin line. From `md` down, one column.
@@ -29,7 +33,14 @@ export function SettingsRow(props: SettingsRowProps): React.JSX.Element {
       role={props.group ? 'group' : undefined}
       aria-labelledby={props.group ? titleId : undefined}
       aria-busy={props.busy}
-      className="grid gap-x-12 gap-y-4 border-t border-divider py-8 first:border-t-0 first:pt-2 md:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]"
+      className={
+        props.stacked
+          ? 'flex min-w-0 flex-col gap-4'
+          : cn(
+              'grid gap-x-12 gap-y-4 md:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]',
+              ROW_LINE,
+            )
+      }
     >
       <div className="flex flex-col gap-1.5">
         <SettingsRowTitle id={titleId} htmlFor={props.titleFor}>
@@ -44,6 +55,15 @@ export function SettingsRow(props: SettingsRowProps): React.JSX.Element {
       <div className="flex min-w-0 flex-col gap-3">{props.children}</div>
     </div>
   );
+}
+
+/** Two `stacked` rows side by side under one line, half each; one column from `md` down.
+ *
+ *  Example: `<SettingsRowPair><SettingsRow stacked title="Foto">…</SettingsRow><SettingsRow stacked title="Banner">…</SettingsRow></SettingsRowPair>` */
+export function SettingsRowPair({
+  children,
+}: Readonly<{ children: React.ReactNode }>): React.JSX.Element {
+  return <div className={cn('grid gap-x-12 gap-y-8 md:grid-cols-2', ROW_LINE)}>{children}</div>;
 }
 
 const TITLE_CLASS = 'text-base font-semibold text-foreground';
