@@ -61,7 +61,7 @@ const features: FeatureCopy[] = [
   {
     title: 'Grid de combate',
     icon: 'M3 3h18v18H3Z M3 9h18 M3 15h18 M9 3v18 M15 3v18',
-    text: 'Use uma imagem como mapa, ajuste o grid e posicione os tokens. A régua mede distâncias e as áreas de efeito marcam as casas atingidas. O grupo acompanha as mudanças em tempo real.',
+    text: 'Use uma imagem como mapa, ajuste o grid e posicione os tokens, casa a casa ou em movimento livre. A régua mede distâncias e as áreas de efeito marcam as casas atingidas. O grupo acompanha as mudanças em tempo real.',
   },
   {
     title: 'Iniciativa e rodadas',
@@ -76,22 +76,22 @@ const features: FeatureCopy[] = [
   {
     title: 'Barras de recursos',
     icon: 'M4 7h16 M4 12h11 M4 17h7',
-    text: 'Até 8 barras por token para registrar PV, mana, escudo ou sanidade. Defina o nome, a cor e quem pode ver os valores de cada recurso.',
+    text: 'Até 8 barras por token para registrar PV, mana, escudo ou sanidade, cada uma com um valor temporário que absorve o dano primeiro. Defina o nome, a cor e quem pode ver os valores de cada recurso.',
   },
   {
-    title: 'Biblioteca de grids',
+    title: 'Biblioteca da mesa',
     icon: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z',
-    text: 'Prepare as cenas antes da sessão e organize os mapas em pastas. Mantenha cada cena privada até decidir abri-la para os jogadores.',
+    text: 'Prepare as cenas antes da sessão e organize grids, imagens, mapas e documentos em pastas. Cada item fica privado até você decidir mostrá-lo aos jogadores.',
   },
   {
     title: 'Visão, luz e paredes',
     icon: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z',
-    text: 'Desenhe paredes e portas, posicione as luzes e defina o alcance de visão dos tokens. Cada jogador vê o mapa conforme a visão de seus personagens.',
+    text: 'Desenhe paredes e portas, posicione as luzes e defina o alcance de visão dos tokens. Uma carroça ou uma estátua também pode bloquear a visão pelo próprio contorno. Cada jogador vê o mapa conforme a visão de seus personagens.',
   },
   {
     title: 'Dados 3D na mesa',
     icon: 'm12 3 9 5v8l-9 5-9-5V8Z M3 8l9 5 9-5 M12 13v8 M7.5 5.5l9 5',
-    text: 'Monte fórmulas de ataque, dano ou outros testes e salve as que usa com frequência. Os dados rolam sobre o mapa, com opção de vantagem, desvantagem e rolagem secreta.',
+    text: 'Junte na bandeja as partes da rolagem, como “Acerto + Bênção”, e guarde em pastas as fórmulas que usa com frequência. Os dados rolam sobre o mapa, com opção de vantagem, desvantagem e rolagem secreta.',
   },
   {
     title: 'Chat com o grupo',
@@ -106,7 +106,32 @@ const features: FeatureCopy[] = [
   {
     title: 'Fichas programáveis',
     icon: 'M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z M14 3v6h6 M10 13l-2 2 2 2 M14 13l2 2-2 2',
-    text: 'Escreva o modelo de ficha do seu sistema em HTML, CSS e JavaScript e dê uma ficha a cada jogador. Ela ajusta as barras do token, rola os dados na mesa e guarda os próprios valores, isolada do resto da página.',
+    text: 'Escreva o modelo de ficha do seu sistema em HTML, CSS e JavaScript e dê uma ficha a cada personagem. Ela ajusta as barras do token, põe dados na bandeja e guarda os próprios valores, isolada do resto da página. Exporte o modelo em arquivo para usar em outra mesa.',
+  },
+  {
+    title: 'Mapas interativos',
+    icon: 'M9 4 3 6v14l6-2 6 2 6-2V4l-6 2Z M9 4v14 M15 6v14',
+    text: 'Suba o mapa da região e marque cidades, masmorras e estradas. Cada região ou pino leva a um documento, a um grid ou a outro mapa, e os jogadores só veem o que você mostrar.',
+  },
+  {
+    title: 'Documentos com abas',
+    icon: 'M6 3h9l4 4v14H6Z M15 3v4h4 M9 11h7 M9 15h7 M9 19h4',
+    text: 'Escreva a história da campanha, as notas de cada lugar e o diário do grupo em documentos com abas, imagens e capa. Um jogador que você escolher também pode escrever neles.',
+  },
+  {
+    title: 'Patrulhas',
+    icon: 'M5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z M19 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z M7 17h6a3 3 0 0 0 0-6h-2a3 3 0 0 1 0-6h6',
+    text: 'Trace a rota de um guarda, de uma carroça ou de um animal e o token anda sozinho, em volta ou indo e voltando. Ele para quando alguém o move ou quando o combate começa.',
+  },
+  {
+    title: 'Personagens da mesa',
+    icon: 'M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z M4 21a8 8 0 0 1 16 0',
+    text: 'Quem senta para jogar ganha um personagem. Os tokens ligados a ele, em qualquer grid, dividem os mesmos PV, condições e fichas, e o jogador abre a ficha principal ao lado do mapa.',
+  },
+  {
+    title: 'Amigos e perfil',
+    icon: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z M2 21a7 7 0 0 1 14 0 M16 3.5a4 4 0 0 1 0 7 M18 14a6 6 0 0 1 4 7',
+    text: 'Adicione amigos pelo @, veja quem está online e converse em particular fora da mesa. O perfil mostra foto, banner e bio, a reputação dada por quem jogou com você e quantos 20 naturais você já tirou.',
   },
 ];
 
@@ -130,7 +155,8 @@ const dice = {
   text: 'Role um ataque com vantagem ou os oito d6 de uma bola de fogo. Quem acompanha a rolagem vê o mesmo lançamento em 3D, e o painel mostra cada dado, os modificadores e o total.',
   points: [
     'Do d4 ao d100, com vantagem, desvantagem e fórmulas próprias',
-    'Fórmulas salvas por mesa para repetir ataques e testes frequentes',
+    'Partes com nome na bandeja: o histórico mostra “Acerto 17 + Bênção 3”',
+    'Rolagens salvas por mesa, em pastas, para repetir ataques e testes',
     'Rolagens secretas só para quem rolou e os mestres',
   ],
 };
@@ -142,7 +168,8 @@ const chat = {
   points: [
     'Fale como seu token, com balão de fala no tabuleiro',
     'Use /r para rolar dados e /w para enviar um sussurro',
-    'Abra Chat e Dados em janelas separadas; no Windows, mantenha-as sempre visíveis',
+    'Aviso e som quando alguém cita você ou manda um sussurro',
+    'No Windows, o ícone da barra de tarefas brilha com mensagem nova',
   ],
 };
 
@@ -152,15 +179,15 @@ const acts: ActCopy[] = [
     id: 'cena',
     numeral: 'I',
     title: 'Prepare a cena',
-    lead: 'Antes da sessão, o mapa já está no grid e o ogro espera atrás das árvores. O grupo só vê a cena quando você abrir.',
-    featureIndexes: [4, 0, 5],
+    lead: 'Antes da sessão, o mapa já está no grid, os guardas fazem a ronda e o ogro espera atrás das árvores. O grupo só vê a cena quando você abrir.',
+    featureIndexes: [4, 10, 11, 0, 12, 5],
   },
   {
     id: 'grupo',
     numeral: 'II',
     title: 'Reúna o grupo',
-    lead: 'Passe o código da mesa. Quem entra chega como espectador, e você decide quem senta para jogar.',
-    featureIndexes: [],
+    lead: 'Passe o código da mesa. Quem entra chega como espectador, e você decide quem senta para jogar e com qual personagem.',
+    featureIndexes: [13, 14],
   },
   {
     id: 'iniciativa',
@@ -295,12 +322,17 @@ const faqs: FaqCopy[] = [
   {
     question: 'Minhas mesas ficam salvas?',
     answer:
-      'Sim. Mapas, tokens, barras, condições, fórmulas de rolagem salvas e a biblioteca de grids ficam na sua conta e podem ser acessados de outro computador. As mensagens e o histórico de resultados dos dados ficam apenas no navegador durante a visita à mesa. Quem entra depois não recebe o histórico anterior.',
+      'Sim. Mapas, tokens, personagens, fichas, documentos, condições, rolagens salvas e a biblioteca ficam na sua conta e podem ser acessados de outro computador. As mensagens do chat e o histórico de resultados dos dados ficam apenas no navegador durante a visita à mesa, e quem entra depois não recebe o histórico anterior. As conversas com amigos ficam só no seu aparelho.',
   },
   {
     question: 'Posso rolar dados pelo chat?',
     answer:
       'Sim. Digite /r 1d20+5 para uma rolagem pública ou /gr 1d20+5 para uma rolagem visível apenas para você e os mestres. Pela aba Dados, você também pode montar fórmulas, aplicar vantagem ou desvantagem e salvar as rolagens usadas naquela mesa.',
+  },
+  {
+    question: 'Posso conversar com amigos fora da mesa?',
+    answer:
+      'Sim. Adicione amigos pelo @ e converse em particular pela tela de Amigos enquanto os dois estão online. Você também pode ficar invisível. As conversas ficam no seu aparelho, não no servidor.',
   },
   {
     question: 'Por que o Windows mostra um aviso ao instalar?',
