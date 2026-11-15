@@ -221,6 +221,7 @@ export {
   type RolledPart,
   type RolledTerm,
 } from './dice-roll';
+export { countNaturalTwenties } from './dice/natural-twenty';
 export {
   DICE_PARTS_MAX,
   advantageBlockOf,
