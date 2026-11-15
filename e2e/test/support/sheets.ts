@@ -33,7 +33,12 @@ export type LibrarySheet = Readonly<{ sheetId: string; name: string }>;
 
 /** One file of a template, as the routes carry it. */
 export type SheetSourceFile = Readonly<{ path: string; content: string }>;
-export type SheetSourceCode = Readonly<{ name: string; files: readonly SheetSourceFile[] }>;
+export type SheetSourceCode = Readonly<{
+  name: string;
+  files: readonly SheetSourceFile[];
+  /** What the template declares (`permissions`), when it needs more than values, bars and dice. */
+  manifest?: Readonly<{ permissions: readonly string[] }>;
+}>;
 
 /** The three files of a single-page template, the names a migrated template has.
  *
