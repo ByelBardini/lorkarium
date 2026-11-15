@@ -102,6 +102,7 @@ describe('live table session over Socket.IO', () => {
       username: name.toLowerCase(),
       color,
       avatarId: null,
+      bannerId: null,
       bio: null,
     };
   }

@@ -75,6 +75,7 @@ describe('TableSessionService.memberRoleChanged', () => {
           username: 'duda',
           color: expect.any(String),
           avatarId: null,
+          bannerId: null,
           bio: null,
           role: 'player',
           juggernaut: false,

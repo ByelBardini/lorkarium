@@ -378,7 +378,7 @@ describe('ProfilesService', () => {
     const LINK = 'https://media.example.com/banner.png';
     const profileBanner = { code: 'PLAN_LIMIT', resource: 'profileBanner', limit: 0, plan: 'free' };
 
-    it('a banner is normalized animated at 1800×600 at the center, stored, pointed at and the old one deleted, untold', async () => {
+    it('a banner is normalized animated at 1800×600 at the center, stored, pointed at, told to the tables and the old one deleted', async () => {
       profiles.rows[0] = profileRow({ bannerId: OLD_AVATAR, avatarId: OLD_AVATAR });
 
       const profile = await service.replaceBanner(ANA_ID, PHOTO);
@@ -388,9 +388,9 @@ describe('ProfilesService', () => {
         'normalize',
         'put',
         `swapBanner:${NEW_AVATAR}`,
+        `profileChanged:${ANA_ID}`,
         `remove:banners/${OLD_AVATAR}`,
       ]);
-      expect(profileChanged.told).toEqual([]);
       expect(profile).toMatchObject({ bannerId: NEW_AVATAR, avatarId: OLD_AVATAR });
       expect(storage.objects.get(`banners/${NEW_AVATAR}`)?.contentType).toBe('image/webp');
     });
@@ -432,7 +432,12 @@ describe('ProfilesService', () => {
       const profile = await service.replaceBannerFromLink(ANA_ID, LINK);
 
       expect(fetcher.fetched).toEqual([LINK]);
-      expect(journal).toEqual(['normalize', 'put', `swapBanner:${NEW_AVATAR}`]);
+      expect(journal).toEqual([
+        'normalize',
+        'put',
+        `swapBanner:${NEW_AVATAR}`,
+        `profileChanged:${ANA_ID}`,
+      ]);
       expect(profile.bannerId).toBe(NEW_AVATAR);
     });
 
@@ -442,7 +447,11 @@ describe('ProfilesService', () => {
       expect((await service.removeBanner(BIA_ID)).bannerId).toBeNull();
       await service.removeBanner(BIA_ID);
 
-      expect(journal).toEqual(['swapBanner:none', `remove:banners/${OLD_AVATAR}`]);
+      expect(journal).toEqual([
+        'swapBanner:none',
+        `profileChanged:${BIA_ID}`,
+        `remove:banners/${OLD_AVATAR}`,
+      ]);
     });
 
     it('a photo id or a removed banner is BANNER_NOT_FOUND', async () => {

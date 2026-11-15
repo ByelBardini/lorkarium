@@ -352,7 +352,8 @@ function bannerSpaceOf(profiles: ImageColumns): ImageSpace {
     isCurrent: (imageId) => profiles.isCurrentBanner(imageId),
     notFound: (imageId) => new BannerNotFoundError(imageId),
     tooLarge: (limit, received) => new BannerTooLargeError(limit, received),
-    tellsTables: false,
+    // The table draws it behind the row.
+    tellsTables: true,
   };
 }
 
