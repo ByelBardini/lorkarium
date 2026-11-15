@@ -18,7 +18,7 @@ import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import type { CampaignsDao } from '../campaigns/campaigns.dao';
 import { CampaignNotFoundError } from '../campaigns/campaigns.error';
 import { memberAccessOf } from '../campaigns/member-access';
-import { PlanLimitsBo, effectiveLimitsOf } from '../plans/plan-limits.bo';
+import { PlanLimitsBo, customizationAllowed, effectiveLimitsOf } from '../plans/plan-limits.bo';
 import { looseCutoffOf, planSidesOf } from './asset-quota.bo';
 import type { AssetReferencesDao } from './asset-references.dao';
 import {
@@ -149,7 +149,7 @@ export class AssetsService {
     if (file.mimeType === SHEET_TEMPLATE_FONT_MIME_TYPE)
       return toSheetTemplateAssetDto(await this.keepFont({ campaignId, userId }, file.bytes));
     requireSize(file.bytes.byteLength, ASSET_MAX_BYTES);
-    const kept = keptAs(purpose, ASSET_MAX_SIDE);
+    const kept = keptAs(purpose, { sides: ASSET_MAX_SIDE, customizes: false });
     const normalized = await this.deps.processor.normalize(file.bytes, kept);
     if (!normalized.ok) throw new UnsupportedImageError(normalized.refusal.detail);
     const row = await this.keepRow({ campaignId, userId, purpose }, normalized.image);
@@ -187,8 +187,8 @@ export class AssetsService {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     if (isMasterOnlyAssetPurpose(file.purpose)) access.requireMaster(`upload a ${file.purpose}`);
     requireSize(file.bytes.byteLength, ASSET_MAX_BYTES);
-    const sides = await this.sidesOf({ campaignId, userId });
-    const kept = keptAs(file.purpose, sides, file.crop ?? null);
+    const owner = await this.ownerPlanOf({ campaignId, userId });
+    const kept = keptAs(file.purpose, owner, file.crop ?? null);
     const normalized = await this.deps.processor.normalize(file.bytes, kept);
     if (!normalized.ok) throw new UnsupportedImageError(normalized.refusal.detail);
     return this.keep({ campaignId, userId, purpose: file.purpose }, normalized.image);
@@ -230,7 +230,7 @@ export class AssetsService {
     const fetched = await this.deps.fetcher.fetch(link.url);
     if (!fetched.ok) throw linkErrorOf(link.url, fetched.refusal);
     requireSize(fetched.image.bytes.byteLength, ASSET_MAX_BYTES);
-    const kept = keptAs(link.purpose, await this.sidesOf({ campaignId, userId }));
+    const kept = keptAs(link.purpose, await this.ownerPlanOf({ campaignId, userId }));
     const image = await this.normalizeLinked(link.url, fetched.image.bytes, kept);
     return this.keep({ campaignId, userId, purpose: link.purpose }, image);
   }
@@ -307,11 +307,13 @@ export class AssetsService {
     });
   }
 
-  // The sides follow the owner's plan; read unlocked, as only the quota decides a write.
-  private async sidesOf(table: TableOfUser): Promise<SideLimits> {
+  // The sides and the animation follow the owner's plan; read unlocked, as only the quota
+  // decides a write.
+  private async ownerPlanOf(table: TableOfUser): Promise<OwnerPlan> {
     const owner = await this.deps.tableOwners.findOwnerPlan(table.campaignId);
     if (!owner) throw new CampaignNotFoundError(table);
-    return planSidesOf(ASSET_MAX_SIDE, effectiveLimitsOf(owner));
+    const sides = planSidesOf(ASSET_MAX_SIDE, effectiveLimitsOf(owner));
+    return { sides, customizes: customizationAllowed(owner) };
   }
 
   // After normalizing (the kept bytes count) and before the object goes out. The owner's lock
@@ -333,15 +335,19 @@ export class AssetsService {
   }
 }
 
-// The budget key is left out when the purpose never animates, so the processor refuses a GIF.
+/** What of the table owner's plan shapes a kept image: its sides and whether it may animate. */
+type OwnerPlan = Readonly<{ sides: SideLimits; customizes: boolean }>;
+
+// The budget key is left out when the purpose does not animate, so a GIF keeps its first frame.
 function keptAs(
   purpose: AssetPurposeDto,
-  sides: SideLimits,
+  owner: OwnerPlan,
   crop: ImageCrop | null = null,
 ): NormalizeOptions {
+  const { sides, customizes } = owner;
   const resize = resizeFor(purpose, sides);
   const frame = frameFor(purpose, crop, ASSET_FRAME);
-  const animation = animationFor(purpose, AURA_ANIMATION_LIMITS);
+  const animation = animationFor(purpose, AURA_ANIMATION_LIMITS, customizes);
   return {
     ...resize,
     ...(frame ? { frame } : {}),

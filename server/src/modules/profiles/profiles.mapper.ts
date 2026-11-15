@@ -17,6 +17,10 @@ export function toProfileDto(row: ProfileRow): ProfileDto {
     colorChoice: row.color,
     bio: row.bio,
     avatarId: row.avatarId,
+    bannerId: row.bannerId,
+    gameSystems: row.gameSystems,
+    playSchedule: row.playSchedule,
+    contact: row.contact,
     diceTextureId: row.diceTextureId,
     diceNumberColor: row.diceNumberColor,
     memberSince: row.createdAt.toISOString(),
@@ -26,16 +30,25 @@ export function toProfileDto(row: ProfileRow): ProfileDto {
   };
 }
 
+const PROFILE_CHANGE_FIELDS = [
+  'name',
+  'color',
+  'bio',
+  'diceNumberColor',
+  'gameSystems',
+  'playSchedule',
+  'contact',
+] as const satisfies readonly (keyof ProfileChanges & keyof UpdateProfileRequestDto)[];
+
 /** DTO → the columns to write: only the fields that came (an absent field is kept as it is).
  *
  *  Example: `toProfileChanges({ color: null }) // { color: null }` */
 export function toProfileChanges(dto: UpdateProfileRequestDto): ProfileChanges {
-  return {
-    ...(dto.name === undefined ? {} : { name: dto.name }),
-    ...(dto.color === undefined ? {} : { color: dto.color }),
-    ...(dto.bio === undefined ? {} : { bio: dto.bio }),
-    ...(dto.diceNumberColor === undefined ? {} : { diceNumberColor: dto.diceNumberColor }),
-  };
+  const changes: ProfileChanges = {};
+  for (const field of PROFILE_CHANGE_FIELDS) {
+    if (dto[field] !== undefined) Object.assign(changes, { [field]: dto[field] });
+  }
+  return changes;
 }
 
 /** Where a photo lives in the bucket; never a file name (§8.5).
@@ -50,4 +63,11 @@ export function avatarKeyOf(avatarId: string): string {
  *  Example: `diceTextureKeyOf(id) // 'dice-textures/<id>'` */
 export function diceTextureKeyOf(diceTextureId: string): string {
   return `dice-textures/${diceTextureId}`;
+}
+
+/** Where a profile banner lives in the bucket, apart from the photos and the textures.
+ *
+ *  Example: `bannerKeyOf(id) // 'banners/<id>'` */
+export function bannerKeyOf(bannerId: string): string {
+  return `banners/${bannerId}`;
 }

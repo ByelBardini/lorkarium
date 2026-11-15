@@ -14,23 +14,33 @@ export type ProfileRow = Readonly<{ lorkariumOwner: boolean }> &
     | 'color'
     | 'bio'
     | 'avatarId'
+    | 'bannerId'
     | 'diceTextureId'
     | 'diceNumberColor'
+    | 'gameSystems'
+    | 'playSchedule'
+    | 'contact'
     | 'createdAt'
     | 'role'
     | 'plan'
   >;
 
 /** What the person may change on their own row; the @ is not here on purpose (immutable). */
-export type ProfileChanges = Partial<Pick<UserPo, 'name' | 'color' | 'bio' | 'diceNumberColor'>>;
+export type ProfileChanges = Partial<
+  Pick<
+    UserPo,
+    'name' | 'color' | 'bio' | 'diceNumberColor' | 'gameSystems' | 'playSchedule' | 'contact'
+  >
+>;
 
 /** What a swap answers: the image the account pointed at before, read under the row lock. */
 export type SwappedImage = Readonly<{ previousId: string | null }>;
 
-// The two image columns of an account; the SQL names go into the swap as identifiers.
+// The image columns of an account; the SQL names go into the swap as identifiers.
 const IMAGE_COLUMNS = {
   avatar: { name: 'avatar_id', column: users.avatarId },
   diceTexture: { name: 'dice_texture_id', column: users.diceTextureId },
+  banner: { name: 'banner_id', column: users.bannerId },
 } as const;
 
 type ImageColumn = (typeof IMAGE_COLUMNS)[keyof typeof IMAGE_COLUMNS];
@@ -42,8 +52,12 @@ const profileColumns = {
   color: users.color,
   bio: users.bio,
   avatarId: users.avatarId,
+  bannerId: users.bannerId,
   diceTextureId: users.diceTextureId,
   diceNumberColor: users.diceNumberColor,
+  gameSystems: users.gameSystems,
+  playSchedule: users.playSchedule,
+  contact: users.contact,
   createdAt: users.createdAt,
   role: users.role,
   plan: users.plan,
@@ -92,6 +106,16 @@ export class ProfilesDao {
   /** Whether `diceTextureId` is the current dice texture of some account. */
   async isCurrentDiceTexture(diceTextureId: string): Promise<boolean> {
     return this.isCurrentImage(IMAGE_COLUMNS.diceTexture, diceTextureId);
+  }
+
+  /** The banner's `swapAvatar`: the same lock, on `banner_id`. */
+  async swapBanner(userId: string, bannerId: string | null): Promise<SwappedImage | undefined> {
+    return this.swapImage(IMAGE_COLUMNS.banner, userId, bannerId);
+  }
+
+  /** Whether `bannerId` is the current banner of some account. */
+  async isCurrentBanner(bannerId: string): Promise<boolean> {
+    return this.isCurrentImage(IMAGE_COLUMNS.banner, bannerId);
   }
 
   private async swapImage(

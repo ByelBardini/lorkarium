@@ -4,13 +4,16 @@ export type ProfileErrorCode =
   | 'AVATAR_TOO_LARGE'
   | 'DICE_TEXTURE_NOT_FOUND'
   | 'DICE_TEXTURE_TOO_LARGE'
+  | 'BANNER_NOT_FOUND'
+  | 'BANNER_TOO_LARGE'
   | 'LINK_BLOCKED'
   | 'LINK_UNREACHABLE'
   | 'LINK_NOT_IMAGE'
+  | 'PROFILE_NOT_FOUND'
   | 'RATE_LIMITED';
 
 /** Which image of the account a refusal is about, in the internal message. */
-export type ProfileImageSubject = 'photo' | 'dice texture';
+export type ProfileImageSubject = 'photo' | 'dice texture' | 'banner';
 
 /** Every refusal of the profiles module, with the code the edge translates into a status. */
 export class ProfileError extends Error {
@@ -36,6 +39,19 @@ export class DiceTextureNotFoundError extends ProfileError {
       'DICE_TEXTURE_NOT_FOUND',
       `dice texture ${diceTextureId} is not the texture of any account`,
     );
+  }
+}
+
+export class BannerNotFoundError extends ProfileError {
+  constructor(readonly bannerId: string) {
+    super('BANNER_NOT_FOUND', `banner ${bannerId} is not the banner of any account`);
+  }
+}
+
+// Same code for unknown and suspended: the card never tells a suspension apart.
+export class ProfileCardNotFoundError extends ProfileError {
+  constructor(readonly userId: string) {
+    super('PROFILE_NOT_FOUND', `account ${userId} not found: expected an active account`);
   }
 }
 
@@ -71,6 +87,15 @@ export class DiceTextureTooLargeError extends ProfileError {
     readonly received: number | null,
   ) {
     super('DICE_TEXTURE_TOO_LARGE', tooLargeMessage('dice texture', limit, received));
+  }
+}
+
+export class BannerTooLargeError extends ProfileError {
+  constructor(
+    readonly limit: number,
+    readonly received: number | null,
+  ) {
+    super('BANNER_TOO_LARGE', tooLargeMessage('banner', limit, received));
   }
 }
 

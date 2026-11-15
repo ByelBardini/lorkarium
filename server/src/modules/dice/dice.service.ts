@@ -1,6 +1,7 @@
 import type { DiceRollCommandDto, DiceRolledDto } from '@lorkarium/contracts';
 import {
   continueDiceRoll,
+  countNaturalTwenties,
   startDiceRoll,
   type DiceRollResult,
   type DieRequest,
@@ -14,6 +15,7 @@ import { effectiveLimitsOf } from '../plans/plan-limits.bo';
 import type { ProfilesDao } from '../profiles/profiles.dao';
 import type { DicePhysicsPort } from './dice-physics.port';
 import type { DicePublisherPort } from './dice-publisher.port';
+import type { DiceStatsPort } from './dice-stats.port';
 import type { DiceRandomPort } from './dice-random.port';
 import {
   DiceWavesBo,
@@ -32,6 +34,8 @@ export type DiceServiceDeps = Readonly<{
   physics: DicePhysicsPort;
   random: DiceRandomPort;
   publisher: DicePublisherPort;
+  /** The roll and natural-20 counters of the account, added before the roll goes out. */
+  stats: DiceStatsPort;
   clock: ClockPort;
   newId: () => string;
 }>;
@@ -43,7 +47,7 @@ export type DiceRollOutcome = Readonly<
   Pick<DiceRolledDto, 'rollId' | 'parts' | 'total' | 'settlesInMs'>
 >;
 
-/** The roll of the table: ephemeral, so it writes nothing and moves no version. */
+/** The roll of the table: ephemeral, so it moves no version; only the account counters are kept. */
 export class DiceService {
   constructor(private readonly deps: DiceServiceDeps) {}
 
@@ -58,6 +62,8 @@ export class DiceService {
     const access = await memberAccessOf(this.deps.members, command.campaignId, userId);
     const { result, waves } = this.throwAll(command, await this.maxModelsOf(command, userId));
     const profile = await this.deps.profiles.findById(userId);
+    // Persist before publishing (spec §5.5): a secret roll counts too, the roller threw it.
+    await this.deps.stats.addRoll(userId, countNaturalTwenties(result));
     const event = toDiceRolledDto({
       rollId: this.deps.newId(),
       rollerId: userId,

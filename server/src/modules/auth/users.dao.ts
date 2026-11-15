@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { lorkariumOwnerSql } from '../../database/lorkarium-owner-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { users, type NewUserPo, type SealedEmail, type UserPlanPo, type UserPo } from './users.po';
@@ -28,6 +28,17 @@ export class UsersDao {
   async findById(userId: string): Promise<UserPo | undefined> {
     const [row] = await this.db.select().from(users).where(eq(users.id, userId));
     return row;
+  }
+
+  /** `false` for an unknown or suspended account: the target of a vote or a report.
+   *
+   *  Example: `await new UsersDao(db).isActive(caioId) // true` */
+  async isActive(userId: string): Promise<boolean> {
+    const [row] = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.id, userId), isNull(users.suspendedAt)));
+    return row !== undefined;
   }
 
   /** The account's global role, read under a shared row lock: a role change in progress is waited
