@@ -2,6 +2,8 @@ import { CrownIcon } from 'lucide-react';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { RosterMaster } from '@/lib/table-roster';
 import { cn } from '@/lib/utils';
+import { MemberBannerBackdrop } from './member-banner-backdrop';
+import { useBannerHover } from './use-banner-hover';
 import { NickLine } from './player-card-parts';
 import { RowAvatar } from './row-avatar';
 import { RoleActionsMenu } from './role-actions-menu';
@@ -30,13 +32,17 @@ export function MasterRow({
   const { member, isViewer } = master;
   const awayLabel = useAwayLabel(member.awaySince, serverAt, clock);
   const flow = useRoleChangeFlow(campaignId, member.userId);
+  const hover = useBannerHover();
   return (
     <li
+      {...hover.rowHandlers}
       className={cn(
-        'flex flex-col gap-1 border-b border-divider py-2.5 last:border-b-0',
+        // -mx-4/px-4: the divider and the banner span the whole panel, edge to edge.
+        'relative isolate -mx-4 flex flex-col gap-1 border-b border-divider px-4 py-2.5 last:border-b-0',
         !member.online && 'opacity-60',
       )}
     >
+      <MemberBannerBackdrop bannerId={member.bannerId} moving={hover.moving} />
       <div className="flex items-center gap-3">
         <RowAvatar
           member={member}
