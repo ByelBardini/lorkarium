@@ -1,3 +1,5 @@
+import type { PlanLimits } from '@lorkarium/contracts';
+import { PlanLimitsBo } from '../plans/plan-limits.bo';
 import { AssetTooLargeError, InvalidCropError, UnsupportedFontError } from './assets.error';
 import type { AssetPo } from './assets.po';
 import type { ImageAspect, ImageCrop, ImageFrame } from './image-processor.port';
@@ -44,8 +46,8 @@ export function frameFor(
 export type AnimationLimits = Readonly<{ maxFrames: number; maxDecodedPixels: number }>;
 
 // The aura moves on the board and a sheet image in its frame, on any plan; the three images of
-// the table move only on an owner with the customizations (on Grátis their GIF keeps the first
-// frame, never refused). A token, a background or a condition stays still.
+// the table move only on an owner whose plan has `campaignArt` (on Grátis and Apoiador their GIF
+// keeps the first frame, never refused). A token, a background or a condition stays still.
 const ANIMATED_PURPOSES: ReadonlySet<AssetPurpose> = new Set(['aura', 'sheet_image']);
 const PAID_ANIMATED_PURPOSES: ReadonlySet<AssetPurpose> = new Set([
   'campaign_photo',
@@ -53,18 +55,30 @@ const PAID_ANIMATED_PURPOSES: ReadonlySet<AssetPurpose> = new Set([
   'campaign_banner',
 ]);
 
-/** How much an image sent for `purpose` may keep animating, `ownerCustomizes` being the
- *  `customizationAllowed` of the table owner; `null` = it must be still (a GIF or an animated
+/** How much an image sent for `purpose` may keep animating, `ownerHasCampaignArt` being the
+ *  `campaignArt` of the table owner's limits; `null` = it must be still (a GIF or an animated
  *  WebP comes out with its first frame).
  *
  *  Example: `animationFor('cover', AURA_ANIMATION_LIMITS, true) // { maxFrames: 120, maxDecodedPixels: 16_000_000 }` */
 export function animationFor(
   purpose: AssetPurpose,
   limits: AnimationLimits,
-  ownerCustomizes: boolean,
+  ownerHasCampaignArt: boolean,
 ): AnimationLimits | null {
   if (ANIMATED_PURPOSES.has(purpose)) return limits;
-  return ownerCustomizes && PAID_ANIMATED_PURPOSES.has(purpose) ? limits : null;
+  return ownerHasCampaignArt && PAID_ANIMATED_PURPOSES.has(purpose) ? limits : null;
+}
+
+// The photo stays on every plan: without `campaignArt` the cover and the banner come from it.
+const CAMPAIGN_ART_PURPOSES: ReadonlySet<AssetPurpose> = new Set(['cover', 'campaign_banner']);
+
+/** Refuses a cover or banner image (`PLAN_LIMIT`, `campaignArt`) when the table owner's limits
+ *  lack `campaignArt`; any other purpose passes.
+ *
+ *  Example: `requireCampaignArtFor('cover', PLAN_LIMITS.free) // throws PlanLimitError` */
+export function requireCampaignArtFor(purpose: AssetPurpose, limits: PlanLimits): void {
+  if (!CAMPAIGN_ART_PURPOSES.has(purpose)) return;
+  PlanLimitsBo.requireFeature('campaignArt', limits.campaignArt, limits);
 }
 
 /** Refuses a file above the byte limit before anything decodes it.

@@ -118,12 +118,14 @@ describe('campaign photo and banner upload', () => {
   });
 
   it('a banner sent with no rectangle is cut 3:1 at the centre, up to 1800 × 600', async () => {
+    await setAccountPlan(connection.db, anaId, 'narrador');
     const response = await upload(ana, await pngOf(3600, 1800), 'purpose=campaign_banner');
 
     expect(assetOf(response)).toMatchObject({ width: 1800, height: 600 });
   });
 
   it('a cover sent with no rectangle comes out 2:1', async () => {
+    await setAccountPlan(connection.db, anaId, 'narrador');
     const response = await upload(ana, await pngOf(1000, 1000), 'purpose=cover');
 
     expect(assetOf(response)).toMatchObject({ width: 1000, height: 500 });
@@ -159,8 +161,8 @@ describe('campaign photo and banner upload', () => {
     return { pages: metadata.pages ?? 1, format: metadata.format };
   }
 
-  it('on a paid owner a GIF photo keeps its 3 frames, each cut to the picked half', async () => {
-    await setAccountPlan(connection.db, anaId, 'apoiador');
+  it('on a Narrador owner a GIF photo keeps its 3 frames, each cut to the picked half', async () => {
+    await setAccountPlan(connection.db, anaId, 'narrador');
 
     const query = `purpose=campaign_photo&${RIGHT_HALF}`;
     const asset = assetOf(await upload(ana, await halvedGif(), query, 'image/gif'));
@@ -172,9 +174,9 @@ describe('campaign photo and banner upload', () => {
   });
 
   it.each(['cover', 'campaign_banner'] as const)(
-    'on a paid owner a %s GIF sent by a Grátis player stays animated: the owner plan counts',
+    'on a Narrador owner a %s GIF sent by a Grátis player stays animated: the owner plan counts',
     async (purpose) => {
-      await setAccountPlan(connection.db, anaId, 'apoiador');
+      await setAccountPlan(connection.db, anaId, 'narrador');
 
       const asset = assetOf(
         await upload(bia, await halvedGif(), `purpose=${purpose}`, 'image/gif'),
@@ -185,13 +187,30 @@ describe('campaign photo and banner upload', () => {
     },
   );
 
-  it('on a Grátis owner a GIF banner is kept as its still first frame, not refused', async () => {
-    const response = await upload(ana, await halvedGif(), 'purpose=campaign_banner', 'image/gif');
+  it.each(['free', 'apoiador'] as const)(
+    'on a %s owner a GIF photo is kept as its still first frame, not refused',
+    async (plan) => {
+      await setAccountPlan(connection.db, anaId, plan);
+      const query = 'purpose=campaign_photo';
+      const asset = assetOf(await upload(ana, await halvedGif(), query, 'image/gif'));
 
-    const asset = assetOf(response);
-    expect(asset).toMatchObject({ mimeType: 'image/png', width: 1200, height: 400 });
-    expect((await pagesOf(asset.id)).pages).toBe(1);
-  });
+      expect(asset).toMatchObject({ mimeType: 'image/png', width: 512, height: 512 });
+      expect((await pagesOf(asset.id)).pages).toBe(1);
+    },
+  );
+
+  it.each(['cover', 'campaign_banner'] as const)(
+    'on a Grátis owner a %s is 403 PLAN_LIMIT campaignArt',
+    async (purpose) => {
+      const response = await upload(ana, await pngOf(1200, 400), `purpose=${purpose}`);
+
+      expect(response.statusCode).toBe(403);
+      expect(apiErrorDto.parse(response.json())).toMatchObject({
+        code: 'PLAN_LIMIT',
+        planLimit: { resource: 'campaignArt', limit: 0, plan: 'free' },
+      });
+    },
+  );
 
   it('the database knows the two new purposes of an asset', async () => {
     const result = await connection.db.execute<{ purpose: string }>(

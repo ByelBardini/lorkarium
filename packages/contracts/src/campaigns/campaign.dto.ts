@@ -59,6 +59,9 @@ export const campaignInfoDto = z.strictObject({
   cover: campaignCoverDto,
   photoAssetId: z.uuid().nullable(),
   bannerAssetId: z.uuid().nullable(),
+  /** The owner's plan has `campaignArt`: without it the screens draw the cover and the banner
+   *  from the photo (a cover or banner image already set before still shows). */
+  campaignArt: z.boolean(),
   contentWarnings: contentWarningsDto,
   tags: campaignTagsDto,
   playersCreateTokens: z.boolean(),

@@ -79,6 +79,8 @@ export const PLAN_FEATURE_LABEL: Readonly<Record<PlanFeatureResource, string>> =
   diceTexture: 'Textura própria do dado está',
   animatedAvatar: 'Foto de perfil animada está',
   profileBanner: 'Banner de perfil está',
+  campaignArt: 'Capa e banner próprios da mesa estão',
+  privateCampaign: 'Mesa privada está',
 };
 
 function countLabel(

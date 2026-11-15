@@ -1,4 +1,6 @@
+import { PLAN_LIMITS } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
+import { PlanLimitError } from '../../../src/modules/plans/plans.error';
 import {
   animationFor,
   dedicatedEndpointOf,
@@ -7,6 +9,7 @@ import {
   isProtectedAssetPurpose,
   opaqueAsWebpFor,
   outlineFor,
+  requireCampaignArtFor,
   resizeFor,
   requireSize,
   requireWoff2,
@@ -123,14 +126,14 @@ describe('animationFor', () => {
   );
 
   it.each(['campaign_photo', 'cover', 'campaign_banner'] as const)(
-    'a %s animates within the same budget when the owner has the customizations',
+    'a %s animates within the same budget when the owner has campaignArt',
     (purpose) => {
       expect(animationFor(purpose, ANIMATION, true)).toEqual(ANIMATION);
     },
   );
 
   it.each(['campaign_photo', 'cover', 'campaign_banner'] as const)(
-    'a %s stays still (no budget) on an owner without the customizations',
+    'a %s stays still (no budget) on an owner without campaignArt',
     (purpose) => {
       expect(animationFor(purpose, ANIMATION, false)).toBeNull();
     },
@@ -280,4 +283,38 @@ describe('requireWoff2', () => {
     expect(() => requireWoff2(new Uint8Array())).toThrow(
       expect.objectContaining({ message: expect.stringContaining('start with nothing') }),
     ));
+});
+
+describe('requireCampaignArtFor', () => {
+  it.each(['cover', 'campaign_banner'] as const)(
+    'refuses a %s image on Grátis and Apoiador, naming campaignArt and the plan',
+    (purpose) => {
+      for (const plan of ['free', 'apoiador'] as const) {
+        const refusal = (() => {
+          try {
+            requireCampaignArtFor(purpose, PLAN_LIMITS[plan]);
+          } catch (error) {
+            return error;
+          }
+          return null;
+        })();
+        expect(refusal).toBeInstanceOf(PlanLimitError);
+        expect(refusal).toMatchObject({ resource: 'campaignArt', limit: 0, plan });
+      }
+    },
+  );
+
+  it.each(['cover', 'campaign_banner'] as const)(
+    'lets a %s image through on Narrador',
+    (purpose) => {
+      expect(() => requireCampaignArtFor(purpose, PLAN_LIMITS.narrador)).not.toThrow();
+    },
+  );
+
+  it.each(['campaign_photo', 'token', 'library_image'] as const)(
+    'never refuses a %s, whatever the plan: the photo stays on Grátis',
+    (purpose) => {
+      expect(() => requireCampaignArtFor(purpose, PLAN_LIMITS.free)).not.toThrow();
+    },
+  );
 });

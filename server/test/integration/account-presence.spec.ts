@@ -11,6 +11,7 @@ import { silence } from '../support/live-table';
 import { recordEventsOf, type EventRecorder } from '../support/realtime-client';
 import type { SignedInUser } from '../support/sign-in';
 import { useTokenTable } from '../support/token-table';
+import { makePrivate } from '../support/tables';
 
 const live = useTokenTable();
 
@@ -94,6 +95,7 @@ describe('account presence over Socket.IO', () => {
   });
 
   it('Bia opens Vharn while it is private: no table ever reaches Ana', async () => {
+    await makePrivate(live.connection.db, live.vharn);
     await befriend(live, live.ana, live.bia);
     const ana = await listening(live.ana);
 

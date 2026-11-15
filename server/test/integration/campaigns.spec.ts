@@ -98,6 +98,21 @@ describe('campaigns HTTP edge', () => {
       expect(campaign.joinCode).toMatch(/^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/);
     });
 
+    it('POST on a Grátis account: no visibility is public, private is 403 PLAN_LIMIT', async () => {
+      const opened = await call('POST', '/campaigns', ana, { name: 'Vharn' });
+      expect(opened.json()).toMatchObject({ campaign: { visibility: 'public' } });
+
+      const refused = await call('POST', '/campaigns', bia, {
+        name: 'Ermo',
+        visibility: 'private',
+      });
+      expect(refused.statusCode).toBe(403);
+      expect(apiErrorDto.parse(refused.json())).toMatchObject({
+        code: 'PLAN_LIMIT',
+        planLimit: { resource: 'privateCampaign', limit: 0, plan: 'free' },
+      });
+    });
+
     it('POST creates the campaign with its active 20×12 scene', async () => {
       const campaign = await createCampaign(ana);
       const scene = await new ScenesDao(connection.db).findActiveOf(campaign.id);

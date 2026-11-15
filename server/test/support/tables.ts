@@ -1,5 +1,8 @@
 import { campaignResponseDto } from '@lorkarium/contracts';
+import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
+import type { Database } from '../../src/database/database';
+import { campaigns } from '../../src/modules/campaigns/campaigns.po';
 import type { SignedInUser } from './sign-in';
 
 export type Table = Readonly<{ id: string; joinCode: string; master: SignedInUser }>;
@@ -21,6 +24,14 @@ export async function createTable(
   const { id, joinCode } = campaignResponseDto.parse(response.json()).campaign;
   if (!joinCode) throw new Error(`campaign ${id} came back without a join code`);
   return { id, joinCode, master };
+}
+
+/** Turns `table` private straight in the database: a test account is born `free`, whose new
+ *  tables are public, and a spec about a private table is not about the plan.
+ *
+ *  Example: `await makePrivate(connection.db, vharn)` */
+export async function makePrivate(db: Database, table: Pick<Table, 'id'>): Promise<void> {
+  await db.update(campaigns).set({ visibility: 'private' }).where(eq(campaigns.id, table.id));
 }
 
 /** Joins `table` by its code through the real HTTP edge: whoever enters by the code watches.
