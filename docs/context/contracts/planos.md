@@ -6,7 +6,7 @@ A regra efetiva (admin, Dono, Apoiador) e onde cada limite é checado: [`../plan
 
 - `USER_PLANS = ['free', 'apoiador', 'narrador', 'lenda', 'amigo_do_dono']`, do mais barato ao `amigo_do_dono` (uma conta tem um só): é a ordem que o client percorre para achar o plano que libera um limite (a frase nunca oferece o Apoiador nem o Amigo do Dono). `userPlanDto` (a recusa cita o valor e a lista) / `UserPlan`.
 - `PLAN_COUNT_RESOURCES` (`PlanCountResource`) — tetos de contagem: `campaigns`, `storage`, `players`, `masters`, `spectators`, `scenes`, `libraryMaps`, `sheetTemplates`, `npcSheets`, `documentTabs`, `lights`, `tokenBars`, `tokenForms`, `patrols`, `sightBlockers`, `savedRolls`, `savedRollFolders`.
-- `PLAN_FEATURE_RESOURCES` (`PlanFeatureResource`) — recursos que o plano tem ou não: `sceneCopy`, `conditionImage`, `auraKind`, `desktopWindows`, `customColor` (conteúdo da mesa e, pelo `customizationAllowed`, a cor da conta), `diceTexture`, `animatedAvatar`.
+- `PLAN_FEATURE_RESOURCES` (`PlanFeatureResource`) — recursos que o plano tem ou não: `sceneCopy`, `conditionImage`, `auraKind`, `desktopWindows`, `customColor` (conteúdo da mesa e, pelo `customizationAllowed`, a cor da conta), `diceTexture`, `animatedAvatar`, `profileBanner` (o banner 3:1 do perfil).
 - `PLAN_LIMIT_RESOURCES` = as duas listas; `planLimitResourceDto` / `PlanLimitResource`.
 - `planLimitDto` / `PlanLimitDto` — `{ resource, limit (inteiro ≥ 0; 0 = recurso ausente), plan }`; `PLAN_LIMIT_CODE = 'PLAN_LIMIT'`.
 - `apiErrorDto.planLimit?` (`http/api-error.dto.ts`) é esse `planLimitDto`: chega no corpo HTTP (403) e no ack do Socket.IO.

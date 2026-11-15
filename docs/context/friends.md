@@ -30,6 +30,7 @@ Todas com as duas FKs para `users.id` **cascade** (apagar a conta leva pedidos, 
 - `friendships.dao.ts` — `FriendshipsDao(db | tx)`: `lockPair(a, b)` (trava as duas contas em `users`, ordem de id, `FOR NO KEY UPDATE`; devolve os ids que existem), `friendIdsOf(userId)` (só os ids, sem join: presença e perfil), `relationBetween(actor, target)` → `RelationReadingRow` (numa ida: amizade, pedidos e bloqueios nos dois sentidos, amigos do ator e do alvo, pedidos enviados e bloqueios do ator), `insert`, `exists`, `remove` → `boolean`, `friendsOf(userId)` (por nome), `friendOf(userId, friendId)`. Exporta `RELATED_ACCOUNT_COLUMNS` / `RelatedAccountRow` (o perfil público + a data da relação; nunca o e-mail) e `canonicalPair`
 - `friend-requests.dao.ts` — `FriendRequestsDao`: `insert` (repetido lança `23505`), `deleteBetween(a, b)` (os dois sentidos), `incomingOf(userId)` (**sem** quem o usuário bloqueou, por `not exists`), `outgoingOf(userId)` (com o pedido a quem o bloqueou), os dois do mais antigo
 - `user-blocks.dao.ts` — `UserBlocksDao`: `insert`, `exists(blocker, blocked)` (um sentido; o join de mesa também usa), `remove`, `blockedBy(blocker)` (mais recente primeiro), `blockOf(blocker, blocked)`
+- `friend-candidates.dao.ts` — `FriendCandidatesDao.search(userId, prefixo, limite)`: quem ainda pode receber pedido (ver Busca abaixo); `FriendCandidateRow` é o `RelatedAccountRow` sem `at`.
 - `friend-relation.bo.ts` — `FriendRelationBo(state, limits)` (abaixo)
 - `friends.mapper.ts` — `toFriendProfileDto` (cor efetiva por `memberColorOf`, `admin` do papel), `toFriendDto` (`since`), `toFriendRequestEntryDto` / `toBlockedUserDto` (`at`), `toFriendRelationState`
 - `friends.service.ts` — `FriendsService`: `overview`, `request`, `accept`, `withdraw`, `unfriend`, `block`, `unblock`
@@ -59,6 +60,7 @@ O estado vem de `relationBetween`, lido **com as duas contas travadas**. Cada m�
 | Rota                                    | Entrada                                          | Saída                                   | Erros                                                                                                                                                                               |
 | --------------------------------------- | ------------------------------------------------ | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET /friends`                          | —                                                | 200 `friendsOverviewDto`                | 401                                                                                                                                                                                 |
+| `GET /friends/search?q=`                | `friendSearchQueryDto` `{ q }` (2+ do @)         | 200 `friendSearchResultDto`             | 400 · 401 · 429                                                                                                                                                                     |
 | `POST /friends/requests`                | `friendRequestDto` `{ username }`                | 200 `{ outcome: 'sent' \| 'accepted' }` | 400 · 401 · 404 `USER_NOT_FOUND` · 409 `ALREADY_FRIENDS` / `REQUEST_ALREADY_SENT` / `REQUEST_TO_SELF` / `USER_BLOCKED_BY_YOU` · 403 `FRIEND_LIMIT` / `OUTGOING_REQUEST_LIMIT` · 429 |
 | `POST /friends/requests/:userId/accept` | `friendUserParamsDto`                            | 200 `friendDto`                         | 400 · 401 · 404 `REQUEST_NOT_FOUND` · 403 `FRIEND_LIMIT` · 429                                                                                                                      |
 | `DELETE /friends/requests/:userId`      | `friendUserParamsDto`                            | 204                                     | 400 · 401 · 404 `REQUEST_NOT_FOUND` · 429                                                                                                                                           |
@@ -67,6 +69,7 @@ O estado vem de `relationBetween`, lido **com as duas contas travadas**. Cada m�
 | `DELETE /blocks/:userId`                | `friendUserParamsDto`                            | 204                                     | 400 · 401 · 404 `BLOCK_NOT_FOUND` · 429                                                                                                                                             |
 
 - A conta é sempre a da sessão (`userOf(request)`); campo a mais no corpo é 400 (DTO estrito). O `userId` do `POST /blocks` é o **alvo**.
+- Busca (`FriendCandidatesDao.search`): até `FRIEND_SEARCH_LIMIT` (10) contas cujo @ começa pelo `q` (`_` escapado do `LIKE`), por @; fora: eu, suspensa, amigo, pedido pendente em qualquer sentido e quem **eu** bloqueei. Quem me bloqueou **continua** na lista: escondê-lo revelaria o bloqueio (o pedido a ele é silencioso). Teto próprio: 60 buscas por minuto por usuário (não soma nas escritas).
 - Limite: 30 escritas por minuto por usuário, somando todas as rotas de escrita (`GET` não conta) → 429 `RATE_LIMITED` com `retryAfterSeconds`.
 - Erro sempre `ApiErrorDto` com mensagem pública fixa por código; o resto cai no 500 `INTERNAL_ERROR` com log.
 
@@ -89,3 +92,7 @@ Ao bloquear, na mesma transação, `CampaignMembersDao.removeFromOwnedBy(blocker
 
 - Unit: `server/test/modules/friends/friend-relation.bo.spec.ts` (cada regra e teto), `friends.service.spec.ts` (trava, avisos, pedido silencioso, assentos), `friends.mapper.spec.ts`; fakes nomeados em `server/test/support/friends-fakes.ts` (`FriendsStoreFake`, `FriendsChangedFake`, `MemberRemovedFake`, `ForgottenMembershipsFake`, `UserBlocksDaoFake`).
 - Integração: `server/test/integration/friends-dao.spec.ts` (PK, `CHECK`, cascata, `incomingOf` sem bloqueado), `friends.spec.ts` (as rotas, corrida cruzada, teto de 50, identidade da sessão), `friends-blocks-campaigns.spec.ts` (código, Explorar, saída ao vivo, co-mestre, desbloqueio).
+
+## Armadilhas
+
+- `notExists(...)` do Drizzle recebe o **builder** da subconsulta (`db.select().from().where()`), nunca o `.getSQL()` dele: o `SQL` cru entra sem parênteses (`not exists select 1 …`) e a consulta dá 500. Visto no `FriendCandidatesDao`.

@@ -4,7 +4,7 @@ Hub: [`../client.md`](../client.md). A tela em que o admin convida gente nova e 
 
 ## Rotas (`src/features/admin/admin-routes.tsx`)
 
-- `/admin` — filha do root, **fora do shell**, guarda `admin`; `lazy` carrega `adminLayoutRoute(deps)` (o pedaço fica fora do bundle de quem joga). Filhos: `index` → `redirect('/admin/users')`, `users` (também `lazy`) → `usersRoute(deps)` e `emails` (`lazy`) → `mailTestRoute(deps)`.
+- `/admin` — filha do root, **fora do shell**, guarda `admin`; `lazy` carrega `adminLayoutRoute(deps)` (o pedaço fica fora do bundle de quem joga). Filhos: `index` → `redirect('/admin/users')`, `users` (também `lazy`) → `usersRoute(deps)`, `reports` → `reportsRoute(deps)` (fila de denúncias; detalhe em `docs/context/reports.md`) e `emails` (`lazy`) → `mailTestRoute(deps)`.
 - `usersRoute`: `loader` (`userAdminApi.directory()`; `unauthenticated` → `signedOut` + `/login?next=%2Fadmin%2Fusers`; `forbidden` → `dropAdminRole` (a sessão perde o papel, o menu para de oferecer o Backoffice) + `AdminForbiddenError`; o resto → `ApiLoadError`), `action` = `usersAction(deps)`, `shouldRevalidate` = `skipSearchOnlyRevalidation` de `lib/search-only-revalidation.ts` (mudar só a busca/filtros da URL **não** recarrega a lista; ação e "Tentar de novo" sim), `ErrorBoundary` = `AdminErrorScreen` (login pelo `SignedOutRedirect`, "Sem acesso" + "Você não tem mais acesso ao backoffice." + "Voltar para o app", ou o `LoadErrorScreen` com "Não deu para carregar os usuários.").
 - O `now` é fixado uma vez por visita (os "há N" não andam com a página aberta).
 

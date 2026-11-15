@@ -15,6 +15,7 @@ Fora da mesa: relações entre contas (amizade, pedido, bloqueio) por HTTP, e pr
 - `friendProfileDto` — `{ userId, username, name, color, avatarId, plan, admin, lorkariumOwner }`; nunca o e-mail.
 - `friendDto` = perfil + `since` (resposta do aceite); `friendRequestEntryDto` = perfil + `at`; `blockedUserDto` = perfil + `at` (201 do `POST /blocks`).
 - `friendsOverviewDto` — `GET /api/friends`: `{ friends (≤ 200), incoming, outgoing (≤ 50), blocked (≤ 200) }`.
+- `friendSearchQueryDto` `{ q }` — `GET /api/friends/search`: tira o "@", apara e baixa a caixa; 2 a 32 de `a-z 0-9 . _` (`FRIEND_SEARCH_MIN_LENGTH`). `friendSearchResultDto` `{ accounts: friendProfileDto[] }`, no máximo `FRIEND_SEARCH_LIMIT` (10).
 - `friendRequestDto` `{ username }` — `POST /api/friends/requests`; `friendRequestResponseDto` `{ outcome: 'sent' | 'accepted' }`. Pedido a quem me bloqueou responde `sent` (não revela).
 - `blockRequestDto` — `POST /api/blocks`: `{ userId }` ou `{ username }`, nunca os dois.
 - `friendUserParamsDto` `{ userId }` — o `:userId` das rotas de aceite, recusa, remoção e desbloqueio.
