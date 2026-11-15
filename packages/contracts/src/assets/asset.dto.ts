@@ -137,18 +137,29 @@ function refineCropEdge(sum: number, label: string, path: string, context: z.Ref
   });
 }
 
+const CROP_FIELDS = {
+  cropX: cropOffsetDto.optional(),
+  cropY: cropOffsetDto.optional(),
+  cropW: cropSizeDto.optional(),
+  cropH: cropSizeDto.optional(),
+};
+
+/** A query that carries only the optional crop rectangle, in percent (0..100) of the upright
+ *  image, all four fields or none (the profile banner's send).
+ *
+ *  Example: `imageCropQueryDto.parse({ cropX: '0', cropY: '10', cropW: '100', cropH: '60' }).cropY // 10` */
+export const imageCropQueryDto = z
+  .strictObject(CROP_FIELDS)
+  .superRefine(refineCropRectangle, { when: (payload) => payload.issues.length === 0 });
+
+export type ImageCropQueryDto = z.infer<typeof imageCropQueryDto>;
+
 /** Query of `POST /api/campaigns/:campaignId/assets` (the body is the raw file). The optional
  *  crop is a rectangle in percent (0..100) of the upright image, all four fields or none.
  *
  *  Example: `uploadAssetQueryDto.parse({ purpose: 'campaign_photo', cropX: '10', cropY: '0', cropW: '50', cropH: '100' }).cropW // 50` */
 export const uploadAssetQueryDto = z
-  .strictObject({
-    purpose: assetPurposeDto,
-    cropX: cropOffsetDto.optional(),
-    cropY: cropOffsetDto.optional(),
-    cropW: cropSizeDto.optional(),
-    cropH: cropSizeDto.optional(),
-  })
+  .strictObject({ purpose: assetPurposeDto, ...CROP_FIELDS })
   // A field already out of range would also fail the edge sum: report it once, on its own path.
   .superRefine(refineCropRectangle, { when: (payload) => payload.issues.length === 0 });
 
