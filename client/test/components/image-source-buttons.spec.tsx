@@ -63,6 +63,30 @@ describe('ImageSourceButtons', () => {
     expect(screen.queryByLabelText('Link da imagem')).not.toBeInTheDocument();
   });
 
+  it('the open link field takes the place of "Escolher imagem" in the same row', async () => {
+    render(<Buttons assets={new AssetsApiFake()} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Usar link de imagem' }));
+
+    expect(screen.queryByRole('button', { name: 'Escolher imagem' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Usar link' })).toBeDisabled();
+  });
+
+  it('while a file goes, the file button itself says "Enviando…" and no extra line shows', async () => {
+    const assets = new AssetsApiFake();
+    assets.hold();
+    render(<Buttons assets={assets} />);
+
+    await userEvent.upload(
+      screen.getByLabelText('Arquivo de imagem'),
+      new File(['x'], 'a.png', { type: 'image/png' }),
+    );
+
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent('Enviando…');
+    expect(status.closest('button')).toBeDisabled();
+  });
+
   it('Esc in the link field inside a dialog closes only the field, and the dialog stays', async () => {
     render(<ButtonsInDialog assets={new AssetsApiFake()} />);
     await userEvent.click(screen.getByRole('button', { name: 'Usar link de imagem' }));
