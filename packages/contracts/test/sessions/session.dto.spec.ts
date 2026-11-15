@@ -168,6 +168,7 @@ describe('sessionMemberDto', () => {
     username: 'root',
     color: 'rose',
     avatarId: null,
+    bannerId: null,
     bio: null,
     role: 'master',
     juggernaut: true,
