@@ -17,6 +17,8 @@ export interface FaqCopy {
   answer: string;
   /** Answers that ask for an invite end with the "Pedir convite" e-mail link. */
   invite?: boolean;
+  /** A page of the site the answer ends with, after the invite link. */
+  link?: { label: string; href: string };
 }
 
 export interface RequirementCopy {
@@ -296,7 +298,9 @@ const requirements: RequirementCopy[] = [
 const faqs: FaqCopy[] = [
   {
     question: 'Quanto custa?',
-    answer: 'O Lorkarium é gratuito durante o acesso antecipado.',
+    answer:
+      'O Lorkarium é gratuito durante o acesso antecipado, sem pagamento. Toda conta começa no plano Grátis, que tem limites menores que os tetos citados nesta página: uma mesa como dono e 2 barras por token, por exemplo. Os planos ainda estão em construção e não estão à venda.',
+    link: { label: 'Ver os planos', href: '/planos/' },
   },
   {
     question: 'Como consigo uma conta?',

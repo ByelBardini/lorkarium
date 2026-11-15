@@ -10,6 +10,7 @@ function hrefOf(page: Document, name: string): string | null {
 
 describe('the site footer', () => {
   it.each([
+    ['Planos', '/planos/'],
     ['Termos de uso', '/termos/'],
     ['Privacidade', '/privacidade/'],
     ['Contato', 'mailto:contato@lorkarium.test'],
