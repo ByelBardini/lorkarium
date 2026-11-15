@@ -28,7 +28,7 @@ Hub: [`../assets.md`](../assets.md). DTOs em [`../contracts/assets.md`](../contr
 
 - `resizeFor(purpose, limites)` → `{ maxSide }` (só o lado; o `pnpm db:recompress-images` o usa sem recortar de novo).
 - `frameFor(purpose, crop | null, aspects)` → `ImageFrame | null`: a proporção da finalidade em `aspects` (o `ASSET_FRAME`) com o retângulo recebido (ou `null` = centro); a `condition` → 1:1 sem retângulo; as outras → `null` (ficam no formato delas). Retângulo onde não há proporção → `InvalidCropError` citando o retângulo, a finalidade e "expected campaign_photo, cover or campaign_banner".
-- O `keptAs` do service junta `resizeFor` + `frameFor` + animação, contorno e WebP nas `NormalizeOptions`. A animação das três sai do `animationFor(…, ownerCustomizes)`: o plano que vale é o do **dono da mesa** (`ownerPlanOf` → `findOwnerPlan` → `customizationAllowed`), não o de quem envia.
+- O `keptAs` do service junta `resizeFor` + `frameFor` + animação, contorno e WebP nas `NormalizeOptions`. A animação das três sai do `animationFor(…, ownerHasCampaignArt)`: o plano que vale é o do **dono da mesa** (`ownerPlanOf` → `findOwnerPlan` → `effectiveLimitsOf(…).campaignArt`), não o de quem envia; o Apoiador, que tem a grade de mesa do Grátis, também sai parado. Sem `campaignArt`, Capa e Banner nem chegam a decodificar: `requireCampaignArtFor` recusa antes (e, no link, antes de baixar).
 
 ## GIF animado
 
@@ -43,7 +43,7 @@ Hub: [`../assets.md`](../assets.md). DTOs em [`../contracts/assets.md`](../contr
 ## Testes
 
 - Unit: `asset-upload.bo.spec.ts` (`frameFor` de cada formato, com e sem retângulo, a `condition`, a recusa citando a finalidade), `assets.mapper.spec.ts` (`toImageCrop` com e sem os campos) e `assets.service.spec.ts` (a Foto com retângulo pede `{ 512, frame 1:1 com o retângulo }`, o link da Foto pede o centro, o retângulo num `token` → `INVALID_BODY` com o diário vazio).
-- GIF: `asset-upload.bo.spec.ts` (`animationFor` das três com e sem `ownerCustomizes`), `assets.service.spec.ts` (dono Grátis → sem `animation`; dono Apoiador com jogador enviando → com), `sharp-image-processor.spec.ts` (GIF 1:1 cortado no retângulo, 3 quadros; Capa 2:1 no centro animada).
+- GIF: `asset-upload.bo.spec.ts` (`animationFor` das três com e sem `campaignArt`; `requireCampaignArtFor`), `assets.service.spec.ts` (Foto de dono Grátis ou Apoiador → sem `animation`; Capa e Banner de dono Apoiador → `PLAN_LIMIT` antes de decodificar; link de Banner no Grátis → recusado sem baixar; dono Narrador com jogador Grátis enviando → com), `sharp-image-processor.spec.ts` (GIF 1:1 cortado no retângulo, 3 quadros; Capa 2:1 no centro animada).
 - Integração `server/test/integration/campaign-image-upload.spec.ts` (Postgres e SeaweedFS reais): GIF de 3 quadros com dono Apoiador → `image/gif` de 3 páginas cortado na metade pedida (Foto) e animado mesmo enviado por jogador Grátis (Capa, Banner); dono Grátis → PNG parado 1200 × 400; PNG 1200 × 600 vermelho | azul com a metade direita → 512 × 512 todo azul (lido de volta pelo `GET`), Banner 3600 × 1800 sem retângulo → 1800 × 600, Capa 1000 × 1000 → 1000 × 500, retângulo num `token` → 400, retângulo incompleto → 400, jogador envia Foto → 201, e o enum do banco tem as duas finalidades.
 
 ## Armadilhas
