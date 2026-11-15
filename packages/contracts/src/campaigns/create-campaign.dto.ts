@@ -27,15 +27,17 @@ export const campaignPasswordDto = z
   .max(CAMPAIGN_PASSWORD_MAX_LENGTH);
 
 /** Body of `POST /api/campaigns`; empty optional texts become `null`, an empty password is absent.
- *  The cover can only be drawn here: an image needs the campaign to exist first.
+ *  The cover can only be drawn here: an image needs the campaign to exist first. A visibility not
+ *  sent is the server's to choose: private when the creator's plan has `privateCampaign`, else
+ *  public.
  *
- *  Example: `createCampaignRequestDto.parse({ name: ' Vharn ' }) // { name: 'Vharn', system: null, …, status: 'building', visibility: 'private' }` */
+ *  Example: `createCampaignRequestDto.parse({ name: ' Vharn ' }) // { name: 'Vharn', system: null, …, status: 'building' }` */
 export const createCampaignRequestDto = z.strictObject({
   name: campaignNameDto,
   system: optionalCampaignText(CAMPAIGN_LABEL_MAX_LENGTH),
   status: campaignStatusDto.default('building'),
   description: optionalCampaignText(CAMPAIGN_DESCRIPTION_MAX_LENGTH),
-  visibility: campaignVisibilityDto.default('private'),
+  visibility: campaignVisibilityDto.optional(),
   cover: drawnCampaignCoverDto.optional(),
   password: z.preprocess(
     (password) => (password === '' ? undefined : password),

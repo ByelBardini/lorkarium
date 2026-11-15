@@ -15,6 +15,7 @@ import {
 } from '../../support/assets-fakes';
 import { lyraPortraitPo, QUELM_MAP_ID } from '../../support/assets-factories';
 import { assetQuotaOver } from '../../support/asset-quota-fakes';
+import { PlanLimitError } from '../../../src/modules/plans/plans.error';
 import { planAccount, TableOwnerPlansFake } from '../../support/plan-account-fakes';
 import { CampaignMembersDaoFake, CampaignsDaoFake } from '../../support/campaigns-fakes';
 import {
@@ -475,20 +476,43 @@ describe('AssetsService', () => {
     expect(journal).toEqual(['normalize', 'put', 'insert']);
   });
 
-  it.each(['campaign_photo', 'cover', 'campaign_banner'] as const)(
-    'a %s of a table whose owner is on Grátis is kept still: no animation budget',
-    async (purpose) => {
-      tableOwners.set(VHARN_ID, planAccount({ plan: 'free' }));
+  it.each(['free', 'apoiador'] as const)(
+    'a campaign photo of a table whose owner is on %s is kept still: no animation budget',
+    async (plan) => {
+      tableOwners.set(VHARN_ID, planAccount({ plan }));
 
-      await service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose });
+      await service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose: 'campaign_photo' });
 
       expect(processor.resizes[0]).not.toHaveProperty('animation');
       expect(tableOwners.asked).toEqual([VHARN_ID]);
     },
   );
 
+  it.each(['cover', 'campaign_banner'] as const)(
+    'a %s on a table whose owner is on Apoiador is refused campaignArt before decoding',
+    async (purpose) => {
+      tableOwners.set(VHARN_ID, planAccount({ plan: 'apoiador' }));
+
+      const refusal = service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose });
+
+      await expect(refusal).rejects.toBeInstanceOf(PlanLimitError);
+      await expect(refusal).rejects.toMatchObject({ resource: 'campaignArt', plan: 'apoiador' });
+      expect(journal).toEqual([]);
+    },
+  );
+
+  it('a banner link on a Grátis table is refused before anything is downloaded', async () => {
+    tableOwners.set(VHARN_ID, planAccount({ plan: 'free' }));
+    const link = { url: 'https://x.com/banner.png', purpose: 'campaign_banner' } as const;
+
+    await expect(service.importLink(ANA_ID, VHARN_ID, link)).rejects.toMatchObject({
+      resource: 'campaignArt',
+    });
+    expect(fetcher.fetched).toEqual([]);
+  });
+
   it('a cover follows the plan of the table owner, not of a free player who sends it', async () => {
-    tableOwners.set(VHARN_ID, planAccount({ plan: 'apoiador' }));
+    tableOwners.set(VHARN_ID, planAccount({ plan: 'narrador' }));
 
     await service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose: 'cover' });
 

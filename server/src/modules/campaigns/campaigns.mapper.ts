@@ -78,9 +78,14 @@ export function toPublicCampaignDto(
   };
 }
 
-type CampaignBaseRow = Readonly<{ campaign: CampaignPo; masterName: string; memberCount: number }>;
+type CampaignBaseRow = Readonly<{
+  campaign: CampaignPo;
+  masterName: string;
+  memberCount: number;
+  owner: UserPlanPo;
+}>;
 
-function campaignInfoOf(row: CampaignBaseRow & Readonly<{ owner: UserPlanPo }>): CampaignInfoDto {
+function campaignInfoOf(row: CampaignBaseRow): CampaignInfoDto {
   return { ...campaignBaseOf(row), limits: effectiveLimitsOf(row.owner) };
 }
 
@@ -94,6 +99,7 @@ function campaignBaseOf(row: CampaignBaseRow): Omit<CampaignInfoDto, 'limits'> {
     ...{ playersCreateTokens, playersDeleteTokens },
     cover: coverOf(campaign),
     ...{ photoAssetId, bannerAssetId },
+    campaignArt: effectiveLimitsOf(row.owner).campaignArt,
     contentWarnings: campaign.contentWarnings.filter(isContentWarning),
   };
 }
@@ -175,7 +181,7 @@ export function toCampaignInfoDto(detail: CampaignDetailDto): CampaignInfoDto {
   return {
     ...{ id, name, system, status, description, visibility, masterName, memberCount },
     ownerId: detail.ownerId,
-    ...{ cover, photoAssetId, bannerAssetId },
+    ...{ cover, photoAssetId, bannerAssetId, campaignArt: detail.campaignArt },
     ...{ contentWarnings, tags, playersCreateTokens, playersDeleteTokens },
     limits: detail.limits,
   };
@@ -357,7 +363,7 @@ export function toNewCampaignPo(
     system: input.system,
     status: input.status,
     description: input.description,
-    visibility: input.visibility,
+    ...(input.visibility ? { visibility: input.visibility } : {}),
     ...coverColumnsOf(input.cover),
     ...owned,
   };

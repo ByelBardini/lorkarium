@@ -70,6 +70,8 @@ const UNBOUNDED: PlanLimits = {
   conditionImage: true,
   desktopWindows: true,
   customColor: true,
+  campaignArt: true,
+  privateCampaign: true,
 };
 
 const LENDA: PlanLimits = {
@@ -132,6 +134,8 @@ const FREE: PlanLimits = {
   conditionImage: false,
   desktopWindows: false,
   customColor: false,
+  campaignArt: false,
+  privateCampaign: false,
 };
 
 /** The grid of each plan, as is (no role): the server resolves the effective limits

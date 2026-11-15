@@ -24,7 +24,7 @@ import {
   type RealtimeClient,
 } from '../support/realtime-client';
 import { insertTestAccount, logIn, type SignedInUser } from '../support/sign-in';
-import { createTable, joinByCode } from '../support/tables';
+import { createTable, joinByCode, makePrivate } from '../support/tables';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
 const PASSWORD = 'senha-de-teste';
@@ -364,6 +364,7 @@ describe('backoffice over the accounts (/api/admin/users)', () => {
     }> {
       const root = await account('Root', 'admin');
       const vharn = await createTable(app, ana, 'Vharn');
+      await makePrivate(connection.db, vharn);
       const joined = await call('POST', `/campaigns/${vharn.id}/join`, root.token, {});
       expect(joined.statusCode).toBe(200);
       return { root, vharn };

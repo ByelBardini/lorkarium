@@ -92,6 +92,8 @@ describe('PLAN_LIMITS', () => {
       conditionImage: true,
       desktopWindows: true,
       customColor: true,
+      campaignArt: true,
+      privateCampaign: true,
     } satisfies PlanLimits);
   });
 
@@ -112,7 +114,16 @@ describe('PLAN_LIMITS', () => {
       conditionImage: false,
       desktopWindows: false,
       customColor: false,
+      campaignArt: false,
+      privateCampaign: false,
     });
+  });
+
+  it('cover, banner, animated images and the private table open from Narrador up', () => {
+    const open = USER_PLANS.filter((plan) => PLAN_LIMITS[plan].campaignArt);
+    const privateOpen = USER_PLANS.filter((plan) => PLAN_LIMITS[plan].privateCampaign);
+    expect(open).toEqual(['narrador', 'lenda', 'amigo_do_dono']);
+    expect(privateOpen).toEqual(['narrador', 'lenda', 'amigo_do_dono']);
   });
 
   it('every count resource points at a numeric key, and the fair use is only Lenda', () => {

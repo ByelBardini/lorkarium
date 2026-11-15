@@ -201,6 +201,7 @@ export function vharnRenamed(
       cover: { kind: 'image', assetId: 'e1d2c3b4-a596-4877-8899-aabbccddeeff' },
       photoAssetId: null,
       bannerAssetId: null,
+      campaignArt: true,
     },
     at: AT,
     ...overrides,

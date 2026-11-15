@@ -46,6 +46,8 @@ export const PLAN_FEATURE_RESOURCES = [
   'diceTexture',
   'animatedAvatar',
   'profileBanner',
+  'campaignArt',
+  'privateCampaign',
 ] as const;
 
 /** Every resource a `PLAN_LIMIT` refusal may name. The dice with physics are not here: past the
