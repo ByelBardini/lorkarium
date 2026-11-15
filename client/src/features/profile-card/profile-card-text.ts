@@ -19,10 +19,15 @@ export function cardCount(count: number): string {
   return COUNT_FORMAT.format(count);
 }
 
-/** The "Desde" tag of the banner, the day the account was made (local time).
+/** The "Desde" tag of the banner, the day the account was made (local time); the Dono do
+ *  Lorkarium is there "Desde o início".
  *
- *  Example: `memberSinceTag('2025-01-05T12:00:00.000Z') // 'Desde 05/01/2025'` */
-export function memberSinceTag(memberSince: string): string {
+ *  Example: `memberSinceTag({ memberSince: '2025-01-05T12:00:00.000Z', lorkariumOwner: false }) // 'Desde 05/01/2025'` */
+export function memberSinceTag({
+  memberSince,
+  lorkariumOwner,
+}: Readonly<{ memberSince: string; lorkariumOwner: boolean }>): string {
+  if (lorkariumOwner) return 'Desde o início';
   const date = new Date(memberSince);
   if (Number.isNaN(date.getTime())) {
     throw new RangeError(`memberSince "${memberSince}" is not a date: expected an ISO instant`);

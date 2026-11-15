@@ -21,6 +21,13 @@ describe('ProfileCardTrigger', () => {
     expect(popover).toHaveTextContent(LYRA_CARD.bio ?? '');
   });
 
+  it('the Dono do Lorkarium is there since the beginning, not since a date', async () => {
+    const popover = await new ProfileCardHarness().open(lyraCard({ lorkariumOwner: true }));
+
+    expect(popover).toHaveTextContent('Desde o início');
+    expect(popover).not.toHaveTextContent('Desde 05/01/2025');
+  });
+
   it('the profile color is never written as a field, only paints the banner', async () => {
     const popover = await new ProfileCardHarness().open();
 

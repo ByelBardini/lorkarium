@@ -209,5 +209,6 @@ describe('SessionPresencePanel, owner, co-masters and juggernaut', () => {
 
 function accessibleNameOf(region: HTMLElement): string {
   const id = region.getAttribute('aria-labelledby');
-  return (id ? document.getElementById(id)?.textContent : null) ?? '';
+  if (!id) return region.getAttribute('aria-label') ?? '';
+  return document.getElementById(id)?.textContent ?? '';
 }
