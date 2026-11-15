@@ -88,6 +88,62 @@ test('Ana makes a sheet on Lyra; Bia takes 5 PV, rolls the attack and keeps For�
   await expect(reloaded.locator('#pv')).toHaveText('5 / 10');
 });
 
+const BUFFS_SHEET: SheetSourceCode = {
+  name: 'Ficha buffs',
+  manifest: { permissions: ['dice:saved'] },
+  files: sheetFilesOf(
+    `<p id="salvas">…</p>
+<button type="button" data-lk-tray="1d4" data-lk-label="Bênção">+ Bênção</button>
+<button type="button" data-lk-tray="+2" data-lk-label="Flanco">+ Flanco</button>
+<button type="button" data-lk-tray-roll>Rolar a bandeja</button>`,
+    '',
+    `lorkarium.ready();
+lorkarium.dice.saved.list().then((salvas) => {
+  document.getElementById('salvas').textContent = salvas.map((salva) => salva.name).join(', ');
+});`,
+  ),
+};
+
+test('a sheet sums two buffs to Bia’s tray, the "Dados" rail counts them and the sheet rolls them for the table', async ({
+  newPlayerPage,
+}) => {
+  test.setTimeout(180_000);
+  const { admin, bia, campaignId } = await openSheetTable(newPlayerPage, false);
+  const saved = await bia.request.post(`/api/campaigns/${campaignId}/saved-rolls`, {
+    data: { name: 'Acerto', parts: [{ label: null, expression: '1d20' }] },
+  });
+  expect(saved.status()).toBe(201);
+  await createTemplateByApi(admin, campaignId, BUFFS_SHEET);
+  const { name: sheetName } = await newSheetOnToken(admin, 'Lyra', 'Ficha buffs');
+
+  const sheet = await openSheetFromCard(bia, 'Lyra', sheetName);
+  // `dice.saved.list` reads Bia's own saved rolls (the viewer's, not the sheet owner's).
+  await expect(sheet.locator('#salvas')).toHaveText('Acerto');
+  await sheet.getByRole('button', { name: '+ Bênção' }).click();
+  await sheet.getByRole('button', { name: '+ Flanco' }).click();
+
+  await bia.getByRole('tab', { name: /^Cena 1/ }).click();
+  const diceRail = bia
+    .getByRole('tablist', { name: 'Painel da mesa' })
+    .getByRole('tab', { name: 'Dados' });
+  await expect(diceRail).toHaveAccessibleDescription('2 partes na rolagem');
+  await showRoomTab(bia, 'Dados');
+  await expect(
+    bia.getByRole('list', { name: 'Partes na rolagem' }).getByRole('listitem'),
+  ).toHaveText(['Ficha buffs · Bênção · 1d4', 'Ficha buffs · Flanco · +2']);
+
+  await bia.getByRole('button', { name: 'Abrir a ficha de Lyra' }).click();
+  await sheetFrameOf(bia, sheetName).getByRole('button', { name: 'Rolar a bandeja' }).click();
+  await showRoomTab(admin, 'Dados');
+  const newest = historyOf(admin).first();
+  await expect(newest).toContainText('Ficha buffs · Bênção');
+  await expect(newest).toContainText('Ficha buffs · Flanco');
+  await expect(newest.getByTestId('roll-total')).toHaveText(/^\d+$/, { timeout: 30_000 });
+  const total = Number(await newest.getByTestId('roll-total').textContent());
+  expect(total).toBeGreaterThanOrEqual(3);
+  expect(total).toBeLessThanOrEqual(6);
+});
+
 test('a controllers sheet is hidden from Caio; on "A mesa toda" he reads it without editing, and loses it back', async ({
   newPlayerPage,
 }) => {
