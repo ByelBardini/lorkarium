@@ -433,9 +433,12 @@ describe('live table session over Socket.IO', () => {
     it('session and board commands drain the same bucket of the connection', async () => {
       const biaClient = await connect(bia);
       await joined(biaClient, vharn.id);
-      await Promise.all(Array.from({ length: 39 }, () => setActivity(biaClient, vharn.id, true)));
+      // Same burst, with a margin past the 40: awaiting the acks first let the 20/s refill
+      // admit the sync on a loaded CI runner.
+      const burst = Array.from({ length: 45 }, () => setActivity(biaClient, vharn.id, true));
       const sync = { actionId: crypto.randomUUID(), campaignId: vharn.id };
       const ack = await biaClient.timeout(2000).emitWithAck('board:sync', sync);
+      await Promise.all(burst);
       expect(ack).toMatchObject({ ok: false, error: { code: 'RATE_LIMITED' } });
     });
 
