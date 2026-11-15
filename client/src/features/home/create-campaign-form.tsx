@@ -4,6 +4,8 @@ import { CoverPicker } from '@/components/cover-picker';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { commandFailureMessage } from '@/features/campaigns/campaign-messages';
+import { featureGate, type PlanGate } from '@/features/plans/plan-gate';
+import { usePlanLimits } from '@/features/plans/use-plan-limits';
 import type { CampaignsFailure } from '@/services/campaigns-api';
 import {
   CampaignAboutField,
@@ -33,7 +35,8 @@ export type CreateCampaignFormProps = Readonly<{
  *
  *  Example: `<CreateCampaignForm submitting={busy} failure={null} onSubmit={send} onCancel={close} />` */
 export function CreateCampaignForm(props: CreateCampaignFormProps): React.JSX.Element {
-  const form = useCreateCampaignForm(props.onSubmit);
+  const gates = useCreatePlanGates();
+  const form = useCreateCampaignForm(props.onSubmit, gates.private.open ? 'private' : 'public');
   return (
     <form
       noValidate
@@ -44,10 +47,10 @@ export function CreateCampaignForm(props: CreateCampaignFormProps): React.JSX.El
     >
       <div className="flex flex-col gap-5 md:col-start-2">
         {props.failure && <CreateFailure failure={props.failure} />}
-        <CreateFields form={form} />
+        <CreateFields form={form} privateLock={gates.private.hint} />
       </div>
       <aside className="flex flex-col gap-6 md:col-start-1 md:row-span-2 md:row-start-1">
-        <CoverChoice form={form} />
+        <CoverChoice form={form} art={gates.art} />
         <CampaignPreviewCard campaign={previewOf(form.values)} className="md:order-first" />
       </aside>
       <FormButtons submitting={props.submitting} onCancel={props.onCancel} />
@@ -55,7 +58,20 @@ export function CreateCampaignForm(props: CreateCampaignFormProps): React.JSX.El
   );
 }
 
-function CreateFields({ form }: Readonly<{ form: CreateCampaignFormState }>): React.JSX.Element {
+type CreatePlanGates = Readonly<{ private: PlanGate; art: PlanGate }>;
+
+// The creator becomes the owner: the table's limits are the creator's own.
+function useCreatePlanGates(): CreatePlanGates {
+  const limits = usePlanLimits().account?.limits ?? null;
+  return {
+    private: featureGate(limits, (granted) => granted.privateCampaign),
+    art: featureGate(limits, (granted) => granted.campaignArt),
+  };
+}
+
+type CreateFieldsProps = Readonly<{ form: CreateCampaignFormState; privateLock: string | null }>;
+
+function CreateFields({ form, privateLock }: CreateFieldsProps): React.JSX.Element {
   const { values, bind, change } = form;
   const setUsePassword = (usePassword: boolean): void =>
     change(usePassword ? { usePassword } : { usePassword, password: '' });
@@ -68,6 +84,7 @@ function CreateFields({ form }: Readonly<{ form: CreateCampaignFormState }>): Re
       <VisibilityField
         value={values.visibility}
         onChange={(visibility) => change({ visibility })}
+        privateLock={privateLock}
       />
       <CampaignPasswordField
         binding={bind('password')}
@@ -78,18 +95,23 @@ function CreateFields({ form }: Readonly<{ form: CreateCampaignFormState }>): Re
   );
 }
 
-function CoverChoice({ form }: Readonly<{ form: CreateCampaignFormState }>): React.JSX.Element {
+type CoverChoiceProps = Readonly<{ form: CreateCampaignFormState; art: PlanGate }>;
+
+function CoverChoice({ form, art }: CoverChoiceProps): React.JSX.Element {
   return (
     <div className="flex flex-col gap-2">
       <span className="text-[13px] font-semibold text-label">Capa</span>
       <CoverPicker
         value={form.values.cover}
         onChange={(cover) => cover.kind === 'drawn' && form.change({ cover })}
-        hint="Dá para enviar uma imagem depois, nas configurações da mesa."
+        hint={art.open ? COVER_LATER_HINT : PHOTO_LATER_HINT}
       />
     </div>
   );
 }
+
+const COVER_LATER_HINT = 'Dá para enviar uma imagem depois, nas configurações da mesa.';
+const PHOTO_LATER_HINT = 'Com uma foto da mesa, enviada nas configurações, a capa usa a foto.';
 
 function previewOf(values: CreateValues): CampaignPreview {
   return {
