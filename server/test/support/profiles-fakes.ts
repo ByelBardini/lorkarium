@@ -24,8 +24,12 @@ export function profileRow(overrides: Partial<ProfileRow> = {}): ProfileRow {
     color: null,
     bio: null,
     avatarId: null,
+    bannerId: null,
     diceTextureId: null,
     diceNumberColor: null,
+    gameSystems: null,
+    playSchedule: null,
+    contact: null,
     createdAt: new Date('2026-10-01T12:00:00Z'),
     role: 'user',
     plan: 'amigo_do_dono',
@@ -34,8 +38,8 @@ export function profileRow(overrides: Partial<ProfileRow> = {}): ProfileRow {
   };
 }
 
-/** In-memory profile columns of `users`; writes `update:<fields>`, `swap:<avatarId>` and
- *  `swapDice:<diceTextureId>` to the shared journal and keeps each change asked for in `updates`. */
+/** In-memory profile columns of `users`; writes `update:<fields>`, `swap:<avatarId>`,
+ *  `swapDice:<diceTextureId>` and `swapBanner:<bannerId>` to the shared journal and keeps each change asked for in `updates`. */
 export class ProfilesDaoFake implements Pick<
   ProfilesDao,
   | 'findById'
@@ -44,6 +48,8 @@ export class ProfilesDaoFake implements Pick<
   | 'isCurrentAvatar'
   | 'swapDiceTexture'
   | 'isCurrentDiceTexture'
+  | 'swapBanner'
+  | 'isCurrentBanner'
 > {
   readonly updates: ProfileChanges[] = [];
 
@@ -90,6 +96,21 @@ export class ProfilesDaoFake implements Pick<
 
   async isCurrentDiceTexture(diceTextureId: string): Promise<boolean> {
     return this.rows.some((row) => row.diceTextureId === diceTextureId);
+  }
+
+  async swapBanner(
+    userId: string,
+    bannerId: string | null,
+  ): Promise<Readonly<{ previousId: string | null }> | undefined> {
+    this.journal.push(`swapBanner:${bannerId ?? 'none'}`);
+    const previous = await this.findById(userId);
+    if (!previous) return undefined;
+    this.replace(userId, { bannerId });
+    return { previousId: previous.bannerId };
+  }
+
+  async isCurrentBanner(bannerId: string): Promise<boolean> {
+    return this.rows.some((row) => row.bannerId === bannerId);
   }
 
   private replace(userId: string, changes: Partial<ProfileRow>): ProfileRow | undefined {

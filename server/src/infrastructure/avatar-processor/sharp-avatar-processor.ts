@@ -1,12 +1,13 @@
 import { AVATAR_SIDE } from '@lorkarium/contracts';
-import sharp, { type Sharp } from 'sharp';
+import sharp, { type Metadata, type Sharp } from 'sharp';
 import type {
   AvatarOutcome,
   AvatarProcessorPort,
   AvatarRefusal,
   ImageShape,
 } from '../../modules/profiles/avatar-processor.port';
-import { framesWithin } from '../sharp-frames';
+import { frameBoxOf } from '../image-processor/frame-box';
+import { frameHeightOf, framesWithin } from '../sharp-frames';
 
 // An animated photo decodes every frame: the budget is pixels × frames, not one frame.
 const DEFAULT_MAX_TOTAL_PIXELS = 100_000_000;
@@ -15,7 +16,7 @@ const QUALITY = 85;
 const EXPECTED = 'expected png, jpeg, webp or gif';
 // SVG is left out on purpose: it decodes through a renderer that may carry script.
 const KEPT_FORMATS: ReadonlySet<string> = new Set(['png', 'jpeg', 'webp', 'gif']);
-const PHOTO_SHAPE: ImageShape = { side: AVATAR_SIDE, animated: true };
+const PHOTO_SHAPE: ImageShape = { width: AVATAR_SIDE, height: AVATAR_SIDE, animated: true };
 
 export type SharpAvatarProcessorOptions = Readonly<{
   maxTotalPixels?: number;
@@ -23,13 +24,14 @@ export type SharpAvatarProcessorOptions = Readonly<{
 }>;
 
 type Refused = Readonly<{ ok: false; refusal: AvatarRefusal }>;
-type Inspected = Readonly<{ ok: true; frames: number }> | Refused;
+type FrameSize = Readonly<{ width: number; height: number }>;
+type Inspected = Readonly<{ ok: true; frames: number; size: FrameSize }> | Refused;
 
 /** `AvatarProcessorPort` over `sharp`: reads the real format from the bytes, refuses a bomb before
- *  decoding it, cuts the center into the square of `shape` (the photo's 256 by default) and
+ *  decoding it, cuts the center into the rectangle of `shape` (the photo's 256 square by default) and
  *  re-encodes it as WebP (animated when the input is and the shape allows) without any metadata.
  *
- *  Example: `await new SharpAvatarProcessor().normalize(bytes, { side: 512, animated: false })` */
+ *  Example: `await new SharpAvatarProcessor().normalize(bytes, { width: 1800, height: 600, animated: false })` */
 export class SharpAvatarProcessor implements AvatarProcessorPort {
   private readonly maxTotalPixels: number;
   private readonly maxFrames: number;
@@ -43,7 +45,8 @@ export class SharpAvatarProcessor implements AvatarProcessorPort {
     const inspected = await this.inspect(bytes);
     if (!inspected.ok) return inspected;
     const frames = shape.animated ? inspected.frames : 1;
-    const output = await squared(bytes, frames, shape.side, this.maxTotalPixels)
+    const source = { bytes, frames, size: inspected.size };
+    const output = await cropped(source, shape, this.maxTotalPixels)
       .webp({ quality: QUALITY })
       .toBuffer()
       .catch(() => null);
@@ -61,19 +64,34 @@ export class SharpAvatarProcessor implements AvatarProcessorPort {
     }
     const limits = { maxFrames: this.maxFrames, maxPixels: this.maxTotalPixels };
     const counted = framesWithin(metadata, limits, 'photo');
-    if (counted.ok) return counted;
+    if (counted.ok) return { ...counted, size: uprightSizeOf(metadata) };
     const { reason, what, expected } = counted.refusal;
     return refused(reason, what, expected);
   }
 }
 
+type Source = Readonly<{ bytes: Uint8Array; frames: number; size: FrameSize }>;
+
 // One frame is turned upright by its EXIF first; an animation has no orientation to honor.
 // Without `animated`, sharp decodes only the first frame: that is how a still shape drops the rest.
-function squared(bytes: Uint8Array, frames: number, side: number, maxTotalPixels: number): Sharp {
-  const animated = frames > 1;
-  const image = sharp(bytes, { animated, limitInputPixels: maxTotalPixels });
+// A picked rectangle is cut first (sharp cuts each page of an animation on its own), then covered.
+function cropped(source: Source, shape: ImageShape, maxTotalPixels: number): Sharp {
+  const animated = source.frames > 1;
+  const image = sharp(source.bytes, { animated, limitInputPixels: maxTotalPixels });
   const upright = animated ? image : image.autoOrient();
-  return upright.resize(side, side, { fit: 'cover', position: 'centre' });
+  const aspect = { width: shape.width, height: shape.height };
+  const framed = shape.crop
+    ? upright.extract(frameBoxOf(source.size, aspect, shape.crop))
+    : upright;
+  return framed.resize(shape.width, shape.height, { fit: 'cover', position: 'centre' });
+}
+
+// The header gives the size before `autoOrient`; EXIF 5 to 8 turn a still image a quarter.
+function uprightSizeOf(metadata: Metadata): FrameSize {
+  const width = metadata.width;
+  const height = frameHeightOf(metadata);
+  const quarterTurned = (metadata.pages ?? 1) === 1 && (metadata.orientation ?? 1) >= 5;
+  return quarterTurned ? { width: height, height: width } : { width, height };
 }
 
 function notAnImage(bytes: Uint8Array): Refused {

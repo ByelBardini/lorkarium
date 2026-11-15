@@ -4,7 +4,11 @@ import { describe, expect, it } from 'vitest';
 import { ProfilePreview } from '@/features/account/profile-preview';
 import type { PlanSealHolder } from '@/lib/plan-seal';
 
-function renderPreview(color: MemberColorDto, seal: PlanSealHolder = FREE): HTMLElement {
+function renderPreview(
+  color: MemberColorDto,
+  seal: PlanSealHolder = FREE,
+  bannerId: string | null = null,
+): HTMLElement {
   const { container } = render(
     <ProfilePreview
       name="Ana"
@@ -12,6 +16,10 @@ function renderPreview(color: MemberColorDto, seal: PlanSealHolder = FREE): HTML
       color={color}
       avatarId={null}
       bio=""
+      bannerId={bannerId}
+      gameSystems="Tormenta20"
+      playSchedule=""
+      contact=""
       memberSince="2026-10-01T00:00:00.000Z"
       seal={seal}
     />,
@@ -58,5 +66,15 @@ describe('ProfilePreview', () => {
 
   it('a free preview shows no seal', () => {
     expect(renderPreview('gold').querySelector('[data-seal]')).toBeNull();
+  });
+  it('the preview is the real Brasão card, with the banner from /api/banners/:id', () => {
+    renderPreview('gold', FREE, '9c8b7a6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d');
+
+    expect(screen.getByTestId('profile-card-banner-image')).toHaveAttribute(
+      'src',
+      '/api/banners/9c8b7a6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d',
+    );
+    expect(screen.getByText('Sistemas e cenários')).toBeVisible();
+    expect(screen.getByText('Tormenta20')).toBeVisible();
   });
 });

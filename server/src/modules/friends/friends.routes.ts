@@ -5,11 +5,13 @@ import {
   OUTGOING_REQUESTS_MAX,
   blockRequestDto,
   friendRequestDto,
+  friendSearchQueryDto,
   friendUserParamsDto,
   type ApiErrorDto,
   type BlockedUserDto,
   type FriendDto,
   type FriendRequestResponseDto,
+  type FriendSearchResultDto,
   type FriendsOverviewDto,
 } from '@lorkarium/contracts';
 import type {
@@ -27,6 +29,8 @@ import type { FriendsService } from './friends.service';
 
 // One count per user over every write of the module: blocks a burst of requests (spec §8.4).
 const FRIEND_WRITES_PER_MINUTE = 30;
+// The search lists accounts as you type: enough for typing, not for walking every @.
+const FRIEND_SEARCHES_PER_MINUTE = 60;
 
 const STATUS_BY_CODE: Readonly<Record<FriendsErrorCode, number>> = {
   USER_NOT_FOUND: 404,
@@ -70,6 +74,10 @@ export function friendsRoutes(service: FriendsService): (app: FastifyInstance) =
     const { requireAuth, userOf } = app.authGuards;
     const limit = app.rateLimit(perUserRateLimit(FRIEND_WRITES_PER_MINUTE, '1 minute', userOf));
     const writes = [requireAuth, limit];
+    const searches = app.rateLimit(
+      perUserRateLimit(FRIEND_SEARCHES_PER_MINUTE, '1 minute', userOf),
+    );
+    registerSearchRoute(app, service, [requireAuth, searches]);
     registerFriendRoutes(app, service, writes);
     registerBlockRoutes(app, service, writes);
   };
@@ -101,6 +109,18 @@ function registerFriendRoutes(
     const { userId } = friendUserParamsDto.parse(request.params);
     await service.unfriend(userOf(request).id, userId);
     return reply.code(204).send();
+  });
+}
+
+function registerSearchRoute(
+  app: FastifyInstance,
+  service: FriendsService,
+  guards: readonly preHandlerHookHandler[],
+): void {
+  const { userOf } = app.authGuards;
+  app.get('/friends/search', { preHandler: [...guards] }, async (request) => {
+    const { q } = friendSearchQueryDto.parse(request.query);
+    return (await service.search(userOf(request).id, q)) satisfies FriendSearchResultDto;
   });
 }
 

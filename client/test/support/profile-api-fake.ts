@@ -1,3 +1,4 @@
+import type { ImageCropRect } from '@/services/assets-api';
 import type { ProfileDto, UpdateProfileRequestDto } from '@lorkarium/contracts';
 import { memberColorOf } from '@lorkarium/game-core';
 import type { AccountLoadFailure, AccountResult } from '@/services/account-failure';
@@ -15,6 +16,10 @@ export const ANA_PROFILE: ProfileDto = {
   colorChoice: null,
   bio: null,
   avatarId: null,
+  bannerId: null,
+  gameSystems: null,
+  playSchedule: null,
+  contact: null,
   diceTextureId: null,
   diceNumberColor: null,
   memberSince: '2026-10-01T12:00:00.000Z',
@@ -25,6 +30,9 @@ export const ANA_PROFILE: ProfileDto = {
 
 /** The id the server gives the next photo sent. */
 export const UPLOADED_AVATAR_ID = '4f3e2d1c-0b9a-4876-a543-210fedcba987';
+
+/** The id the server gives the next banner sent. */
+export const UPLOADED_BANNER_ID = '9c8b7a6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
 
 /** The id the server gives the next dice texture sent. */
 export const UPLOADED_DICE_TEXTURE_ID = '7a6b5c4d-3e2f-4a1b-9c8d-7e6f5a4b3c2d';
@@ -38,9 +46,12 @@ type Answers = {
   uploadDiceTexture: AccountResult<ProfileDto, ProfileFailure>;
   diceTextureFromLink: AccountResult<ProfileDto, ProfileFailure>;
   removeDiceTexture: AccountResult<ProfileDto, ProfileFailure>;
+  uploadBanner: AccountResult<ProfileDto, ProfileFailure>;
+  bannerFromLink: AccountResult<ProfileDto, ProfileFailure>;
+  removeBanner: AccountResult<ProfileDto, ProfileFailure>;
 };
 
-/** A `ProfileApi` that keeps a profile like the server would: an update, a photo or a dice texture
+/** A `ProfileApi` that keeps a profile like the server would: an update, a photo, a dice texture or a banner
  *  sent or taken away changes what the next `get` answers. Any method can be scripted (`answer`, `hold`). */
 export class ProfileApiFake implements ProfileApi {
   profile: ProfileDto = ANA_PROFILE;
@@ -92,6 +103,24 @@ export class ProfileApiFake implements ProfileApi {
     );
   }
 
+  uploadBanner(file: Blob, crop?: ImageCropRect): Promise<Answers['uploadBanner']> {
+    return this.answers.reply('uploadBanner', { file, crop }, () =>
+      this.save({ ...this.profile, bannerId: UPLOADED_BANNER_ID }),
+    );
+  }
+
+  bannerFromLink(url: string): Promise<Answers['bannerFromLink']> {
+    return this.answers.reply('bannerFromLink', url, () =>
+      this.save({ ...this.profile, bannerId: UPLOADED_BANNER_ID }),
+    );
+  }
+
+  removeBanner(): Promise<Answers['removeBanner']> {
+    return this.answers.reply('removeBanner', undefined, () =>
+      this.save({ ...this.profile, bannerId: null }),
+    );
+  }
+
   private current(): { ok: true; value: ProfileDto } {
     return { ok: true, value: this.profile };
   }
@@ -110,6 +139,9 @@ function updatedProfile(profile: ProfileDto, input: UpdateProfileRequestDto): Pr
     bio: input.bio === undefined ? profile.bio : input.bio,
     diceNumberColor:
       input.diceNumberColor === undefined ? profile.diceNumberColor : input.diceNumberColor,
+    gameSystems: input.gameSystems === undefined ? profile.gameSystems : input.gameSystems,
+    playSchedule: input.playSchedule === undefined ? profile.playSchedule : input.playSchedule,
+    contact: input.contact === undefined ? profile.contact : input.contact,
     colorChoice,
     color: memberColorOf(profile.id, colorChoice),
   };

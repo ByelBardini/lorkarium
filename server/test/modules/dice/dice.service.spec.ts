@@ -17,7 +17,12 @@ import {
   VHARN_ID,
   campaignMemberPo,
 } from '../../support/campaigns-factories';
-import { DicePhysicsFake, DicePublisherFake, DiceRandomFake } from '../../support/dice-fakes';
+import {
+  DicePhysicsFake,
+  DicePublisherFake,
+  DiceRandomFake,
+  DiceStatsFake,
+} from '../../support/dice-fakes';
 import { ProfilesDaoFake, profileRow } from '../../support/profiles-fakes';
 import { TableOwnerPlansFake, planAccount } from '../../support/plan-account-fakes';
 
@@ -32,6 +37,7 @@ type Harness = Readonly<{
   random: DiceRandomFake;
   publisher: DicePublisherFake;
   tables: TableOwnerPlansFake;
+  stats: DiceStatsFake;
 }>;
 
 function harness(physicsValues: number[] = [], faces: number[] = []): Harness {
@@ -55,8 +61,9 @@ function harness(physicsValues: number[] = [], faces: number[] = []): Harness {
   const clock = new ClockFake(NOW);
   const tables = new TableOwnerPlansFake();
   const newId = (): string => ROLL_ID;
-  const deps = { members, tables, profiles, physics, random, publisher, clock, newId };
-  return { service: new DiceService(deps), physics, random, publisher, tables };
+  const stats = new DiceStatsFake(publisher.journal);
+  const deps = { members, tables, profiles, physics, random, publisher, stats, clock, newId };
+  return { service: new DiceService(deps), physics, random, publisher, tables, stats };
 }
 
 function rollOf(
@@ -88,7 +95,7 @@ describe('DiceService.roll', () => {
     });
     expect(answer.parts[0]?.dice).toEqual([{ sides: 20, value: 17, status: 'kept', model: [0] }]);
     expect(physics.throws).toEqual([{ kinds: ['d20'], aspect: 16 / 9, startMs: 0 }]);
-    expect(publisher.journal).toEqual(['publish:full:table']);
+    expect(publisher.journal).toEqual([`stats:${BIA_ID}+0`, 'publish:full:table']);
     expect(publisher.full[0]).toMatchObject({
       campaignId: VHARN_ID,
       rollId: ROLL_ID,
@@ -207,7 +214,11 @@ describe('DiceService.roll', () => {
 
     await service.roll(BIA_ID, rollOf(['1d20'], { visibility: 'masters' }));
 
-    expect(publisher.journal).toEqual([`publish:full:masters+${BIA_ID}`, 'publish:secret']);
+    expect(publisher.journal).toEqual([
+      `stats:${BIA_ID}+0`,
+      `publish:full:masters+${BIA_ID}`,
+      'publish:secret',
+    ]);
     expect(publisher.secret).toEqual([
       {
         campaignId: VHARN_ID,
@@ -224,7 +235,11 @@ describe('DiceService.roll', () => {
 
     await service.roll(ANA_ID, rollOf(['1d20'], { visibility: 'masters' }));
 
-    expect(publisher.journal).toEqual(['publish:full:masters', 'publish:secret']);
+    expect(publisher.journal).toEqual([
+      `stats:${ANA_ID}+0`,
+      'publish:full:masters',
+      'publish:secret',
+    ]);
   });
 
   it('Duda (spectator) is FORBIDDEN: no physics and nothing published', async () => {
@@ -255,5 +270,41 @@ describe('DiceService.roll', () => {
       'part 1 ("2d") cannot be read: Expected the number of sides at position 2; got the end of the expression.',
     );
     expect(physics.throws).toEqual([]);
+  });
+});
+
+describe('DiceService.roll and the account counters', () => {
+  it('a public roll adds one roll and its natural 20s before publishing', async () => {
+    const { service, publisher, stats } = harness([20, 20, 6]);
+
+    await service.roll(BIA_ID, rollOf(['2d20kh1', '1d6']));
+
+    expect(stats.added).toEqual([{ userId: BIA_ID, natural20s: 2 }]);
+    expect(publisher.journal).toEqual([`stats:${BIA_ID}+2`, 'publish:full:table']);
+  });
+
+  it('a roll for the masters counts too', async () => {
+    const { service, stats } = harness([20]);
+
+    await service.roll(BIA_ID, rollOf(['1d20'], { visibility: 'masters' }));
+
+    expect(stats.added).toEqual([{ userId: BIA_ID, natural20s: 1 }]);
+  });
+
+  it('a roll without a natural 20 still adds the roll, with none', async () => {
+    const { service, stats } = harness([19]);
+
+    await service.roll(BIA_ID, rollOf(['1d20']));
+
+    expect(stats.added).toEqual([{ userId: BIA_ID, natural20s: 0 }]);
+  });
+
+  it('a roll that fails before the throw (bad expression, spectator) adds nothing', async () => {
+    const { service, stats } = harness();
+
+    await expect(service.roll(BIA_ID, rollOf(['2d']))).rejects.toThrow();
+    await expect(service.roll(DUDA_ID, rollOf(['1d20']))).rejects.toThrow();
+
+    expect(stats.added).toEqual([]);
   });
 });

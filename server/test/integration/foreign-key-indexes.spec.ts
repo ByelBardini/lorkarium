@@ -42,6 +42,7 @@ const ACCEPTED_WITHOUT_INDEX: Record<string, string> = {
   'tokens.created_by': ACCOUNT_DELETION,
   'tokens.image_asset_id': ASSET_GOES_WITH_ITS_TABLE,
   'two_factor_challenges.user_id': ACCOUNT_DELETION,
+  'user_reports.resolved_by': ACCOUNT_DELETION,
 };
 
 const UNINDEXED_FOREIGN_KEYS = sql`

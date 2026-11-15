@@ -1,6 +1,6 @@
 # User admin (backoffice das contas)
 
-O backoffice sobre as contas: listar, trocar o papel, suspender e reativar, conferir e excluir. Vive em `server/src/modules/user-admin/` (lê e grava `users` do auth e as mesas que a conta é dona). Convites e links de nova senha são outro módulo: [`account-links.md`](account-links.md). A tela é [`client/backoffice.md`](client/backoffice.md).
+O backoffice sobre as contas: listar, trocar o papel, suspender e reativar, conferir e excluir. Vive em `server/src/modules/user-admin/` (lê e grava `users` do auth e as mesas que a conta é dona). Convites e links de nova senha são outro módulo: [`account-links.md`](account-links.md). A tela é [`client/backoffice.md`](client/backoffice.md). A fila de denúncias (`GET/PATCH /api/admin/reports`, mesma guarda `requireRole('admin')`) é do módulo [`reports`](reports.md); a tela dela é `/admin/reports` ("Denúncias" na lateral do backoffice, ver a seção Tela de lá).
 
 ## Estrutura
 

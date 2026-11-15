@@ -1,9 +1,16 @@
-import type { AdminDirectoryResponseDto, MailSampleDto } from '@lorkarium/contracts';
+import {
+  listUserReportsQueryDto,
+  type AdminDirectoryResponseDto,
+  type MailSampleDto,
+  type UserReportsPageDto,
+} from '@lorkarium/contracts';
 import { useState } from 'react';
 import { redirect, useLoaderData, type LoaderFunction, type RouteObject } from 'react-router';
 import type { AppDependencies } from '@/app/router';
 import { loginPathFor } from '@/app/route-access';
 import { ApiLoadError } from '@/app/shell/api-loader';
+import { ProfileCardProvider } from '@/features/profile-card/profile-card-provider';
+import { ProfileCardTrigger } from '@/features/profile-card/profile-card-trigger';
 import { skipSearchOnlyRevalidation } from '@/lib/search-only-revalidation';
 import type { UserAdminFailure } from '@/services/user-admin-api';
 import { useSession } from '@/stores/session-store';
@@ -11,6 +18,8 @@ import { AdminErrorScreen } from './admin-error-screen';
 import { AdminLayout } from './admin-layout';
 import { mailTestAction } from './mail-test-action';
 import { MailTestPage } from './mail-test-page';
+import { reportsAction } from './reports-action';
+import { ReportsPage } from './reports-page';
 import { AdminForbiddenError, dropAdminRole, usersAction } from './users-action';
 import { UsersPage } from './users-page';
 
@@ -89,6 +98,56 @@ export function mailTestRoute(
       );
     },
   };
+}
+
+export type ReportsLoaderData = Readonly<{ page: UserReportsPageDto }>;
+
+/** "Denúncias" (`/admin/reports`): the reports queue (`?status&page`, the open ones by default);
+ *  the reported @ opens that person's profile card.
+ *
+ *  Example: `{ path: 'reports', lazy: async () => (await import('@/features/admin/admin-routes')).reportsRoute(deps) }` */
+export function reportsRoute(
+  deps: AppDependencies,
+): Pick<RouteObject, 'loader' | 'action' | 'Component' | 'ErrorBoundary'> {
+  return {
+    loader: async ({ request }): Promise<ReportsLoaderData> => {
+      const result = await deps.userReportsApi.list(reportsQueryOf(new URL(request.url)));
+      if (result.ok) return { page: result.value };
+      return refusedLoad(deps, result.failure.kind, request);
+    },
+    action: reportsAction(deps),
+    Component: function ReportsRoute(): React.JSX.Element | null {
+      const { page } = useLoaderData<ReportsLoaderData>();
+      const session = useSession(deps.sessionStore);
+      if (session.status !== 'authenticated') return null;
+      return (
+        <ProfileCardProvider deps={deps} viewerId={session.user.id}>
+          <ReportsPage
+            page={page}
+            targetOf={(target) => (
+              <ProfileCardTrigger userId={target.id} name={`@${target.username}`} />
+            )}
+          />
+        </ProfileCardProvider>
+      );
+    },
+    ErrorBoundary: function ReportsErrorBoundary(): React.JSX.Element | null {
+      return (
+        <AdminErrorScreen
+          sessionStore={deps.sessionStore}
+          pageTitle="Lorkarium · Denúncias"
+          failedHeading="Não deu para carregar as denúncias."
+        />
+      );
+    },
+  };
+}
+
+// A hand-edited query falls back to the first page of the open queue instead of failing the load.
+function reportsQueryOf(url: URL): ReturnType<typeof listUserReportsQueryDto.parse> {
+  const raw = Object.fromEntries(url.searchParams);
+  const parsed = listUserReportsQueryDto.safeParse(raw);
+  return parsed.success ? parsed.data : listUserReportsQueryDto.parse({});
 }
 
 function usersLoader(deps: AppDependencies): LoaderFunction {

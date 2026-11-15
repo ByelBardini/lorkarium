@@ -397,6 +397,30 @@ async function animatedGif(frames: number, side: number, delay?: number[]): Prom
   return new Uint8Array(await source.gif(delay ? { delay } : {}).toBuffer());
 }
 
+const RIGHT_HALF = { x: 50, y: 0, w: 50, h: 100 };
+
+// 3 frames of 600×300: the left half red in all, the right half blue, green, blue.
+async function halvedGif(): Promise<Uint8Array> {
+  const frames = await Promise.all(
+    [BLUE, { r: 0, g: 255, b: 0 }, BLUE].map(async (right) => {
+      const half = await sharp({
+        create: { width: 300, height: 300, channels: 3, background: right },
+      })
+        .png()
+        .toBuffer();
+      return sharp({ create: { width: 600, height: 300, channels: 3, background: RED } })
+        .composite([{ input: half, left: 300, top: 0 }])
+        .png()
+        .toBuffer();
+    }),
+  );
+  return new Uint8Array(
+    await sharp(frames, { join: { animated: true } })
+      .gif()
+      .toBuffer(),
+  );
+}
+
 async function framesOf(bytes: Uint8Array) {
   return sharp(bytes, { animated: true }).metadata();
 }
@@ -456,6 +480,31 @@ describe('SharpImageProcessor.normalize with an animation budget', () => {
         detail: expect.stringMatching(/1200 pixels across 3 frames.*1000/),
       },
     });
+  });
+
+  it('a framed GIF with a budget cuts every frame to the picked 1:1 rectangle', async () => {
+    const photo = { ...AURA, frame: { aspect: { width: 1, height: 1 }, crop: RIGHT_HALF } };
+
+    const image = keptOf(await processor.normalize(await halvedGif(), photo));
+
+    expect(image).toMatchObject({ mimeType: 'image/gif', width: 300, height: 300 });
+    const metadata = await framesOf(image.bytes);
+    expect(metadata).toMatchObject({ pages: 3, pageHeight: 300 });
+    // The left half is red in every frame: a centred cut would start inside it.
+    expect(isRed(await pixelAt(image.bytes, 10, 10))).toBe(false);
+  });
+
+  it('a GIF kept as a 2:1 cover with no rectangle is cut at the centre and stays animated', async () => {
+    const cover = {
+      ...AURA,
+      maxSide: 1600,
+      frame: { aspect: { width: 2, height: 1 }, crop: null },
+    };
+
+    const image = keptOf(await processor.normalize(await animatedGif(3, 600), cover));
+
+    expect(image).toMatchObject({ mimeType: 'image/gif', width: 600, height: 300 });
+    expect((await framesOf(image.bytes)).pages).toBe(3);
   });
 
   it('an animated GIF with no budget keeps only its first frame, the size of one frame', async () => {

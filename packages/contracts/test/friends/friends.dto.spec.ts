@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { BLOCKS_MAX, FRIENDS_MAX, OUTGOING_REQUESTS_MAX } from '../../src/realtime-limits';
 import { blockRequestDto, friendUserParamsDto } from '../../src/friends/block.dto';
 import { friendRequestDto, friendRequestResponseDto } from '../../src/friends/friend-request.dto';
+import {
+  FRIEND_SEARCH_LIMIT,
+  friendSearchQueryDto,
+  friendSearchResultDto,
+} from '../../src/friends/friend-search.dto';
 import { friendsOverviewDto } from '../../src/friends/friends-overview.dto';
 import { friendDto } from '../../src/friends/friend.dto';
 import {
@@ -108,5 +113,25 @@ describe('presença', () => {
 
   it('friends:changed não diz o motivo', () => {
     expect(friendsChangedDto.safeParse({ at: AT, reason: 'blocked' }).success).toBe(false);
+  });
+});
+
+describe('friendSearchQueryDto', () => {
+  it('drops the @, trims and lowers what was typed', () => {
+    expect(friendSearchQueryDto.parse({ q: ' @Bi ' })).toEqual({ q: 'bi' });
+  });
+
+  it('refuses one letter, a LIKE wildcard, and a field too many', () => {
+    expect(friendSearchQueryDto.safeParse({ q: 'b' }).success).toBe(false);
+    expect(friendSearchQueryDto.safeParse({ q: 'b%' }).success).toBe(false);
+    expect(friendSearchQueryDto.safeParse({ q: 'bi', userId: BIA_ID }).success).toBe(false);
+  });
+});
+
+describe('friendSearchResultDto', () => {
+  it('takes up to FRIEND_SEARCH_LIMIT profiles', () => {
+    const accounts = Array.from({ length: FRIEND_SEARCH_LIMIT }, () => BIA);
+    expect(friendSearchResultDto.parse({ accounts }).accounts).toHaveLength(FRIEND_SEARCH_LIMIT);
+    expect(friendSearchResultDto.safeParse({ accounts: [...accounts, BIA] }).success).toBe(false);
   });
 });

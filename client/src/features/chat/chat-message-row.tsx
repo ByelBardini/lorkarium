@@ -1,6 +1,7 @@
 import type { ChatSentDto } from '@lorkarium/contracts';
 import { LockIcon } from 'lucide-react';
 import { memo } from 'react';
+import { ProfileCardTrigger } from '@/features/profile-card/profile-card-trigger';
 import { TokenFace } from '@/features/tokens/token-face';
 import { UserAvatar } from '@/components/user-avatar';
 import { mentionsAny, type ChatMessage } from '@/lib/chat-conversations';
@@ -129,9 +130,11 @@ function SpeakerName({ event, people, mine }: RowPartProps & Readonly<{ mine: bo
   const author = people.nameOf(event.fromUserId);
   if (event.speaker.kind === 'self') {
     return (
-      <span className={cn('text-[13px] font-semibold', mine ? 'text-primary' : 'text-foreground')}>
-        {author}
-      </span>
+      <ProfileCardTrigger
+        userId={event.fromUserId}
+        name={author}
+        className={cn('text-[13px] font-semibold', mine ? 'text-primary' : 'text-foreground')}
+      />
     );
   }
   const npc = people.memberOf(event.fromUserId)?.role === 'master';

@@ -36,7 +36,7 @@ export const PLAN_COUNT_RESOURCES = [
 ] as const;
 
 /** Things a plan has or has not: the table's (`sceneCopy`, `auraKind`…) or, for `diceTexture`,
- *  `animatedAvatar` and `customColor` on the account, the person's own customization. */
+ *  `animatedAvatar`, `customColor` and `profileBanner` on the account, the person's own customization. */
 export const PLAN_FEATURE_RESOURCES = [
   'sceneCopy',
   'conditionImage',
@@ -45,6 +45,7 @@ export const PLAN_FEATURE_RESOURCES = [
   'customColor',
   'diceTexture',
   'animatedAvatar',
+  'profileBanner',
 ] as const;
 
 /** Every resource a `PLAN_LIMIT` refusal may name. The dice with physics are not here: past the

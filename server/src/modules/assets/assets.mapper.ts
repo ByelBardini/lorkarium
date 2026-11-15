@@ -4,7 +4,7 @@ import {
   type AssetOutlineResponseDto,
   type AssetPurposeDto,
   type SheetTemplateAssetDto,
-  type UploadAssetQueryDto,
+  type ImageCropQueryDto,
 } from '@lorkarium/contracts';
 import type { AssetPo, NewAssetPo } from './assets.po';
 import type { ImageCrop, NormalizedImage } from './image-processor.port';
@@ -20,7 +20,7 @@ export function storageKeyOf(assetId: string): string {
  *  (the DTO already refused a partial one).
  *
  *  Example: `toImageCrop({ purpose: 'cover', cropX: 0, cropY: 10, cropW: 100, cropH: 50 }) // { x: 0, y: 10, w: 100, h: 50 }` */
-export function toImageCrop(query: UploadAssetQueryDto): ImageCrop | null {
+export function toImageCrop(query: ImageCropQueryDto): ImageCrop | null {
   const { cropX: x, cropY: y, cropW: w, cropH: h } = query;
   if (x === undefined || y === undefined || w === undefined || h === undefined) return null;
   return { x, y, w, h };

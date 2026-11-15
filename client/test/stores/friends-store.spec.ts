@@ -11,6 +11,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import { FriendsApiFake } from '../support/friends-api-fake';
 import {
   BIA,
+  NINA_FOUND,
   CAIO,
   THIAGO_ASKS,
   friendsOverview,
@@ -138,6 +139,13 @@ describe('friends store', () => {
     await settle();
     expect(api.answers.callsOf(method)).toEqual([userId]);
     expect(api.answers.callsOf('overview')).toHaveLength(1);
+  });
+
+  it('search answers the API and reads nothing again', async () => {
+    api.answers.answer('search', { ok: true, value: [NINA_FOUND] });
+    expect(await store.getState().search('bi')).toEqual({ ok: true, value: [NINA_FOUND] });
+    await settle();
+    expect(api.answers.callsOf('overview')).toHaveLength(0);
   });
 
   it('sendRequest answers the outcome and reads the lists again', async () => {

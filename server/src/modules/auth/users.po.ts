@@ -4,8 +4,13 @@ import {
   type HexColorDto,
   type MemberColorDto,
 } from '@lorkarium/contracts';
-import { sql } from 'drizzle-orm';
-import { check, index, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  PROFILE_CONTACT_MAX_LENGTH,
+  PROFILE_GAME_SYSTEMS_MAX_LENGTH,
+  PROFILE_PLAY_SCHEDULE_MAX_LENGTH,
+} from '@lorkarium/contracts';
+import { sql, type AnyColumn } from 'drizzle-orm';
+import { check, index, integer, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { paletteOrHexSql } from '../../database/palette-or-hex-sql';
 
 // Global account role; game master/player/spectator are per-campaign roles (spec §6).
@@ -15,6 +20,11 @@ export const userRole = pgEnum('user_role', ['user', 'admin']);
 export const userPlan = pgEnum('user_plan', USER_PLANS);
 
 export const BIO_MAX_LENGTH = 190;
+
+/** `char_length(column) <= max`, the ceiling of a free profile text kept by the table too. */
+function maxLengthSql(column: AnyColumn, max: number) {
+  return sql`char_length(${column}) <= ${sql.raw(String(max))}`;
+}
 
 export const users = pgTable(
   'users',
@@ -35,10 +45,19 @@ export const users = pgTable(
     color: text('color').$type<MemberColorDto>(),
     bio: text('bio'),
     avatarId: uuid('avatar_id'),
+    // The 3:1 banner of the profile card (paid plans); null = the profile color.
+    bannerId: uuid('banner_id'),
     // The dice appearance (no FK: the texture is an object in the bucket, as the photo).
     // Null texture = the profile color; null number color = automatic contrast.
     diceTextureId: uuid('dice_texture_id'),
     diceNumberColor: text('dice_number_color').$type<HexColorDto>(),
+    // The game preferences of the profile card, free texts (no badges); null = not told.
+    gameSystems: text('game_systems'),
+    playSchedule: text('play_schedule'),
+    contact: text('contact'),
+    // The dice counters of the card (the rolls stay ephemeral); added by `UPDATE … + n`.
+    rollsCount: integer('rolls_count').notNull().default(0),
+    natural20Count: integer('natural20_count').notNull().default(0),
     passwordChangedAt: timestamp('password_changed_at', { withTimezone: true }),
     // Set by an admin (backoffice): no login and no session while it holds; null = active.
     suspendedAt: timestamp('suspended_at', { withTimezone: true }),
@@ -52,14 +71,26 @@ export const users = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    // Every GET of a photo or a dice texture asks whether some account still points at it.
+    // Every GET of a photo, a banner or a dice texture asks whether some account still points at it.
     index('users_avatar_idx')
       .on(table.avatarId)
       .where(sql`${table.avatarId} IS NOT NULL`),
+    index('users_banner_idx')
+      .on(table.bannerId)
+      .where(sql`${table.bannerId} IS NOT NULL`),
     index('users_dice_texture_idx')
       .on(table.diceTextureId)
       .where(sql`${table.diceTextureId} IS NOT NULL`),
     check('users_bio_length', sql`char_length(${table.bio}) <= ${sql.raw(String(BIO_MAX_LENGTH))}`),
+    check(
+      'users_game_systems_length',
+      maxLengthSql(table.gameSystems, PROFILE_GAME_SYSTEMS_MAX_LENGTH),
+    ),
+    check(
+      'users_play_schedule_length',
+      maxLengthSql(table.playSchedule, PROFILE_PLAY_SCHEDULE_MAX_LENGTH),
+    ),
+    check('users_contact_length', maxLengthSql(table.contact, PROFILE_CONTACT_MAX_LENGTH)),
     check('users_color_value', paletteOrHexSql(table.color, MEMBER_COLOR_NAMES)),
     check('users_dice_number_color_hex', sql`${table.diceNumberColor} ~ '^#[0-9a-f]{6}$'`),
     check(

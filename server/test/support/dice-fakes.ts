@@ -1,3 +1,4 @@
+import type { DiceStatsPort } from '../../src/modules/dice/dice-stats.port';
 import type { DiceRolledDto, DiceRolledSecretlyDto } from '@lorkarium/contracts';
 import { DICE_QUATERNION_SCALE } from '@lorkarium/game-core';
 import type {
@@ -131,5 +132,20 @@ export class DicePublisherFake implements DicePublisherPort {
   rolledSecretly(notice: DiceRolledSecretlyDto): void {
     this.secret.push(notice);
     this.journal.push('publish:secret');
+  }
+}
+
+/** The account dice counters in memory: `added` keeps each `{ userId, natural20s }` and the
+ *  shared `journal` (the publisher's, to prove the order) reads `stats:<userId>+<natural20s>`.
+ *
+ *  Example: `new DiceStatsFake(publisher.journal)` */
+export class DiceStatsFake implements DiceStatsPort {
+  readonly added: Readonly<{ userId: string; natural20s: number }>[] = [];
+
+  constructor(private readonly journal: string[] = []) {}
+
+  async addRoll(userId: string, natural20s: number): Promise<void> {
+    this.added.push({ userId, natural20s });
+    this.journal.push(`stats:${userId}+${natural20s}`);
   }
 }

@@ -78,12 +78,17 @@ describe('animatesImage', () => {
     expect(animatesImage('aura')).toBe(true);
   });
 
-  it.each(['token', 'background', 'cover', 'condition'] as const)(
-    'a %s image stays still',
+  // On a Grátis owner the server keeps the first frame instead of refusing: the GIF always goes.
+  it.each(['campaign_photo', 'cover', 'campaign_banner'] as const)(
+    'a %s takes a GIF: it plays on a paid owner',
     (purpose) => {
-      expect(animatesImage(purpose)).toBe(false);
+      expect(animatesImage(purpose)).toBe(true);
     },
   );
+
+  it.each(['token', 'background', 'condition'] as const)('a %s image stays still', (purpose) => {
+    expect(animatesImage(purpose)).toBe(false);
+  });
 });
 
 describe('isFramedPurpose', () => {

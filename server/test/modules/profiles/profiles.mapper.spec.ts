@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   avatarKeyOf,
+  bannerKeyOf,
   diceTextureKeyOf,
   toProfileChanges,
   toProfileDto,
@@ -29,8 +30,31 @@ describe('profiles mapper', () => {
     });
   });
 
+  it('the game preferences go out as kept and only the ones that came are written', () => {
+    const row = profileRow({
+      gameSystems: 'Tormenta',
+      playSchedule: 'sábado à noite',
+      contact: null,
+    });
+
+    expect(toProfileDto(row)).toMatchObject({
+      gameSystems: 'Tormenta',
+      playSchedule: 'sábado à noite',
+      contact: null,
+    });
+    expect(toProfileChanges({ contact: null, gameSystems: 'GURPS' })).toEqual({
+      contact: null,
+      gameSystems: 'GURPS',
+    });
+  });
+
   it('a photo lives under avatars/<id>', () => {
     expect(avatarKeyOf('abc')).toBe('avatars/abc');
+  });
+
+  it('a banner lives under banners/<id> and goes out as kept', () => {
+    expect(bannerKeyOf('abc')).toBe('banners/abc');
+    expect(toProfileDto(profileRow({ bannerId: 'abc' })).bannerId).toBe('abc');
   });
 
   it('a dice texture lives under dice-textures/<id>', () => {

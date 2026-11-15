@@ -5,7 +5,8 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 ## Estrutura
 
 - `src/auth/` — login e usuário autenticado
-- `src/account/` — perfil (@, apelido, cor, bio), foto, senha, e-mail, sessões, 2FA e cores salvas
+- `src/profiles/` — card de perfil de outra conta, voto de reputação e denúncia; [contratos](contracts/conta.md#card-de-perfil-srcprofiles)
+- `src/account/` — perfil (@, apelido, cor, bio, preferências de jogo, banner), foto, senha, e-mail, sessões, 2FA e cores salvas
 - `src/color/` — `hex-color.dto.ts`: `hexColorDto` (`#rrggbb` opaco e minúsculo, tipo `` `#${string}` ``), `paletteOrHexDto(paleta)` e `isHexColor`. Cor personalizada só entra por aqui: a regex é o que impede injeção em `style` inline e SVG
 - `src/http/` — formas transversais da API HTTP (erro)
 - `src/campaigns/` — mesa (campanha): resumo, detalhe, criação e entrada por código

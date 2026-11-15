@@ -34,12 +34,26 @@ describe('FriendsService', () => {
       ...{ reads: store.daos, accounts, transaction: store.run, changed, removed, memberships },
       clock: new ClockFake(NOW),
       limits: LIMITS,
+      searchLimit: 2,
     });
   });
 
   function toldAccounts(): string[][] {
     return changed.changes.map((change) => [...change.userIds]);
   }
+
+  it('search answers the profiles of the candidates, cut at the search limit', async () => {
+    const result = await service.search(ANA.id, '');
+
+    expect(result.accounts.map((account) => account.username)).toEqual(['bia', 'caio']);
+    expect(result.accounts[0]).toMatchObject({ userId: BIA.id, admin: false });
+  });
+
+  it('search leaves out who already has a request with me', async () => {
+    await service.request(ANA.id, 'bia');
+
+    expect((await service.search(ANA.id, 'bi')).accounts).toEqual([]);
+  });
 
   it('a request by @ is saved at the clock instant and tells both accounts', async () => {
     expect(await service.request(ANA.id, 'bia')).toEqual({ outcome: 'sent' });

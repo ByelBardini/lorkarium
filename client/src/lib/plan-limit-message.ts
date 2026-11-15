@@ -78,6 +78,7 @@ export const PLAN_FEATURE_LABEL: Readonly<Record<PlanFeatureResource, string>> =
   customColor: 'Cor personalizada está',
   diceTexture: 'Textura própria do dado está',
   animatedAvatar: 'Foto de perfil animada está',
+  profileBanner: 'Banner de perfil está',
 };
 
 function countLabel(
