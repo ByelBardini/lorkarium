@@ -135,13 +135,14 @@ describe('TokenPreview', () => {
     expect(screen.queryByText('Solta aqui')).not.toBeInTheDocument();
   });
 
-  it('under the name come "Escolher imagem" and the link button, which opens the field there', async () => {
+  it('under the name come "Escolher imagem" and the link button, whose field takes its place', async () => {
     const { default: userEvent } = await import('@testing-library/user-event');
     renderPreview(emptyTokenForm(METERS));
+    expect(screen.getByRole('button', { name: 'Escolher imagem' })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Usar link de imagem' }));
 
-    expect(screen.getByRole('button', { name: 'Escolher imagem' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Escolher imagem' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('Link da imagem')).toHaveFocus();
   });
 });

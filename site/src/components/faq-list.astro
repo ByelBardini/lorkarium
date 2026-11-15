@@ -40,6 +40,12 @@ import { inviteMailto, landingCopy } from '@/copy/landing-copy';
                 <a href={inviteMailto(PUBLIC_CONTACT_EMAIL)}>Pedir convite</a>
               </>
             )}
+            {faq.link && (
+              <>
+                {' '}
+                <a href={faq.link.href}>{faq.link.label}</a>
+              </>
+            )}
           </p>
         </details>
       ))}

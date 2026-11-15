@@ -8,12 +8,15 @@ export type RoomCoverPageProps = Readonly<{
   campaignName: string;
   /** The page's `h1`, e.g. "Configurações da mesa". */
   title: string;
+  /** At the right end of the bar, e.g. the save controls of a form. */
+  actions?: React.ReactNode;
   /** Below the bar, filling what is left of the screen (it scrolls on its own). */
   children: React.ReactNode;
 }>;
 
 /** A page of the play room drawn over it (the room stays mounted underneath, so the table stays
- *  open): a 48px bar with "Voltar à mesa", the title and the table's name, and the page below.
+ *  open): a 48px bar with "Voltar à mesa", the title, the table's name and the page's `actions`, and
+ *  the page below.
  *
  *  Example: `<RoomCoverPage campaignId={id} campaignName={name} title="Condições da mesa">…</RoomCoverPage>` */
 export function RoomCoverPage(props: RoomCoverPageProps): React.JSX.Element {
@@ -33,6 +36,7 @@ export function RoomCoverPage(props: RoomCoverPageProps): React.JSX.Element {
         <p className="hidden min-w-0 truncate text-[13px] text-muted-foreground sm:block">
           {props.campaignName}
         </p>
+        {props.actions && <div className="ml-auto flex shrink-0 items-center">{props.actions}</div>}
       </header>
       {props.children}
     </div>

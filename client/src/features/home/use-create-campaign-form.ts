@@ -42,13 +42,15 @@ const EMPTY_CREATE_VALUES: CreateValues = {
 };
 
 /** The state of the "Nova mesa" form: values, errors by field, and a submit that validates by the
- *  DTO and focuses the first invalid field.
+ *  DTO and focuses the first invalid field. `visibility` is the one it starts with (public when
+ *  the plan has no private table).
  *
- *  Example: `const { values, bind, change, submit } = useCreateCampaignForm(onSubmit)` */
+ *  Example: `const { values, bind, change, submit } = useCreateCampaignForm(onSubmit, 'public')` */
 export function useCreateCampaignForm(
   onSubmit: (submission: CreateCampaignSubmission) => void,
+  visibility: CreateValues['visibility'] = EMPTY_CREATE_VALUES.visibility,
 ): CreateCampaignFormState {
-  const [values, setValues] = useState<CreateValues>(EMPTY_CREATE_VALUES);
+  const [values, setValues] = useState<CreateValues>({ ...EMPTY_CREATE_VALUES, visibility });
   const [errors, setErrors] = useState<CreateFieldErrors>({});
   const idPrefix = useId();
   const idOf = (field: CreateField): string => `${idPrefix}-${field}`;

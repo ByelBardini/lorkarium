@@ -1,8 +1,9 @@
-import { ImageUpIcon, Link2Icon, Trash2Icon } from 'lucide-react';
+import { ImageUpIcon, Link2Icon, Loader2Icon, Trash2Icon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import type { ImageSender } from './use-image-sender';
 
 export type ImageSourceButtonsProps = Readonly<{
@@ -13,9 +14,10 @@ export type ImageSourceButtonsProps = Readonly<{
   onRemove: () => void;
 }>;
 
-/** Where an image comes from, in one row: "Escolher imagem" (or "Trocar imagem"), the bin with an
- *  image, and the link button that opens "Link da imagem" under the row. The file input stays
- *  mounted, so tests and the e2e find it; "Enviando…" and the refusal come below.
+/** Where an image comes from, in one row: "Escolher imagem" (or "Trocar imagem", "Enviando…" while
+ *  it goes), the bin with an image, and the link button, whose "Link da imagem" takes the place of
+ *  the file button in the same row. The file input stays mounted, so tests and the e2e find it;
+ *  only a refusal adds a line below.
  *
  *  Example: `<ImageSourceButtons sender={sender} hasImage={value !== null} onRemove={clear} />` */
 export function ImageSourceButtons(props: ImageSourceButtonsProps): React.JSX.Element {
@@ -26,16 +28,15 @@ export function ImageSourceButtons(props: ImageSourceButtonsProps): React.JSX.El
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          className="flex-1"
-          disabled={sender.busy}
-          onClick={() => fileInput.current?.click()}
-        >
-          <ImageUpIcon aria-hidden="true" />
-          {hasImage ? 'Trocar imagem' : 'Escolher imagem'}
-        </Button>
+        {linking ? (
+          <ImageLinkField sender={sender} onDone={() => setLinking(false)} />
+        ) : (
+          <FileButton
+            sender={sender}
+            hasImage={hasImage}
+            onClick={() => fileInput.current?.click()}
+          />
+        )}
         {hasImage && (
           <SquareButton label={removeLabel} onClick={onRemove}>
             <Trash2Icon aria-hidden="true" />
@@ -61,9 +62,39 @@ export function ImageSourceButtons(props: ImageSourceButtonsProps): React.JSX.El
           event.target.value = '';
         }}
       />
-      {linking && <ImageLinkField sender={sender} onDone={() => setLinking(false)} />}
-      <ImageSendNotice sender={sender} />
+      {linking && sender.busy && (
+        <span role="status" className="sr-only">
+          Enviando…
+        </span>
+      )}
+      <ImageSendProblem sender={sender} />
     </div>
+  );
+}
+
+type FileButtonProps = Readonly<{ sender: ImageSender; hasImage: boolean; onClick: () => void }>;
+
+function FileButton({ sender, hasImage, onClick }: FileButtonProps): React.JSX.Element {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      className="h-9 flex-1"
+      disabled={sender.busy}
+      onClick={onClick}
+    >
+      {sender.busy ? (
+        <>
+          <Loader2Icon aria-hidden="true" className="animate-spin" />
+          <span role="status">Enviando…</span>
+        </>
+      ) : (
+        <>
+          <ImageUpIcon aria-hidden="true" />
+          {hasImage ? 'Trocar imagem' : 'Escolher imagem'}
+        </>
+      )}
+    </Button>
   );
 }
 
@@ -80,7 +111,7 @@ function SquareButton({ label, expanded, onClick, children }: SquareButtonProps)
       type="button"
       variant="outline"
       size="icon"
-      className="size-9"
+      className={cn('size-9', expanded && 'border-primary/60 bg-accent text-primary')}
       aria-label={label}
       aria-expanded={expanded}
       title={label}
@@ -97,8 +128,8 @@ export type ImageLinkFieldProps = Readonly<{
   onDone: () => void;
 }>;
 
-/** "Link da imagem" + "Usar link", focused when it opens: Enter uses it too, Esc gives up. A
- *  refused link stays typed, so it can be fixed.
+/** "Link da imagem" with a filled "Usar" (named "Usar link") inside its right end, focused when it opens: Enter uses it
+ *  too, Esc gives up. A refused link stays typed, so it can be fixed.
  *
  *  Example: `{linking && <ImageLinkField sender={sender} onDone={() => setLinking(false)} />}` */
 export function ImageLinkField({ sender, onDone }: ImageLinkFieldProps): React.JSX.Element {
@@ -109,15 +140,15 @@ export function ImageLinkField({ sender, onDone }: ImageLinkFieldProps): React.J
     if (await sender.sendLink(link)) onDone();
   };
   return (
-    <div className="flex gap-2">
+    <div className="relative min-w-0 flex-1">
       <Input
         ref={input}
         autoFocus
         type="url"
         inputMode="url"
         aria-label="Link da imagem"
-        placeholder="https://…"
-        className="h-9 min-w-0 flex-1 text-[13px]"
+        placeholder="Cole o link da imagem (https://…)"
+        className="h-9 w-full pr-[4.5rem] text-[13px]"
         value={link}
         onChange={(event) => setLink(event.target.value)}
         onKeyDown={(event) => {
@@ -128,12 +159,14 @@ export function ImageLinkField({ sender, onDone }: ImageLinkFieldProps): React.J
       />
       <Button
         type="button"
-        variant="outline"
-        className="h-9"
+        size="sm"
+        aria-label="Usar link"
+        title="Usar link (Enter)"
+        className="absolute top-1 right-1 min-w-15"
         disabled={sender.busy || link.trim() === ''}
         onClick={() => void use()}
       >
-        Usar link
+        {sender.busy ? <Loader2Icon aria-hidden="true" className="animate-spin" /> : 'Usar'}
       </Button>
     </div>
   );
@@ -150,12 +183,17 @@ export function ImageSendNotice({ sender }: Readonly<{ sender: ImageSender }>) {
           Enviando…
         </p>
       )}
-      {sender.problem && (
-        <Alert variant="destructive" className="px-3.5 py-3 text-sm">
-          {sender.problem}
-        </Alert>
-      )}
+      <ImageSendProblem sender={sender} />
     </>
+  );
+}
+
+function ImageSendProblem({ sender }: Readonly<{ sender: ImageSender }>) {
+  if (!sender.problem) return null;
+  return (
+    <Alert variant="destructive" className="px-3.5 py-3 text-sm">
+      {sender.problem}
+    </Alert>
   );
 }
 

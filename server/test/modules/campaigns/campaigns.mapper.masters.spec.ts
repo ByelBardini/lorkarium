@@ -13,6 +13,7 @@ import {
   BIA_ID,
   CAIO_ID,
   DUDA_ID,
+  FREE_ACCOUNT,
   VHARN_ID,
   campaignListingRow,
   campaignMemberPo,
@@ -47,6 +48,7 @@ function publicRow(masterIds: readonly string[]): PublicCampaignRow {
     masterUsername: 'ana',
     memberCount: 3,
     myRole: null,
+    owner: FREE_ACCOUNT,
   };
 }
 

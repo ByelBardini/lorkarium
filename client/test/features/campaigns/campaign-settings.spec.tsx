@@ -1,5 +1,6 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { PLAN_LIMITS } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { CampaignsFailure } from '@/services/campaigns-api';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
@@ -34,7 +35,7 @@ describe('campaign settings page', () => {
   }
 
   describe('form', () => {
-    it('starts at the confirmed campaign, without the bar', async () => {
+    it('starts at the confirmed campaign, with nothing to save', async () => {
       const form = await openSettings();
       expect(within(form).getByLabelText('Nome da mesa')).toHaveValue(VHARN.name);
       expect(within(form).getByLabelText('Sistema')).toHaveValue('D&D 5e');
@@ -57,16 +58,23 @@ describe('campaign settings page', () => {
       expect(
         within(form).getByRole('switch', { name: 'Pedir senha para entrar' }),
       ).not.toBeChecked();
-      expect(screen.queryByRole('region', { name: 'Alterações da mesa' })).not.toBeInTheDocument();
+      expect(within(bar()).getByRole('status')).toHaveTextContent('Sem alterações.');
+      expect(within(bar()).getByRole('button', { name: 'Salvar alterações' })).toBeDisabled();
+      expect(within(bar()).getByRole('button', { name: 'Descartar' })).toBeDisabled();
     });
 
-    it('the first change shows the bar, and "Descartar" puts every field back', async () => {
+    it('the save controls live in the page header, above the scrolling area', async () => {
+      await openSettings();
+      expect(bar().closest('header')).toContainElement(
+        screen.getByRole('heading', { level: 1, name: 'Configurações da mesa' }),
+      );
+    });
+
+    it('the first change says so, and "Descartar" puts every field back', async () => {
       const form = await openSettings();
       await userEvent.type(within(form).getByLabelText('Nome da mesa'), ' II');
       await userEvent.click(within(form).getByRole('button', { name: 'Gore' }));
-      expect(within(bar()).getByRole('status')).toHaveTextContent(
-        'Você tem alterações não salvas.',
-      );
+      expect(within(bar()).getByRole('status')).toHaveTextContent('Alterações não salvas.');
 
       await userEvent.click(within(bar()).getByRole('button', { name: 'Descartar' }));
 
@@ -75,7 +83,7 @@ describe('campaign settings page', () => {
         'aria-pressed',
         'false',
       );
-      expect(screen.queryByRole('region', { name: 'Alterações da mesa' })).not.toBeInTheDocument();
+      expect(within(bar()).getByRole('status')).toHaveTextContent('Sem alterações.');
     });
 
     it('an empty name blocks "Salvar alterações" and marks the field', async () => {
@@ -84,6 +92,7 @@ describe('campaign settings page', () => {
       await userEvent.clear(name);
       expect(name).toHaveAttribute('aria-invalid', 'true');
       expect(form).toHaveTextContent('Informe o nome da mesa.');
+      expect(within(bar()).getByRole('status')).toHaveTextContent('Confira os campos marcados.');
       expect(within(bar()).getByRole('button', { name: 'Salvar alterações' })).toBeDisabled();
     });
 
@@ -118,8 +127,16 @@ describe('campaign settings page', () => {
 
       expect(bar()).toHaveAttribute('aria-busy', 'true');
       expect(within(bar()).getByRole('button', { name: 'Salvando…' })).toBeDisabled();
+      expect(within(bar()).getByRole('button', { name: 'Descartar' })).toBeDisabled();
       await act(async () => release({ ok: true, value: detailOf(VHARN) }));
       expect(await within(bar()).findByText('Tudo salvo.')).toBeInTheDocument();
+    });
+
+    it('Enter in a field saves, like the header button', async () => {
+      const form = await openSettings();
+      deps.campaignsApi.answer('update', { ok: true, value: detailOf(VHARN) });
+      await userEvent.type(within(form).getByLabelText('Sistema'), ' (2024){Enter}');
+      await waitFor(() => expect(lastUpdateInput()).toEqual({ system: 'D&D 5e (2024)' }));
     });
 
     it.each<[string, CampaignsFailure, string]>([
@@ -245,16 +262,37 @@ describe('campaign settings page', () => {
       ]);
     });
 
-    it('the side menu names the five sections of the form and jumps to one', async () => {
+    it('the side menu names the six sections of the form and jumps to one', async () => {
       await openSettings();
       const menu = screen.getByRole('navigation', { name: 'Seções das configurações' });
       expect(
         within(menu)
           .getAllByRole('button')
-          .map((button) => button.textContent),
-      ).toEqual(['Geral', 'Conteúdo', 'Acesso', 'Permissões', 'Zona de perigo']);
+          .map((button) => button.getAttribute('aria-label')),
+      ).toEqual(['Geral', 'Imagens', 'Conteúdo', 'Acesso', 'Permissões', 'Zona de perigo']);
       await userEvent.click(within(menu).getByRole('button', { name: 'Acesso' }));
       expect(screen.getByRole('region', { name: 'Acesso' })).toHaveFocus();
+    });
+
+    it('each menu item is described by the state of its section, following the draft', async () => {
+      const form = await openSettings();
+      const menu = screen.getByRole('navigation', { name: 'Seções das configurações' });
+      const access = within(menu).getByRole('button', { name: 'Acesso' });
+      expect(access).toHaveAccessibleDescription('Privada · sem senha');
+      expect(within(menu).getByRole('button', { name: 'Geral' })).toHaveAccessibleDescription(
+        'Recrutando · D&D 5e',
+      );
+
+      await userEvent.click(within(form).getByRole('switch', { name: 'Pedir senha para entrar' }));
+
+      expect(access).toHaveAccessibleDescription('Privada · com senha');
+    });
+
+    it('the menu ends with when the table was created and how many are in it', async () => {
+      await openSettings();
+      const menu = screen.getByRole('navigation', { name: 'Seções das configurações' });
+      expect(menu).toHaveTextContent('Criada em 1 de setembro de 2026');
+      expect(menu).toHaveTextContent('3 participantes');
     });
 
     // Regression: `scrollIntoView` also scrolled the clipped page and the room under it, which
@@ -384,9 +422,7 @@ describe('campaign settings page', () => {
       );
       await userEvent.click(within(cover).getByRole('button', { name: 'Usar link' }));
 
-      expect(await within(bar()).findByRole('status')).toHaveTextContent(
-        'Você tem alterações não salvas.',
-      );
+      expect(await within(bar()).findByRole('status')).toHaveTextContent('Alterações não salvas.');
       expect(deps.assets.sent).toMatchObject([
         { kind: 'link', campaignId: VHARN.id, purpose: 'cover' },
       ]);
@@ -456,5 +492,25 @@ describe('campaign settings page', () => {
     await save();
 
     expect(await screen.findByRole('heading', { name: 'Bem-vindo de volta' })).toBeInTheDocument();
+  });
+
+  describe('visibility on a table whose plan lacks privateCampaign', () => {
+    const FREE = { limits: PLAN_LIMITS.free, campaignArt: false } as const;
+
+    it('a public table cannot turn private: "Privada" is disabled, the hint names the plan', async () => {
+      const form = await openSettings({ ...FREE, visibility: 'public' });
+      const visibility = within(form).getByRole('radiogroup', { name: 'Visibilidade' });
+      expect(within(visibility).getByRole('radio', { name: 'Privada' })).toBeDisabled();
+      expect(
+        within(visibility).getByRole('radio', { name: 'Privada' }),
+      ).toHaveAccessibleDescription(/Disponível no Narrador/);
+    });
+
+    it('a table already private keeps "Privada" checked and can still go public', async () => {
+      const form = await openSettings({ ...FREE, visibility: 'private' });
+      const visibility = within(form).getByRole('radiogroup', { name: 'Visibilidade' });
+      expect(within(visibility).getByRole('radio', { name: 'Privada' })).toBeChecked();
+      expect(within(visibility).getByRole('radio', { name: 'Pública' })).toBeEnabled();
+    });
   });
 });

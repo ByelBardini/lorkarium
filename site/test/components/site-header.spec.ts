@@ -26,7 +26,8 @@ describe('the site header', () => {
     ['A sessão', '/#cena'],
     ['Combate', '/#combate'],
     ['Perguntas', '/#perguntas'],
-  ])('links "%s" to the landing anchor %s', async (name, href) => {
+    ['Planos', '/planos/'],
+  ])('links "%s" to %s', async (name, href) => {
     const page = await renderAstro(SiteHeader);
 
     expect(linkNamed(page, name)?.getAttribute('href')).toBe(href);

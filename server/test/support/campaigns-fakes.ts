@@ -78,6 +78,7 @@ export class CampaignsDaoFake implements Pick<
   | 'replaceJoinCode'
   | 'delete'
   | 'lockWithOwner'
+  | 'findOwnerPlan'
   | 'lockById'
   | 'countOwnedBy'
   | 'idsOwnedBy'
@@ -95,6 +96,13 @@ export class CampaignsDaoFake implements Pick<
     if (!row) return undefined;
     const owner = this.ownerPlans.get(row.ownerId) ?? FRIEND_OF_THE_OWNER;
     return { ...row, owner };
+  }
+
+  /** The owner's plan from `ownerPlans`, unlocked (nothing written). */
+  async findOwnerPlan(campaignId: string): Promise<UserPlanPo | undefined> {
+    const row = this.rows.find((candidate) => candidate.id === campaignId);
+    if (!row) return undefined;
+    return this.ownerPlans.get(row.ownerId) ?? FRIEND_OF_THE_OWNER;
   }
 
   /** Writes `lock:<id>` to `writes`, like `lockWithOwner`. */
@@ -222,6 +230,7 @@ export class CampaignMembersDaoFake implements Pick<
           masterUsername: this.nameOf(campaign.ownerId).toLowerCase(),
           memberCount,
           myRole: reader?.role ?? null,
+          owner: FREE_ACCOUNT,
         };
       });
   }

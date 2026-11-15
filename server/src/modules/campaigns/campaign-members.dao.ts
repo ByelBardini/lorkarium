@@ -44,6 +44,8 @@ export type PublicCampaignRow = Readonly<{
   masterUsername: string;
   memberCount: number;
   myRole: CampaignMemberPo['role'] | null;
+  /** The owner's role, plan and Dono flag: whether the cover and the banner come from the photo. */
+  owner: UserPlanPo;
 }>;
 
 /** What turning juggernaut mode off did: the role the member went back to, or `null` when they
@@ -77,6 +79,12 @@ export type CampaignMemberRow = Readonly<{
 
 // The owner is the campaign's master in the listings: a co-master never duplicates the row.
 const ownerUsers = alias(users, 'owner_user');
+// What decides the limits of a listed table (and so whether its cover comes from the photo).
+const ownerPlanColumns = {
+  role: ownerUsers.role,
+  plan: ownerUsers.plan,
+  lorkariumOwner: lorkariumOwnerSql(ownerUsers.username),
+};
 const readerMembers = alias(campaignMembers, 'reader_member');
 
 // The table keeps no trace of who only watches nor of a juggernaut: neither counts.
@@ -130,11 +138,7 @@ export class CampaignMembersDao {
         lastEnteredAt: campaignMembers.lastEnteredAt,
         masterName: ownerUsers.name,
         memberCount: memberCountOfCampaign,
-        owner: {
-          role: ownerUsers.role,
-          plan: ownerUsers.plan,
-          lorkariumOwner: lorkariumOwnerSql(ownerUsers.username),
-        },
+        owner: ownerPlanColumns,
       })
       .from(campaignMembers)
       .innerJoin(campaigns, eq(campaigns.id, campaignMembers.campaignId))
@@ -162,6 +166,7 @@ export class CampaignMembersDao {
         masterUsername: ownerUsers.username,
         memberCount: memberCountOfCampaign,
         myRole: readerMembers.role,
+        owner: ownerPlanColumns,
       })
       .from(campaigns)
       .innerJoin(ownerUsers, eq(ownerUsers.id, campaigns.ownerId))

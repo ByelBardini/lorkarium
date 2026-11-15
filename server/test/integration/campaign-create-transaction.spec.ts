@@ -23,7 +23,7 @@ const NEW_CAMPAIGN = {
   system: null,
   status: 'building',
   description: null,
-  visibility: 'private',
+  visibility: 'public',
 } as const;
 
 /** A scenes DAO whose insert always fails, as a lost connection or a constraint would. */

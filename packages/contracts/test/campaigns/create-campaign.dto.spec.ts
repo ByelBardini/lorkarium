@@ -25,8 +25,8 @@ describe('createCampaignRequestDto', () => {
     expect(parsed.password).toBeUndefined();
   });
 
-  it('defaults the visibility to private when it is not sent', () => {
-    expect(createCampaignRequestDto.parse({ name: 'Mesa' }).visibility).toBe('private');
+  it('leaves the visibility out when it is not sent: the plan decides it on the server', () => {
+    expect(createCampaignRequestDto.parse({ name: 'Mesa' })).not.toHaveProperty('visibility');
   });
 
   it('accepts a name of exactly 80 characters', () => {

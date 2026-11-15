@@ -468,6 +468,7 @@ describe('TableSessionService campaign changes', () => {
     cover: { kind: 'drawn', drawing: 1, tone: 2 },
     photoAssetId: null,
     bannerAssetId: null,
+    campaignArt: true,
     contentWarnings: [],
     tags: [],
     playersCreateTokens: false,
