@@ -28,7 +28,7 @@ async function setTokenSettings(
   for (const [name, on] of Object.entries(settings)) {
     await form.getByRole('switch', { name }).setChecked(on);
   }
-  const bar = form.getByRole('region', { name: 'Alterações da mesa' });
+  const bar = master.getByRole('region', { name: 'Alterações da mesa' });
   await bar.getByRole('button', { name: 'Salvar alterações' }).click();
   await expect(bar.getByRole('status')).toHaveText('Tudo salvo.');
   await master.getByRole('link', { name: 'Voltar à mesa' }).click();

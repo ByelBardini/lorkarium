@@ -74,7 +74,7 @@ async function enterAndOpenSettings(master: Page, name: string): Promise<void> {
 async function rename(master: Page, newName: string): Promise<void> {
   const form = settingsFormOf(master);
   await form.getByLabel('Nome da mesa', { exact: true }).fill(newName);
-  const bar = form.getByRole('region', { name: 'Alterações da mesa' });
+  const bar = master.getByRole('region', { name: 'Alterações da mesa' });
   await bar.getByRole('button', { name: 'Salvar alterações' }).click();
   await expect(bar.getByRole('status')).toHaveText('Tudo salvo.');
 }
@@ -120,7 +120,7 @@ async function sendCroppedPhoto(master: Page): Promise<string> {
   await expect(crop.getByText('1,1×', { exact: true })).toBeVisible();
   await send.click();
   await expect(crop).toBeHidden();
-  const chosen = photo.getByRole('img', { name: 'Imagem escolhida' });
+  const chosen = photo.locator('[data-campaign-image-preview] img');
   await expect(chosen).toBeVisible();
   const src = await chosen.getAttribute('src');
   if (!src) throw new Error(`expected the photo field to show /api/assets/<id>, received ${src}`);
@@ -136,7 +136,7 @@ function proportionOf(img: unknown): number {
 }
 
 async function saveSettings(master: Page): Promise<void> {
-  const bar = settingsFormOf(master).getByRole('region', { name: 'Alterações da mesa' });
+  const bar = master.getByRole('region', { name: 'Alterações da mesa' });
   await bar.getByRole('button', { name: 'Salvar alterações' }).click();
   await expect(bar.getByRole('status')).toHaveText('Tudo salvo.');
 }

@@ -5,7 +5,12 @@ import { openLibrary, openNewItem } from './support/library';
 import { test } from './support/player-pages';
 import { setPlanOf } from './support/plans';
 import { adminCredentials, signIn } from './support/sign-in';
-import { createTableAndReadCode, enterFromTheList, joinByCodeAndEnter } from './support/tables';
+import {
+  chooseFromTableMenu,
+  createTableAndReadCode,
+  enterFromTheList,
+  joinByCodeAndEnter,
+} from './support/tables';
 
 // A new table is born with one grid; four more fill the Grátis ceiling of 5.
 const GRIDS_TO_FILL_THE_FREE_CEILING = 4;
@@ -114,6 +119,29 @@ test.describe('plans', () => {
       code: 'PLAN_LIMIT',
       planLimit: { resource: 'scenes', limit: 5, plan: 'free' },
     });
+  });
+
+  // Created before the plan went down: the table stays private (grandfathering), but the cover
+  // and the banner now come from the photo, their pickers locked with the plan's hint.
+  test('a Grátis owner keeps a private table; the cover picker points to the photo', async ({
+    page: admin,
+    newPlayerPage,
+  }) => {
+    await signIn(admin, adminCredentials());
+    const bia = await newPlayerPage();
+    await signIn(bia, BIA);
+    await createTableAndReadCode(bia, 'Mesa da foto da Bia');
+    await setPlanOf(admin, 'bia', 'free');
+
+    await bia.reload();
+    await enterFromTheList(bia, 'Mesa da foto da Bia');
+    await chooseFromTableMenu(bia, 'Configurações da mesa');
+    const form = bia.getByRole('form', { name: 'Configurações da mesa' });
+    const cover = form.getByRole('group', { name: 'Capa', exact: true });
+    await expect(cover).toContainText('A mesa usa a foto. Disponível no Narrador');
+    await expect(cover.locator('fieldset')).toHaveAttribute('disabled', '');
+    const visibility = form.getByRole('radiogroup', { name: 'Visibilidade' });
+    await expect(visibility.getByRole('radio', { name: 'Privada' })).toBeChecked();
   });
 
   test('Caio, Amigo do Dono, creates a second table as usual', async ({ newPlayerPage }) => {
