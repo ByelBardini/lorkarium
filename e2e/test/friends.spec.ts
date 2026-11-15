@@ -64,11 +64,11 @@ test('friendship end to end: request, accept, presence, conversation, invisible 
 
   await openFriends(bia);
   await bia.getByRole('button', { name: 'Adicionar' }).click();
-  await bia.getByLabel('Adicionar pelo @usuário').fill('@caio');
-  await bia.getByRole('button', { name: 'Enviar' }).click();
-  await expect(
-    bia.getByRole('status').filter({ hasText: 'Pedido enviado pra @caio.' }),
-  ).toBeVisible();
+  const adding = bia.getByRole('dialog', { name: 'Adicionar amigo' });
+  await adding.getByLabel('Buscar pelo @usuário').fill('@cai');
+  await adding.getByRole('button', { name: 'Enviar pedido pra @caio' }).click();
+  await expect(adding.getByRole('button', { name: 'Pedido enviado pra @caio' })).toBeDisabled();
+  await bia.keyboard.press('Escape');
 
   await openFriends(caio);
   await caio.getByRole('tab', { name: 'Pedidos (1)' }).click();

@@ -1,4 +1,7 @@
 import {
+  PROFILE_CONTACT_MAX_LENGTH,
+  PROFILE_GAME_SYSTEMS_MAX_LENGTH,
+  PROFILE_PLAY_SCHEDULE_MAX_LENGTH,
   updateProfileRequestDto,
   type MemberColorDto,
   type ProfileDto,
@@ -14,9 +17,26 @@ export type ProfileDraftValues = Readonly<{
   color: MemberColorDto;
   bio: string;
   diceNumberColor: string | null;
+  gameSystems: string;
+  playSchedule: string;
+  contact: string;
 }>;
 
-export type ProfileDraftErrors = Partial<Record<'name' | 'bio', string>>;
+/** The free texts of the profile shown on the card, each with its own ceiling. */
+export type ProfilePreferenceField = 'gameSystems' | 'playSchedule' | 'contact';
+
+/** The ceiling of each game preference, from the contracts.
+ *
+ *  Example: `PREFERENCE_MAX_LENGTH.contact // 200` */
+export const PREFERENCE_MAX_LENGTH: Readonly<Record<ProfilePreferenceField, number>> = {
+  gameSystems: PROFILE_GAME_SYSTEMS_MAX_LENGTH,
+  playSchedule: PROFILE_PLAY_SCHEDULE_MAX_LENGTH,
+  contact: PROFILE_CONTACT_MAX_LENGTH,
+};
+
+const PREFERENCE_FIELDS = Object.keys(PREFERENCE_MAX_LENGTH) as ProfilePreferenceField[];
+
+export type ProfileDraftErrors = Partial<Record<'name' | 'bio' | ProfilePreferenceField, string>>;
 
 export type ProfileDraft = Readonly<{
   values: ProfileDraftValues;
@@ -56,6 +76,9 @@ function confirmedValues(profile: ProfileDto): ProfileDraftValues {
     color: profile.colorChoice ?? profile.color,
     bio: profile.bio ?? '',
     diceNumberColor: profile.diceNumberColor,
+    gameSystems: profile.gameSystems ?? '',
+    playSchedule: profile.playSchedule ?? '',
+    contact: profile.contact ?? '',
   };
 }
 
@@ -63,7 +86,9 @@ function changesOf(
   values: ProfileDraftValues,
   confirmed: ProfileDraftValues,
 ): Partial<ProfileDraftValues> {
+  const preferences = PREFERENCE_FIELDS.filter((field) => values[field] !== confirmed[field]);
   return {
+    ...Object.fromEntries(preferences.map((field) => [field, values[field]])),
     ...(values.name === confirmed.name ? {} : { name: values.name }),
     ...(values.color === confirmed.color ? {} : { color: values.color }),
     ...(values.bio === confirmed.bio ? {} : { bio: values.bio }),
@@ -85,5 +110,8 @@ function checkChanges(changes: Partial<ProfileDraftValues>): {
     errors.name = changes.name?.trim() === '' ? FIELD_MESSAGES.emptyName : FIELD_MESSAGES.longName;
   }
   if (fields.has('bio')) errors.bio = FIELD_MESSAGES.longBio;
+  for (const field of PREFERENCE_FIELDS) {
+    if (fields.has(field)) errors[field] = FIELD_MESSAGES.longText(PREFERENCE_MAX_LENGTH[field]);
+  }
   return { update: null, errors };
 }

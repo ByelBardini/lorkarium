@@ -57,7 +57,11 @@ test.describe('plans', () => {
     );
   });
 
-  test('the Lenda seal reaches the card of Bia live', async ({ page: admin, newPlayerPage }) => {
+  // The roster's seal follows the plan live; the profile card is read when it opens.
+  test('the Lenda seal reaches the roster live and the card of Bia on reopening', async ({
+    page: admin,
+    newPlayerPage,
+  }) => {
     await signIn(admin, adminCredentials());
     const bia = await newPlayerPage();
     await signIn(bia, BIA);
@@ -66,17 +70,16 @@ test.describe('plans', () => {
     const caio = await newPlayerPage();
     await signIn(caio, CAIO);
     await joinByCodeAndEnter(caio, code, bia);
-
-    await caio
-      .getByRole('region', { name: 'Na mesa' })
-      .getByRole('button', { name: 'Bia', exact: true })
-      .click();
-    const card = caio.getByRole('dialog', { name: 'Cartão de Bia' });
-    await expect(card.getByRole('img', { name: 'Amigo do Dono' })).toBeVisible();
+    const roster = caio.getByRole('region', { name: 'Na mesa' });
+    const nickOfBia = roster.getByTestId('nick-line').filter({ hasText: 'Bia' });
+    await expect(nickOfBia.getByRole('img', { name: 'Amigo do Dono' })).toBeVisible();
 
     await changePlanInBackoffice(admin, 'Bia', 'Lenda');
     await expect(admin.getByText('@bia agora está no plano Lenda.')).toBeVisible();
 
+    await expect(nickOfBia.getByRole('img', { name: 'Plano Lenda' })).toBeVisible();
+    await roster.getByRole('button', { name: 'Bia', exact: true }).click();
+    const card = caio.getByRole('dialog', { name: 'Perfil de Bia' });
     await expect(card.getByRole('img', { name: 'Plano Lenda' })).toBeVisible();
     await expect(card.getByRole('img', { name: 'Amigo do Dono' })).toHaveCount(0);
   });

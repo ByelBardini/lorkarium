@@ -49,6 +49,12 @@ export { accountSavedColors } from '../modules/saved-colors/saved-colors.po';
 export { friendRequests } from '../modules/friends/friend-requests.po';
 export { friendships } from '../modules/friends/friendships.po';
 export { userBlocks } from '../modules/friends/user-blocks.po';
+export { reputationVotes } from '../modules/reputation/reputation-votes.po';
+export {
+  userReportReason,
+  userReportStatus,
+  userReports,
+} from '../modules/reports/user-reports.po';
 
 export { libraryImages } from '../modules/library/library-images.po';
 export { libraryImagePresentations } from '../modules/library/image-presentations.po';

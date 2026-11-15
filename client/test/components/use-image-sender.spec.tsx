@@ -143,13 +143,23 @@ describe('useImageSender', () => {
       expect(assets.sent).toEqual([]);
     });
 
-    it('a GIF for the photo is refused before the crop opens', () => {
+    it('a GIF for the photo opens the crop too: the server keeps it animated or still by plan', () => {
       const { result } = senderWith(assets, sent, 'campaign_photo');
+      const gif = new File([], 'a', { type: 'image/gif' });
+
+      act(() => result.current.sendFile(gif));
+
+      expect(result.current.problem).toBeNull();
+      expect(result.current.cropping).toEqual({ file: gif, purpose: 'campaign_photo' });
+      expect(result.current.accept).toContain('image/gif');
+    });
+
+    it('a GIF for a token is still refused before sending', () => {
+      const { result } = senderWith(assets, sent, 'token');
 
       act(() => result.current.sendFile(new File([], 'a', { type: 'image/gif' })));
 
       expect(result.current.problem).toBe('Use PNG, JPEG ou WebP.');
-      expect(result.current.cropping).toBeNull();
     });
 
     it('a token file has no frame and goes straight, as before', async () => {

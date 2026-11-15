@@ -5,6 +5,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import { loginPathFor } from '@/app/route-access';
 import { avatarFileProblem } from '@/lib/avatar-file';
 import type { AccountResult } from '@/services/account-failure';
+import type { ImageCropRect } from '@/services/assets-api';
 import type { ProfileApi, ProfileFailure } from '@/services/profile-api';
 import type { SessionStore } from '@/stores/session-store';
 import { applyProfileToSession } from './session-profile';
@@ -12,7 +13,8 @@ import { applyProfileToSession } from './session-profile';
 export type ProfileImageUpload = Readonly<{
   sending: boolean;
   failure: ProfileFailure | null;
-  send: (file: File) => void;
+  /** `crop`: the rectangle framed in the crop dialog, for an image the server cuts (the banner). */
+  send: (file: File, crop?: ImageCropRect) => void;
   /** The image from a link; answers whether it was kept, so the link field closes only then. */
   sendLink: (url: string) => Promise<boolean>;
 }>;
@@ -21,9 +23,9 @@ type ProfileOutcome = AccountResult<ProfileDto, ProfileFailure>;
 
 /** Where one image of the profile goes: its file, its link, and the refusal of a file too big. */
 type ProfileImageTarget = Readonly<{
-  upload: (file: File) => Promise<ProfileOutcome>;
+  upload: (file: File, crop?: ImageCropRect) => Promise<ProfileOutcome>;
   fromLink: (url: string) => Promise<ProfileOutcome>;
-  tooLarge: 'avatar_too_large' | 'dice_texture_too_large';
+  tooLarge: 'avatar_too_large' | 'dice_texture_too_large' | 'banner_too_large';
 }>;
 
 /** Sends a chosen or dropped photo: checked here first (type and 5 MB), then `PUT` to the server;
@@ -56,6 +58,21 @@ export function useDiceTextureUpload(
   });
 }
 
+/** Sends the banner file with the 3:1 rectangle picked (or a link, which the server centers),
+ *  with the photo's checks; once kept, the account reloads and the card preview shows it.
+ *
+ *  Example: `const upload = useBannerUpload(profileApi, sessionStore); upload.send(file, rect)` */
+export function useBannerUpload(
+  profileApi: ProfileApi,
+  sessionStore: StoreApi<SessionStore>,
+): ProfileImageUpload {
+  return useProfileImageUpload(sessionStore, {
+    upload: (file, crop) => profileApi.uploadBanner(file, crop),
+    fromLink: (url) => profileApi.bannerFromLink(url),
+    tooLarge: 'banner_too_large',
+  });
+}
+
 // The file goes straight to the service, like the table images (`useImageSender`): a `File` does
 // not travel through a JSON submit, and the image is saved apart from the profile bar anyway.
 function useProfileImageUpload(
@@ -73,10 +90,10 @@ function useProfileImageUpload(
     await settle(result);
     return result.ok;
   };
-  const send = (file: File): void => {
+  const send = (file: File, crop?: ImageCropRect): void => {
     const problem = fileProblemOf(file, target.tooLarge);
     if (problem) return setFailure(problem);
-    void sendWith(() => target.upload(file));
+    void sendWith(() => target.upload(file, crop));
   };
   const sendLink = (url: string): Promise<boolean> => sendWith(() => target.fromLink(url.trim()));
   return { sending, failure, send, sendLink };

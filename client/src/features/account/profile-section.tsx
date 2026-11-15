@@ -2,23 +2,24 @@ import { PROFILE_BIO_MAX_LENGTH, type ProfileDto } from '@lorkarium/contracts';
 import { useId } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { UserHandle } from '@/components/user-handle';
 import type { ProfileApi } from '@/services/profile-api';
 import type { ChatPreferencesStore } from '@/stores/chat-preferences-store';
 import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
 import type { SessionStore } from '@/stores/session-store';
 import { AvatarField } from './avatar-field';
+import { BannerField } from './banner-field';
 import { ChatDeviceSwitch } from './chat-device-switch';
 import { DiceAppearanceField } from './dice-appearance-field';
 import { DiceDeviceSwitches } from './dice-device-switches';
 import { ProfileColorField } from './profile-color-field';
 import { ProfileForm } from './profile-form';
 import { ProfilePreview } from './profile-preview';
+import { FieldError, ProfileTextRow } from './profile-text-row';
 import { SectionHeading } from './section-heading';
 import { SettingsLayout } from './settings-layout';
 import { SettingsRow } from './settings-row';
-import type { ProfileDraft } from './use-profile-draft';
+import { PREFERENCE_MAX_LENGTH, type ProfileDraft } from './use-profile-draft';
 import type { ProfileEditor } from './use-profile-editor';
 
 export type ProfileSectionProps = Readonly<{
@@ -32,7 +33,8 @@ export type ProfileSectionProps = Readonly<{
 
 /** "Perfil": photo, nickname, the read-only @, color, "Sobre você" and the dice ("Seus dados",
  *  "Dados 3D", "Som dos dados") and "Som do chat", one setting per row, with the preview held beside from `xl`.
- *  Nickname, color, bio and the dice number color wait in the page's draft for the bar.
+ *  Banner (on its own, by plan), systems, schedule and contact too.
+ *  Nickname, color, bio, preferences and the dice number color wait in the page's draft for the bar.
  *
  *  Example: `<ProfileSection profile={profile} editor={editor} profileApi={profileApi} sessionStore={sessionStore} dicePreferences={dicePreferences} chatPreferences={chatPreferences} />` */
 export function ProfileSection(props: ProfileSectionProps): React.JSX.Element {
@@ -50,6 +52,7 @@ export function ProfileSection(props: ProfileSectionProps): React.JSX.Element {
               {...editor.draft.values}
               username={profile.username}
               avatarId={profile.avatarId}
+              bannerId={profile.bannerId}
               memberSince={profile.memberSince}
               seal={profile}
             />
@@ -72,7 +75,16 @@ function ProfileRows(props: ProfileSectionProps): React.JSX.Element {
       <NicknameRow draft={draft} />
       <UsernameRow profile={profile} />
       <ColorRow draft={draft} />
-      <BioRow draft={draft} />
+      <ProfileTextRow
+        draft={draft}
+        field="bio"
+        title="Sobre você"
+        description="Aparece no seu cartão na mesa."
+        max={PROFILE_BIO_MAX_LENGTH}
+        rows={5}
+      />
+      <BannerField profile={profile} {...images} />
+      <PreferenceRows draft={draft} />
       <DiceAppearanceField profile={profile} draft={draft} {...images} />
       <DiceDeviceSwitches dicePreferences={props.dicePreferences} />
       <ChatDeviceSwitch chatPreferences={props.chatPreferences} />
@@ -81,6 +93,35 @@ function ProfileRows(props: ProfileSectionProps): React.JSX.Element {
 }
 
 type DraftRowProps = Readonly<{ draft: ProfileDraft }>;
+
+function PreferenceRows({ draft }: DraftRowProps): React.JSX.Element {
+  const max = PREFERENCE_MAX_LENGTH;
+  return (
+    <>
+      <ProfileTextRow
+        draft={draft}
+        field="gameSystems"
+        title="Sistemas e cenários"
+        description="O que você joga ou mestra, em texto livre."
+        max={max.gameSystems}
+      />
+      <ProfileTextRow
+        draft={draft}
+        field="playSchedule"
+        title="Horários"
+        description="Quando você costuma jogar."
+        max={max.playSchedule}
+      />
+      <ProfileTextRow
+        draft={draft}
+        field="contact"
+        title="Contato"
+        description="Como falar com você fora do Lorkarium (Discord, e-mail…). Aparece no cartão completo."
+        max={max.contact}
+      />
+    </>
+  );
+}
 
 function NicknameRow({ draft }: DraftRowProps): React.JSX.Element {
   const id = useId();
@@ -126,38 +167,5 @@ function ColorRow({ draft }: DraftRowProps): React.JSX.Element {
         describedBy={ids.hint}
       />
     </SettingsRow>
-  );
-}
-
-function BioRow({ draft }: DraftRowProps): React.JSX.Element {
-  const id = useId();
-  const error = draft.errors.bio;
-  const length = draft.values.bio.length;
-  return (
-    <SettingsRow title="Sobre você" titleFor={id} description="Aparece no seu cartão na mesa.">
-      <Textarea
-        id={id}
-        rows={5}
-        value={draft.values.bio}
-        onChange={(event) => draft.change({ bio: event.target.value })}
-        aria-invalid={error !== undefined}
-        aria-describedby={error ? `${id}-error` : undefined}
-      />
-      <div className="flex justify-between gap-4">
-        <FieldError id={`${id}-error`} error={error} />
-        <p className="ml-auto text-sm text-placeholder tabular-nums">
-          {length}/{PROFILE_BIO_MAX_LENGTH}
-        </p>
-      </div>
-    </SettingsRow>
-  );
-}
-
-function FieldError({ id, error }: Readonly<{ id: string; error: string | undefined }>) {
-  if (!error) return null;
-  return (
-    <p id={id} className="text-sm text-destructive-text">
-      {error}
-    </p>
   );
 }

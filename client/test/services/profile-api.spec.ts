@@ -180,4 +180,67 @@ describe('HttpProfileApi', () => {
       });
     });
   });
+  describe('banner', () => {
+    it('uploadBanner PUTs the file itself to /account/banner and yields the profile', async () => {
+      const file = new Blob([new Uint8Array([1])], { type: 'image/webp' });
+      transport.respondWith(200, { profile: ANA_PROFILE });
+      expect(await api.uploadBanner(file)).toEqual({ ok: true, value: ANA_PROFILE });
+      expect(transport.requests).toEqual([{ method: 'PUT', path: '/account/banner', body: file }]);
+    });
+
+    it('uploadBanner with the picked rectangle sends it in the query, in percent', async () => {
+      const file = new Blob([new Uint8Array([1])], { type: 'image/gif' });
+      transport.respondWith(200, { profile: ANA_PROFILE });
+
+      await api.uploadBanner(file, { x: 0, y: 12.5, width: 100, height: 33 });
+
+      expect(transport.requests).toEqual([
+        {
+          method: 'PUT',
+          path: '/account/banner?cropX=0&cropY=12.5&cropW=100&cropH=33',
+          body: file,
+        },
+      ]);
+    });
+
+    it.each([
+      [413, { code: 'BANNER_TOO_LARGE', message: 'x' }, 'banner_too_large'],
+      [413, null, 'banner_too_large'],
+      [422, null, 'unsupported_image'],
+    ] as const)('uploadBanner answered %i with %o fails as %s', async (status, body, kind) => {
+      transport.respondWith(status, body);
+      expect(await api.uploadBanner(new Blob(['x'], { type: 'image/png' }))).toEqual({
+        ok: false,
+        failure: { kind },
+      });
+    });
+
+    it('uploadBanner refused PLAN_LIMIT carries the plan limit', async () => {
+      const planLimit = { resource: 'profileBanner', limit: 0, plan: 'free' };
+      transport.respondWith(403, { code: 'PLAN_LIMIT', message: 'x', planLimit });
+      expect(await api.uploadBanner(new Blob(['x']))).toEqual({
+        ok: false,
+        failure: { kind: 'plan_limit', planLimit },
+      });
+    });
+
+    it('bannerFromLink POSTs the link to /account/banner/link', async () => {
+      transport.respondWith(200, { profile: ANA_PROFILE });
+      expect(await api.bannerFromLink('https://x.com/b.png')).toEqual({
+        ok: true,
+        value: ANA_PROFILE,
+      });
+      expect(transport.requests).toEqual([
+        { method: 'POST', path: '/account/banner/link', body: { url: 'https://x.com/b.png' } },
+      ]);
+    });
+
+    it('removeBanner DELETEs /account/banner and yields the profile', async () => {
+      transport.respondWith(200, { profile: ANA_PROFILE });
+      expect(await api.removeBanner()).toEqual({ ok: true, value: ANA_PROFILE });
+      expect(transport.requests).toEqual([
+        { method: 'DELETE', path: '/account/banner', body: undefined },
+      ]);
+    });
+  });
 });

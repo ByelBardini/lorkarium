@@ -162,7 +162,7 @@ describe('SessionPresencePanel', () => {
     const masters = section('Mestre');
     const nick = within(masters).getByTestId('nick-line');
     const seal = within(nick).getByRole('img', { name: 'Administrador' });
-    expect(within(nick).getByRole('button', { name: 'Ana' }).nextElementSibling).toBe(seal);
+    expect(within(nick).getByText('Ana').nextElementSibling).toBe(seal);
     expect(within(masters).getByText('Dono', { selector: '[data-seal]' })).toBeInTheDocument();
   });
 

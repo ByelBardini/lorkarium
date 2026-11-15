@@ -115,17 +115,31 @@ describe('animationFor', () => {
   it.each(['aura', 'sheet_image'] as const)(
     'a %s image may stay animated within 120 frames and 16 MP decoded',
     (purpose) => {
-      expect(animationFor(purpose, ANIMATION)).toEqual({
+      expect(animationFor(purpose, ANIMATION, false)).toEqual({
         maxFrames: 120,
         maxDecodedPixels: 16_000_000,
       });
     },
   );
 
-  it.each(['token', 'background', 'cover', 'condition'] as const)(
-    'a %s image never animates (no budget)',
+  it.each(['campaign_photo', 'cover', 'campaign_banner'] as const)(
+    'a %s animates within the same budget when the owner has the customizations',
     (purpose) => {
-      expect(animationFor(purpose, ANIMATION)).toBeNull();
+      expect(animationFor(purpose, ANIMATION, true)).toEqual(ANIMATION);
+    },
+  );
+
+  it.each(['campaign_photo', 'cover', 'campaign_banner'] as const)(
+    'a %s stays still (no budget) on an owner without the customizations',
+    (purpose) => {
+      expect(animationFor(purpose, ANIMATION, false)).toBeNull();
+    },
+  );
+
+  it.each(['token', 'background', 'condition', 'library_image'] as const)(
+    'a %s image never animates, whatever the plan',
+    (purpose) => {
+      expect(animationFor(purpose, ANIMATION, true)).toBeNull();
     },
   );
 });

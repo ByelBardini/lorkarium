@@ -6,8 +6,8 @@ import {
   type FramedAssetPurposeDto,
 } from '@lorkarium/contracts';
 
-// Only the aura keeps a GIF animated; every other place stores a still image (the server refuses
-// GIF outside the purpose `aura`), so the picker refuses it before sending.
+// A GIF goes where it can play (the aura; the table photo, cover and banner, which move on a paid
+// owner and keep their first frame on Grátis); elsewhere the picker refuses it before sending.
 const ANIMATED_TYPES: readonly string[] = ASSET_MIME_TYPES;
 const STILL_TYPES: readonly string[] = ASSET_MIME_TYPES.filter((type) => type !== 'image/gif');
 
@@ -15,14 +15,15 @@ export const IMAGE_TYPE_PROBLEM = 'Use PNG, JPEG ou WebP.';
 export const ANIMATED_IMAGE_TYPE_PROBLEM = 'Use PNG, JPEG, WebP ou GIF.';
 export const IMAGE_SIZE_PROBLEM = 'A imagem passa de 20 MB.';
 
-/** Whether the place that takes the image animates it (only the aura does). */
+/** Whether the place that takes the image may animate it (a GIF is accepted). */
 export type ImageFileOptions = Readonly<{ animated?: boolean }>;
 
-/** Whether a purpose keeps the image animated (a GIF plays): only the aura.
+/** Whether a purpose may keep the image animated, so its picker takes a GIF: the aura, and the
+ *  three table images (they play when the table owner's plan has the customizations).
  *
- *  Example: `animatesImage('aura') // true` */
+ *  Example: `animatesImage('cover') // true` */
 export function animatesImage(purpose: AssetPurposeDto): boolean {
-  return purpose === 'aura';
+  return purpose === 'aura' || isFramedPurpose(purpose);
 }
 
 /** Whether the server keeps a purpose in a fixed aspect (the three campaign images), so a chosen

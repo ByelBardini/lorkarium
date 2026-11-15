@@ -23,6 +23,7 @@ import { GuardedImageFetcher } from '../infrastructure/image-fetcher/guarded-ima
 import { SharpImageProcessor } from '../infrastructure/image-processor/sharp-image-processor';
 import { createAssetsModule } from '../modules/assets/assets.plugin';
 import { SharpAvatarProcessor } from '../infrastructure/avatar-processor/sharp-avatar-processor';
+import type { ProfileCardPresencePort } from '../modules/profiles/profile-card-presence.port';
 import { createProfilesModule } from '../modules/profiles/profiles.plugin';
 import type { ProfileChangedPort } from '../modules/profiles/profile-changed.port';
 import { CryptoCampaignCode } from '../infrastructure/campaign-code/crypto-campaign-code';
@@ -69,6 +70,8 @@ import { createWallsModule } from '../modules/walls/walls.plugin';
 import { createScenesModule } from '../modules/scenes/scenes.plugin';
 import { createLibraryModule } from '../modules/library/library.plugin';
 import { createSavedColorsModule } from '../modules/saved-colors/saved-colors.plugin';
+import { createReputationModule } from '../modules/reputation/reputation.plugin';
+import { createReportsModule } from '../modules/reports/reports.plugin';
 import { createPlansModule } from '../modules/plans/plans.plugin';
 import { createSavedRollsModule } from '../modules/saved-rolls/saved-rolls.plugin';
 import { createTokensModule } from '../modules/tokens/tokens.plugin';
@@ -244,6 +247,9 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   await app.register(templateAssets.plugin, { prefix: API_PREFIX });
   await app.register(createSavedRollsModule({ db: deps.db }).plugin, { prefix: API_PREFIX });
   await app.register(createSavedColorsModule({ db: deps.db }).plugin, { prefix: API_PREFIX });
+  const reputation = createReputationModule({ db: deps.db });
+  await app.register(reputation.plugin, { prefix: API_PREFIX });
+  await app.register(createReportsModule({ db: deps.db }).plugin, { prefix: API_PREFIX });
   await app.register(createPlansModule({ db: deps.db, clock }).plugin, { prefix: API_PREFIX });
   const { profileChanged } = outlets;
   const avatars = new SharpAvatarProcessor();
@@ -255,6 +261,8 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
     processor: avatars,
     profileChanged,
     fetcher: avatarFetcher,
+    reputation: reputation.service,
+    presence: outlets.accountPresence,
   };
   const profiles = createProfilesModule(profilesOptions);
   await app.register(profiles.plugin, { prefix: API_PREFIX });
@@ -296,6 +304,8 @@ type RealtimeOutlets = Readonly<{
   memberRemoved: MemberRemovedPort;
   /** The character of a member, written in the transaction of their new role. */
   seatIn: (tx: Transaction) => MemberSeatPort;
+  /** The friends' online/invisible status, read by the profile card. */
+  accountPresence: ProfileCardPresencePort;
   /** `friends:changed` to each account's `user:<id>` room, once the direct messages forget. */
   friendsChanged: FriendsChangedPort;
 }>;
@@ -412,7 +422,7 @@ function wireRealtime(
   const { seatIn } = characters;
   const { friendsChanged } = account;
   const live = { profileChanged, campaignChanged, memberRoleChanged, memberRemoved, seatIn };
-  return { ...outlets, ...live, friendsChanged };
+  return { ...outlets, ...live, friendsChanged, accountPresence: account.presence };
 }
 
 function loggerOptions(env: Env): FastifyServerOptions['logger'] {

@@ -17,6 +17,7 @@
 
 ## Envio e leitura
 
+- `imageCropQueryDto` `{ cropX?, cropY?, cropW?, cropH? }` — só o retângulo, com as mesmas regras abaixo (estrito); é o `bannerUploadQueryDto` do banner do perfil.
 - `uploadAssetQueryDto` `{ purpose, cropX?, cropY?, cropW?, cropH? }` — query de `POST /api/campaigns/:campaignId/assets` (o corpo é o próprio arquivo). O retângulo do recorte é em **percentual** (0..100) da imagem já em pé (depois da orientação do EXIF), convertido de texto por `z.coerce.number()`:
   - `cropX`/`cropY` de 0 a 100; `cropW`/`cropH` maiores que 0 e até 100;
   - os quatro juntos ou nenhum: só parte deles é recusado citando os recebidos e "cropX, cropY, cropW and cropH together, or none";

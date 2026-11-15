@@ -1,15 +1,18 @@
 import sharp from 'sharp';
 import type { AnimationBudget, NormalizedImage } from '../../modules/assets/image-processor.port';
+import type { PixelBox } from './frame-box';
 
+/** `box`: the part of each frame kept (the table photo, cover or banner); none = the whole frame. */
 export type AnimatedGifTarget = Readonly<{
   maxSide: number;
   animation: AnimationBudget;
   maxInputPixels: number;
+  box?: PixelBox;
 }>;
 
-/** Keeps a GIF animated: every frame shrunk to the side the budget allows and re-encoded as a GIF
- *  with the same delays and loop, without any metadata. No `autoOrient`: a GIF has no EXIF.
- *  `null` when the bytes do not decode after all.
+/** Keeps a GIF animated: every frame cut to `box` (when given), shrunk to the side the budget
+ *  allows and re-encoded as a GIF with the same delays and loop, without any metadata. No
+ *  `autoOrient`: a GIF has no EXIF. `null` when the bytes do not decode after all.
  *
  *  Example: `await keptAnimatedGif(gif, 3, { maxSide: 512, animation, maxInputPixels }) // 512 × 512, 3 frames` */
 export async function keptAnimatedGif(
@@ -18,7 +21,10 @@ export async function keptAnimatedGif(
   target: AnimatedGifTarget,
 ): Promise<NormalizedImage | null> {
   const side = animatedSideOf(target, frames);
-  const output = await sharp(bytes, { animated: true, limitInputPixels: target.maxInputPixels })
+  const source = sharp(bytes, { animated: true, limitInputPixels: target.maxInputPixels });
+  // sharp cuts each page on its own, so the box is in the pixels of one frame.
+  const framed = target.box ? source.extract(target.box) : source;
+  const output = await framed
     .resize({ width: side, height: side, fit: 'inside', withoutEnlargement: true })
     .gif()
     .toBuffer({ resolveWithObject: true })

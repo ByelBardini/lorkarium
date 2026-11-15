@@ -9,6 +9,7 @@ import { pickCustomColor } from '../../support/pick-custom-color';
 import {
   ANA_PROFILE,
   UPLOADED_AVATAR_ID,
+  UPLOADED_BANNER_ID,
   UPLOADED_DICE_TEXTURE_ID,
 } from '../../support/profile-api-fake';
 
@@ -54,7 +55,7 @@ describe('account route (/account)', () => {
     expect(screen.queryByRole('textbox', { name: /Nome de usuário/ })).not.toBeInTheDocument();
     const colors = screen.getByRole('radiogroup', { name: 'Sua cor no mapa' });
     expect(within(colors).getByRole('radio', { name: 'Verde-água' })).toBeChecked();
-    expect(screen.getByText('Na mesa desde outubro de 2026')).toBeInTheDocument();
+    expect(within(preview).getByText('Desde 01/10/2026')).toBeInTheDocument();
   });
 
   it('with nothing edited there is no bar of changes', async () => {
@@ -76,8 +77,8 @@ describe('account route (/account)', () => {
     await openAccount();
     await rename('Aninha');
     const preview = screen.getByRole('complementary', { name: 'Como a galera te vê' });
-    // The ping illustration repeats the name inside an aria-hidden SVG; the shown name is the <p>.
-    expect(within(preview).getByText('Aninha', { selector: 'p' })).toBeInTheDocument();
+    // The ping illustration repeats the name inside an aria-hidden SVG; the card's name is a <span>.
+    expect(within(preview).getByText('Aninha', { selector: 'span' })).toBeInTheDocument();
   });
 
   it('saving shows "Salvando…" busy, then "Tudo salvo." and the rail with the new nickname', async () => {
@@ -556,6 +557,51 @@ describe('account route (/account)', () => {
         ),
       );
       expect(within(diceField()).queryByRole('textbox', { name: 'Link da imagem' })).toBeNull();
+    });
+  });
+  describe('preferências', () => {
+    it('systems, schedule and contact count their characters, show in the card preview and save by the PATCH', async () => {
+      await openAccount();
+      await userEvent.type(screen.getByLabelText('Sistemas e cenários'), 'D&D 5e');
+      await userEvent.type(screen.getByLabelText('Contato'), 'Discord: ana');
+
+      expect(screen.getByText('6/300')).toBeVisible();
+      expect(screen.getByText('12/200')).toBeVisible();
+      const preview = screen.getByRole('complementary', { name: 'Como a galera te vê' });
+      expect(within(preview).getByText('D&D 5e')).toBeVisible();
+      expect(within(preview).getByTestId('profile-card-banner')).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+      await waitFor(() =>
+        expect(deps.profileApi.answers.callsOf('update')).toEqual([
+          { gameSystems: 'D&D 5e', contact: 'Discord: ana' },
+        ]),
+      );
+    });
+
+    it('a banner kept shows on the card preview, and "Tirar banner" takes it away', async () => {
+      deps.profileApi.profile = { ...ANA_PROFILE, bannerId: UPLOADED_BANNER_ID };
+      await openAccount();
+      const preview = screen.getByRole('complementary', { name: 'Como a galera te vê' });
+      expect(within(preview).getByTestId('profile-card-banner-image')).toHaveAttribute(
+        'src',
+        `/api/banners/${UPLOADED_BANNER_ID}`,
+      );
+
+      await userEvent.click(screen.getByRole('button', { name: 'Tirar banner' }));
+
+      await waitFor(() => expect(deps.profileApi.answers.callsOf('removeBanner')).toHaveLength(1));
+      await waitFor(() =>
+        expect(within(preview).queryByTestId('profile-card-banner-image')).toBeNull(),
+      );
+    });
+
+    it('a schedule past 200 characters is an inline error', async () => {
+      await openAccount();
+      fireEvent.change(screen.getByLabelText('Horários'), { target: { value: 'x'.repeat(201) } });
+
+      expect(screen.getByText('Use no máximo 200 caracteres.')).toBeVisible();
+      expect(screen.getByLabelText('Horários')).toHaveAttribute('aria-invalid', 'true');
     });
   });
 });

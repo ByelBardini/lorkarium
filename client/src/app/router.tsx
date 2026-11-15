@@ -40,6 +40,7 @@ import type { AccountLinksApi } from '@/services/account-links-api';
 import type { AccountPlanApi } from '@/services/account-plan-api';
 import type { AccountSecurityApi } from '@/services/account-security-api';
 import type { UserAdminApi } from '@/services/user-admin-api';
+import type { UserReportsApi } from '@/services/user-reports-api';
 import type { AuthApi } from '@/services/auth-api';
 import type { RoomAssetsApi } from '@/services/assets-api';
 import type { CampaignsApi } from '@/services/campaigns-api';
@@ -89,6 +90,8 @@ import { placeOf, type PlaceHandle } from './title-bar/title-bar-place';
 import { AccountPlanProvider } from '@/features/plans/plan-limits-providers';
 import type { AccountRealtime } from '@/services/account-realtime';
 import type { FriendsApi } from '@/services/friends-api';
+import type { ProfileCardApi } from '@/services/profile-card-api';
+import { ProfileCardProvider } from '@/features/profile-card/profile-card-provider';
 import type { DirectMessagesStore } from '@/stores/direct-messages-store';
 import type { FriendsStore } from '@/stores/friends-store';
 import type { PresenceChoiceStore } from '@/stores/presence-choice-store';
@@ -106,6 +109,8 @@ export type AppDependencies = Readonly<{
   accountPlanApi: AccountPlanApi;
   /** The backoffice over the accounts and the invitations (admins only). */
   userAdminApi: UserAdminApi;
+  /** The backoffice queue of user reports (admins only). */
+  userReportsApi: UserReportsApi;
   /** The public side of the invitation and new-password links. */
   accountLinksApi: AccountLinksApi;
   /** The grids and folders of a table (the library). */
@@ -195,6 +200,8 @@ export type AppDependencies = Readonly<{
    *  "Reconectando…" of the friends screen. */
   accountRealtime: AccountRealtime;
   friendsApi: FriendsApi;
+  /** Another account's card, the vote on it and the report (the profile card). */
+  profileCardApi: ProfileCardApi;
   /** Friends, requests, blocks and presence, as the server confirmed them. */
   friends: StoreApi<FriendsStore>;
   /** The direct messages of this device, per account and friend. */
@@ -258,6 +265,10 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
             {
               path: 'users',
               lazy: async () => (await import('@/features/admin/admin-routes')).usersRoute(deps),
+            },
+            {
+              path: 'reports',
+              lazy: async () => (await import('@/features/admin/admin-routes')).reportsRoute(deps),
             },
             {
               path: 'emails',
@@ -419,16 +430,18 @@ function shellRoute(deps: AppDependencies): () => React.JSX.Element | null {
     return (
       <AccountPlanProvider account={session.user}>
         <SavedColorsProvider api={deps.savedColorsApi} userId={session.user.id}>
-          <AppShell
-            railStore={railStore}
-            openTables={openTables}
-            user={session.user}
-            onSignOut={signOut}
-            friendsBadge={friendsBadge}
-            presence={presence}
-            brandInTitleBar={desktopWindow !== null}
-          />
-          <DocumentWorkspaceHost deps={deps} />
+          <ProfileCardProvider deps={deps} viewerId={session.user.id}>
+            <AppShell
+              railStore={railStore}
+              openTables={openTables}
+              user={session.user}
+              onSignOut={signOut}
+              friendsBadge={friendsBadge}
+              presence={presence}
+              brandInTitleBar={desktopWindow !== null}
+            />
+            <DocumentWorkspaceHost deps={deps} />
+          </ProfileCardProvider>
         </SavedColorsProvider>
       </AccountPlanProvider>
     );

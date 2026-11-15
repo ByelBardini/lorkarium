@@ -3,6 +3,7 @@ import type {
   BlockedUserDto,
   FriendDto,
   FriendRequestResponseDto,
+  FriendSearchResultDto,
   FriendsOverviewDto,
 } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
@@ -11,12 +12,14 @@ import type { CachedMemberships } from '../campaigns/cached-memberships';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import type { MemberRemovedPort } from '../campaigns/member-removed.port';
 import { FriendRelationBo, type FriendLimits, type RelationDecision } from './friend-relation.bo';
+import type { FriendCandidatesDao } from './friend-candidates.dao';
 import type { FriendRequestsDao } from './friend-requests.dao';
 import type { FriendsChangedPort } from './friends-changed.port';
 import { FriendUserNotFoundError } from './friends.error';
 import {
   toBlockedUserDto,
   toFriendDto,
+  toFriendProfileDto,
   toFriendRelationState,
   toFriendRequestEntryDto,
 } from './friends.mapper';
@@ -43,6 +46,7 @@ export type FriendsReadDaos = Readonly<{
   friendships: Pick<FriendshipsDao, 'friendsOf'>;
   requests: Pick<FriendRequestsDao, 'incomingOf' | 'outgoingOf'>;
   blocks: Pick<UserBlocksDao, 'blockedBy'>;
+  candidates: Pick<FriendCandidatesDao, 'search'>;
 }>;
 
 export type FriendsServiceDeps = Readonly<{
@@ -55,6 +59,8 @@ export type FriendsServiceDeps = Readonly<{
   memberships: Pick<CachedMemberships, 'forget'>;
   clock: ClockPort;
   limits: FriendLimits;
+  /** Most accounts one search answers. */
+  searchLimit: number;
 }>;
 
 // A saved write: what to answer, whom to tell, and the tables the target was taken out of.
@@ -92,6 +98,14 @@ export class FriendsService {
       outgoing: outgoing.map(toFriendRequestEntryDto),
       blocked: blocked.map(toBlockedUserDto),
     };
+  }
+
+  /** Accounts that can still get a request from `userId`, by the start of the @.
+   *
+   *  Example: `(await friends.search(anaId, 'bi')).accounts[0].username // 'bia'` */
+  async search(userId: string, prefix: string): Promise<FriendSearchResultDto> {
+    const rows = await this.deps.reads.candidates.search(userId, prefix, this.deps.searchLimit);
+    return { accounts: rows.map(toFriendProfileDto) };
   }
 
   /** A request by @; `accepted` when the other one had asked first.

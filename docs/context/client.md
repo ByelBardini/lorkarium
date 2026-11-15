@@ -12,6 +12,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Peças da mesa: capa, status, avisos, tags, prévia, `update`/código/excluir, eventos ao vivo    | [`campaign-parts.md`](client/campaign-parts.md)                 |
 | Página "Configurações da mesa" na sala: rota, moldura, ação, rascunho, seções, pendência       | [`campaign-settings.md`](client/campaign-settings.md)           |
 | Tempo real: transporte Socket.IO, sessão da mesa, mesas abertas da aba, presença e versão      | [`realtime.md`](client/realtime.md)                             |
+| Card de perfil (Brasão): popover, modal, votos, ⋯, denúncia, onde abre                         | [`profile-card.md`](client/profile-card.md)                     |
 | Amigos: tela `/friends`, conexão da conta, `FriendsApi`, stores, status e mensagens locais     | [`friends.md`](client/friends.md)                               |
 | Sala de jogo: tabuleiro, renderer, câmera, ferramentas, sync e comandos                        | [`board.md`](client/board.md)                                   |
 | Renderer PixiJS: câmera, entrada, `BoardView`, hover, faixas, adaptador                        | [`board-renderer.md`](client/board-renderer.md)                 |
@@ -48,7 +49,8 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Abas de grid na sala: escopo do comando, `watch`, `scene-tabs-store`, `SceneTabs`              | [`grid-tabs.md`](client/grid-tabs.md)                           |
 | Personagem: store `character:*`, token ligado composto, ligar a personagem, fichas             | [`characters.md`](client/characters.md)                         |
 | Ping no mapa: cor por pessoa, segurar/Alt+clique, pulso do anel, seta na borda                 | [`pings.md`](client/pings.md)                                   |
-| Minha conta em abas (`?aba=`): perfil, dados, segurança, 2FA, link do e-mail, Seu plano        | [`account.md`](client/account.md)                               |
+| Minha conta em abas (`?aba=`): perfil, banner, preferências, dados, segurança, 2FA, Seu plano  | [`account.md`](client/account.md)                               |
+| Banner do perfil em Minha conta: bloqueio pelo plano, recorte 3:1 no navegador, envio          | [`account-banner.md`](client/account-banner.md)                 |
 | Backoffice: moldura, Usuários, busca/filtros na URL, convidar, menus e diálogos das contas     | [`backoffice.md`](client/backoffice.md)                         |
 | Dados: rede, stores, 3D (conta e adaptador), e o índice da aba "Dados"                         | [`dice.md`](client/dice.md)                                     |
 | Aba "Dados": bandeja, salvas em etiquetas, histórico em linhas, aviso sobre o tabuleiro        | [`dice-tab.md`](client/dice-tab.md)                             |

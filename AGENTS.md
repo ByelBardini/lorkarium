@@ -98,7 +98,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | documents        | Documentos ricos: abas, conteúdo, prévia, posse, versão, imagens protegidas           | [`docs/context/documents.md`](docs/context/documents.md)               |
 | tokens           | Barras, controle, cone, luz, aura, formas, invisível, bloqueio, elenco, patrulha      | [`docs/context/tokens.md`](docs/context/tokens.md)                     |
 | characters       | Personagem da mesa: tabelas, regra, `character:*`, ciclo de vida, token ligado        | [`docs/context/characters.md`](docs/context/characters.md)             |
-| profiles         | Perfil da conta: apelido, cor, bio, foto WebP 256, `session:memberUpdated`            | [`docs/context/profiles.md`](docs/context/profiles.md)                 |
+| profiles         | Perfil: apelido, cor, bio, foto, banner, preferências, card de outra conta            | [`docs/context/profiles.md`](docs/context/profiles.md)                 |
 | saved-colors     | Cores salvas por conta: tabela, teto de 24, três rotas, trava da corrida              | [`docs/context/saved-colors.md`](docs/context/saved-colors.md)         |
 | plans            | Planos: grade, dono da mesa × conta, admin, Dono, Apoiador, `PLAN_LIMIT`, selo, cota  | [`docs/context/plans.md`](docs/context/plans.md)                       |
 | combat           | Condições (lista, cor, stacks, imagem) e combate: entradas, turno, rodada             | [`docs/context/combat.md`](docs/context/combat.md)                     |
@@ -128,6 +128,8 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | housekeeping     | Limpeza de hora em hora: recibos de 24 h, sessões e desafios 2FA vencidos, em lotes   | [`docs/context/housekeeping.md`](docs/context/housekeeping.md)         |
 | friends          | Amigos: pedidos pelo @, par canônico, bloqueio mútuo, tetos, mesas do dono, presença  | [`docs/context/friends.md`](docs/context/friends.md)                   |
 | direct-messages  | Mensagens privadas efêmeras entre amigos online: `dm:*`, "digitando", baldes próprios | [`docs/context/direct-messages.md`](docs/context/direct-messages.md)   |
+| reputation       | Voto 👍/👎 entre quem divide mesa: tabela, resumo com mínimo de votos, rotas          | [`docs/context/reputation.md`](docs/context/reputation.md)             |
+| reports          | Denúncias: motivo, uma aberta por par, fila do admin (resolver/arquivar)              | [`docs/context/reports.md`](docs/context/reports.md)                   |
 
 Área sem linha aqui ainda não tem doc: o `/atualizar-contexto` cria o hub junto com o primeiro código da área. Até lá, a referência é o `docs/spec.md`.
 

@@ -2,6 +2,9 @@ import {
   AVATAR_MAX_BYTES,
   avatarLinkRequestDto,
   avatarParamsDto,
+  bannerLinkRequestDto,
+  bannerParamsDto,
+  bannerUploadQueryDto,
   diceTextureLinkRequestDto,
   diceTextureParamsDto,
   type ProfileDto,
@@ -11,10 +14,13 @@ import type { FastifyInstance, FastifyRequest, onRequestAsyncHookHandler } from 
 import type { z } from 'zod';
 import { perUserRateLimit } from '../../lib/per-user-rate-limit';
 import type { StoredObject } from '../assets/asset-storage.port';
+import { toImageCrop } from '../assets/assets.mapper';
 import {
   AvatarMediaTypeError,
   AvatarNotFoundError,
   AvatarTooLargeError,
+  BannerNotFoundError,
+  BannerTooLargeError,
   DiceTextureNotFoundError,
   DiceTextureTooLargeError,
   type ProfileError,
@@ -35,17 +41,18 @@ export type ProfileImageEdge = Readonly<{
   linkBody: z.ZodType<{ url: string }>;
   imageIdOf: (request: FastifyRequest) => string;
   tooLarge: () => ProfileError;
-  replace: (userId: string, bytes: Uint8Array) => Promise<ProfileDto>;
+  /** `request` carries what a send may add to the bytes (the banner's crop rectangle). */
+  replace: (userId: string, bytes: Uint8Array, request: FastifyRequest) => Promise<ProfileDto>;
   replaceFromLink: (userId: string, url: string) => Promise<ProfileDto>;
   remove: (userId: string) => Promise<ProfileDto>;
   open: (imageId: string) => Promise<StoredObject>;
 }>;
 
-/** The photo and the dice texture, in that order: the same four routes over each.
+/** The photo, the dice texture and the banner, in that order: the same four routes over each.
  *
  *  Example: `for (const edge of profileImageEdgesOf(service)) registerImageRoutes(app, edge)` */
 export function profileImageEdgesOf(service: ProfilesService): readonly ProfileImageEdge[] {
-  return [avatarEdgeOf(service), diceTextureEdgeOf(service)];
+  return [avatarEdgeOf(service), diceTextureEdgeOf(service), bannerEdgeOf(service)];
 }
 
 function avatarEdgeOf(service: ProfilesService): ProfileImageEdge {
@@ -77,6 +84,21 @@ function diceTextureEdgeOf(service: ProfilesService): ProfileImageEdge {
   };
 }
 
+function bannerEdgeOf(service: ProfilesService): ProfileImageEdge {
+  return {
+    sendUrl: '/account/banner',
+    readUrl: '/banners/:bannerId',
+    linkBody: bannerLinkRequestDto,
+    imageIdOf: (request) => idParamOf(request, bannerParamsDto, (p) => p.bannerId, notFoundBanner),
+    tooLarge: () => new BannerTooLargeError(AVATAR_MAX_BYTES, null),
+    replace: (userId, bytes, request) =>
+      service.replaceBanner(userId, bytes, toImageCrop(bannerUploadQueryDto.parse(request.query))),
+    replaceFromLink: (userId, url) => service.replaceBannerFromLink(userId, url),
+    remove: (userId) => service.removeBanner(userId),
+    open: (imageId) => service.openBanner(imageId),
+  };
+}
+
 /** Sending (file or link), taking off and reading one image. The account is the session's.
  *
  *  Example: `registerImageRoutes(app, profileImageEdgesOf(service)[1])` */
@@ -100,7 +122,7 @@ function registerImageSend(app: FastifyInstance, edge: ProfileImageEdge): void {
     config: { rateLimit: beforeBodyLimit((request) => userOf(request).id) },
   };
   app.put(edge.sendUrl, options, async (request) => {
-    const profile = await edge.replace(userOf(request).id, imageBytesOf(request));
+    const profile = await edge.replace(userOf(request).id, imageBytesOf(request), request);
     return { profile } satisfies ProfileResponseDto;
   });
 }
@@ -161,4 +183,8 @@ function notFoundAvatar(raw: string): ProfileError {
 
 function notFoundTexture(raw: string): ProfileError {
   return new DiceTextureNotFoundError(raw);
+}
+
+function notFoundBanner(raw: string): ProfileError {
+  return new BannerNotFoundError(raw);
 }

@@ -1,6 +1,8 @@
 import {
   AVATAR_MAX_BYTES,
   AVATAR_SIDE,
+  BANNER_HEIGHT,
+  BANNER_WIDTH,
   DICE_TEXTURE_SIDE,
   isHexColor,
   type PlanFeatureResource,
@@ -16,6 +18,7 @@ import {
   effectiveLimitsOf,
   type PlanAccount,
 } from '../plans/plan-limits.bo';
+import type { ImageCrop } from '../assets/image-processor.port';
 import type { AvatarProcessorPort, ImageShape } from './avatar-processor.port';
 import type { ProfileChangedPort } from './profile-changed.port';
 import type { ProfileChanges, ProfileRow, ProfilesDao, SwappedImage } from './profiles.dao';
@@ -25,6 +28,8 @@ import {
   AvatarLinkUnreachableError,
   AvatarNotFoundError,
   AvatarTooLargeError,
+  BannerNotFoundError,
+  BannerTooLargeError,
   DiceTextureNotFoundError,
   DiceTextureTooLargeError,
   UnsupportedAvatarError,
@@ -34,6 +39,7 @@ import {
 import {
   AVATAR_CONTENT_TYPE,
   avatarKeyOf,
+  bannerKeyOf,
   diceTextureKeyOf,
   toProfileChanges,
   toProfileDto,
@@ -48,6 +54,8 @@ export type ProfilesServiceDeps = Readonly<{
     | 'isCurrentAvatar'
     | 'swapDiceTexture'
     | 'isCurrentDiceTexture'
+    | 'swapBanner'
+    | 'isCurrentBanner'
   >;
   storage: Pick<AssetStoragePort, 'put' | 'open' | 'remove'>;
   processor: AvatarProcessorPort;
@@ -60,7 +68,7 @@ export type ProfilesServiceDeps = Readonly<{
   newId: () => string;
 }>;
 
-/** One image of the account (the photo, the dice texture): its column, its bucket prefix, the
+/** One image of the account (the photo, the dice texture, the banner): its column, its bucket prefix, the
  *  square it is kept as for the person's plan, the plan's refusal, its own refusals, and whether
  *  the live tables hear of a change. */
 type ImageSpace = Readonly<{
@@ -87,10 +95,12 @@ const ROSTER_FIELDS = ['name', 'color', 'bio'] as const satisfies readonly (keyo
 export class ProfilesService {
   private readonly avatar: ImageSpace;
   private readonly diceTexture: ImageSpace;
+  private readonly banner: ImageSpace;
 
   constructor(private readonly deps: ProfilesServiceDeps) {
     this.avatar = avatarSpaceOf(deps.profiles);
     this.diceTexture = diceTextureSpaceOf(deps.profiles);
+    this.banner = bannerSpaceOf(deps.profiles);
   }
 
   async profileOf(userId: string): Promise<ProfileDto> {
@@ -164,6 +174,38 @@ export class ProfilesService {
     return this.openImage(this.diceTexture, diceTextureId);
   }
 
+  /** The photo's path for the 3:1 banner of the profile card: an 1800 x 600 cut inside `crop`
+   *  (percent of the upright image; `null` = the center), animated when a GIF is sent, under
+   *  `banners/`, only with the customizations (`PLAN_LIMIT` `profileBanner` before any read),
+   *  and no live table is told.
+   *
+   *  Example: `await profiles.replaceBanner(user.id, bytes, { x: 0, y: 20, w: 100, h: 33 })` */
+  async replaceBanner(
+    userId: string,
+    bytes: Uint8Array,
+    crop: ImageCrop | null = null,
+  ): Promise<ProfileDto> {
+    const unsupported = (detail: string): ProfileError => new UnsupportedAvatarError(detail);
+    return this.keepImage(this.banner, userId, bytes, unsupported, crop);
+  }
+
+  /** The banner from a web link, cut at the center (a GIF stays animated).
+   *
+   *  Example: `await profiles.replaceBannerFromLink(user.id, 'https://x.com/b.png')` */
+  async replaceBannerFromLink(userId: string, url: string): Promise<ProfileDto> {
+    return this.keepImageFromLink(this.banner, userId, url);
+  }
+
+  /** Takes the banner off (back to the profile color), on any plan; idempotent. */
+  async removeBanner(userId: string): Promise<ProfileDto> {
+    return this.removeImage(this.banner, userId);
+  }
+
+  /** The bytes of a current banner; anything else is BANNER_NOT_FOUND. */
+  async openBanner(bannerId: string): Promise<StoredObject> {
+    return this.openImage(this.banner, bannerId);
+  }
+
   private async keepImageFromLink(
     space: ImageSpace,
     userId: string,
@@ -182,8 +224,10 @@ export class ProfilesService {
     userId: string,
     bytes: Uint8Array,
     refused: (detail: string) => ProfileError,
+    crop?: ImageCrop | null,
   ): Promise<ProfileDto> {
-    return this.keepImageOf(space, await this.ownerOf(space, userId), bytes, refused);
+    const owner = await this.ownerOf(space, userId);
+    return this.keepImageOf(space, owner, bytes, refused, crop);
   }
 
   private async keepImageOf(
@@ -191,11 +235,14 @@ export class ProfilesService {
     owner: ImageOwner,
     bytes: Uint8Array,
     refused: (detail: string) => ProfileError,
+    crop?: ImageCrop | null,
   ): Promise<ProfileDto> {
     const { userId, account } = owner;
     if (bytes.byteLength > AVATAR_MAX_BYTES)
       throw space.tooLarge(AVATAR_MAX_BYTES, bytes.byteLength);
-    const outcome = await this.deps.processor.normalize(bytes, space.shapeFor(account));
+    const shape = space.shapeFor(account);
+    const framed = crop === undefined ? shape : { ...shape, crop };
+    const outcome = await this.deps.processor.normalize(bytes, framed);
     if (!outcome.ok) throw refused(outcome.refusal.detail);
     const imageId = this.deps.newId();
     await this.deps.storage.put(space.keyOf(imageId), outcome.avatar.bytes, AVATAR_CONTENT_TYPE);
@@ -258,7 +305,11 @@ function avatarSpaceOf(profiles: ImageColumns): ImageSpace {
   return {
     subject: 'photo',
     // Without the customizations a GIF is kept still (its first frame), never refused.
-    shapeFor: (account) => ({ side: AVATAR_SIDE, animated: customizationAllowed(account) }),
+    shapeFor: (account) => ({
+      width: AVATAR_SIDE,
+      height: AVATAR_SIDE,
+      animated: customizationAllowed(account),
+    }),
     requirePlan: () => undefined,
     keyOf: avatarKeyOf,
     idOf: (row) => row.avatarId,
@@ -273,7 +324,7 @@ function avatarSpaceOf(profiles: ImageColumns): ImageSpace {
 function diceTextureSpaceOf(profiles: ImageColumns): ImageSpace {
   return {
     subject: 'dice texture',
-    shapeFor: () => ({ side: DICE_TEXTURE_SIDE, animated: false }),
+    shapeFor: () => ({ width: DICE_TEXTURE_SIDE, height: DICE_TEXTURE_SIDE, animated: false }),
     requirePlan: (account) => requireCustomization('diceTexture', account),
     keyOf: diceTextureKeyOf,
     idOf: (row) => row.diceTextureId,
@@ -281,6 +332,26 @@ function diceTextureSpaceOf(profiles: ImageColumns): ImageSpace {
     isCurrent: (imageId) => profiles.isCurrentDiceTexture(imageId),
     notFound: (imageId) => new DiceTextureNotFoundError(imageId),
     tooLarge: (limit, received) => new DiceTextureTooLargeError(limit, received),
+    tellsTables: false,
+  };
+}
+
+function bannerSpaceOf(profiles: ImageColumns): ImageSpace {
+  return {
+    subject: 'banner',
+    // Only a paid plan reaches it (`requirePlan`); the GIF moves like the photo's.
+    shapeFor: (account) => ({
+      width: BANNER_WIDTH,
+      height: BANNER_HEIGHT,
+      animated: customizationAllowed(account),
+    }),
+    requirePlan: (account) => requireCustomization('profileBanner', account),
+    keyOf: bannerKeyOf,
+    idOf: (row) => row.bannerId,
+    swap: (userId, imageId) => profiles.swapBanner(userId, imageId),
+    isCurrent: (imageId) => profiles.isCurrentBanner(imageId),
+    notFound: (imageId) => new BannerNotFoundError(imageId),
+    tooLarge: (limit, received) => new BannerTooLargeError(limit, received),
     tellsTables: false,
   };
 }

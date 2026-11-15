@@ -13,7 +13,7 @@ import { sideRingVar } from '@/lib/token-side';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import { presenceOf } from '@/lib/member-presence';
-import { MemberCardPopover } from './member-card-popover';
+import { ProfileCardTrigger } from '@/features/profile-card/profile-card-trigger';
 import { PresenceMark } from './presence-mark';
 
 /** What a portrait shows: a character's face (a linked token wears the same). */
@@ -99,7 +99,7 @@ export function NickLine({
       className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground"
     >
       {withMark && <PresenceMark presence={presenceOf(member)} />}
-      <MemberCardPopover member={member} />
+      <ProfileCardTrigger userId={member.userId} name={member.name} />
       <PlanSeal holder={member} />
       {isViewer && (
         <span className="shrink-0 font-semibold whitespace-nowrap text-primary">· você</span>

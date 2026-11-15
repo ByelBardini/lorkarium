@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFriends } from '@/stores/friends-store';
-import { AddFriendForm } from './add-friend-form';
+import { AddFriendDialog } from './add-friend-dialog';
 import { BlockedTab } from './blocked-tab';
 import { FriendGroupsList } from './friend-groups-list';
 import { FriendRequestsTab } from './friend-requests-tab';
@@ -27,20 +27,12 @@ export function FriendsList({ deps, selectedId }: FriendsListProps): React.JSX.E
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex items-center justify-between gap-2 px-4 pt-6 pb-3">
         <h1 className="font-display text-3xl text-foreground">Amigos</h1>
-        <Button
-          variant={adding ? 'outline' : 'default'}
-          aria-expanded={adding}
-          onClick={() => setAdding(!adding)}
-        >
+        <Button aria-haspopup="dialog" onClick={() => setAdding(true)}>
           <UserPlusIcon aria-hidden="true" />
           Adicionar
         </Button>
       </header>
-      {adding && (
-        <div className="px-4 pb-3">
-          <AddFriendForm deps={deps} onNotice={setNotice} />
-        </div>
-      )}
+      <AddFriendDialog deps={deps} open={adding} onOpenChange={setAdding} />
       <NoticeLine notice={notice} />
       {overview ? (
         <FriendsTabs overview={overview} deps={deps} selectedId={selectedId} onNotice={setNotice} />

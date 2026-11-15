@@ -10,14 +10,28 @@ Hub: [`../contracts.md`](../contracts.md). DTOs de `packages/contracts/src/accou
 ## Perfil (`profile.dto.ts`)
 
 - `PROFILE_NAME_MAX_LENGTH` (32), `PROFILE_BIO_MAX_LENGTH` (190); `profileNameDto` (aparado, 1–32) e `profileBioDto` (aparada, até 190, `''` → `null`, aceita `null`).
-- `profileDto` `{ id, username, name, color (efetiva), colorChoice (null = automática), bio | null, avatarId (uuid | null), diceTextureId (uuid | null = a cor do perfil), diceNumberColor (`#rrggbb` | null = contraste automático), memberSince (ISO) }` e `profileResponseDto` `{ profile }` (GET/PATCH do perfil e as rotas da foto e da textura).
-- `updateProfileRequestDto` `{ name?, color? (nome da paleta, `#rrggbb` ou null, que volta à automática), bio?, diceNumberColor? (`diceNumberColorDto` ou null) }`: estrito (um `username` é recusado: o @ é imutável) e `{}` recusado com "expected at least one of name, color, bio, diceNumberColor" (`refine`, caminho vazio). Tipos `UpdateProfileRequestDto` / `UpdateProfileRequestInput`.
+- Preferências de jogo, texto livre com a mesma regra da bio (aparado, só espaços → `null`, aceita `null`): `profileGameSystemsDto` (`PROFILE_GAME_SYSTEMS_MAX_LENGTH` 300), `profilePlayScheduleDto` (`PROFILE_PLAY_SCHEDULE_MAX_LENGTH` 200), `profileContactDto` (`PROFILE_CONTACT_MAX_LENGTH` 200).
+- `profileDto` `{ id, username, name, color (efetiva), colorChoice (null = automática), bio | null, avatarId (uuid | null), bannerId (uuid | null = a cor do perfil), gameSystems | null, playSchedule | null, contact | null, diceTextureId (uuid | null = a cor do perfil), diceNumberColor (`#rrggbb` | null = contraste automático), memberSince (ISO) }` e `profileResponseDto` `{ profile }` (GET/PATCH do perfil e as rotas da foto e da textura).
+- `updateProfileRequestDto` `{ name?, color? (nome da paleta, `#rrggbb` ou null, que volta à automática), bio?, diceNumberColor? (`diceNumberColorDto` ou null), gameSystems?, playSchedule?, contact? }`: estrito (um `username` é recusado: o @ é imutável; um `bannerId` também, o banner tem rotas próprias) e `{}` recusado com "expected at least one of name, color, bio, diceNumberColor, gameSystems, playSchedule, contact" (`refine`, caminho vazio). Tipos `UpdateProfileRequestDto` / `UpdateProfileRequestInput`.
+
+## Card de perfil (`src/profiles/`)
+
+Specs em `packages/contracts/test/profiles/`.
+
+- `profile-card.dto.ts` — `profileCardDto` (estrito, nunca o e-mail) `{ id, username, name, color (só o fundo do banner), avatarId | null, bannerId | null (null sem plano pago), bio | null, memberSince (ISO), plan, admin, lorkariumOwner (o selo), presence, relation, rollsCount, natural20Count, campaignsAsMaster, campaignsAsPlayer, reputation, gameSystems | null, playSchedule | null, contact | null, mutualCampaigns: { id, name }[], mutualFriends }` (contagens inteiras ≥ 0). `profileCardPresenceDto` `'online' | 'offline' | null` (null = não é amigo; invisível sai `offline`). `PROFILE_CARD_RELATIONS` / `profileCardRelationDto` `self | friend | outgoing | incoming | blocked | none` (`blocked` = eu bloqueei; ser bloqueado sai `none`). `mutualCampaignDto`, `profileCardResponseDto` `{ card }` (`GET /api/users/:userId/card`) e `profileCardParamsDto` `{ userId: uuid }` (card, reputação e denúncia).
+- `reputation.dto.ts` — `REPUTATION_MIN_VOTES` (5); `reputationVoteValueDto` `1 | -1` (mensagem com o valor e "expected 1 or -1"); `reputationVoteDto` `{ value }` (corpo do `PUT /api/users/:userId/reputation`, estrito); `reputationSummaryDto` `{ up, down, myVote (1 | -1 | null), percent (0–100 | null abaixo do mínimo) }`.
+- `user-report.dto.ts` — `USER_REPORT_REASONS` (`harassment`, `hate_speech`, `spam`, `cheating`, `inappropriate_content`, `impersonation`, `other`) / `userReportReasonDto` (mensagem com o valor e a lista); `USER_REPORT_DETAILS_MAX_LENGTH` (1000); `userReportRequestDto` `{ reason, details? (aparado, só espaços → null) }` (corpo do `POST /api/users/:userId/reports`, estrito); `USER_REPORT_STATUSES` / `userReportStatusDto` (`open`, `resolved`, `dismissed`); `resolveUserReportRequestDto` `{ status: 'resolved' | 'dismissed' }` (`PATCH /api/admin/reports/:reportId`). A fila do admin: `userReportPartyDto` `{ id, username }`; `userReportDto` `{ id, reason, details, status, reporter, target, createdAt, resolvedAt, resolvedBy (@ do admin ou null) }`; `USER_REPORTS_PAGE_SIZE` (50); `listUserReportsQueryDto` `{ status = 'open', page = 1 (coerce) }` (`GET /api/admin/reports`); `userReportsPageDto` `{ reports, page, pageSize, total }`; `userReportParamsDto` `{ reportId }`; `userReportResponseDto` `{ report }`.
 
 ## Foto (`avatar.dto.ts`)
 
 - `AVATAR_MAX_BYTES` (5 MiB, antes de decodificar), `AVATAR_MIME_TYPES` (`image/png`, `image/jpeg`, `image/webp`, `image/gif`; o GIF animado vira WebP animado) e `avatarMimeTypeDto`, `AVATAR_SIDE` (256: o server corta o centro em 256 × 256).
 - `avatarParamsDto` `{ avatarId: uuid }` — params de `GET /api/avatars/:avatarId`.
 - `avatarLinkRequestDto` `{ url }` — corpo de `POST /api/account/avatar/link`, sobre o `assetLinkDto` das imagens da mesa (aparado, http/https, até `ASSET_URL_MAX_LENGTH`; agora exportado).
+
+## Banner do perfil (`banner.dto.ts`)
+
+- `BANNER_WIDTH` (1800) e `BANNER_HEIGHT` (600): o WebP 3:1 que o server grava (animado quando chega GIF); entrada, tipos e teto são os da foto. `bannerUploadQueryDto` (= `imageCropQueryDto` de `asset.dto.ts`): a query do `PUT /account/banner`, o retângulo em % (`cropX`, `cropY`, `cropW`, `cropH`, os 4 ou nenhum, sem passar de 100), estrito.
+- `bannerLinkRequestDto` (= `avatarLinkRequestDto`, `{ url }`) — corpo de `POST /api/account/banner/link`; `bannerParamsDto` `{ bannerId: uuid }` — params de `GET /api/banners/:bannerId`.
 
 ## Textura do dado (`dice-texture.dto.ts`)
 

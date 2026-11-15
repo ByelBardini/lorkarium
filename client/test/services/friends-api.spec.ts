@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { HttpFriendsApi } from '@/services/friends-api';
-import { BIA, RUI_BLOCKED, friendsOverview } from '../support/friends-fixtures';
+import { BIA, NINA_FOUND, RUI_BLOCKED, friendsOverview } from '../support/friends-fixtures';
 import { HttpTransportFake } from '../support/http-transport-fake';
 
 function apiError(code: string): object {
@@ -28,6 +28,17 @@ describe('HttpFriendsApi', () => {
       friendsOverview({ friends: [{ ...BIA, email: 'b@x.com' } as never] }),
     );
     expect(await api.overview()).toEqual({ ok: false, failure: { kind: 'unexpected' } });
+  });
+
+  it('search gets the encoded prefix and yields the accounts', async () => {
+    transport.respondWith(200, { accounts: [NINA_FOUND] });
+    expect(await api.search('bi.a')).toEqual({ ok: true, value: [NINA_FOUND] });
+    expect(transport.requests[0]).toMatchObject({ method: 'GET', path: '/friends/search?q=bi.a' });
+  });
+
+  it('a search body out of the DTO fails as unexpected', async () => {
+    transport.respondWith(200, { accounts: 'bia' });
+    expect(await api.search('bi')).toEqual({ ok: false, failure: { kind: 'unexpected' } });
   });
 
   it('sendRequest posts the typed @ and yields the outcome', async () => {

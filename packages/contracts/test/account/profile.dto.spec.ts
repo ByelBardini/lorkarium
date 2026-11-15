@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { updateProfileRequestDto } from '../../src/account/profile.dto';
+import {
+  PROFILE_CONTACT_MAX_LENGTH,
+  PROFILE_GAME_SYSTEMS_MAX_LENGTH,
+  PROFILE_PLAY_SCHEDULE_MAX_LENGTH,
+  updateProfileRequestDto,
+} from '../../src/account/profile.dto';
 
 function issuesOf(input: unknown): { path: string; message: string }[] {
   const result = updateProfileRequestDto.safeParse(input);
@@ -52,7 +57,7 @@ describe('updateProfileRequestDto', () => {
       {
         path: '',
         message:
-          'Empty profile update: expected at least one of name, color, bio, diceNumberColor.',
+          'Empty profile update: expected at least one of name, color, bio, diceNumberColor, gameSystems, playSchedule, contact.',
       },
     ]);
   });
@@ -79,5 +84,28 @@ describe('updateProfileRequestDto', () => {
     expect(issuesOf({ diceNumberColor: '#fff' }).map(({ path }) => path)).toEqual([
       'diceNumberColor',
     ]);
+  });
+});
+
+describe('updateProfileRequestDto game preferences', () => {
+  it.each([
+    ['gameSystems', PROFILE_GAME_SYSTEMS_MAX_LENGTH],
+    ['playSchedule', PROFILE_PLAY_SCHEDULE_MAX_LENGTH],
+    ['contact', PROFILE_CONTACT_MAX_LENGTH],
+  ] as const)('%s up to its ceiling is accepted and one more is refused', (field, max) => {
+    expect(updateProfileRequestDto.safeParse({ [field]: 'a'.repeat(max) }).success).toBe(true);
+    expect(issuesOf({ [field]: 'a'.repeat(max + 1) }).map(({ path }) => path)).toEqual([field]);
+  });
+
+  it.each(['gameSystems', 'playSchedule', 'contact'])('%s of only spaces becomes null', (field) => {
+    expect(updateProfileRequestDto.parse({ [field]: '  ' })).toEqual({ [field]: null });
+  });
+
+  it.each(['gameSystems', 'playSchedule', 'contact'])('%s null clears it', (field) => {
+    expect(updateProfileRequestDto.parse({ [field]: null })).toEqual({ [field]: null });
+  });
+
+  it('a bannerId in the body is refused because the banner has its own routes (strict)', () => {
+    expect(issuesOf({ name: 'Ana', bannerId: null }).map(({ path }) => path)).toEqual(['bannerId']);
   });
 });
