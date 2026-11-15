@@ -122,15 +122,21 @@ export class HttpAssetsApi implements RoomAssetsApi {
   }
 }
 
-// The names of `uploadAssetQueryDto`: all four or none.
 function uploadQueryOf(purpose: AssetPurposeDto, crop: ImageCropRect | undefined): string {
   const query = new URLSearchParams({ purpose });
-  if (!crop) return query.toString();
+  if (crop) appendCropTo(query, crop);
+  return query.toString();
+}
+
+/** Writes the rectangle with the names of `imageCropQueryDto` (the table images and the profile
+ *  banner): all four, in percent.
+ *
+ *  Example: `appendCropTo(query, { x: 0, y: 10, width: 100, height: 50 }) // cropX=0&cropY=10&…` */
+export function appendCropTo(query: URLSearchParams, crop: ImageCropRect): void {
   query.set('cropX', String(crop.x));
   query.set('cropY', String(crop.y));
   query.set('cropW', String(crop.width));
   query.set('cropH', String(crop.height));
-  return query.toString();
 }
 
 function answerOf(call: ApiCall): AssetsResult {

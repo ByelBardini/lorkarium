@@ -1,6 +1,7 @@
 import type {
   BlockRequestDto,
   FriendPresenceDto,
+  FriendProfileDto,
   FriendsOverviewDto,
   PresenceStatusDto,
   PresenceTableDto,
@@ -40,6 +41,8 @@ export type FriendsStore = FriendsState &
      *  two at once. */
     load: () => Promise<void>;
     apply: (event: FriendsEvent) => void;
+    /** Reads only: changes nothing in the store. */
+    search: (prefix: string) => Promise<FriendsResult<FriendProfileDto[]>>;
     sendRequest: (username: string) => Promise<FriendsResult<FriendRequestOutcome>>;
     acceptRequest: (userId: string) => Promise<FriendsResult<null>>;
     dropRequest: (userId: string) => Promise<FriendsResult<null>>;
@@ -72,6 +75,7 @@ export function createFriendsStore(api: FriendsApi): StoreApi<FriendsStore> {
       ...EMPTY,
       load: loader.load,
       apply: (event) => applyEvent(event, get, set),
+      search: (prefix) => api.search(prefix),
       sendRequest: async (username) => {
         const result = await api.sendRequest(username);
         reloading(result);

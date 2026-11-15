@@ -1,4 +1,4 @@
-import type { UserPlan } from '@lorkarium/contracts';
+import type { UserPlan, UserReportReason } from '@lorkarium/contracts';
 import { OFFLINE_MESSAGE, UNEXPECTED_MESSAGE } from '@/features/campaigns/campaign-messages';
 import { PLAN_NAMES } from '@/lib/plan-seal';
 import type { UserAdminFailure } from '@/services/user-admin-api';
@@ -44,3 +44,14 @@ export function deletionConsequence(username: string, soloCampaigns: number): st
 export function planChangedNotice(username: string, plan: UserPlan): string {
   return `@${username} agora está no plano ${PLAN_NAMES[plan]}.`;
 }
+
+/** How the reports queue names each reason. */
+export const REPORT_REASON_LABEL: Readonly<Record<UserReportReason, string>> = {
+  harassment: 'Assédio',
+  hate_speech: 'Discurso de ódio',
+  spam: 'Spam',
+  cheating: 'Trapaça',
+  inappropriate_content: 'Conteúdo impróprio',
+  impersonation: 'Se passar por outra pessoa',
+  other: 'Outro',
+};

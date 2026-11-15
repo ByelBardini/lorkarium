@@ -1,3 +1,4 @@
+import { appendCropTo, type ImageCropRect } from './assets-api';
 import {
   profileResponseDto,
   type ProfileDto,
@@ -19,11 +20,12 @@ export type ProfileFailure =
   | AccountCommonFailure
   | Readonly<{ kind: 'avatar_too_large' }>
   | Readonly<{ kind: 'dice_texture_too_large' }>
+  | Readonly<{ kind: 'banner_too_large' }>
   | Readonly<{ kind: 'unsupported_image' }>
   | Readonly<{ kind: 'link_blocked' }>
   | Readonly<{ kind: 'link_unreachable' }>
   | Readonly<{ kind: 'link_not_image' }>
-  /** The person's plan has no customization (hex color, dice texture): 403 `PLAN_LIMIT`. */
+  /** The person's plan has no customization (hex color, dice texture, banner): 403 `PLAN_LIMIT`. */
   | PlanLimitFailure;
 
 /** What the "Minha conta" screen needs from `/api/account/profile` and `/api/account/avatar`;
@@ -40,15 +42,26 @@ export interface ProfileApi {
   diceTextureFromLink(url: string): Promise<AccountResult<ProfileDto, ProfileFailure>>;
   /** Back to the dice in the profile color. */
   removeDiceTexture(): Promise<AccountResult<ProfileDto, ProfileFailure>>;
+  /** The 3:1 banner as picked, with the rectangle framed in the crop dialog (none = the center);
+   *  the server cuts every frame into an 1800 × 600 WebP, so a GIF keeps moving. */
+  uploadBanner(
+    file: Blob,
+    crop?: ImageCropRect,
+  ): Promise<AccountResult<ProfileDto, ProfileFailure>>;
+  bannerFromLink(url: string): Promise<AccountResult<ProfileDto, ProfileFailure>>;
+  /** Back to the profile color behind the card. */
+  removeBanner(): Promise<AccountResult<ProfileDto, ProfileFailure>>;
 }
 
 const AVATAR_TOO_LARGE = { kind: 'avatar_too_large' } as const;
 const DICE_TEXTURE_TOO_LARGE = { kind: 'dice_texture_too_large' } as const;
+const BANNER_TOO_LARGE = { kind: 'banner_too_large' } as const;
 const UNSUPPORTED_IMAGE = { kind: 'unsupported_image' } as const;
 
 const PROFILE_FAILURE_BY_CODE = {
   AVATAR_TOO_LARGE,
   DICE_TEXTURE_TOO_LARGE,
+  BANNER_TOO_LARGE,
   UNSUPPORTED_IMAGE,
   LINK_BLOCKED: { kind: 'link_blocked' },
   LINK_UNREACHABLE: { kind: 'link_unreachable' },
@@ -67,6 +80,11 @@ const AVATAR_FAILURE_BY_STATUS: FailureByStatus = {
 const DICE_TEXTURE_FAILURE_BY_STATUS: FailureByStatus = {
   ...AVATAR_FAILURE_BY_STATUS,
   413: DICE_TEXTURE_TOO_LARGE,
+};
+
+const BANNER_FAILURE_BY_STATUS: FailureByStatus = {
+  ...AVATAR_FAILURE_BY_STATUS,
+  413: BANNER_TOO_LARGE,
 };
 
 /** `ProfileApi` over HTTP: validates every answer by the contracts DTO.
@@ -111,6 +129,26 @@ export class HttpProfileApi implements ProfileApi {
 
   async removeDiceTexture(): Promise<AccountResult<ProfileDto, ProfileFailure>> {
     return profileOutcome(await callApi(this.transport, 'DELETE', '/account/dice-texture'));
+  }
+
+  async uploadBanner(
+    file: Blob,
+    crop?: ImageCropRect,
+  ): Promise<AccountResult<ProfileDto, ProfileFailure>> {
+    const query = new URLSearchParams();
+    if (crop) appendCropTo(query, crop);
+    const path = crop ? `/account/banner?${query.toString()}` : '/account/banner';
+    const call = await callUpload(this.transport, path, file, 'PUT');
+    return profileOutcome(call, BANNER_FAILURE_BY_STATUS);
+  }
+
+  async bannerFromLink(url: string): Promise<AccountResult<ProfileDto, ProfileFailure>> {
+    const call = await callApi(this.transport, 'POST', '/account/banner/link', { url });
+    return profileOutcome(call, BANNER_FAILURE_BY_STATUS);
+  }
+
+  async removeBanner(): Promise<AccountResult<ProfileDto, ProfileFailure>> {
+    return profileOutcome(await callApi(this.transport, 'DELETE', '/account/banner'));
   }
 }
 

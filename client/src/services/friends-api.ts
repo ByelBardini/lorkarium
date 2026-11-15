@@ -6,10 +6,12 @@ import {
   blockedUserDto,
   friendDto,
   friendRequestResponseDto,
+  friendSearchResultDto,
   friendsOverviewDto,
   type BlockRequestDto,
   type BlockedUserDto,
   type FriendDto,
+  type FriendProfileDto,
   type FriendRequestResponseDto,
   type FriendsOverviewDto,
 } from '@lorkarium/contracts';
@@ -54,6 +56,8 @@ export type FriendRequestOutcome = FriendRequestResponseDto['outcome'];
  *  Example: `const result = await friendsApi.sendRequest('@bia'); if (result.ok) result.value // 'sent'` */
 export interface FriendsApi {
   overview(): Promise<FriendsResult<FriendsOverviewDto>>;
+  /** Accounts that can still get a request, by the start of the @ (already clean, 2+ chars). */
+  search(prefix: string): Promise<FriendsResult<FriendProfileDto[]>>;
   /** `accepted` when the other one had already asked: they are friends now. */
   sendRequest(username: string): Promise<FriendsResult<FriendRequestOutcome>>;
   acceptRequest(userId: string): Promise<FriendsResult<FriendDto>>;
@@ -103,6 +107,12 @@ export class HttpFriendsApi implements FriendsApi {
 
   async overview(): Promise<FriendsResult<FriendsOverviewDto>> {
     return parsed(friendsOverviewDto, await callApi(this.transport, 'GET', '/friends'));
+  }
+
+  async search(prefix: string): Promise<FriendsResult<FriendProfileDto[]>> {
+    const path = `/friends/search?q=${encodeURIComponent(prefix)}`;
+    const result = parsed(friendSearchResultDto, await callApi(this.transport, 'GET', path));
+    return result.ok ? { ok: true, value: result.value.accounts } : result;
   }
 
   async sendRequest(username: string): Promise<FriendsResult<FriendRequestOutcome>> {
