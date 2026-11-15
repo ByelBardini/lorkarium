@@ -18,16 +18,19 @@ import {
   type NumberTerm,
 } from '@lorkarium/game-core';
 
-/** The roll being built: the formula (dice and numbers, as typed or clicked), rolled as one
- *  unlabeled part. Saved rolls roll on their own, never summed to it. */
-export type DiceTray = Readonly<{ loose: string }>;
+/** One named part summed to the tray (a saved roll's part, a sheet's buff), removable by `id`. */
+export type TrayPiece = Readonly<{ id: string; label: string; expression: string }>;
+
+/** The roll being built: the formula (dice and numbers, as typed or clicked), rolled as the first
+ *  unlabeled part, then the named pieces in the order they came (see `dice-tray-pieces.ts`). */
+export type DiceTray = Readonly<{ loose: string; pieces: readonly TrayPiece[] }>;
 
 export type DiceRollMode = 'normal' | AdvantageMode;
 
 /** Why the advantage buttons are off: the game-core's block, or a notation still unreadable. */
 export type TrayAdvantageBlock = AdvantageBlock | 'unreadable';
 
-export const EMPTY_TRAY: DiceTray = { loose: '' };
+export const EMPTY_TRAY: DiceTray = { loose: '', pieces: [] };
 
 /** What the "Dados" tab keeps between the tray and the saved list: the roll being built, the
  *  advantage chosen and whether it is masters-only. */
@@ -92,7 +95,8 @@ export function savedRollPartsOf(saved: SavedRollDto): DiceRollPartDto[] {
   }));
 }
 
-/** The part the tray rolls (the formula, unlabeled); `null` when there is nothing to roll. Advantage goes through the game-core's `withAdvantage` (on the first die).
+/** The parts the tray rolls (the formula unlabeled, then the pieces); `null` when there is nothing
+ *  to roll. Advantage goes through the game-core's `withAdvantage` (on the first die of them all).
  *
  *  Example: `toRollParts(addModifier(addDie(EMPTY_TRAY, 20), 5), 'advantage') // [{ label: null, expression: '2d20kh1+5' }]` */
 export function toRollParts(tray: DiceTray, mode: DiceRollMode): DiceRollPartDto[] | null {
@@ -228,7 +232,8 @@ export function appliedModeOf(choice: TrayChoice): DiceRollMode {
 
 function trayPartsOf(tray: DiceTray): DiceRollPartDto[] {
   const loose = tray.loose.trim();
-  return loose === '' ? [] : [{ label: null, expression: loose }];
+  const pieces = tray.pieces.map(({ label, expression }) => ({ label, expression }));
+  return loose === '' ? pieces : [{ label: null, expression: loose }, ...pieces];
 }
 
 function readableTermsOf(text: string): DiceExpressionTerm[] | null {

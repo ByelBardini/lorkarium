@@ -1,11 +1,12 @@
 import type { CampaignRoleDto, DiceRolledDto, SavedRollDto } from '@lorkarium/contracts';
-import { useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
-import { EMPTY_TRAY_CHOICE, savedRollPartsOf, type TrayChoice } from '@/lib/dice-tray';
+import { savedRollPartsOf } from '@/lib/dice-tray';
+import { canAddTrayParts } from '@/lib/dice-tray-pieces';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import { watchesOnly } from '@/lib/table-role';
 import type { DiceCommands } from '@/services/dice-commands';
 import type { SavedRollsApi } from '@/services/saved-rolls-api';
+import { diceTrayStoreOf, useDiceTray } from '@/stores/dice-tray-store';
 import { useOpenTables, type OpenTablesStore } from '@/stores/open-tables-store';
 import { useSession, type SessionStore } from '@/stores/session-store';
 import type { TablePresenceStore } from '@/stores/table-presence-store';
@@ -50,7 +51,12 @@ export function DicePanel(props: DicePanelProps): React.JSX.Element {
   return (
     <div className="flex flex-col gap-6">
       {!spectator && (
-        <RollingSections campaignId={campaignId} services={services} roller={roller} />
+        <RollingSections
+          campaignId={campaignId}
+          openTables={props.openTables}
+          services={services}
+          roller={roller}
+        />
       )}
       {history !== null && (
         <DiceHistory
@@ -65,11 +71,21 @@ export function DicePanel(props: DicePanelProps): React.JSX.Element {
   );
 }
 
-type RollingProps = Readonly<{ campaignId: string; services: DiceServices; roller: DiceRoller }>;
+type RollingProps = Readonly<{
+  campaignId: string;
+  openTables: StoreApi<OpenTablesStore>;
+  services: DiceServices;
+  roller: DiceRoller;
+}>;
 
-function RollingSections({ campaignId, services, roller }: RollingProps): React.JSX.Element {
+// The tray lives in a store per table, not here: the sheet adds to it too, and it outlives
+// switching to the Chat tab (the tab's badge counts it).
+function RollingSections(props: RollingProps): React.JSX.Element {
+  const { campaignId, services, roller } = props;
   const saved = useSavedRolls(campaignId, services.savedRolls);
-  const [choice, setChoice] = useState<TrayChoice>(EMPTY_TRAY_CHOICE);
+  const tray = diceTrayStoreOf(props.openTables, campaignId);
+  const choice = useDiceTray(tray, (state) => state.choice);
+  const setChoice = tray.getState().setChoice;
   const rollSaved = (roll: SavedRollDto) => {
     const visibility = choice.secret ? 'masters' : 'public';
     void roller.roll({ label: roll.name, parts: savedRollPartsOf(roll), visibility });
@@ -77,7 +93,13 @@ function RollingSections({ campaignId, services, roller }: RollingProps): React.
   return (
     <>
       <DiceTrayEditor choice={choice} onChoice={setChoice} roller={roller} saved={saved} />
-      <SavedRollsList saved={saved} rollDisabled={roller.busy} onRoll={rollSaved} />
+      <SavedRollsList
+        saved={saved}
+        rollDisabled={roller.busy}
+        onRoll={rollSaved}
+        onAddToTray={(roll) => void tray.getState().addSavedRoll(roll)}
+        fitsInTray={(roll) => canAddTrayParts(choice.tray, roll.parts.length)}
+      />
     </>
   );
 }
