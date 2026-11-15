@@ -8,6 +8,7 @@ import {
 } from '../../../src/modules/sessions/sessions.mapper';
 import { ANA_ID } from '../../support/auth-factories';
 import {
+  FREE_ACCOUNT,
   BIA_ID,
   CAIO_ID,
   DUDA_ID,
@@ -18,6 +19,7 @@ import { presenceRoster } from '../../support/sessions-factories';
 
 const AT = new Date('2026-10-15T12:00:00Z');
 const PHOTO_ID = 'c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f';
+const BANNER_ID = 'b4a3c2d1-e0f9-4a8b-9c7d-6e5f4a3b2c1d';
 const MEMBERS = [
   campaignMemberRow({ userId: ANA_ID, name: 'Ana', role: 'master' }),
   campaignMemberRow({ userId: BIA_ID, name: 'Bia', role: 'player' }),
@@ -61,6 +63,7 @@ describe('sessions mapper', () => {
           username: 'ana',
           color: 'teal',
           avatarId: null,
+          bannerId: null,
           bio: null,
           role: 'master',
           juggernaut: false,
@@ -76,6 +79,7 @@ describe('sessions mapper', () => {
           username: 'bia',
           color: 'moss',
           avatarId: null,
+          bannerId: null,
           bio: null,
           role: 'player',
           juggernaut: false,
@@ -91,6 +95,7 @@ describe('sessions mapper', () => {
           username: 'caio',
           color: 'steel',
           avatarId: null,
+          bannerId: null,
           bio: null,
           role: 'player',
           juggernaut: false,
@@ -116,6 +121,7 @@ describe('sessions mapper', () => {
         username: 'bia',
         color: 'moss',
         avatarId: null,
+        bannerId: null,
         bio: null,
         role: 'player',
         juggernaut: false,
@@ -129,10 +135,21 @@ describe('sessions mapper', () => {
     });
   });
 
-  it('a member with a chosen color, a photo and a bio carries them as the table sees them', () => {
-    const ana = campaignMemberRow({ colorChoice: 'rose', avatarId: PHOTO_ID, bio: 'Mestre' });
+  it('a member with a chosen color, a photo, a banner and a bio carries them as the table sees them', () => {
+    const ana = campaignMemberRow({
+      ...{ colorChoice: 'rose', avatarId: PHOTO_ID, bannerId: BANNER_ID, bio: 'Mestre' },
+      account: { role: 'user', plan: 'apoiador', lorkariumOwner: false },
+    });
     const [member] = toSessionStateDto(VHARN_ID, [ana], presenceRoster({ version: 1 }), AT).members;
-    expect(member).toMatchObject({ color: 'rose', avatarId: PHOTO_ID, bio: 'Mestre' });
+    expect(member).toMatchObject({
+      ...{ color: 'rose', avatarId: PHOTO_ID, bannerId: BANNER_ID, bio: 'Mestre' },
+    });
+  });
+
+  it('a banner kept from a lapsed plan (Grátis now) does not reach the table', () => {
+    const ana = campaignMemberRow({ bannerId: BANNER_ID, account: FREE_ACCOUNT });
+    const [member] = toSessionStateDto(VHARN_ID, [ana], presenceRoster({ version: 1 }), AT).members;
+    expect(member?.bannerId).toBeNull();
   });
 
   it('each member carries the seal fields: Bia lenda, an admin with its stored plan', () => {

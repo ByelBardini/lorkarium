@@ -67,6 +67,7 @@ export type CampaignMemberRow = Readonly<{
   username: string;
   colorChoice: UserPo['color'];
   avatarId: string | null;
+  bannerId: string | null;
   bio: string | null;
   role: CampaignMemberPo['role'];
   owner: boolean;
@@ -195,6 +196,7 @@ export class CampaignMembersDao {
         username: users.username,
         colorChoice: users.color,
         avatarId: users.avatarId,
+        bannerId: users.bannerId,
         bio: users.bio,
         role: campaignMembers.role,
         owner: sql<boolean>`${campaigns.ownerId} = ${campaignMembers.userId}`,
