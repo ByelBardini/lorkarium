@@ -28,7 +28,7 @@ describe('sheet template manifest text', () => {
       problem: {
         kind: 'invalid',
         detail:
-          'permissions.0: permission "network"; expected one of character:stats, character:portrait, sheet:images, documents:read, character:bars',
+          'permissions.0: permission "network"; expected one of character:stats, character:portrait, sheet:images, documents:read, character:bars, dice:saved',
       },
     }));
 

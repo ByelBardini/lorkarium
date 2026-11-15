@@ -1,4 +1,4 @@
-import type { SheetDiceRequest } from './sheet-sdk-shapes';
+import type { SheetDiceRequest, SheetTrayPiece } from './sheet-sdk-shapes';
 
 /** An element of the frame's page, reduced to what the declarative binding reads and writes. */
 export interface SheetBoundElement {
@@ -45,6 +45,8 @@ export interface SheetBindingParts {
   onState(listener: (state: unknown) => void): () => void;
   patch(patches: Array<{ path: string[]; value: unknown }>): Promise<undefined>;
   roll(request: SheetDiceRequest): Promise<unknown>;
+  trayAdd(piece: SheetTrayPiece): Promise<unknown>;
+  trayRoll(): Promise<unknown>;
   sanitize(html: unknown): string;
   report(...args: unknown[]): void;
 }
@@ -248,17 +250,26 @@ function createFrameBindings(
     return { text, missing };
   }
 
+  // `data-lk-roll` rolls at once, `data-lk-tray` sums to the room's tray, `data-lk-tray-roll`
+  // rolls the tray; the first two read `@path` the same way.
   function onClick(event: { target: unknown }): void {
     const target = event.target as SheetBoundElement | null;
     if (target === null || typeof target.closest !== 'function') return;
-    const button = target.closest('[data-lk-roll]');
+    const button = target.closest('[data-lk-roll], [data-lk-tray], [data-lk-tray-roll]');
     if (button === null) return;
-    const expression = String(button.getAttribute('data-lk-roll'));
+    if (button.hasAttribute('data-lk-tray-roll')) return rollTray();
+    const attribute = button.hasAttribute('data-lk-roll') ? 'data-lk-roll' : 'data-lk-tray';
+    const expression = String(button.getAttribute(attribute));
     const { text, missing } = resolvedRoll(expression);
     if (missing !== null)
       return parts.report(
-        `lorkarium: data-lk-roll "${expression}" needs @${missing}, which is not a whole number in the values`,
+        `lorkarium: ${attribute} "${expression}" needs @${missing}, which is not a whole number in the values`,
       );
+    if (attribute === 'data-lk-tray') return addToTray(button, expression, text);
+    rollButton(button, expression, text);
+  }
+
+  function rollButton(button: SheetBoundElement, expression: string, text: string): void {
     const label = button.getAttribute('data-lk-label');
     const visibility = button.getAttribute('data-lk-visibility');
     parts
@@ -266,6 +277,21 @@ function createFrameBindings(
       .catch((error: unknown) =>
         parts.report(`lorkarium: data-lk-roll "${expression}" did not roll`, error),
       );
+  }
+
+  function addToTray(button: SheetBoundElement, expression: string, text: string): void {
+    const label = button.getAttribute('data-lk-label');
+    parts
+      .trayAdd({ expression: text, label: label ?? undefined })
+      .catch((error: unknown) =>
+        parts.report(`lorkarium: data-lk-tray "${expression}" was not added to the tray`, error),
+      );
+  }
+
+  function rollTray(): void {
+    parts
+      .trayRoll()
+      .catch((error: unknown) => parts.report('lorkarium: data-lk-tray-roll did not roll', error));
   }
 
   function onBindingState(state: unknown): void {

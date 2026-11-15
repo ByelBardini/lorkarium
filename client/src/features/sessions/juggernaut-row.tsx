@@ -1,6 +1,8 @@
 import { ShieldAlertIcon } from 'lucide-react';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { RosterRow } from '@/lib/table-roster';
+import { MemberBannerBackdrop } from './member-banner-backdrop';
+import { useBannerHover } from './use-banner-hover';
 import { NickLine } from './player-card-parts';
 import { RowAvatar } from './row-avatar';
 import { useAwayLabel } from './use-away-label';
@@ -23,9 +25,14 @@ export function JuggernautRow({
 }: JuggernautRowProps): React.JSX.Element {
   const { member, isViewer } = juggernaut;
   const awayLabel = useAwayLabel(member.awaySince, serverAt, clock);
+  const hover = useBannerHover();
   return (
     // -mx-4/px-4: the divider spans the whole panel, edge to edge, like the player cards.
-    <li className="-mx-4 flex items-center gap-3 border-b border-divider px-4 py-2.5 last:border-b-0">
+    <li
+      {...hover.rowHandlers}
+      className="relative isolate -mx-4 flex items-center gap-3 border-b border-divider px-4 py-2.5 last:border-b-0"
+    >
+      <MemberBannerBackdrop bannerId={member.bannerId} moving={hover.moving} />
       <RowAvatar
         member={member}
         size="lg"

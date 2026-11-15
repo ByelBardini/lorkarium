@@ -12,6 +12,8 @@ const PERMISSION_BY_REQUEST: Readonly<Partial<Record<RequestType, SheetManifestP
   'documents.list': 'documents:read',
   'documents.tabs': 'documents:read',
   'documents.readTab': 'documents:read',
+  'dice.saved.list': 'dice:saved',
+  'dice.tray.addSaved': 'dice:saved',
 };
 
 /** The manifest permission a request needs, or `null` for one every sheet has.

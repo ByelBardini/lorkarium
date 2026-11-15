@@ -3,21 +3,28 @@ import {
   SHEET_FRAME_BINDINGS_SOURCE,
   type SheetBindingScope,
   type SheetFrameBindingsFactory,
-  type SheetFrameLists,
 } from './sheet-frame-bindings';
 import { SHEET_FRAME_CONSOLE_SOURCE, type SheetFrameConsoleFactory } from './sheet-frame-console';
 import { SHEET_HTML_SANITIZER_SOURCE, type SheetHtmlSanitizer } from './sheet-html-sanitizer';
 import type {
+  LorkariumSdk,
   SheetBarChange,
   SheetDiceRequest,
+  SheetFrameBar,
+  SheetFrameCharacter,
   SheetFrameDocument,
   SheetFrameDocumentTab,
   SheetFrameDocumentTabContent,
   SheetFrameImage,
   SheetFrameRoll,
   SheetFrameRolledDie,
+  SheetFrameSavedRoll,
+  SheetFrameTrayRoll,
   SheetImageInput,
+  SheetTrayPiece,
 } from './sheet-sdk-shapes';
+
+export type { LorkariumSdk, SheetFrameBar, SheetFrameCharacter } from './sheet-sdk-shapes';
 
 /** The frame's end of the host's `MessageChannel` (a `MessagePort` inside the frame). */
 export interface SheetSdkPort {
@@ -79,74 +86,6 @@ export const SHEET_CONSOLE_FRAME_LIMITS = {
   positions: 8,
 } as const;
 export type SheetConsoleFrameLimits = typeof SHEET_CONSOLE_FRAME_LIMITS;
-
-/** One bar of the token as the frame gets it (a `tokenBarDto`, with more fields than these). */
-export interface SheetFrameBar {
-  readonly id: string;
-  readonly label: string;
-  readonly current: number;
-  readonly max: number;
-  readonly [field: string]: unknown;
-}
-
-/** The character that holds the sheet, as the last `state` had it. */
-export interface SheetFrameCharacter {
-  readonly name: string;
-  readonly armorClass: number | null;
-  readonly difficultyClass: number | null;
-}
-
-/** `window.lorkarium`, the only door from the author's code to the table. Every request settles
- *  when the host answers `result` (resolves) or `error` (rejects with `code` and `message`).
- *  `get`, `all` and `list` read copies of the last `state` and never ask the host. */
-export interface LorkariumSdk {
-  ready(): Promise<undefined>;
-  onState(listener: (state: unknown) => void): () => void;
-  readonly bars: {
-    adjust(bar: string, change: SheetBarChange): Promise<undefined>;
-    /** Every cost or none (`INSUFFICIENT_BAR`), from the current value only. */
-    spend(costs: ReadonlyArray<{ bar: string; amount: number }>): Promise<undefined>;
-    /** Creates on the holder a bar it lacks, full (permission `character:bars`); one already
-     *  there under that label resolves with its id and `created: false`. */
-    create(bar: {
-      label: string;
-      max: number;
-      color?: string;
-    }): Promise<{ barId: string; created: boolean }>;
-    list(): SheetFrameBar[];
-    get(bar: string): SheetFrameBar | undefined;
-  };
-  /** Resolves with the roll once its dice settle on the table. */
-  readonly dice: { roll(request: SheetDiceRequest): Promise<SheetFrameRoll> };
-  readonly values: {
-    set(changes: Record<string, unknown>): Promise<undefined>;
-    /** Replaces only the value at each path of keys (`null` removes it). */
-    patch(patches: ReadonlyArray<{ path: string[]; value: unknown }>): Promise<undefined>;
-    get(key: string): unknown;
-    all(): Record<string, unknown>;
-  };
-  readonly character: {
-    get(): SheetFrameCharacter | null;
-    set(changes: { armorClass?: number; difficultyClass?: number }): Promise<undefined>;
-    setImage(image: SheetImageInput): Promise<undefined>;
-  };
-  readonly assets: {
-    upload(image: SheetImageInput): Promise<{ assetId: string }>;
-    read(assetId: string): Promise<SheetFrameImage>;
-  };
-  /** The table's public documents (manifest permission `documents:read`): the same for every
-   *  viewer, read on demand (nothing is pushed when a document changes). */
-  readonly documents: {
-    list(): Promise<SheetFrameDocument[]>;
-    tabs(documentId: string): Promise<SheetFrameDocumentTab[]>;
-    readTab(documentId: string, tabId: string): Promise<SheetFrameDocumentTabContent>;
-  };
-  /** Clean html of a rich text before showing it: formatting stays, anything that runs or loads
-   *  goes. Synchronous, no host request. */
-  readonly html: { sanitize(html: string): string };
-  /** Repeated sections under a value path, each item at a stable 8-character id. */
-  readonly lists: SheetFrameLists;
-}
 
 /** The `type` of the window message that carries the port on the frame's first `load`. */
 export const SHEET_PORT_HANDOFF = 'lorkarium:port';
@@ -274,7 +213,14 @@ function installLorkariumSdk(
       return freeze({ barId, created });
     if (typeof found.type === 'string' && toTag.call(found.bytes) === '[object ArrayBuffer]')
       return freeze({ type: found.type, bytes: found.bytes });
-    return rollValueOf(found) ?? documentValueOf(found);
+    return rollValueOf(found) ?? trayRollValueOf(found) ?? documentValueOf(found);
+  }
+
+  // The tray's roll (each part with its label) and the saved rolls come as JSON copies.
+  function trayRollValueOf(found: object): SheetFrameTrayRoll | undefined {
+    const { total, parts } = found as { total?: unknown; parts?: unknown };
+    if (!isInteger(total) || !isArray(parts)) return undefined;
+    return freeze(parse(stringify({ total, parts })) as SheetFrameTrayRoll);
   }
 
   // A document read comes unwrapped (the list, the tabs or the tab), as a JSON copy of its own.
@@ -284,6 +230,8 @@ function installLorkariumSdk(
       tabs?: unknown;
       tab?: unknown;
     };
+    const { rolls } = found as { rolls?: unknown };
+    if (isArray(rolls)) return parse(stringify(rolls));
     if (isArray(documents)) return parse(stringify(documents));
     if (isArray(tabs)) return parse(stringify(tabs));
     if (typeof tab === 'object' && tab !== null) return parse(stringify(tab));
@@ -453,11 +401,20 @@ function installLorkariumSdk(
     return request<SheetFrameRoll>('dice.roll', () => rollOf(dice));
   }
 
-  // `data-lk`, `data-lk-roll` and the lists ride on the same requests the author has.
+  const tray = freeze({
+    add: (piece: SheetTrayPiece) =>
+      request('dice.tray.add', () => ({ expression: piece.expression, label: piece.label })),
+    addSaved: (savedRollId: string) => request('dice.tray.addSaved', () => ({ savedRollId })),
+    roll: () => request<SheetFrameTrayRoll>('dice.tray.roll', () => ({})),
+  });
+
+  // `data-lk`, `data-lk-roll`, `data-lk-tray` and the lists ride on the author's own requests.
   const bindings = createBindings(scope as unknown as SheetBindingScope, {
     onState,
     patch: patchValues,
     roll,
+    trayAdd: tray.add,
+    trayRoll: tray.roll,
     sanitize: sanitizeHtml,
     report: (...args: unknown[]) => frameConsole.logged('error', args),
   });
@@ -475,7 +432,13 @@ function installLorkariumSdk(
       list: () => copyOf(currentBars()),
       get: (bar: string) => findBar(bar),
     }),
-    dice: freeze({ roll }),
+    dice: freeze({
+      roll,
+      tray,
+      saved: freeze({
+        list: () => request<SheetFrameSavedRoll[]>('dice.saved.list', () => ({})),
+      }),
+    }),
     values: freeze({
       set: (changes: Record<string, unknown>) =>
         request('values.set', () => ({ changes: snapshot(changes) })),

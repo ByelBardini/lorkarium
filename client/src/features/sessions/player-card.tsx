@@ -25,6 +25,8 @@ import {
 } from '@/features/sheets/use-character-sheets';
 import { CardBars, CardPortrait, LocateButton, NickLine } from './player-card-parts';
 import { useAwayLabel } from './use-away-label';
+import { MemberBannerBackdrop } from './member-banner-backdrop';
+import { useBannerHover } from './use-banner-hover';
 
 export type PlayerCardProps = Readonly<{
   player: RosterPlayer;
@@ -48,15 +50,18 @@ export function PlayerCard(props: PlayerCardProps): React.JSX.Element {
   const { member, isViewer, character } = props.player;
   const titleId = useId();
   const awayLabel = useAwayLabel(member.awaySince, props.serverAt, props.clock);
+  const hover = useBannerHover();
   return (
     <article
+      {...hover.rowHandlers}
       aria-labelledby={titleId}
       className={cn(
         // -mx-4/px-4: the divider spans the whole panel, edge to edge.
-        'group -mx-4 flex flex-col gap-3 border-b border-divider px-4 py-3 last:border-b-0',
+        'group relative isolate -mx-4 flex flex-col gap-3 border-b border-divider px-4 py-3 last:border-b-0',
         !member.online && 'opacity-60',
       )}
     >
+      <MemberBannerBackdrop bannerId={member.bannerId} moving={hover.moving} />
       {character ? (
         <CardBody {...props} character={character} titleId={titleId} awayLabel={awayLabel} />
       ) : (

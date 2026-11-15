@@ -1,6 +1,6 @@
 import type { SavedRollDto, SavedRollFolderDto } from '@lorkarium/contracts';
-import { FolderInputIcon, FolderPlusIcon, XIcon } from 'lucide-react';
-import { useState } from 'react';
+import { FolderInputIcon, FolderPlusIcon, PlusIcon, XIcon } from 'lucide-react';
+import { useId, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -27,13 +27,18 @@ export type SavedRollsListProps = Readonly<{
   /** Rolls the saved roll alone, labeled by its name. */
   onRoll: (roll: SavedRollDto) => void;
   rollDisabled: boolean;
+  /** Sums the saved roll to the tray, its parts as named pieces. */
+  onAddToTray: (roll: SavedRollDto) => void;
+  /** Whether the saved roll still fits whole in the tray (10 parts at most). */
+  fitsInTray: (roll: SavedRollDto) => boolean;
 }>;
 
 /** The viewer's saved rolls at this table: the folders first, closed until clicked, then the rolls
  *  out of any folder. Each roll is a tag: a click rolls it (name + formula, the whole formula in
- *  the tooltip), its folder icon moves it and its "×" asks before deleting.
+ *  the tooltip), its "+" sums it to the tray, its folder icon moves it and its "×" asks before
+ *  deleting.
  *
- *  Example: `<SavedRollsList saved={saved} onRoll={rollSaved} rollDisabled={false} />` */
+ *  Example: `<SavedRollsList saved={saved} onRoll={rollSaved} rollDisabled={false} onAddToTray={add} fitsInTray={fits} />` */
 export function SavedRollsList(props: SavedRollsListProps): React.JSX.Element {
   const { saved } = props;
   const [doomed, setDoomed] = useState<SavedRollDto | null>(null);
@@ -178,7 +183,8 @@ function SavedRollTags({ label, rolls, ...actions }: TagsProps): React.JSX.Eleme
 
 type TagProps = Omit<TagsProps, 'label' | 'rolls'> & Readonly<{ roll: SavedRollDto }>;
 
-function SavedRollTag({ roll, onRoll, onDelete, rollDisabled, ...move }: TagProps) {
+function SavedRollTag(props: TagProps) {
+  const { roll, onRoll, onDelete, rollDisabled, onAddToTray, fitsInTray, ...move } = props;
   const formula = roll.parts.map((part) => part.expression).join(' + ');
   return (
     <li className="flex max-w-full items-center rounded-sm border border-input bg-card transition-colors hover:border-primary motion-reduce:transition-none">
@@ -199,6 +205,7 @@ function SavedRollTag({ roll, onRoll, onDelete, rollDisabled, ...move }: TagProp
         </TooltipTrigger>
         <TooltipContent>{formula}</TooltipContent>
       </Tooltip>
+      <AddToTrayButton roll={roll} fits={fitsInTray(roll)} onAdd={() => onAddToTray(roll)} />
       <MoveRollMenu roll={roll} {...move} />
       <Button
         variant="ghost"
@@ -212,6 +219,36 @@ function SavedRollTag({ roll, onRoll, onDelete, rollDisabled, ...move }: TagProp
     </li>
   );
 }
+
+type AddToTrayProps = Readonly<{ roll: SavedRollDto; fits: boolean; onAdd: () => void }>;
+
+// A sibling of the tag's button, like the "×": the main click keeps rolling at once.
+function AddToTrayButton({ roll, fits, onAdd }: AddToTrayProps): React.JSX.Element {
+  const reasonId = useId();
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        aria-label={`Adicionar ${roll.name} à rolagem`}
+        aria-describedby={fits ? undefined : reasonId}
+        title={fits ? undefined : TRAY_FULL_REASON}
+        disabled={!fits}
+        onClick={onAdd}
+        className="text-muted-foreground hover:text-primary"
+      >
+        <PlusIcon aria-hidden="true" />
+      </Button>
+      {!fits && (
+        <span id={reasonId} className="sr-only">
+          {TRAY_FULL_REASON}
+        </span>
+      )}
+    </>
+  );
+}
+
+const TRAY_FULL_REASON = 'Até 10 partes por rolagem.';
 
 type MoveMenuProps = Pick<TagsProps, 'folders' | 'onMove'> & Readonly<{ roll: SavedRollDto }>;
 

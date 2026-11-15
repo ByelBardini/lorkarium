@@ -2,6 +2,8 @@ import { UserPlusIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { RosterSpectator } from '@/lib/table-roster';
+import { MemberBannerBackdrop } from './member-banner-backdrop';
+import { useBannerHover } from './use-banner-hover';
 import { NickLine } from './player-card-parts';
 import { RoleActionsMenu } from './role-actions-menu';
 import { RoleChangeFeedback } from './role-change-confirm';
@@ -25,8 +27,14 @@ export function SpectatorRow(props: SpectatorRowProps): React.JSX.Element {
   const { member, isViewer, assignable } = props.spectator;
   const awayLabel = useAwayLabel(member.awaySince, props.serverAt, props.clock);
   const flow = useRoleChangeFlow(props.campaignId, member.userId);
+  const hover = useBannerHover();
   return (
-    <li className="flex flex-col gap-1 border-b border-divider py-2 last:border-b-0">
+    // -mx-4/px-4: the divider and the banner span the whole panel, edge to edge.
+    <li
+      {...hover.rowHandlers}
+      className="relative isolate -mx-4 flex flex-col gap-1 border-b border-divider px-4 py-2 last:border-b-0"
+    >
+      <MemberBannerBackdrop bannerId={member.bannerId} moving={hover.moving} />
       <div className="flex items-center gap-3">
         <RowAvatar member={member} />
         <div className="flex min-w-0 flex-1 flex-col">

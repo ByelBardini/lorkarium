@@ -55,6 +55,10 @@ function rollsSent(): unknown[] {
   return port.sent.filter((message) => (message as { type?: string }).type === 'dice.roll');
 }
 
+function sentOfType(type: string): unknown[] {
+  return port.sent.filter((message) => (message as { type?: string }).type === type);
+}
+
 function errorsLogged(): string[] {
   return port.sent
     .filter((message) => (message as { level?: string }).level === 'error')
@@ -275,6 +279,54 @@ describe('data-lk-roll', () => {
   });
 });
 
+describe('data-lk-tray and data-lk-tray-roll', () => {
+  it('a click sums the piece to the room’s tray, @path replaced and labeled', () => {
+    page('<button data-lk-tray="1d4+@bonus" data-lk-label="Bênção">Bênção</button>');
+    deliverValues({ bonus: 2 });
+    field('button').click();
+    expect(sentOfType('dice.tray.add')).toEqual([
+      expect.objectContaining({ expression: '1d4+2', label: 'Bênção' }),
+    ]);
+    expect(rollsSent()).toEqual([]);
+  });
+
+  it('a negative value keeps one sign, as data-lk-roll', () => {
+    page('<button data-lk-tray="+@a">Penalidade</button>');
+    deliverValues({ a: -2 });
+    field('button').click();
+    expect(sentOfType('dice.tray.add')).toEqual([expect.objectContaining({ expression: '-2' })]);
+  });
+
+  it('a click on something inside the button counts', () => {
+    page('<button data-lk-tray="1d6"><span>Fogo</span></button>');
+    deliverValues({});
+    field('span').click();
+    expect(sentOfType('dice.tray.add')).toHaveLength(1);
+  });
+
+  it('data-lk-tray-roll rolls the tray', () => {
+    page('<button data-lk-tray-roll>Rolar</button>');
+    deliverValues({});
+    field('button').click();
+    expect(sentOfType('dice.tray.roll')).toEqual([
+      expect.objectContaining({ type: 'dice.tray.roll' }),
+    ]);
+  });
+
+  it.each([
+    ['a path missing from the values', {}],
+    ['a value that is not a whole number', { bonus: 1.5 }],
+  ])('%s is refused with the data-lk-roll sentence, nothing sent', (_case, values) => {
+    page('<button data-lk-tray="1d4+@bonus">Bênção</button>');
+    deliverValues(values);
+    field('button').click();
+    expect({ added: sentOfType('dice.tray.add'), errors: errorsLogged() }).toEqual({
+      added: [],
+      errors: [expect.stringContaining('data-lk-tray "1d4+@bonus" needs @bonus')],
+    });
+  });
+});
+
 describe('lorkarium.lists', () => {
   it('add sends a patch at a new 8-character id and resolves to it', async () => {
     deliverValues({});
@@ -364,6 +416,8 @@ describe('sheet frame bindings: the serialized text', () => {
       onState: () => () => undefined,
       patch: async (patches) => void patched.push(patches),
       roll: async () => undefined,
+      trayAdd: async () => undefined,
+      trayRoll: async () => undefined,
       sanitize: (html) => String(html),
       report: () => undefined,
     };

@@ -117,6 +117,7 @@ export function campaignMemberRow(overrides: Partial<CampaignMemberRow> = {}): C
     username: (overrides.name ?? 'ana').toLowerCase(),
     colorChoice: null,
     avatarId: null,
+    bannerId: null,
     bio: null,
     role: 'master',
     // The factory campaign is Ana's (`campaignPo`), so Ana's row is the owner's.

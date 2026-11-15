@@ -109,6 +109,20 @@ describe('PlayerCard', () => {
     ).toBeVisible();
   });
 
+  it('Bia with a profile banner: it sits behind her card, hidden from the screen reader', () => {
+    renderCard({ member: { ...BIA_ONLINE, bannerId: IMAGE_ID } });
+
+    const backdrop = card().querySelector('[data-banner-backdrop]');
+    expect(backdrop).toHaveAttribute('aria-hidden', 'true');
+    expect(backdrop?.querySelector('canvas')).toBeInTheDocument();
+  });
+
+  it('Bia without a banner: no backdrop behind her card', () => {
+    renderCard({ member: BIA_ONLINE });
+
+    expect(card().querySelector('[data-banner-backdrop]')).toBeNull();
+  });
+
   it('Caio offline reads offline in the symbol and in the nick line', () => {
     renderCard({ member: { ...CAIO_AT_TABLE, online: false } });
 
