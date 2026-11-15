@@ -90,6 +90,8 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
   backoffice: ['backoffice'],
   // Moves Bia between plans in the backoffice (back to her seeded plan after each test).
   plans: ['plans'],
+  // Votes, reports and moves Caio to Grátis for the banner (back to his seeded plan at the end).
+  'profile-card': ['profile-card'],
 };
 
 assertEverySpecIsGrouped(SPEC_GROUPS);
