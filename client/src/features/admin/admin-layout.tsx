@@ -1,12 +1,12 @@
 import type { AuthUserDto } from '@lorkarium/contracts';
-import { ArrowLeftIcon, MailIcon, UsersIcon } from 'lucide-react';
+import { ArrowLeftIcon, FlagIcon, MailIcon, UsersIcon } from 'lucide-react';
 import { Link, NavLink, Outlet } from 'react-router';
 import { BrandMark } from '@/components/brand-mark';
 import { UserAvatar } from '@/components/user-avatar';
 import { cn } from '@/lib/utils';
 import { ROLE_LABEL } from './admin-messages';
 
-/** The backoffice's own frame: brand + "Backoffice", the navigation (only "Usuários" for now),
+/** The backoffice's own frame: brand + "Backoffice", the navigation ("Usuários", "Denúncias", "E-mails"),
  *  "Voltar para o app" and who is signed in; under `md` the side becomes a strip on top.
  *
  *  Example: `<AdminLayout user={session.user} />` */
@@ -46,6 +46,7 @@ function AdminNav(): React.JSX.Element {
   return (
     <nav aria-label="Backoffice" className="flex md:flex-col">
       <AdminNavLink to="/admin/users" icon={UsersIcon} label="Usuários" />
+      <AdminNavLink to="/admin/reports" icon={FlagIcon} label="Denúncias" />
       <AdminNavLink to="/admin/emails" icon={MailIcon} label="E-mails" />
     </nav>
   );

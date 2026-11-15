@@ -43,6 +43,8 @@ export type ImageCropDialogProps = Readonly<{
   purpose: FramedAssetPurposeDto;
   onConfirm: (crop: ImageCropRect) => void;
   onCancel: () => void;
+  /** Replaces the purpose's title (the profile banner shares the table banner's 3:1). */
+  title?: string;
   /** The drag-and-zoom area; the lazy `react-easy-crop` one by default (a spec passes a fake). */
   CropArea?: CropAreaComponent;
 }>;
@@ -61,7 +63,7 @@ export function ImageCropDialog(props: ImageCropDialogProps): React.JSX.Element 
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
       <DialogContent className="sm:max-w-xl" onKeyDown={(event) => zoomByKey(event, setZoom)}>
         <DialogHeader>
-          <DialogTitle>{CROP_TITLE[purpose]}</DialogTitle>
+          <DialogTitle>{props.title ?? CROP_TITLE[purpose]}</DialogTitle>
           <DialogDescription>
             Arraste a imagem e ajuste o zoom. A proporção fica em {frame.width}:{frame.height}.
           </DialogDescription>

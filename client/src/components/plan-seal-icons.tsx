@@ -69,14 +69,15 @@ export function AmigoDoDonoSealIcon({ className }: SealIconProps): React.JSX.Ele
   );
 }
 
-/** Apoiador: a faceted flame with its core (who keeps the fire lit).
+/** Apoiador: a swallowtail banner on its pole (who carries the house's flag). Replaced a symmetric
+ *  flame with a core, which read as anatomy at seal size.
  *
  *  Example: `<ApoiadorSealIcon className="size-3" />` */
 export function ApoiadorSealIcon({ className }: SealIconProps): React.JSX.Element {
   return (
     <SealGlyph className={className}>
-      <path d="M12 2.5 L17 10 L17.5 15 L12 21.5 L6.5 15 L7 10 Z" />
-      <path d="M12 11 L14.5 15.5 L12 18.5 L9.5 15.5 Z" />
+      <path d="M6 21.5 V2.5" />
+      <path d="M6 3.5 H18.5 L15.5 8 L18.5 12.5 H6" />
     </SealGlyph>
   );
 }

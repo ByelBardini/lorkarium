@@ -20,6 +20,7 @@ const accountActionRequest = z.discriminatedUnion('intent', [
   z.strictObject({ intent: z.literal('profile-update'), input: updateProfileRequestDto }),
   z.strictObject({ intent: z.literal('avatar-remove') }),
   z.strictObject({ intent: z.literal('dice-texture-remove') }),
+  z.strictObject({ intent: z.literal('banner-remove') }),
   z.strictObject({ intent: z.literal('password-change'), input: changePasswordRequestDto }),
   z.strictObject({ intent: z.literal('email-change'), input: changeEmailRequestDto }),
   z.strictObject({ intent: z.literal('email-cancel') }),
@@ -79,6 +80,8 @@ const HANDLERS: Handlers = {
       'dice-texture-remove',
       context,
     ),
+  'banner-remove': async (_, context) =>
+    profileOutcome(await context.deps.profileApi.removeBanner(), 'banner-remove', context),
   'password-change': async ({ input }, context) =>
     doneOutcome(await security(context).changePassword(input), 'password-change'),
   'email-change': async ({ input }, context) =>

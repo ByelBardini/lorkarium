@@ -158,7 +158,9 @@ function invitationPath(invitationId: string): string {
 }
 
 function doneOf(call: ApiCall): UserAdminResult<null> {
-  return call.kind === 'ok' ? { ok: true, value: null } : { ok: false, failure: failureOf(call) };
+  return call.kind === 'ok'
+    ? { ok: true, value: null }
+    : { ok: false, failure: userAdminFailureOf(call) };
 }
 
 function answerOf<S extends z.ZodType, T>(
@@ -166,11 +168,14 @@ function answerOf<S extends z.ZodType, T>(
   schema: S,
   pick: (parsed: z.infer<S>) => T,
 ): UserAdminResult<T> {
-  if (call.kind !== 'ok') return { ok: false, failure: failureOf(call) };
+  if (call.kind !== 'ok') return { ok: false, failure: userAdminFailureOf(call) };
   return parseOk(schema, call.body, pick);
 }
 
-function failureOf(call: Exclude<ApiCall, { kind: 'ok' }>): UserAdminFailure {
+/** The `UserAdminFailure` of a refused `/api/admin/*` call (shared by the reports queue).
+ *
+ *  Example: `if (call.kind !== 'ok') return { ok: false, failure: userAdminFailureOf(call) }` */
+export function userAdminFailureOf(call: Exclude<ApiCall, { kind: 'ok' }>): UserAdminFailure {
   if (call.kind === 'offline') return { kind: 'offline' };
   const body = apiErrorDto.safeParse(call.response.body);
   if (!body.success) return statusFailureOf(call.response);

@@ -1,5 +1,7 @@
 import type { FriendDto } from '@lorkarium/contracts';
+import { IdCardIcon } from 'lucide-react';
 import { Link } from 'react-router';
+import { ProfileCardTrigger } from '@/features/profile-card/profile-card-trigger';
 import { PRESENCE_LABELS } from '@/lib/friend-groups';
 import { cn } from '@/lib/utils';
 import type { FriendPresence } from '@/stores/friends-store';
@@ -41,6 +43,14 @@ export function FriendRow(props: FriendRowProps): React.JSX.Element {
         />
         {unread > 0 && <UnreadCount count={unread} />}
       </Link>
+      <ProfileCardTrigger
+        userId={friend.userId}
+        name={friend.name}
+        label={`Perfil de ${friend.name}`}
+        className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted"
+      >
+        <IdCardIcon aria-hidden="true" className="size-4" />
+      </ProfileCardTrigger>
       <FriendRowMenu friend={friend} deps={props.deps} onNotice={props.onNotice} />
     </li>
   );

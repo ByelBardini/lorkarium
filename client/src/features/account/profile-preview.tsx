@@ -1,30 +1,32 @@
-import { isHexColor, type MemberColorDto } from '@lorkarium/contracts';
+import { isHexColor, type MemberColorDto, type ProfileCardDto } from '@lorkarium/contracts';
 import { useId } from 'react';
-import { UserAvatar } from '@/components/user-avatar';
-import { UserHandle } from '@/components/user-handle';
 import { legibleInkOn } from '@/lib/color-contrast';
 import { memberColorCss } from '@/lib/member-color';
-import { memberSinceLabel } from '@/lib/member-since';
 import type { PlanSealHolder } from '@/lib/plan-seal';
+import { ProfileCardFace } from '@/features/profile-card/profile-card-face';
 
 export type ProfilePreviewProps = Readonly<{
   name: string;
   username: string;
   color: MemberColorDto;
   avatarId: string | null;
+  bannerId: string | null;
   bio: string;
+  gameSystems: string;
+  playSchedule: string;
+  contact: string;
   memberSince: string;
   seal: PlanSealHolder;
 }>;
 
-/** "Como a galera te vê": the draft as the others will see it, before it is saved, and the ping
- *  in the chosen color on a still mini grid, with the @ and the seal symbol the others see (no animation: it is an illustration, not the board).
+/** "Como a galera te vê": the draft on the real "Brasão" card (the full one, with systems,
+ *  schedule and contact), before it is saved, and the ping in the chosen color on a still mini
+ *  grid. The counters are the server's on the real card; here they read zero.
  *
- *  Example: `<ProfilePreview {...draft.values} username={profile.username} avatarId={profile.avatarId} memberSince={profile.memberSince} seal={profile} />` */
+ *  Example: `<ProfilePreview {...draft.values} username={profile.username} avatarId={profile.avatarId} bannerId={profile.bannerId} memberSince={profile.memberSince} seal={profile} />` */
 export function ProfilePreview(props: ProfilePreviewProps): React.JSX.Element {
   const titleId = useId();
-  const shownName = props.name.trim() || 'Sem apelido';
-  const bio = props.bio.trim();
+  const card = previewCardOf(props);
   return (
     <aside aria-labelledby={titleId} className="flex flex-col gap-5">
       <h3
@@ -33,22 +35,42 @@ export function ProfilePreview(props: ProfilePreviewProps): React.JSX.Element {
       >
         Como a galera te vê
       </h3>
-      <div className="flex items-center gap-4">
-        <UserAvatar name={shownName} color={props.color} avatarId={props.avatarId} size="xl" />
-        <div className="min-w-0">
-          <p className="truncate font-display text-2xl font-semibold">{shownName}</p>
-          <UserHandle
-            username={props.username}
-            seal={props.seal}
-            className="text-[15px] text-muted-foreground"
-          />
-        </div>
-      </div>
-      <p className="text-[15px] text-muted-foreground">{memberSinceLabel(props.memberSince)}</p>
-      {bio && <p className="max-w-prose text-[15px]/relaxed text-label">{bio}</p>}
-      <PingIllustration name={shownName} color={props.color} />
+      <ProfileCardFace card={card} full />
+      <PingIllustration name={card.name} color={props.color} />
     </aside>
   );
+}
+
+function textOrNull(text: string): string | null {
+  return text.trim() || null;
+}
+
+function previewCardOf(props: ProfilePreviewProps): ProfileCardDto {
+  return {
+    id: props.username,
+    username: props.username,
+    name: props.name.trim() || 'Sem apelido',
+    color: props.color,
+    avatarId: props.avatarId,
+    bannerId: props.bannerId,
+    bio: textOrNull(props.bio),
+    memberSince: props.memberSince,
+    plan: props.seal.plan,
+    admin: props.seal.admin,
+    lorkariumOwner: props.seal.lorkariumOwner,
+    presence: null,
+    relation: 'self',
+    rollsCount: 0,
+    natural20Count: 0,
+    campaignsAsMaster: 0,
+    campaignsAsPlayer: 0,
+    reputation: { up: 0, down: 0, myVote: null, percent: null },
+    gameSystems: textOrNull(props.gameSystems),
+    playSchedule: textOrNull(props.playSchedule),
+    contact: textOrNull(props.contact),
+    mutualCampaigns: [],
+    mutualFriends: 0,
+  };
 }
 
 const GRID_LINES = [20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220];

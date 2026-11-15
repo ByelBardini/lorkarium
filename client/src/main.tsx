@@ -16,6 +16,7 @@ import { HttpAccountLinksApi } from '@/services/account-links-api';
 import { HttpAccountPlanApi } from '@/services/account-plan-api';
 import { HttpAccountSecurityApi } from '@/services/account-security-api';
 import { HttpUserAdminApi } from '@/services/user-admin-api';
+import { HttpUserReportsApi } from '@/services/user-reports-api';
 import { HttpAuthApi } from '@/services/auth-api';
 import { HttpAssetsApi } from '@/services/assets-api';
 import { HttpCampaignsApi } from '@/services/campaigns-api';
@@ -68,6 +69,7 @@ import { createPresenceChoiceStore } from '@/stores/presence-choice-store';
 import { AccountRealtime } from '@/services/account-realtime';
 import { RealtimeDirectMessageCommands } from '@/services/direct-message-commands';
 import { HttpFriendsApi } from '@/services/friends-api';
+import { HttpProfileCardApi } from '@/services/profile-card-api';
 import { createDirectMessagesStore } from '@/stores/direct-messages-store';
 import { createFriendsStore } from '@/stores/friends-store';
 import './index.css';
@@ -158,6 +160,7 @@ const router = createBrowserRouter(
     accountSecurityApi: new HttpAccountSecurityApi(transport),
     accountPlanApi: new HttpAccountPlanApi(transport),
     userAdminApi: new HttpUserAdminApi(transport),
+    userReportsApi: new HttpUserReportsApi(transport),
     accountLinksApi: new HttpAccountLinksApi(transport),
     libraryApi: new HttpLibraryApi(transport),
     libraryMapsApi,
@@ -224,6 +227,7 @@ const router = createBrowserRouter(
     reloadPage: () => window.location.reload(),
     accountRealtime,
     friendsApi,
+    profileCardApi: new HttpProfileCardApi(transport),
     friends,
     directMessages,
     presenceChoice,
