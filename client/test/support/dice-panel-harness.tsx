@@ -1,5 +1,5 @@
 import type { AuthUserDto, CampaignRoleDto } from '@lorkarium/contracts';
-import { act, render } from '@testing-library/react';
+import { act, render, type RenderResult } from '@testing-library/react';
 import { DicePanel } from '@/features/dice/dice-panel';
 import { ANA } from './auth-api-fake';
 import { VHARN } from './campaigns-api-fake';
@@ -32,7 +32,10 @@ export function openVharnWithRoster(deps: TestDependencies): void {
 /** The "Dados" tab of Vharn alone.
  *
  *  Example: `renderDicePanel(deps, 'spectator')` */
-export function renderDicePanel(deps: TestDependencies, role: CampaignRoleDto = 'player'): void {
+export function renderDicePanel(
+  deps: TestDependencies,
+  role: CampaignRoleDto = 'player',
+): RenderResult {
   const table = deps.openTables.getState().tables.find((open) => open.campaignId === VHARN.id);
   const panel = (
     <DicePanel
@@ -44,5 +47,5 @@ export function renderDicePanel(deps: TestDependencies, role: CampaignRoleDto = 
       services={deps}
     />
   );
-  render(panel);
+  return render(panel);
 }

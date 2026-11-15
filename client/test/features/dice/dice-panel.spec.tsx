@@ -317,11 +317,12 @@ describe('DicePanel — saved rolls', () => {
     expect(lastSent(deps)?.request.visibility).toBe('masters');
   });
 
-  it('the tray sums no saved roll: no "Somar … à bandeja" nor "Rolagens na bandeja"', async () => {
+  it('"Rolar Acerto" rolls only the saved roll and leaves the tray alone', async () => {
     renderDicePanel(deps);
-    await screen.findByRole('button', { name: 'Rolar Acerto' });
-    expect(screen.queryByRole('button', { name: /à bandeja/ })).toBeNull();
-    expect(screen.queryByRole('list', { name: 'Rolagens na bandeja' })).toBeNull();
+    await user.click(await screen.findByRole('button', { name: 'Adicionar Bênção à rolagem' }));
+    await user.click(screen.getByRole('button', { name: 'Rolar Acerto' }));
+    expect(lastSent(deps)?.request.parts).toEqual([{ label: 'Acerto', expression: '1d20+5' }]);
+    expect(screen.getByRole('list', { name: 'Partes na rolagem' })).toHaveTextContent('Bênção');
   });
 
   it('"Salvar esta rolagem" creates it through the API and lists it', async () => {
@@ -402,6 +403,87 @@ describe('DicePanel — saved rolls', () => {
   });
 });
 
+describe('DicePanel — summing saved rolls in the tray', () => {
+  let deps: TestDependencies;
+  let user: UserEvent;
+
+  beforeEach(() => {
+    deps = testDependencies();
+    user = userEvent.setup();
+    deps.savedRolls.rolls.set(VHARN.id, [
+      { ...ACERTO, parts: [{ label: null, expression: '1d20' }] },
+      { ...BENCAO, parts: [{ label: null, expression: '1d4+5' }] },
+    ]);
+    openVharnWithRoster(deps);
+  });
+
+  const pieces = () => screen.getByRole('list', { name: 'Partes na rolagem' });
+
+  it('"+" on Acerto then Bênção puts two pieces, the preview sums them and Rolar sends both labeled', async () => {
+    renderDicePanel(deps);
+    await user.click(await screen.findByRole('button', { name: 'Adicionar Acerto à rolagem' }));
+    await user.click(screen.getByRole('button', { name: 'Adicionar Bênção à rolagem' }));
+    expect(
+      within(pieces())
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Acerto · 1d20', 'Bênção · 1d4+5']);
+    expect(screen.getByRole('status', { name: 'Prévia da rolagem' })).toHaveTextContent(
+      '1d20 + 1d4+5',
+    );
+    await user.click(screen.getByRole('radio', { name: 'Só o mestre' }));
+    await user.click(screen.getByRole('button', { name: 'Rolar' }));
+    expect(lastSent(deps)?.request).toMatchObject({
+      label: null,
+      parts: [
+        { label: 'Acerto', expression: '1d20' },
+        { label: 'Bênção', expression: '1d4+5' },
+      ],
+      visibility: 'masters',
+    });
+    expect(screen.queryByRole('list', { name: 'Partes na rolagem' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Rolar' })).toBeDisabled();
+  });
+
+  it('"Tirar Bênção da rolagem" removes only that piece', async () => {
+    renderDicePanel(deps);
+    await user.click(await screen.findByRole('button', { name: 'Adicionar Acerto à rolagem' }));
+    await user.click(screen.getByRole('button', { name: 'Adicionar Bênção à rolagem' }));
+    await user.click(screen.getByRole('button', { name: 'Tirar Bênção da rolagem' }));
+    expect(
+      within(pieces())
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Acerto · 1d20']);
+  });
+
+  it('with 10 parts the "+" is off and says why', async () => {
+    renderDicePanel(deps);
+    await screen.findByRole('button', { name: 'Adicionar Acerto à rolagem' });
+    await clickTimes(user, 'Adicionar Acerto à rolagem', 10);
+    const plus = screen.getByRole('button', { name: 'Adicionar Bênção à rolagem' });
+    expect(plus).toBeDisabled();
+    expect(plus).toHaveAccessibleDescription('Até 10 partes por rolagem.');
+  });
+
+  it('Vantagem with only pieces turns the Acerto piece into 2d20kh1 in the preview', async () => {
+    renderDicePanel(deps);
+    await user.click(await screen.findByRole('button', { name: 'Adicionar Acerto à rolagem' }));
+    await user.click(screen.getByRole('radio', { name: 'Vantagem' }));
+    expect(screen.getByRole('status', { name: 'Prévia da rolagem' })).toHaveTextContent(
+      /^2d20kh1$/,
+    );
+  });
+
+  it('the pieces stay when the tab unmounts and mounts again', async () => {
+    const { unmount } = renderDicePanel(deps);
+    await user.click(await screen.findByRole('button', { name: 'Adicionar Acerto à rolagem' }));
+    unmount();
+    renderDicePanel(deps);
+    expect(pieces()).toHaveTextContent('Acerto · 1d20');
+  });
+});
+
 describe('DicePanel — saved rolls before the list', () => {
   let deps: TestDependencies;
 
@@ -440,6 +522,7 @@ describe('DicePanel — spectator', () => {
     expect(screen.getByRole('heading', { name: 'Histórico' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Rolar' })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Rolagens salvas' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /à rolagem/ })).toBeNull();
     expect(deps.savedRolls.answers.callsOf('list')).toEqual([]);
   });
 });

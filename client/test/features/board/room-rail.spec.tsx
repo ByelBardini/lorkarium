@@ -1,10 +1,12 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import type { StoreApi } from 'zustand/vanilla';
+import { act } from 'react';
+import { createStore, type StoreApi } from 'zustand/vanilla';
 import { RoomRail } from '@/features/board/room-rail';
 import { useRoomShortcuts } from '@/features/board/use-room-shortcuts';
 import { createBoardInteractionStore } from '@/stores/board-interaction-store';
+import { diceTrayStoreOf, type DiceTrayStore } from '@/stores/dice-tray-store';
 import { createRoomLayoutStore, type RoomLayoutStore } from '@/stores/room-layout-store';
 import {
   createTablePresenceStore,
@@ -12,21 +14,26 @@ import {
   type TablePresenceStore,
 } from '@/stores/table-presence-store';
 import { VHARN } from '../../support/campaigns-api-fake';
+import { ACERTO } from '../../support/dice-fixtures';
 import { StorageFake } from '../../support/storage-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import { VHARN_GRID, vharnState } from '../../support/table-session-fixtures';
 import { emulateViewport } from '../../support/viewport';
 
-type Rail = Readonly<{ layout: StoreApi<RoomLayoutStore>; presence: StoreApi<TablePresenceStore> }>;
+type Rail = Readonly<{
+  layout: StoreApi<RoomLayoutStore>;
+  presence: StoreApi<TablePresenceStore>;
+  diceTray: StoreApi<DiceTrayStore>;
+}>;
 
-function RailWithKeys({ layout, presence }: Rail): React.JSX.Element {
+function RailWithKeys({ layout, presence, diceTray }: Rail): React.JSX.Element {
   const interaction = createBoardInteractionStore({
     scopeOf: () => VHARN_GRID,
     commands: new TableBoardCommandsFake(),
     describeRefusal: String,
   });
   useRoomShortcuts({ roomLayout: layout, interaction, role: 'master' });
-  return <RoomRail roomLayout={layout} presence={presence} />;
+  return <RoomRail roomLayout={layout} presence={presence} diceTray={diceTray} />;
 }
 
 function renderRail(): Rail {
@@ -34,8 +41,10 @@ function renderRail(): Rail {
   const presence = createTablePresenceStore(VHARN.id);
   presence.getState().apply({ kind: 'state', state: vharnState() });
   presence.getState().apply({ kind: 'status', status: 'live' });
-  render(<RailWithKeys layout={layout} presence={presence} />);
-  return { layout, presence };
+  const openTables = createStore(() => ({ tables: [{ campaignId: VHARN.id }] }));
+  const diceTray = diceTrayStoreOf(openTables, VHARN.id);
+  render(<RailWithKeys layout={layout} presence={presence} diceTray={diceTray} />);
+  return { layout, presence, diceTray };
 }
 
 const rail = (): HTMLElement => screen.getByRole('tablist', { name: 'Painel da mesa' });
@@ -77,6 +86,21 @@ describe('RoomRail beside the board', () => {
     const online = selectOnlineCount(presence.getState());
     expect(railTab('Na mesa')).toHaveTextContent(String(online));
     expect(railTab('Na mesa')).toHaveAccessibleDescription(`${online} online`);
+  });
+
+  it('with another tab open, "Dados" shows how many parts the tray holds, said to assistive tech', () => {
+    const { diceTray } = renderRail();
+    expect(railTab('Dados')).not.toHaveAccessibleDescription(/rolagem/);
+    act(() => void diceTray.getState().addSavedRoll(ACERTO));
+    expect(railTab('Dados')).toHaveTextContent('1');
+    expect(railTab('Dados')).toHaveAccessibleDescription('1 parte na rolagem');
+    act(() => void diceTray.getState().addSavedRoll(ACERTO));
+    expect(railTab('Dados')).toHaveAccessibleDescription('2 partes na rolagem');
+  });
+
+  it('an empty tray puts no badge on "Dados"', () => {
+    renderRail();
+    expect(railTab('Dados')).toHaveTextContent('');
   });
 
   it('the backslash key collapses the panel and opens it again', () => {

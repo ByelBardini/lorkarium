@@ -10,10 +10,13 @@ import {
   isTrayEmpty,
   isTrayRollable,
   toRollParts,
+  withTray,
   type TrayChoice,
 } from '@/lib/dice-tray';
+import { removePiece } from '@/lib/dice-tray-pieces';
 import { DieGlyph } from './die-glyph';
 import { SaveRollForm } from './save-roll-form';
+import { TrayPieces } from './tray-pieces';
 import type { DiceRoller } from './use-dice-roller';
 import type { SavedRollsView } from './use-saved-rolls';
 
@@ -26,8 +29,8 @@ export type TrayActionsProps = Readonly<{
   onRoll: () => void;
 }>;
 
-/** The bottom of the tray: "Quem vê" and "Limpar", the refusal, the preview, "Rolar" and the
- *  bookmark that opens the line to save the formula.
+/** The bottom of the tray: "Quem vê" and "Limpar", the refusal, the named pieces, the preview,
+ *  "Rolar" and the bookmark that opens the line to save the formula (pieces included).
  *
  *  Example: `<TrayActions choice={choice} onChoice={setChoice} roller={roller} saved={saved} onRoll={roll} />` */
 export function TrayActions(props: TrayActionsProps): React.JSX.Element {
@@ -38,6 +41,10 @@ export function TrayActions(props: TrayActionsProps): React.JSX.Element {
     <div className="flex flex-col gap-3">
       <AudienceLine choice={choice} onChoice={props.onChoice} />
       {roller.problem !== null && <RollRefusal problem={roller.problem} />}
+      <TrayPieces
+        tray={choice.tray}
+        onRemove={(id) => props.onChoice(withTray(choice, removePiece(choice.tray, id)))}
+      />
       <RollPreview choice={choice} />
       <div className="flex gap-2">
         <Button
