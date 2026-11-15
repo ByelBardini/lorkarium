@@ -56,6 +56,10 @@ describe('ProfilesService', () => {
         colorChoice: null,
         bio: null,
         avatarId: null,
+        bannerId: null,
+        gameSystems: null,
+        playSchedule: null,
+        contact: null,
         diceTextureId: null,
         diceNumberColor: null,
         memberSince: '2026-10-01T12:00:00.000Z',
@@ -100,6 +104,17 @@ describe('ProfilesService', () => {
       expect(journal).toEqual(['update:diceNumberColor']);
     });
 
+    it('the game preferences are saved without telling the tables', async () => {
+      const profile = await service.update(ANA_ID, {
+        gameSystems: 'D&D 5e, Tormenta',
+        playSchedule: null,
+        contact: 'ana#1234',
+      });
+
+      expect(profile).toMatchObject({ gameSystems: 'D&D 5e, Tormenta', contact: 'ana#1234' });
+      expect(journal).toEqual(['update:gameSystems,playSchedule,contact']);
+    });
+
     it('the dice number color along with the nickname still tells the tables', async () => {
       await service.update(ANA_ID, { name: 'Aninha', diceNumberColor: null });
 
@@ -130,7 +145,7 @@ describe('ProfilesService', () => {
     it('the photo is asked of the processor as a 256 square that may move', async () => {
       await service.replaceAvatar(ANA_ID, PHOTO);
 
-      expect(processor.shapes).toEqual([{ side: 256, animated: true }]);
+      expect(processor.shapes).toEqual([{ width: 256, height: 256, animated: true }]);
     });
 
     it('the first photo deletes nothing', async () => {
@@ -259,7 +274,7 @@ describe('ProfilesService', () => {
 
       const profile = await service.replaceDiceTexture(ANA_ID, PHOTO);
 
-      expect(processor.shapes).toEqual([{ side: 512, animated: false }]);
+      expect(processor.shapes).toEqual([{ width: 512, height: 512, animated: false }]);
       expect(journal).toEqual([
         'normalize',
         'put',
@@ -359,6 +374,87 @@ describe('ProfilesService', () => {
     });
   });
 
+  describe('the banner', () => {
+    const LINK = 'https://media.example.com/banner.png';
+    const profileBanner = { code: 'PLAN_LIMIT', resource: 'profileBanner', limit: 0, plan: 'free' };
+
+    it('a banner is normalized animated at 1800×600 at the center, stored, pointed at and the old one deleted, untold', async () => {
+      profiles.rows[0] = profileRow({ bannerId: OLD_AVATAR, avatarId: OLD_AVATAR });
+
+      const profile = await service.replaceBanner(ANA_ID, PHOTO);
+
+      expect(processor.shapes).toEqual([{ width: 1800, height: 600, animated: true, crop: null }]);
+      expect(journal).toEqual([
+        'normalize',
+        'put',
+        `swapBanner:${NEW_AVATAR}`,
+        `remove:banners/${OLD_AVATAR}`,
+      ]);
+      expect(profileChanged.told).toEqual([]);
+      expect(profile).toMatchObject({ bannerId: NEW_AVATAR, avatarId: OLD_AVATAR });
+      expect(storage.objects.get(`banners/${NEW_AVATAR}`)?.contentType).toBe('image/webp');
+    });
+
+    it('a banner sent with the picked rectangle asks the processor to cut inside it', async () => {
+      const crop = { x: 0, y: 20, w: 100, h: 33 };
+
+      await service.replaceBanner(ANA_ID, PHOTO, crop);
+
+      expect(processor.shapes).toEqual([{ width: 1800, height: 600, animated: true, crop }]);
+    });
+
+    it('a banner link has no rectangle: cut at the center, animated', async () => {
+      await service.replaceBannerFromLink(ANA_ID, LINK);
+
+      expect(processor.shapes).toEqual([{ width: 1800, height: 600, animated: true }]);
+    });
+
+    it('Bia on free is refused the banner (sent or by link) before anything is read', async () => {
+      await expect(service.replaceBanner(BIA_ID, PHOTO)).rejects.toMatchObject(profileBanner);
+      await expect(service.replaceBannerFromLink(BIA_ID, LINK)).rejects.toMatchObject(
+        profileBanner,
+      );
+
+      expect([journal, fetcher.fetched]).toEqual([[], []]);
+    });
+
+    it('a banner above 5 MiB is BANNER_TOO_LARGE before it is decoded', async () => {
+      const huge = new Uint8Array(AVATAR_MAX_BYTES + 1);
+
+      await expect(service.replaceBanner(ANA_ID, huge)).rejects.toMatchObject({
+        code: 'BANNER_TOO_LARGE',
+        message: expect.stringContaining(String(AVATAR_MAX_BYTES + 1)),
+      });
+      expect(journal).toEqual([]);
+    });
+
+    it('a banner from a link is downloaded, then the same path as a sent one', async () => {
+      const profile = await service.replaceBannerFromLink(ANA_ID, LINK);
+
+      expect(fetcher.fetched).toEqual([LINK]);
+      expect(journal).toEqual(['normalize', 'put', `swapBanner:${NEW_AVATAR}`]);
+      expect(profile.bannerId).toBe(NEW_AVATAR);
+    });
+
+    it('Bia on free may still take off a banner she had, and again is fine', async () => {
+      profiles.rows[1] = profileRow({ id: BIA_ID, bannerId: OLD_AVATAR });
+
+      expect((await service.removeBanner(BIA_ID)).bannerId).toBeNull();
+      await service.removeBanner(BIA_ID);
+
+      expect(journal).toEqual(['swapBanner:none', `remove:banners/${OLD_AVATAR}`]);
+    });
+
+    it('a photo id or a removed banner is BANNER_NOT_FOUND', async () => {
+      profiles.rows[0] = profileRow({ avatarId: OLD_AVATAR });
+
+      await expect(service.openBanner(OLD_AVATAR)).rejects.toMatchObject({
+        code: 'BANNER_NOT_FOUND',
+        message: expect.stringContaining(OLD_AVATAR),
+      });
+    });
+  });
+
   describe('the customizations follow the plan of the person', () => {
     const LINK = 'https://media.example.com/t.png';
     const customColor = { code: 'PLAN_LIMIT', resource: 'customColor', limit: 0, plan: 'free' };
@@ -435,8 +531,8 @@ describe('ProfilesService', () => {
       await service.replaceAvatarFromLink(BIA_ID, LINK);
 
       expect(processor.shapes).toEqual([
-        { side: 256, animated: false },
-        { side: 256, animated: false },
+        { width: 256, height: 256, animated: false },
+        { width: 256, height: 256, animated: false },
       ]);
     });
 
@@ -445,7 +541,7 @@ describe('ProfilesService', () => {
 
       await service.replaceAvatar(BIA_ID, PHOTO);
 
-      expect(processor.shapes).toEqual([{ side: 256, animated: true }]);
+      expect(processor.shapes).toEqual([{ width: 256, height: 256, animated: true }]);
     });
 
     it('Ana on amigo_do_dono keeps everything as today', async () => {
@@ -454,8 +550,8 @@ describe('ProfilesService', () => {
       await service.replaceAvatar(ANA_ID, PHOTO);
 
       expect(processor.shapes).toEqual([
-        { side: 512, animated: false },
-        { side: 256, animated: true },
+        { width: 512, height: 512, animated: false },
+        { width: 256, height: 256, animated: true },
       ]);
     });
   });

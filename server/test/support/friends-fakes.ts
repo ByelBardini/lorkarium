@@ -67,6 +67,9 @@ export class FriendsStoreFake {
         this.rowsOf(this.blocks, (pair) => pair.fromId === blockerId, 'toId'),
     },
     seats: { removeFromOwnedBy: async (ownerId, userId) => this.removeSeats(ownerId, userId) },
+    candidates: {
+      search: async (userId, prefix, limit) => this.candidatesOf(userId, prefix, limit),
+    },
   };
 
   /** Runs the work on the same in-memory DAOs; a throw leaves the arrays as the work left them
@@ -111,6 +114,22 @@ export class FriendsStoreFake {
     const { userLow, userHigh } = canonicalPair(userId, friendId);
     const pair = this.friendships.find((row) => row.fromId === userLow && row.toId === userHigh);
     return pair ? this.rowOf(friendId, pair.at) : undefined;
+  }
+
+  // Same exclusions as `FriendCandidatesDao.search`, with the profile of `rowOf`.
+  private candidatesOf(userId: string, prefix: string, limit: number): RelatedAccountRow[] {
+    const touches = (pair: Pair, otherId: string): boolean =>
+      [pair.fromId, pair.toId].includes(userId) && [pair.fromId, pair.toId].includes(otherId);
+    return this.accounts
+      .filter((account) => account.id !== userId && account.username.startsWith(prefix))
+      .filter(
+        (account) =>
+          ![...this.friendships, ...this.requests].some((pair) => touches(pair, account.id)),
+      )
+      .filter((account) => !this.blocked(userId, account.id))
+      .sort((one, other) => one.username.localeCompare(other.username))
+      .slice(0, limit)
+      .map((account) => this.rowOf(account.id, new Date(0)));
   }
 
   private friendsOf(userId: string): RelatedAccountRow[] {

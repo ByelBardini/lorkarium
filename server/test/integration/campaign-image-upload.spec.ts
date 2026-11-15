@@ -6,6 +6,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { buildApp } from '../../src/app/build-app';
 import { readEnv, type Env } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
+import { setAccountPlan } from '../support/account-plans';
 import { pngOf } from '../support/images';
 import { signUpAndLogin } from '../support/sign-in';
 import { createTable, joinByCode, type Table } from '../support/tables';
@@ -25,11 +26,30 @@ async function redLeftBlueRightPng(): Promise<Buffer> {
     .toBuffer();
 }
 
+// 3 frames of 1200 × 600, red on the left half and a different colour on the right in each.
+async function halvedGif(): Promise<Buffer> {
+  const rights = [BLUE, { r: 20, g: 220, b: 20, alpha: 1 }, BLUE];
+  const frames = await Promise.all(
+    rights.map(async (right) => {
+      const half = { width: 600, height: 600, channels: 4, background: right } as const;
+      const coloured = await sharp({ create: half }).png().toBuffer();
+      return sharp({ create: { width: 1200, height: 600, channels: 4, background: RED } })
+        .composite([{ input: coloured, left: 600, top: 0 }])
+        .png()
+        .toBuffer();
+    }),
+  );
+  return sharp(frames, { join: { animated: true } })
+    .gif()
+    .toBuffer();
+}
+
 describe('campaign photo and banner upload', () => {
   const env: Env = { ...readEnv(process.env), adminSeed: null };
   let connection: DatabaseConnection;
   let app: FastifyInstance;
   let ana: string;
+  let anaId: string;
   let bia: string;
   let vharn: Table;
 
@@ -45,6 +65,7 @@ describe('campaign photo and banner upload', () => {
     const anaUser = await signUpAndLogin(app, connection.db, 'Ana');
     const biaUser = await signUpAndLogin(app, connection.db, 'Bia');
     ana = anaUser.token;
+    anaId = anaUser.id;
     bia = biaUser.token;
     vharn = await createTable(app, anaUser, 'Os Sinos de Vharn');
     await joinByCode(app, biaUser, vharn);
@@ -52,12 +73,17 @@ describe('campaign photo and banner upload', () => {
 
   afterEach(() => app.close());
 
-  function upload(token: string, bytes: Buffer, query: string): Promise<LightMyRequestResponse> {
+  function upload(
+    token: string,
+    bytes: Buffer,
+    query: string,
+    type = 'image/png',
+  ): Promise<LightMyRequestResponse> {
     return app.inject({
       method: 'POST',
       url: `/api/campaigns/${vharn.id}/assets?${query}`,
       cookies: { lk_session: token },
-      headers: { 'content-type': 'image/png' },
+      headers: { 'content-type': type },
       payload: bytes,
     });
   }
@@ -121,6 +147,50 @@ describe('campaign photo and banner upload', () => {
     const response = await upload(bia, await pngOf(300, 300), 'purpose=campaign_photo');
 
     expect(assetOf(response)).toMatchObject({ width: 300, height: 300 });
+  });
+
+  async function pagesOf(assetId: string): Promise<{ pages: number; format: string }> {
+    const read = await app.inject({
+      method: 'GET',
+      url: `/api/assets/${assetId}`,
+      cookies: { lk_session: ana },
+    });
+    const metadata = await sharp(read.rawPayload, { animated: true }).metadata();
+    return { pages: metadata.pages ?? 1, format: metadata.format };
+  }
+
+  it('on a paid owner a GIF photo keeps its 3 frames, each cut to the picked half', async () => {
+    await setAccountPlan(connection.db, anaId, 'apoiador');
+
+    const query = `purpose=campaign_photo&${RIGHT_HALF}`;
+    const asset = assetOf(await upload(ana, await halvedGif(), query, 'image/gif'));
+
+    expect(asset).toMatchObject({ mimeType: 'image/gif', width: 512, height: 512 });
+    expect(await pagesOf(asset.id)).toEqual({ pages: 3, format: 'gif' });
+    const colour = await meanColourOf(asset.id);
+    expect(colour.red).toBeLessThan(40);
+  });
+
+  it.each(['cover', 'campaign_banner'] as const)(
+    'on a paid owner a %s GIF sent by a Grátis player stays animated: the owner plan counts',
+    async (purpose) => {
+      await setAccountPlan(connection.db, anaId, 'apoiador');
+
+      const asset = assetOf(
+        await upload(bia, await halvedGif(), `purpose=${purpose}`, 'image/gif'),
+      );
+
+      expect(asset.mimeType).toBe('image/gif');
+      expect((await pagesOf(asset.id)).pages).toBe(3);
+    },
+  );
+
+  it('on a Grátis owner a GIF banner is kept as its still first frame, not refused', async () => {
+    const response = await upload(ana, await halvedGif(), 'purpose=campaign_banner', 'image/gif');
+
+    const asset = assetOf(response);
+    expect(asset).toMatchObject({ mimeType: 'image/png', width: 1200, height: 400 });
+    expect((await pagesOf(asset.id)).pages).toBe(1);
   });
 
   it('the database knows the two new purposes of an asset', async () => {
