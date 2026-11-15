@@ -15,6 +15,7 @@ import {
 } from '../../support/assets-fakes';
 import { lyraPortraitPo, QUELM_MAP_ID } from '../../support/assets-factories';
 import { assetQuotaOver } from '../../support/asset-quota-fakes';
+import { planAccount, TableOwnerPlansFake } from '../../support/plan-account-fakes';
 import { CampaignMembersDaoFake, CampaignsDaoFake } from '../../support/campaigns-fakes';
 import {
   BIA_ID,
@@ -57,6 +58,7 @@ describe('AssetsService', () => {
   let service: AssetsService;
   let policy: AssetReadPolicyFake;
   let members: CampaignMembersDaoFake;
+  let tableOwners: TableOwnerPlansFake;
 
   beforeEach(() => {
     journal = [];
@@ -70,8 +72,10 @@ describe('AssetsService', () => {
       campaignMemberPo({ campaignId: VHARN_ID, userId: BIA_ID, role: 'player' }),
       campaignMemberPo({ campaignId: QUELM_ID, userId: CAIO_ID, role: 'master' }),
     ]);
+    const quota = assetQuotaOver(assets);
+    tableOwners = quota.tableOwners;
     service = new AssetsService({
-      ...assetQuotaOver(assets).deps,
+      ...quota.deps,
       members,
       assets,
       storage,
@@ -462,9 +466,35 @@ describe('AssetsService', () => {
     await service.upload(ANA_ID, VHARN_ID, { bytes: PNG, purpose: 'campaign_photo', crop });
 
     expect(processor.resizes).toEqual([
-      { maxSide: 512, frame: { aspect: { width: 1, height: 1 }, crop } },
+      {
+        maxSide: 512,
+        frame: { aspect: { width: 1, height: 1 }, crop },
+        animation: { maxFrames: 120, maxDecodedPixels: 16_000_000 },
+      },
     ]);
     expect(journal).toEqual(['normalize', 'put', 'insert']);
+  });
+
+  it.each(['campaign_photo', 'cover', 'campaign_banner'] as const)(
+    'a %s of a table whose owner is on Grátis is kept still: no animation budget',
+    async (purpose) => {
+      tableOwners.set(VHARN_ID, planAccount({ plan: 'free' }));
+
+      await service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose });
+
+      expect(processor.resizes[0]).not.toHaveProperty('animation');
+      expect(tableOwners.asked).toEqual([VHARN_ID]);
+    },
+  );
+
+  it('a cover follows the plan of the table owner, not of a free player who sends it', async () => {
+    tableOwners.set(VHARN_ID, planAccount({ plan: 'apoiador' }));
+
+    await service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose: 'cover' });
+
+    expect(processor.resizes[0]).toMatchObject({
+      animation: { maxFrames: 120, maxDecodedPixels: 16_000_000 },
+    });
   });
 
   it('a campaign photo link is cut 1:1 at the centre, with no rectangle', async () => {
@@ -473,7 +503,11 @@ describe('AssetsService', () => {
     await service.importLink(ANA_ID, VHARN_ID, link);
 
     expect(processor.resizes).toEqual([
-      { maxSide: 512, frame: { aspect: { width: 1, height: 1 }, crop: null } },
+      {
+        maxSide: 512,
+        frame: { aspect: { width: 1, height: 1 }, crop: null },
+        animation: { maxFrames: 120, maxDecodedPixels: 16_000_000 },
+      },
     ]);
   });
 

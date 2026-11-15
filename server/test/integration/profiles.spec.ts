@@ -160,6 +160,24 @@ describe('profiles HTTP edge', () => {
       });
     });
 
+    it('the game preferences are saved, read back, and null clears one', async () => {
+      const saved = await patch(ana, {
+        gameSystems: 'D&D 5e, Tormenta',
+        playSchedule: 'sábado à noite',
+        contact: 'ana#1234',
+      });
+      expect(saved.statusCode).toBe(200);
+
+      await patch(ana, { contact: null });
+
+      expect(await profileOf(ana)).toMatchObject({
+        gameSystems: 'D&D 5e, Tormenta',
+        playSchedule: 'sábado à noite',
+        contact: null,
+      });
+      expect(await profileOf(bia)).toMatchObject({ gameSystems: null, contact: null });
+    });
+
     it('the /me that follows already carries the new nickname', async () => {
       await patch(ana, { name: 'Aninha' });
 
@@ -176,6 +194,9 @@ describe('profiles HTTP edge', () => {
       [{ color: 'purple' }],
       [{ color: '#fff' }],
       [{ color: 'url(x)' }],
+      [{ gameSystems: 'x'.repeat(301) }],
+      [{ playSchedule: 'x'.repeat(201) }],
+      [{ contact: 'x'.repeat(201) }],
     ])('the body %j answers 400 INVALID_BODY and changes nothing', async (body) => {
       const response = await patch(ana, body);
 
@@ -194,6 +215,10 @@ describe('profiles HTTP edge', () => {
       ['POST', '/account/dice-texture/link'],
       ['DELETE', '/account/dice-texture'],
       ['GET', `/dice-textures/${UNKNOWN_ID}`],
+      ['PUT', '/account/banner'],
+      ['POST', '/account/banner/link'],
+      ['DELETE', '/account/banner'],
+      ['GET', `/banners/${UNKNOWN_ID}`],
     ] as const)('%s %s without a session answers 401 UNAUTHENTICATED', async (method, url) => {
       const bodies = { PATCH: { name: 'X' }, POST: { url: 'https://example.com/a.png' } };
       const payload = method === 'PATCH' || method === 'POST' ? bodies[method] : undefined;
@@ -337,6 +362,149 @@ describe('profiles HTTP edge', () => {
 
     it('without a session it answers 401', async () => {
       expect((await linkPhoto(undefined, 'https://example.com/a.gif')).statusCode).toBe(401);
+    });
+  });
+
+  describe('the banner', () => {
+    function sendBanner(
+      user: SignedInUser,
+      bytes: Buffer | string,
+      contentType = 'image/png',
+    ): Promise<LightMyRequestResponse> {
+      return call(user, { method: 'PUT', url: '/account/banner', payload: bytes, contentType });
+    }
+
+    async function sentBannerId(user: SignedInUser): Promise<string> {
+      const response = await sendBanner(user, photo);
+      expect(response.statusCode).toBe(200);
+      const { bannerId } = profileResponseDto.parse(response.json()).profile;
+      if (bannerId === null) throw new Error('the banner send answered no bannerId');
+      return bannerId;
+    }
+
+    it('a PNG becomes a still 1800×600 WebP that another account reads, cached for good', async () => {
+      const bannerId = await sentBannerId(ana);
+
+      const response = await call(bia, { method: 'GET', url: `/banners/${bannerId}` });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['content-type']).toBe('image/webp');
+      expect(response.headers['cache-control']).toBe('private, max-age=31536000, immutable');
+      const metadata = await sharp(response.rawPayload).metadata();
+      expect([metadata.format, metadata.width, metadata.height]).toEqual(['webp', 1800, 600]);
+      expect((await profileOf(ana)).bannerId).toBe(bannerId);
+    });
+
+    async function threeFrameGif(): Promise<Buffer> {
+      const colours = [
+        { r: 220, g: 20, b: 20 },
+        { r: 20, g: 220, b: 20 },
+        { r: 20, g: 20, b: 220 },
+      ];
+      const frames = await Promise.all(
+        colours.map((background) =>
+          sharp({ create: { width: 900, height: 600, channels: 3, background } })
+            .png()
+            .toBuffer(),
+        ),
+      );
+      return sharp(frames, { join: { animated: true } })
+        .gif()
+        .toBuffer();
+    }
+
+    it('a GIF sent with the picked 3:1 rectangle stays an animated 1800×600 WebP', async () => {
+      const url = '/account/banner?cropX=0&cropY=25&cropW=100&cropH=50';
+      const payload = await threeFrameGif();
+      const sent = await call(ana, { method: 'PUT', url, payload, contentType: 'image/gif' });
+      expect(sent.statusCode).toBe(200);
+      const { bannerId } = profileResponseDto.parse(sent.json()).profile;
+
+      const read = await call(bia, { method: 'GET', url: `/banners/${bannerId}` });
+
+      const metadata = await sharp(read.rawPayload, { animated: true }).metadata();
+      expect(metadata).toMatchObject({ format: 'webp', width: 1800, pages: 3, pageHeight: 600 });
+    });
+
+    it('a banner rectangle with only some fields answers 400 INVALID_BODY and keeps none', async () => {
+      const url = '/account/banner?cropX=0&cropY=25';
+      const payload = await pngOf(900, 600);
+      const response = await call(ana, { method: 'PUT', url, payload, contentType: 'image/png' });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({ code: 'INVALID_BODY' });
+      expect((await profileOf(ana)).bannerId).toBeNull();
+    });
+
+    it('a second banner makes the old id answer 404 and removes its object', async () => {
+      const oldId = await sentBannerId(ana);
+
+      await sentBannerId(ana);
+
+      const old = await call(ana, { method: 'GET', url: `/banners/${oldId}` });
+      expect(old.statusCode).toBe(404);
+      expect(codeOf(old)).toBe('BANNER_NOT_FOUND');
+      expect(await storage.open(`banners/${oldId}`)).toBeNull();
+    });
+
+    it('taking the banner off answers the profile without it, and again is fine', async () => {
+      const bannerId = await sentBannerId(ana);
+
+      const removed = await call(ana, { method: 'DELETE', url: '/account/banner' });
+
+      expect(profileResponseDto.parse(removed.json()).profile.bannerId).toBeNull();
+      expect(await storage.open(`banners/${bannerId}`)).toBeNull();
+      const again = await call(ana, { method: 'DELETE', url: '/account/banner' });
+      expect(again.statusCode).toBe(200);
+    });
+
+    it('on free the banner answers 403 PLAN_LIMIT profileBanner and keeps none', async () => {
+      await setAccountPlan(connection.db, bia.id, 'free');
+
+      const response = await sendBanner(bia, photo);
+
+      expect(response.statusCode).toBe(403);
+      expect(apiErrorDto.parse(response.json())).toMatchObject({
+        code: 'PLAN_LIMIT',
+        planLimit: { resource: 'profileBanner', limit: 0, plan: 'free' },
+      });
+      expect((await profileOf(bia)).bannerId).toBeNull();
+    });
+
+    it('a banner of 5 MiB + 1 answers 413 BANNER_TOO_LARGE', async () => {
+      const response = await sendBanner(ana, Buffer.alloc(5 * MIB + 1));
+
+      expect(response.statusCode).toBe(413);
+      expect(codeOf(response)).toBe('BANNER_TOO_LARGE');
+    });
+
+    it('a body of type text/plain answers 415 UNSUPPORTED_IMAGE', async () => {
+      const response = await sendBanner(ana, 'x', 'text/plain');
+
+      expect(response.statusCode).toBe(415);
+      expect(codeOf(response)).toBe('UNSUPPORTED_IMAGE');
+    });
+
+    it('a banner link to an internal address answers 422 LINK_BLOCKED', async () => {
+      const payload = { url: 'http://127.0.0.1/b.png' };
+
+      const response = await call(ana, { method: 'POST', url: '/account/banner/link', payload });
+
+      expect(response.statusCode).toBe(422);
+      expect(codeOf(response)).toBe('LINK_BLOCKED');
+    });
+
+    it('the 11th banner send in a minute answers 429, apart from the photo counter', async () => {
+      const tiny = await pngOf(8, 8);
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        expect((await sendBanner(ana, tiny)).statusCode).toBe(200);
+      }
+
+      const response = await sendBanner(ana, tiny);
+
+      expect(response.statusCode).toBe(429);
+      expect(codeOf(response)).toBe('RATE_LIMITED');
+      expect((await sendPhoto(ana, tiny)).statusCode).toBe(200);
     });
   });
 

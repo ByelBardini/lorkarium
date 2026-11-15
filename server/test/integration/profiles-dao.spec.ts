@@ -44,14 +44,18 @@ describe('ProfilesDao on Postgres', () => {
     expect(Object.keys(row ?? {}).sort()).toEqual(
       [
         'avatarId',
+        'bannerId',
         'bio',
         'color',
         'createdAt',
         'diceNumberColor',
         'diceTextureId',
+        'gameSystems',
         'id',
         'lorkariumOwner',
         'name',
+        'contact',
+        'playSchedule',
         'plan',
         'role',
         'username',
@@ -78,6 +82,19 @@ describe('ProfilesDao on Postgres', () => {
       cause: { code: '23514' },
     });
   });
+
+  it.each([
+    ['gameSystems', 301],
+    ['playSchedule', 201],
+    ['contact', 201],
+  ] as const)(
+    'a %s above its ceiling is refused by the check of the table',
+    async (field, size) => {
+      await expect(profiles.update(anaId, { [field]: 'x'.repeat(size) })).rejects.toMatchObject({
+        cause: { code: '23514' },
+      });
+    },
+  );
 
   it('swapAvatar answers the photo the account had, and the new one becomes current', async () => {
     expect(await profiles.swapAvatar(anaId, FIRST)).toEqual({ previousId: null });
@@ -151,6 +168,18 @@ describe('ProfilesDao on Postgres', () => {
       const current = (await profiles.findById(anaId))?.diceTextureId;
       expect(previous).toContain(FIRST);
       expect(new Set([...previous, current]).size).toBe(3);
+    });
+  });
+
+  describe('the banner', () => {
+    it('swapBanner answers the previous banner and leaves the photo alone', async () => {
+      await profiles.swapAvatar(anaId, FIRST);
+
+      expect(await profiles.swapBanner(anaId, SECOND)).toEqual({ previousId: null });
+      expect(await profiles.isCurrentBanner(SECOND)).toBe(true);
+      expect(await profiles.isCurrentBanner(FIRST)).toBe(false);
+      expect(await profiles.swapBanner(anaId, null)).toEqual({ previousId: SECOND });
+      expect(await profiles.findById(anaId)).toMatchObject({ avatarId: FIRST, bannerId: null });
     });
   });
 });

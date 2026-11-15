@@ -106,6 +106,6 @@ describe('assets mapper', () => {
   });
 
   it('an upload query with no crop field has no rectangle', () => {
-    expect(toImageCrop({ purpose: 'campaign_banner' })).toBeNull();
+    expect(toImageCrop({})).toBeNull();
   });
 });

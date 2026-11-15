@@ -9,7 +9,6 @@ import {
   insertUserAtOldMigration,
   migrationsUpTo,
 } from '../support/migrations-up-to';
-import { insertTestAccount } from '../support/sign-in';
 
 const SCRATCH_DATABASE = 'lorkarium_user_plans_migration';
 const LAST_MIGRATION_BEFORE_PLANS = '0103_receipt_created_at';
@@ -69,12 +68,9 @@ describe('migration 0104_user_plans on a database with a user and an admin', () 
   });
 
   it('an account inserted after the migration is born free', async () => {
-    const caio = await insertTestAccount(scratch.db, {
-      name: 'Caio',
-      email: 'caio@mesa.com',
-      password: 'senha-de-teste',
-    });
-    expect(caio.plan).toBe('free');
+    // Raw SQL: the UsersDao writes the card columns (0109 on), which this database lacks.
+    await insertUserAtOldMigration(scratch.db, { name: 'Caio', email: 'caio@mesa.com' });
+    expect(await planOf('Caio')).toEqual({ name: 'Caio', plan: 'free' });
   });
 
   it('the enum takes the Apoiador as a plan, and there is no supporter column', async () => {
