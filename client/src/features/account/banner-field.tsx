@@ -42,6 +42,7 @@ export function BannerField(props: BannerFieldProps): React.JSX.Element {
     <SettingsRow
       title="Banner"
       group
+      stacked
       descriptionId={hintId}
       description="A faixa no topo do seu cartão, em 3:1 · PNG, JPEG, WebP ou GIF (animado) até 5 MB. Sem banner, vale a sua cor."
     >
