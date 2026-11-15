@@ -11,20 +11,21 @@ A rolagem de dados da sala. O server rola: para os dados com modelo (d4, d6, d8,
 
 ## Estrutura (server)
 
-- `server/src/modules/dice/` — módulo efêmero (sem PO nem DAO), no molde do `pings`:
+- `server/src/modules/dice/` — módulo efêmero (sem PO; um DAO só para os contadores da conta), no molde do `pings`:
   - `dice-physics.port.ts` — `DicePhysicsPort.throw({ kinds, aspect, startMs })` → `{ models: [{ kind, startMs, settleMs, frames, value, rethrows }] }`
   - `dice-random.port.ts` — `DiceRandomPort.face(sides)` (1 a `sides`) e `unit()` ([0, 1))
   - `dice-publisher.port.ts` — `DicePublisherPort.rolled(evento, público)` e `rolledSecretly(aviso, público)`
+  - `dice-stats.port.ts` — `DiceStatsPort.addRoll(userId, natural20s)`; `dice-stats.dao.ts` — `DiceStatsDao(db)` cumpre a porta por estrutura: `UPDATE users SET rolls_count = rolls_count + 1, natural20_count = natural20_count + n` (duas rolagens ao mesmo tempo contam as duas; sem ler antes)
   - `dice-roll.bo.ts` — `requireReadableDice` (também usado pelas salvas), `modeledOf(pedidos, usados, máximo)`, `audienceOf`, `revealDelayOf`, `DiceWavesBo(máximo)`, `DICE_WAVE_GAP_MS` (300), `DICE_REVEAL_WITHOUT_MODEL_MS` (800). O BO não importa DTO: o service passa o `maxDiceModelsPerRoll` do plano do dono da mesa.
   - `dice.mapper.ts` — `toDiceAppearanceDto`, `toDiceRolledDto`, `toDiceRolledSecretlyDto`
   - `dice.service.ts` — `DiceService.roll(userId, command)` → `DiceRollOutcome` `{ rollId, parts, total, settlesInMs }`
-  - `dice.gateway.ts` — `createDiceGateway` (`dice:roll`); `dice.plugin.ts` — `createDiceModule({ members, profiles, physics, random, publisher, clock, newId, realtime, rate, log })` → `{ gateway }`
+  - `dice.gateway.ts` — `createDiceGateway` (`dice:roll`); `dice.plugin.ts` — `createDiceModule({ members, profiles, physics, random, publisher, stats, clock, newId, realtime, rate, log })` → `{ gateway }`
   - `dice.error.ts` — `DiceError`, `InvalidDiceExpressionError(part, expression, reason)` (`INVALID_DICE_EXPRESSION`; `part` a partir de 1, `null` = a composição). É a **única** classe desse erro: as salvas importam daqui.
-- `server/src/app/wire-dice.ts` — `wireDice(realtime, { db, members, clock, log })`, chamado no `wireRealtime` do `build-app.ts` depois do board: um `CryptoDiceRandom` alimenta a `CannonDicePhysics` e sorteia os dados sem modelo; `ProfilesDao(db)`, `SocketIoDicePublisher`, `randomUUID` e um `CommandRateGuard` com `DICE_RATE`.
+- `server/src/app/wire-dice.ts` — `wireDice(realtime, { db, members, clock, log })`, chamado no `wireRealtime` do `build-app.ts` depois do board: um `CryptoDiceRandom` alimenta a `CannonDicePhysics` e sorteia os dados sem modelo; `ProfilesDao(db)`, `DiceStatsDao(db)`, `SocketIoDicePublisher`, `randomUUID` e um `CommandRateGuard` com `DICE_RATE`.
 - `server/src/infrastructure/dice-physics/` — `CannonDicePhysics` (o único lugar com `cannon-es`) e `die-launch.ts` (`dieLaunchOf`). A caixa (`diceBoxOf`, `DICE_BOX_SHORT_SIDE`) mora no game-core (`packages/game-core/src/dice-box.ts`), porque o client encaixa a mesma caixa na tela.
 - `server/src/infrastructure/dice-random/crypto-dice-random.ts` — `CryptoDiceRandom` sobre `randomInt`
 - `server/src/infrastructure/dice-publisher/socket-io-dice-publisher.ts` — `SocketIoDicePublisher` (salas abaixo)
-- Fakes em `server/test/support/dice-fakes.ts`: `SeededDiceRandomFake`, `FixedIntSourceFake`, `DicePhysicsFake` (valores em fila, assenta 1500 ms depois do início da onda, guarda `throws`), `DiceRandomFake` (faces em fila, `asked`), `DicePublisherFake` (`journal`: `publish:full:table`, `publish:full:masters+<ids>`, `publish:secret`) e `RESTING_FRAMES`.
+- Fakes em `server/test/support/dice-fakes.ts`: `SeededDiceRandomFake`, `FixedIntSourceFake`, `DicePhysicsFake` (valores em fila, assenta 1500 ms depois do início da onda, guarda `throws`), `DiceRandomFake` (faces em fila, `asked`), `DicePublisherFake` (`journal`: `publish:full:table`, `publish:full:masters+<ids>`, `publish:secret`), `DiceStatsFake` (`added`; escreve `stats:<userId>+<n>` no diário que receber, o do publisher para provar a ordem) e `RESTING_FRAMES`. Integração dos contadores: `server/test/integration/dice-stats.spec.ts`.
 
 ## Contrato
 
@@ -60,7 +61,9 @@ O aviso não leva total, rótulo, peças nem trajeto: a pose final revelaria a f
 
 ## Por que não grava
 
-A rolagem é efêmera, como o ping: não há tabela, versão nem snapshot (o `board:sync` antes e depois tem a mesma versão). O histórico vive só no client, durante a visita à mesa. "Persistir antes de confirmar" (§5.5) não se aplica: depois do evento nada fica como estado compartilhado.
+A rolagem é efêmera, como o ping: não há tabela, versão nem snapshot (o `board:sync` antes e depois tem a mesma versão). O histórico vive só no client, durante a visita à mesa. "Persistir antes de confirmar" (§5.5) não se aplica à rolagem: depois do evento nada fica como estado compartilhado.
+
+Só os **contadores da conta** ficam (o card de perfil os mostra): `users.rolls_count` e `users.natural20_count` (`integer not null default 0`, migração `0111_dice_counters`; contas antigas começam em 0). O `DiceService.roll` soma 1 rolagem e o `countNaturalTwenties(result)` do game-core (todo d20 que caiu 20, o descartado da vantagem também; d100 em 20 não conta) **antes** de publicar. A rolagem secreta conta; uma recusa antes do arremesso (expressão inválida, espectador, mesa alheia) não.
 
 ## Testes
 

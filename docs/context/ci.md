@@ -7,6 +7,7 @@ Qualidade e testes do monorepo: scripts de teste por camada, cobertura e (nas se
 | Assunto                                            | Arquivo                                       |
 | -------------------------------------------------- | --------------------------------------------- |
 | E2E: Playwright, servidores, specs de `e2e/test/`  | [`e2e.md`](ci/e2e.md)                         |
+| E2E das fichas: grupos `sheets*`, Ficha de Lork    | [`e2e-fichas.md`](ci/e2e-fichas.md)           |
 | O que cada spec do e2e prova                       | [`e2e-specs.md`](ci/e2e-specs.md)             |
 | O que provam os specs de conta, backoffice, planos | [`e2e-specs-conta.md`](ci/e2e-specs-conta.md) |
 | O que provam os specs do topo, painel e chat       | [`e2e-specs-sala.md`](ci/e2e-specs-sala.md)   |

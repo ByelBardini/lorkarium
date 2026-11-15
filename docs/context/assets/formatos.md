@@ -28,13 +28,24 @@ Hub: [`../assets.md`](../assets.md). DTOs em [`../contracts/assets.md`](../contr
 
 - `resizeFor(purpose, limites)` → `{ maxSide }` (só o lado; o `pnpm db:recompress-images` o usa sem recortar de novo).
 - `frameFor(purpose, crop | null, aspects)` → `ImageFrame | null`: a proporção da finalidade em `aspects` (o `ASSET_FRAME`) com o retângulo recebido (ou `null` = centro); a `condition` → 1:1 sem retângulo; as outras → `null` (ficam no formato delas). Retângulo onde não há proporção → `InvalidCropError` citando o retângulo, a finalidade e "expected campaign_photo, cover or campaign_banner".
-- O `keptAs` do service junta `resizeFor` + `frameFor` + animação, contorno e WebP nas `NormalizeOptions`.
+- O `keptAs` do service junta `resizeFor` + `frameFor` + animação, contorno e WebP nas `NormalizeOptions`. A animação das três sai do `animationFor(…, ownerCustomizes)`: o plano que vale é o do **dono da mesa** (`ownerPlanOf` → `findOwnerPlan` → `customizationAllowed`), não o de quem envia.
+
+## GIF animado
+
+- Dono com personalização: o GIF da Foto, Capa ou Banner fica **GIF animado** (o mesmo `keptAnimatedGif` da aura, mesmo orçamento `AURA_ANIMATION_LIMITS`: 120 quadros, 16 MP decodificados; GIF longo perde resolução em vez de quadros). Cada quadro é cortado pela mesma `frameBoxOf` (o `sharp` com `animated: true` aplica o `extract` a cada página) e depois reduzido ao lado da finalidade.
+- Dono no Grátis: o 1º quadro, em PNG, nunca recusado. Um link segue a mesma regra (cortado no centro).
+- No client, o `animatesImage` (`lib/image-file.ts`) inclui as três: o seletor aceita GIF, e o recorte mostra o arquivo no `react-easy-crop` (um `<img>`); a imagem é desenhada por `<img>`, que anima sozinho.
 
 ## Caixa do recorte (`frame-box.ts`)
 
-`frameBoxOf(size, aspect, crop | null) → PixelBox { left, top, width, height }` (pixels inteiros): o retângulo em % vira pixel pelo tamanho real (sem retângulo, a imagem inteira), e a maior caixa do `aspect` fica centrada nele; nunca sai da imagem e tem ao menos 1 px por lado (o arredondamento do client pode passar 1 px da borda). O tamanho é o **em pé**: o `metadata()` dá o de antes do `autoOrient`, então EXIF 5–8 troca largura e altura (`uprightSizeOf`). O `frame` só vale na imagem parada (o caminho animado o ignora).
+`frameBoxOf(size, aspect, crop | null) → PixelBox { left, top, width, height }` (pixels inteiros): o retângulo em % vira pixel pelo tamanho real (sem retângulo, a imagem inteira), e a maior caixa do `aspect` fica centrada nele; nunca sai da imagem e tem ao menos 1 px por lado (o arredondamento do client pode passar 1 px da borda). O tamanho é o **em pé**: o `metadata()` dá o de antes do `autoOrient`, então EXIF 5–8 troca largura e altura (`uprightSizeOf`). O `frame` vale nos dois caminhos: no animado o tamanho é o de um quadro (`pageHeight`) e um GIF não tem EXIF.
 
 ## Testes
 
 - Unit: `asset-upload.bo.spec.ts` (`frameFor` de cada formato, com e sem retângulo, a `condition`, a recusa citando a finalidade), `assets.mapper.spec.ts` (`toImageCrop` com e sem os campos) e `assets.service.spec.ts` (a Foto com retângulo pede `{ 512, frame 1:1 com o retângulo }`, o link da Foto pede o centro, o retângulo num `token` → `INVALID_BODY` com o diário vazio).
-- Integração `server/test/integration/campaign-image-upload.spec.ts` (Postgres e SeaweedFS reais): PNG 1200 × 600 vermelho | azul com a metade direita → 512 × 512 todo azul (lido de volta pelo `GET`), Banner 3600 × 1800 sem retângulo → 1800 × 600, Capa 1000 × 1000 → 1000 × 500, retângulo num `token` → 400, retângulo incompleto → 400, jogador envia Foto → 201, e o enum do banco tem as duas finalidades.
+- GIF: `asset-upload.bo.spec.ts` (`animationFor` das três com e sem `ownerCustomizes`), `assets.service.spec.ts` (dono Grátis → sem `animation`; dono Apoiador com jogador enviando → com), `sharp-image-processor.spec.ts` (GIF 1:1 cortado no retângulo, 3 quadros; Capa 2:1 no centro animada).
+- Integração `server/test/integration/campaign-image-upload.spec.ts` (Postgres e SeaweedFS reais): GIF de 3 quadros com dono Apoiador → `image/gif` de 3 páginas cortado na metade pedida (Foto) e animado mesmo enviado por jogador Grátis (Capa, Banner); dono Grátis → PNG parado 1200 × 400; PNG 1200 × 600 vermelho | azul com a metade direita → 512 × 512 todo azul (lido de volta pelo `GET`), Banner 3600 × 1800 sem retângulo → 1800 × 600, Capa 1000 × 1000 → 1000 × 500, retângulo num `token` → 400, retângulo incompleto → 400, jogador envia Foto → 201, e o enum do banco tem as duas finalidades.
+
+## Armadilhas
+
+- **`extract` num GIF animado corta cada quadro.** Com `sharp(bytes, { animated: true })`, o `extract` e o `resize` valem por página (a caixa é em pixels de **um** quadro: `width` × `pageHeight`), não na tira inteira; o `metadata()` sem `animated` já dá a altura de um quadro. É por isso que Foto, Capa e Banner animados reusam a `frameBoxOf` da imagem parada.
