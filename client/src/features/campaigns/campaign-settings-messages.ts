@@ -6,10 +6,12 @@ import {
   CAMPAIGN_PASSWORD_MIN_LENGTH,
 } from '@lorkarium/contracts';
 
-/** The words of "Permissões dos jogadores": each switch and the hint under both. */
+/** The words of "Permissões dos jogadores": each switch, the line under it and the hint of the section. */
 export const PLAYER_TOKEN_RIGHTS_TEXT = {
   create: 'Jogadores criam e editam tokens',
+  createHint: 'Os tokens criados ficam sob controle de quem criou.',
   remove: 'Jogadores excluem os próprios tokens',
+  removeHint: 'Só os tokens que a própria pessoa criou.',
   hint: 'Valem para todo jogador; espectador nunca cria nem exclui.',
 } as const;
 

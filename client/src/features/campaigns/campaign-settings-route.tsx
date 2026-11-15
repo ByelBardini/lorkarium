@@ -9,7 +9,7 @@ import { useSession, type SessionStore } from '@/stores/session-store';
 import type { CampaignLoaderData } from './campaign-loader-data';
 import { UNEXPECTED_MESSAGE } from './campaign-messages';
 import { CampaignSettingsSignedOutError, campaignSettingsAction } from './campaign-settings-action';
-import { CampaignSettingsForm } from './campaign-settings-form';
+import { CampaignSettingsEditor } from './campaign-settings-form';
 import { CampaignSettingsPage } from './campaign-settings-page';
 
 /** The full pattern of the settings page, which the play room matches to step aside. */
@@ -46,15 +46,13 @@ function settingsScreen({
       return <Navigate replace to={`/campaigns/${encodeURIComponent(campaign.id)}/table`} />;
     }
     return (
-      <CampaignSettingsPage campaign={campaign}>
-        <CampaignSettingsForm
-          key={campaign.id}
-          campaign={campaign}
-          assets={assets}
-          clipboard={clipboard}
-          canDelete={hasOwnerPowers(readerSeatOf(campaign, readerIdOf(session)))}
-        />
-      </CampaignSettingsPage>
+      <CampaignSettingsEditor
+        key={campaign.id}
+        campaign={campaign}
+        assets={assets}
+        clipboard={clipboard}
+        canDelete={hasOwnerPowers(readerSeatOf(campaign, readerIdOf(session)))}
+      />
     );
   };
 }
@@ -74,7 +72,7 @@ function settingsErrorScreen(sessionStore: StoreApi<SessionStore>): () => React.
     if (!data) return null;
     return (
       <CampaignSettingsPage campaign={data.campaign}>
-        <p role="alert" className="text-sm text-destructive-text">
+        <p role="alert" className="px-4 pt-6 text-sm text-destructive-text sm:px-8">
           {UNEXPECTED_MESSAGE}
         </p>
       </CampaignSettingsPage>

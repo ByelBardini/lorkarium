@@ -1,13 +1,7 @@
 import type { CampaignDetailDto, DrawnCampaignCoverDto } from '@lorkarium/contracts';
 import type { FormEvent } from 'react';
-import { CampaignPreviewCard } from '@/components/campaign-preview-card';
-import { UnsavedChangesBar } from '@/components/unsaved-changes-bar';
 import { fallbackCoverOf } from '@/lib/campaign-cover';
-import {
-  unsavedChangesStateOf,
-  useSavedNotice,
-  type UnsavedChangesState,
-} from '@/lib/unsaved-changes';
+import { useSavedNotice } from '@/lib/unsaved-changes';
 import type { AssetsApi } from '@/services/assets-api';
 import type { Clipboard } from '@/services/clipboard';
 import { commandFailureMessage } from './campaign-messages';
@@ -16,9 +10,13 @@ import {
   ContentSection,
   DangerSection,
   GeneralSection,
+  ImagesSection,
   PlayersSection,
 } from './campaign-settings-sections';
+import { CampaignSettingsPage } from './campaign-settings-page';
 import { DiscardSettingsDialog } from './discard-settings-dialog';
+import { SettingsPreviewPanel } from './settings-preview-panel';
+import { SettingsSaveActions } from './settings-save-actions';
 import { SettingsSectionNav } from './settings-section-nav';
 import { useCampaignSettingsDraft, type SettingsDraft } from './use-campaign-settings-draft';
 import {
@@ -27,7 +25,7 @@ import {
   useSettingsFetcher,
 } from './use-settings-fetcher';
 
-export type CampaignSettingsFormProps = Readonly<{
+export type CampaignSettingsEditorProps = Readonly<{
   campaign: CampaignDetailDto;
   assets: AssetsApi;
   clipboard: Clipboard;
@@ -36,69 +34,83 @@ export type CampaignSettingsFormProps = Readonly<{
   canDelete: boolean;
 }>;
 
-/** "Configurações da mesa" (master only): the section menu, then Geral, Conteúdo, Acesso, Permissões
- *  dos jogadores and Zona de perigo in one form, with the hub preview beside from `lg`. The fields wait in a draft for
- *  the bar; leaving with edits asks first. The code and the deletion are commands of their own,
- *  outside the bar.
+const SETTINGS_FORM_ID = 'campaign-settings-form';
+
+/** "Configurações da mesa" (master only): the page over the room with the save controls in its
+ *  top bar, and the form below. The fields wait in a draft for "Salvar alterações"; leaving with
+ *  edits asks first. The code and the deletion are commands of their own, outside the draft.
  *
- *  Example: `<CampaignSettingsForm campaign={campaign} assets={assets} clipboard={clipboard} canDelete />` */
-export function CampaignSettingsForm({
+ *  Example: `<CampaignSettingsEditor key={campaign.id} campaign={campaign} assets={assets} clipboard={clipboard} canDelete />` */
+export function CampaignSettingsEditor(props: CampaignSettingsEditorProps): React.JSX.Element {
+  const draft = useCampaignSettingsDraft(props.campaign);
+  const save = useSettingsSave(props.campaign.id, draft);
+  const actions = (
+    <SettingsSaveActions
+      formId={SETTINGS_FORM_ID}
+      saving={save.saving}
+      dirty={draft.dirty}
+      invalid={draft.dirty && draft.update === null}
+      justSaved={save.justSaved}
+      failureMessage={save.failureMessage}
+      onDiscard={draft.discard}
+    />
+  );
+  return (
+    <CampaignSettingsPage campaign={props.campaign} actions={actions}>
+      <SettingsSectionNav
+        withDanger={props.canDelete}
+        values={draft.values}
+        createdAt={props.campaign.createdAt}
+        memberCount={props.campaign.memberCount}
+      />
+      {/* `relative`: Radix's hidden inputs are absolute; without a containing block here they
+          overflow the clipped page, so a focus or a section jump scrolled the page itself away. */}
+      <div data-settings-scroller className="relative min-h-0 min-w-0 flex-1 overflow-y-auto">
+        <CampaignSettingsForm {...props} draft={draft} save={save} />
+      </div>
+      <aside
+        aria-label="Prévia"
+        className="hidden w-80 shrink-0 overflow-y-auto border-l border-divider bg-panel p-4 lg:block xl:w-96"
+      >
+        <SettingsPreviewPanel values={draft.values} campaign={props.campaign} />
+      </aside>
+      <DiscardSettingsDialog dirty={draft.dirty} />
+    </CampaignSettingsPage>
+  );
+}
+
+type CampaignSettingsFormProps = CampaignSettingsEditorProps &
+  Readonly<{ draft: SettingsDraft; save: SettingsSave }>;
+
+function CampaignSettingsForm({
   campaign,
   assets,
   clipboard,
   canDelete,
+  draft,
+  save,
 }: CampaignSettingsFormProps): React.JSX.Element {
-  const draft = useCampaignSettingsDraft(campaign);
-  const save = useSettingsSave(campaign.id, draft);
   return (
-    <>
-      <form
-        noValidate
-        aria-label="Configurações da mesa"
-        aria-busy={save.saving}
-        onSubmit={save.submit}
-        className="grid gap-x-10 gap-y-6 md:grid-cols-[11rem_minmax(0,1fr)] lg:grid-cols-[12rem_minmax(0,1fr)_18rem] xl:grid-cols-[14rem_minmax(0,1fr)_24rem] 2xl:grid-cols-[16rem_minmax(0,1fr)_28rem] 2xl:gap-x-16"
-      >
-        <SettingsSectionNav withDanger={canDelete} />
-        <div className="flex min-w-0 flex-col gap-6 pb-8">
-          <GeneralSection
-            draft={draft}
-            campaignId={campaign.id}
-            assets={assets}
-            drawnCover={drawnCoverOf(campaign)}
-          />
-          <ContentSection draft={draft} />
-          <AccessSection draft={draft} campaign={campaign} clipboard={clipboard} />
-          <PlayersSection draft={draft} />
-          {canDelete && <DangerSection campaignId={campaign.id} campaignName={campaign.name} />}
-        </div>
-        <SettingsPreview draft={draft} />
-        {save.barState && (
-          <UnsavedChangesBar
-            label="Alterações da mesa"
-            className="col-span-full -mx-4 px-4 sm:-mx-8 sm:px-8"
-            state={save.barState}
-            invalid={draft.update === null}
-            failureMessage={save.failureMessage}
-            onDiscard={draft.discard}
-          />
-        )}
-      </form>
-      <DiscardSettingsDialog dirty={draft.dirty} />
-    </>
-  );
-}
-
-function SettingsPreview({ draft }: Readonly<{ draft: SettingsDraft }>): React.JSX.Element {
-  const { values } = draft;
-  return (
-    <div className="hidden lg:block">
-      <CampaignPreviewCard
-        label="Como aparece no hub"
-        className="sticky top-6"
-        campaign={{ ...values, hasPassword: values.requirePassword }}
+    <form
+      id={SETTINGS_FORM_ID}
+      noValidate
+      aria-label="Configurações da mesa"
+      aria-busy={save.saving}
+      onSubmit={save.submit}
+      className="flex flex-col"
+    >
+      <GeneralSection draft={draft} />
+      <ImagesSection
+        draft={draft}
+        campaignId={campaign.id}
+        assets={assets}
+        drawnCover={drawnCoverOf(campaign)}
       />
-    </div>
+      <ContentSection draft={draft} />
+      <AccessSection draft={draft} campaign={campaign} clipboard={clipboard} />
+      <PlayersSection draft={draft} />
+      {canDelete && <DangerSection campaignId={campaign.id} campaignName={campaign.name} />}
+    </form>
   );
 }
 
@@ -109,7 +121,7 @@ function drawnCoverOf(campaign: CampaignDetailDto): DrawnCampaignCoverDto {
 
 type SettingsSave = Readonly<{
   saving: boolean;
-  barState: UnsavedChangesState | null;
+  justSaved: boolean;
   failureMessage: string | null;
   submit: (event: FormEvent<HTMLFormElement>) => void;
 }>;
@@ -125,15 +137,11 @@ function useSettingsSave(campaignId: string, draft: SettingsDraft): SettingsSave
   });
   const submit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (draft.update) fetcher.send({ intent: 'update', input: draft.update });
+    if (draft.update && !fetcher.busy) fetcher.send({ intent: 'update', input: draft.update });
   };
   return {
     saving: fetcher.busy,
-    barState: unsavedChangesStateOf({
-      saving: fetcher.busy,
-      dirty: draft.dirty,
-      justSaved: notice.justSaved,
-    }),
+    justSaved: notice.justSaved,
     failureMessage: failure && draft.dirty ? commandFailureMessage(failure) : null,
     submit,
   };
