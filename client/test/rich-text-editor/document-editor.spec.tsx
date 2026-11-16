@@ -131,6 +131,24 @@ describe('DocumentEditor serializes once per key', () => {
     expect(serializations).toHaveBeenCalledTimes(1);
   });
 
+  it('the saved tab coming back with its keys reordered (jsonb) keeps the selection', async () => {
+    const view = render(<DocumentEditor content={paragraph('Carta do rei')} editable />);
+    const body = await screen.findByRole('textbox', { name: 'Conteúdo do documento' });
+    const editor = (body as HTMLElement & { editor: Editor }).editor;
+    act(() => {
+      editor.commands.setTextSelection({ from: 2, to: 5 });
+    });
+    const fromJsonb = {
+      content: [{ content: [{ text: 'Carta do rei', type: 'text' }], type: 'paragraph' }],
+      type: 'doc',
+    } as DocumentContentDto;
+
+    view.rerender(<DocumentEditor content={fromJsonb} editable />);
+
+    expect(editor.state.selection.from).toBe(2);
+    expect(editor.state.selection.to).toBe(5);
+  });
+
   it('content from outside (another person saved the tab) replaces the text', async () => {
     const view = render(<DocumentEditor content={paragraph('Carta')} editable />);
     const body = await screen.findByRole('textbox', { name: 'Conteúdo do documento' });
