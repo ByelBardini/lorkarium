@@ -183,6 +183,12 @@
     -webkit-app-region: no-drag;
     app-region: no-drag;
   }
+  /* Radix wraps popper content in a positioned div of the same size that keeps pointer-events:
+     a card that lets the pointer through (the token hover card) would still swallow the click on
+     the token under it. */
+  [data-radix-popper-content-wrapper]:has(> [data-passes-pointer]) {
+    pointer-events: none;
+  }
   /* Chrome paints autofilled fields pale yellow, which breaks the dark surface. */
   input:-webkit-autofill,
   input:-webkit-autofill:hover,
