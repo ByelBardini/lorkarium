@@ -3,6 +3,9 @@ import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { MembershipReader } from '../campaigns/cached-memberships';
 import { viewerAccessOf } from '../campaigns/member-access';
+import { CharacterBo } from '../characters/character.bo';
+import type { CharactersDao } from '../characters/characters.dao';
+import { CharacterNotFoundError } from '../characters/characters.error';
 import type { GridAudiencePort } from '../pings/grid-audience.port';
 import { SceneNotFoundError } from '../scenes/scenes.error';
 import { TokenAccessBo } from '../tokens/token-access.bo';
@@ -11,7 +14,7 @@ import { TokenNotFoundError } from '../tokens/tokens.error';
 import { ChatMessageBo } from './chat-message.bo';
 import type { ChatPublisherPort } from './chat-publisher.port';
 import { ChatRecipientNotMemberError } from './chat.error';
-import { toChatSentDto, toChatTokenSpeakerDto } from './chat.mapper';
+import { toChatCharacterSpeakerDto, toChatSentDto, toChatTokenSpeakerDto } from './chat.mapper';
 
 export type ChatServiceDeps = Readonly<{
   members: MembershipReader;
@@ -19,6 +22,8 @@ export type ChatServiceDeps = Readonly<{
    *  table and reachable, without a query. */
   audience: GridAudiencePort;
   tokens: Pick<TokensDao, 'findInScene'>;
+  /** Reads a speaking character: it needs no token on a grid, only to be of this table. */
+  characters: Pick<CharactersDao, 'findInCampaign'>;
   publisher: ChatPublisherPort;
   clock: ClockPort;
   newId: () => string;
@@ -32,8 +37,8 @@ export class ChatService {
 
   /** Sends a message as the session's user (spectator included) to the Table, a whisper, a
    *  direct conversation or a group; the private ones reach only their people, never the
-   *  master. Speaking as a token takes its control (or the master role) and the name is read
-   *  from the grid.
+   *  master. Speaking as a token or a character takes its control (or the master role) and the
+   *  name is read from the database.
    *
    *  Example: `const { messageId } = await chatService.send(user.id, command, socket.id)` */
   async send(
@@ -72,8 +77,29 @@ export class ChatService {
   ): Promise<ChatSentSpeakerDto> {
     const { speaker } = command;
     if (speaker.kind === 'self') return speaker;
+    if (speaker.kind === 'character') {
+      const name = await this.characterNameOf(access, speaker.characterId);
+      return toChatCharacterSpeakerDto(speaker.characterId, name);
+    }
     const name = await this.tokenNameOf(access, speaker, connectionId);
     return toChatTokenSpeakerDto(speaker, name);
+  }
+
+  private async characterNameOf(access: CampaignAccessBo, characterId: string): Promise<string> {
+    const campaignId = access.campaignIdOf();
+    const row = await this.deps.characters.findInCampaign(campaignId, characterId);
+    if (!row) throw new CharacterNotFoundError(campaignId, characterId);
+    const { userId } = row.character;
+    const seat = {
+      characterId,
+      userId,
+      holderRole: row.holderRole,
+      controllerIds: row.controllerIds,
+    };
+    const character = new CharacterBo(access, seat);
+    character.requireSeen();
+    if (!character.canControl()) access.forbid(`speak as character ${characterId}`, 'its control');
+    return row.character.name;
   }
 
   private async tokenNameOf(
