@@ -40,8 +40,9 @@ export class DirectMessagesService {
     bo.requireDeliverable();
     const messageId = this.deps.newId();
     const at = this.deps.clock.now();
-    const { toUserId, text } = command;
-    this.deps.publisher.sent(toDmSentDto({ messageId, fromUserId: senderId, toUserId, text, at }));
+    const { toUserId, text, replyToMessageId } = command;
+    const message = { messageId, fromUserId: senderId, toUserId, text, at, replyToMessageId };
+    this.deps.publisher.sent(toDmSentDto(message));
     return { messageId };
   }
 
