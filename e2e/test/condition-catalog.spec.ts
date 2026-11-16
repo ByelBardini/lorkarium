@@ -123,6 +123,10 @@ async function clickCell(
   shift = false,
 ): Promise<void> {
   const at = await cellCenterOf(page, ...cell);
+  await clickAt(page, at, shift);
+}
+
+async function clickAt(page: Page, at: Readonly<{ x: number; y: number }>, shift: boolean) {
   if (shift) await page.keyboard.down('Shift');
   await page.mouse.click(at.x, at.y);
   if (shift) await page.keyboard.up('Shift');
@@ -181,7 +185,11 @@ test('the master keeps the list on its own page, a player stacks conditions on a
   await expect(conditionsOn(await hover(caio, KAEL_CELL), 'Kael')).toContainText('Sangrando');
 
   // Shift+click takes one stack off, then the last one takes the condition off, for everyone.
-  await clickCell(bia, GOBLIN_CELL, true);
+  // Bia's own card of the Kael lies over the Goblin's cell: the click goes through it (the Radix
+  // wrapper around the card used to swallow it, and the Goblin kept ×2).
+  const goblin = await cellCenterOf(bia, ...GOBLIN_CELL);
+  await expect(await hover(bia, KAEL_CELL)).toContainText('Kael');
+  await clickAt(bia, goblin, true);
   await expect(conditionsOn(await hover(caio, GOBLIN_CELL), 'Goblin')).toContainText('×1');
   await clickCell(bia, GOBLIN_CELL, true);
   // Without conditions the card says so instead of drawing an empty list.
