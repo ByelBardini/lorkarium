@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { assetUrlOf } from '@/services/assets-api';
+import { sameJsonValue } from '@/lib/same-json-value';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { documentLinkDto, type DocumentContentDto } from '@lorkarium/contracts';
 import { documentExtensions } from './document-extensions';
@@ -38,10 +39,7 @@ export default function DocumentEditor(props: DocumentEditorProps) {
     immediatelyRender: true,
     shouldRerenderOnTransaction: false,
     onCreate: ({ editor: mounted }) => {
-      if (
-        JSON.stringify(documentContentFromEditor(mounted.getJSON())) !==
-        JSON.stringify(props.content)
-      )
+      if (!sameJsonValue(documentContentFromEditor(mounted.getJSON()), props.content))
         mounted.commands.setContent(props.content, { emitUpdate: false });
     },
     onUpdate: ({ editor: changedEditor }) => {
@@ -130,7 +128,7 @@ export default function DocumentEditor(props: DocumentEditorProps) {
       !editor ||
       !editor.isInitialized ||
       editor.isDestroyed ||
-      JSON.stringify(documentContentFromEditor(editor.getJSON())) === JSON.stringify(props.content)
+      sameJsonValue(documentContentFromEditor(editor.getJSON()), props.content)
     )
       return;
     editor.commands.setContent(props.content, { emitUpdate: false });
