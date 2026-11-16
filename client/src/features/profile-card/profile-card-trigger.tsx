@@ -43,7 +43,8 @@ export function ProfileCardTrigger(props: ProfileCardTriggerProps): React.JSX.El
         <PopoverContent
           align="start"
           aria-label={`Perfil de ${name}`}
-          className="w-auto gap-0 border-0 bg-transparent p-0"
+          collisionPadding={8}
+          className="max-h-(--radix-popover-content-available-height) w-auto gap-0 overflow-y-auto border-0 bg-transparent p-0"
         >
           <ProfileCardBody
             read={read}

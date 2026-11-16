@@ -19,6 +19,7 @@ import {
   type PlanAccount,
 } from '../plans/plan-limits.bo';
 import type { ImageCrop } from '../assets/image-processor.port';
+import type { AccountBadgesPort } from './account-badges.port';
 import type { AvatarProcessorPort, ImageShape } from './avatar-processor.port';
 import type { ProfileChangedPort } from './profile-changed.port';
 import type { ProfileChanges, ProfileRow, ProfilesDao, SwappedImage } from './profiles.dao';
@@ -65,6 +66,8 @@ export type ProfilesServiceDeps = Readonly<{
   accounts: Pick<UsersDao, 'lockForPlan'>;
   /** Downloads an image link without reaching an internal address (the assets' guarded fetcher). */
   fetcher: ImageFetcherPort;
+  /** The badges the person shows, as others see them on the card. */
+  badges: AccountBadgesPort;
   newId: () => string;
 }>;
 
@@ -104,7 +107,7 @@ export class ProfilesService {
   }
 
   async profileOf(userId: string): Promise<ProfileDto> {
-    return toProfileDto(await this.rowOf(userId));
+    return this.dtoOf(await this.rowOf(userId));
   }
 
   async update(userId: string, dto: UpdateProfileRequestDto): Promise<ProfileDto> {
@@ -113,7 +116,7 @@ export class ProfilesService {
     const row = await this.deps.profiles.update(userId, changes);
     if (!row) throw missingAccount(userId);
     if (touchesRoster(changes)) await this.deps.profileChanged.profileChanged(userId);
-    return toProfileDto(row);
+    return this.dtoOf(row);
   }
 
   /** Normalizes the photo, stores it under a new id, points the account at it and only then
@@ -251,7 +254,7 @@ export class ProfilesService {
 
   private async removeImage(space: ImageSpace, userId: string): Promise<ProfileDto> {
     const current = await this.rowOf(userId);
-    if (space.idOf(current) === null) return toProfileDto(current);
+    if (space.idOf(current) === null) return this.dtoOf(current);
     return this.pointAt(space, userId, null);
   }
 
@@ -288,6 +291,10 @@ export class ProfilesService {
     const account = await this.deps.accounts.lockForPlan(userId);
     if (!account) throw missingAccount(userId);
     return account;
+  }
+
+  private async dtoOf(row: ProfileRow): Promise<ProfileDto> {
+    return toProfileDto(row, await this.deps.badges.badgesOf(row.id));
   }
 
   private async rowOf(userId: string): Promise<ProfileRow> {

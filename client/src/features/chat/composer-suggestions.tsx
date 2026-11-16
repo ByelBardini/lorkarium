@@ -1,3 +1,4 @@
+import { EmoteImage } from '@/components/emote-text';
 import { cn } from '@/lib/utils';
 import { optionIdOf, type ComposerSuggestionsState } from './use-composer-suggestions';
 
@@ -25,10 +26,20 @@ export function ComposerSuggestions({
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => suggestions.accept(index)}
           className={cn(
-            'flex cursor-pointer items-baseline gap-2 rounded-sm px-2 py-1.5 text-sm',
+            'flex cursor-pointer gap-2 rounded-sm px-2 py-1.5 text-sm',
+            option.emote ? 'items-center' : 'items-baseline',
             index === suggestions.active ? 'bg-accent text-foreground' : 'text-label',
           )}
         >
+          {option.emote && (
+            <EmoteImage
+              emote={option.emote}
+              code={option.value}
+              sticker={false}
+              decorative
+              className="size-6 shrink-0 align-middle"
+            />
+          )}
           <span className="font-mono text-[13px]">{option.value}</span>
           <span className="truncate text-xs text-muted-foreground">{option.description}</span>
         </li>

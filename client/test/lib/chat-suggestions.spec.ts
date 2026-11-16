@@ -17,6 +17,8 @@ describe('chat suggestions', () => {
     ['/ata', 4, { kind: 'command', typed: 'ata', from: 0, to: 4 }],
     ['oi @Bi', 6, { kind: 'member', typed: 'Bi', from: 3, to: 6 }],
     ['@', 1, { kind: 'member', typed: '', from: 0, to: 1 }],
+    ['ri :tr', 6, { kind: 'emote', typed: 'tr', from: 3, to: 6 }],
+    [':doge', 5, { kind: 'emote', typed: 'doge', from: 0, to: 5 }],
   ])('"%s" with the caret at %i asks for %o', (draft, caret, expected) => {
     expect(suggestionQueryOf(draft, caret)).toEqual(expected);
   });
@@ -27,6 +29,10 @@ describe('chat suggestions', () => {
     ['x@bia', 5],
     ['@Bia oi', 7],
     ['texto /r', 8],
+    ['oi :t', 5],
+    ['oi :)', 5],
+    ['às 10:30', 8],
+    ['oi :troll: ', 11],
   ])('"%s" with the caret at %i asks for nothing', (draft, caret) => {
     expect(suggestionQueryOf(draft, caret)).toBeNull();
   });

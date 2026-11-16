@@ -1,5 +1,7 @@
 import type { DmSentDto, FriendDto } from '@lorkarium/contracts';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import { EmoteText } from '@/components/emote-text';
+import { ReplyButton, ReplyQuote, type QuotedMessage } from '@/components/message-reply';
 import { directFeedOf, type DirectFeedRun } from '@/lib/direct-feed';
 import { cn } from '@/lib/utils';
 
@@ -10,15 +12,22 @@ export type ConversationFeedProps = Readonly<{
   accountId: string;
   friend: FriendDto;
   now: () => Date;
+  /** Starts answering a message (the composer shows "Respondendo a …"). */
+  onReply: (message: DmSentDto) => void;
 }>;
 
+type Authors = Readonly<{ accountId: string; friendName: string }>;
+
 /** The messages of a conversation: a separator per day, blocks of one author with the time at
- *  the end of each, mine on the right. Scrolls to the newest as they arrive.
+ *  the end of each, mine on the right. A reply quotes its original above the bubble (clicking
+ *  scrolls to it); hovering a bubble offers "Responder". Scrolls to the newest as they arrive.
  *
- *  Example: `<ConversationFeed messages={conversation.messages} accountId={me.id} friend={bia} now={() => new Date()} />` */
+ *  Example: `<ConversationFeed messages={conversation.messages} accountId={me.id} friend={bia} now={() => new Date()} onReply={reply.start} />` */
 export function ConversationFeed(props: ConversationFeedProps): React.JSX.Element {
   const { messages, accountId, friend } = props;
   const scroller = useRef<HTMLDivElement>(null);
+  const byId = useMemo(() => new Map(messages.map((each) => [each.messageId, each])), [messages]);
+  const authors: Authors = { accountId, friendName: friend.name };
   useEffect(() => {
     const element = scroller.current;
     if (element) element.scrollTop = element.scrollHeight;
@@ -31,7 +40,7 @@ export function ConversationFeed(props: ConversationFeedProps): React.JSX.Elemen
     );
   }
   return (
-    <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+    <div ref={scroller} data-message-list className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
       {directFeedOf(messages, accountId, props.now()).map((day) => (
         <section key={day.key} aria-label={day.label} className="flex flex-col gap-3">
           <p role="separator" className="py-2 text-center text-xs text-muted-foreground">
@@ -41,7 +50,9 @@ export function ConversationFeed(props: ConversationFeedProps): React.JSX.Elemen
             <MessageRun
               key={run.messages[0]?.messageId}
               run={run}
-              authorName={run.mine ? 'Você' : friend.name}
+              authors={authors}
+              byId={byId}
+              onReply={props.onReply}
             />
           ))}
         </section>
@@ -50,24 +61,27 @@ export function ConversationFeed(props: ConversationFeedProps): React.JSX.Elemen
   );
 }
 
-function MessageRun({
-  run,
-  authorName,
-}: Readonly<{ run: DirectFeedRun; authorName: string }>): React.JSX.Element {
+type RunProps = Readonly<{
+  run: DirectFeedRun;
+  authors: Authors;
+  byId: ReadonlyMap<string, DmSentDto>;
+  onReply: (message: DmSentDto) => void;
+}>;
+
+function MessageRun({ run, authors, byId, onReply }: RunProps): React.JSX.Element {
   const last = run.messages.at(-1);
   return (
     <div className={cn('flex flex-col gap-1', run.mine ? 'items-end' : 'items-start')}>
-      <span className="sr-only">{authorName}</span>
+      <span className="sr-only">{run.mine ? 'Você' : authors.friendName}</span>
       {run.messages.map((message) => (
-        <p
+        <MessageBubble
           key={message.messageId}
-          className={cn(
-            'max-w-[80%] rounded-lg px-3 py-2 text-sm break-words whitespace-pre-wrap text-foreground',
-            run.mine ? 'bg-primary/15' : 'bg-muted',
-          )}
-        >
-          {message.text}
-        </p>
+          message={message}
+          mine={run.mine}
+          authors={authors}
+          quoted={quotedOf(message, byId, authors)}
+          onReply={onReply}
+        />
       ))}
       {last && (
         <time dateTime={last.at} className="text-[11px] text-muted-foreground">
@@ -76,4 +90,60 @@ function MessageRun({
       )}
     </div>
   );
+}
+
+type BubbleProps = Readonly<{
+  message: DmSentDto;
+  mine: boolean;
+  authors: Authors;
+  quoted: QuotedMessage | null;
+  onReply: (message: DmSentDto) => void;
+}>;
+
+function MessageBubble({ message, mine, authors, quoted, onReply }: BubbleProps) {
+  return (
+    <div
+      data-message-id={message.messageId}
+      className={cn(
+        'group flex max-w-[80%] flex-col gap-0.5 rounded-lg transition-colors duration-700 data-[flash]:bg-primary/20',
+        mine ? 'items-end' : 'items-start',
+      )}
+    >
+      {message.replyToMessageId !== null && <ReplyQuote quoted={quoted} />}
+      <div className={cn('flex items-center gap-1.5', mine && 'flex-row-reverse')}>
+        <p
+          className={cn(
+            'rounded-lg px-3 py-2 text-sm break-words whitespace-pre-wrap text-foreground',
+            mine ? 'bg-primary/15' : 'bg-muted',
+          )}
+        >
+          <EmoteText text={message.text} />
+        </p>
+        <ReplyButton
+          authorName={authorNameOf(message, authors)}
+          onReply={() => onReply(message)}
+          className="shrink-0"
+        />
+      </div>
+    </div>
+  );
+}
+
+function authorNameOf(message: DmSentDto, authors: Authors): string {
+  return message.fromUserId === authors.accountId ? 'Você' : authors.friendName;
+}
+
+function quotedOf(
+  message: DmSentDto,
+  byId: ReadonlyMap<string, DmSentDto>,
+  authors: Authors,
+): QuotedMessage | null {
+  const original =
+    message.replyToMessageId === null ? undefined : byId.get(message.replyToMessageId);
+  if (!original) return null;
+  return {
+    messageId: original.messageId,
+    authorName: authorNameOf(original, authors),
+    text: original.text,
+  };
 }

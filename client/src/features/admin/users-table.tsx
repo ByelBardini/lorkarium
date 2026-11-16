@@ -11,7 +11,7 @@ export type UsersTableProps = Readonly<{
   rows: readonly DirectoryRow[];
   now: Date;
   selfId: string | null;
-  /** The menu at the end of a row (none on the admin's own row). */
+  /** The menu at the end of a row (the admin's own row offers only "Insígnias…"). */
   actionsOf: (row: DirectoryRow) => React.ReactNode;
 }>;
 
@@ -51,7 +51,7 @@ export function UsersTable({ rows, now, selfId, actionsOf }: UsersTableProps): R
                 <InvitationCells row={row} />
               )}
               <td className={CELL}>{lastAccessLabel(row, now)}</td>
-              <td className={`${CELL} text-right`}>{row.id === selfId ? null : actionsOf(row)}</td>
+              <td className={`${CELL} text-right`}>{actionsOf(row)}</td>
             </tr>
           ))}
         </tbody>

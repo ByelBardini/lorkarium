@@ -1,6 +1,12 @@
-import type { ChatChannelDto, ChatSpeakerDto, SavedRollDto } from '@lorkarium/contracts';
+import type {
+  ChatChannelDto,
+  ChatReplyDto,
+  ChatSpeakerDto,
+  SavedRollDto,
+} from '@lorkarium/contracts';
 import { useState } from 'react';
 import type { ChatConversationTarget } from '@/lib/chat-conversations';
+import { chatReplyOf, replyWhisperToOf } from '@/lib/chat-replies';
 import { readChatInput, type ChatInputIntent, type ChatInputMember } from '@/lib/chat-input';
 import { chatContactsOf, recipientsCheckOf, type ChatRecipientsCheck } from '@/lib/chat-recipients';
 import type { ChatSendFailure, ChatSendRequest, ChatSendResult } from '@/services/chat-commands';
@@ -11,6 +17,7 @@ import {
   offlineRecipientsText,
 } from './chat-messages';
 import type { ChatPeople } from './use-chat-people';
+import type { ChatReplyState } from './use-chat-reply';
 
 /** What rolling from the field needs; who only watches has `canRoll: false` and no roller. */
 export type ComposerTools = Readonly<{
@@ -30,6 +37,8 @@ export type ChatComposerInput = Readonly<{
   speaker: ChatSpeakerDto;
   /** Hears each refusal of the server (the "Falar como" goes back to "Você" on a lost token). */
   onRefused: (failure: ChatSendFailure) => void;
+  /** The message being answered: a plain message quotes it, in the original's whisper. */
+  reply: ChatReplyState;
 }>;
 
 export type ChatComposerState = Readonly<{
@@ -37,7 +46,7 @@ export type ChatComposerState = Readonly<{
   setDraft: (draft: string) => void;
   /** Under the field, in pt-BR; the draft stays. */
   problem: string | null;
-  /** The Table's "Pra quem": `null` is the whole Table. */
+  /** The Table's "Pra quem": `null` is the whole Table; while answering, the original's. */
   whisperTo: string | null;
   setWhisperTo: (whisperTo: string | null) => void;
   recipients: ChatRecipientsCheck;
@@ -49,14 +58,14 @@ export type ChatComposerState = Readonly<{
  *  (`/r`, `/gr`, `/<saved>`) through the dice tab's roller, or a refusal under the field. Only a
  *  confirmed send or roll empties the field.
  *
- *  Example: `const composer = useChatComposer({ target, people, live, send, tools, speaker: { kind: 'self' }, onRefused })` */
+ *  Example: `const composer = useChatComposer({ target, people, live, send, tools, speaker: { kind: 'self' }, onRefused, reply })` */
 export function useChatComposer(input: ChatComposerInput): ChatComposerState {
   const [draft, setDraft] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
   const [rollRefused, setRollRefused] = useState(false);
   const [busy, setBusy] = useState(false);
   const [whisperTo, setWhisperTo] = useState<string | null>(null);
-  const chosenWhisper = input.target.kind === 'table' ? whisperTo : null;
+  const chosenWhisper = whisperChosenOf(input, whisperTo);
   const recipients = recipientsOf(input, chosenWhisper);
   const command = draft.trimStart().startsWith('/');
   const canSend = input.live && !busy && draft.trim() !== '' && (command || !recipients.blocked);
@@ -68,11 +77,29 @@ export function useChatComposer(input: ChatComposerInput): ChatComposerState {
     setRollRefused(false);
     void carryOut(intentOf(input, draft), input, chosenWhisper, outcome).then((done) => {
       setBusy(false);
-      if (done) setDraft('');
+      if (!done) return;
+      setDraft('');
+      input.reply.cancel();
     });
   };
   const shown = problem ?? (rollRefused ? (input.tools.roller?.problem ?? null) : null);
-  return { draft, setDraft, problem: shown, whisperTo, setWhisperTo, recipients, canSend, submit };
+  return {
+    draft,
+    setDraft,
+    problem: shown,
+    whisperTo: chosenWhisper,
+    setWhisperTo,
+    recipients,
+    canSend,
+    submit,
+  };
+}
+
+// An answer stays in the original's channel: a whispered one in the same whisper.
+function whisperChosenOf(input: ChatComposerInput, whisperTo: string | null): string | null {
+  if (input.target.kind !== 'table') return null;
+  const replied = input.reply.draft?.message.event;
+  return replied ? replyWhisperToOf(replied, input.people.viewerId) : whisperTo;
 }
 
 /** The others of the table as `/w` and `@` may name them, online first. */
@@ -112,7 +139,9 @@ async function carryOut(
   if (intent.kind === 'roll') return rollFrom(intent, input, outcome);
   if (intent.kind === 'whisper') return whisperFrom(intent, input, outcome);
   const speaker = input.target.kind === 'table' && whisperTo === null ? input.speaker : SELF;
-  return sendText(channelOf(input.target, whisperTo), speaker, intent.text, input, outcome);
+  const replyTo = chatReplyOf(input.reply.draft, input.people.viewerId);
+  const message = { channel: channelOf(input.target, whisperTo), speaker, replyTo };
+  return sendText(message, intent.text, input, outcome);
 }
 
 const SELF: ChatSpeakerDto = { kind: 'self' };
@@ -144,17 +173,22 @@ async function whisperFrom(
     return refuse(offlineRecipientsText([input.people.nameOf(intent.userId)], true), outcome);
   }
   const channel: ChatChannelDto = { kind: 'table', whisperTo: intent.userId };
-  return sendText(channel, SELF, intent.text, input, outcome);
+  return sendText({ channel, speaker: SELF, replyTo: null }, intent.text, input, outcome);
 }
 
+type OutgoingMessage = Readonly<{
+  channel: ChatChannelDto;
+  speaker: ChatSpeakerDto;
+  replyTo: ChatReplyDto | null;
+}>;
+
 async function sendText(
-  channel: ChatChannelDto,
-  speaker: ChatSpeakerDto,
+  message: OutgoingMessage,
   text: string,
   input: ChatComposerInput,
   outcome: Outcome,
 ): Promise<boolean> {
-  const result = await input.send({ channel, speaker, text });
+  const result = await input.send({ ...message, text });
   if (result.ok) return true;
   input.onRefused(result.failure);
   return refuse(chatSendFailureMessage(result.failure), outcome);

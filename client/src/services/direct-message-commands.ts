@@ -20,11 +20,15 @@ export type DirectMessageSendResult =
   | Readonly<{ ok: false; failure: DirectMessageFailure }>;
 
 /** Direct messages over the account socket; `send` answers its ack and never throws. The message
- *  itself arrives to both accounts as `dm:sent`.
+ *  itself arrives to both accounts as `dm:sent`. A reply names the quoted message's id.
  *
- *  Example: `await dm.send(bia.userId, 'oi')` */
+ *  Example: `await dm.send(bia.userId, 'oi', null)` */
 export interface DirectMessageCommands {
-  send(toUserId: string, text: string): Promise<DirectMessageSendResult>;
+  send(
+    toUserId: string,
+    text: string,
+    replyToMessageId: string | null,
+  ): Promise<DirectMessageSendResult>;
   /** "Digitando…": no ack; the server drops it silently over its bucket. */
   typing(toUserId: string): void;
 }
@@ -53,8 +57,12 @@ export class RealtimeDirectMessageCommands implements DirectMessageCommands {
     private readonly newActionId: () => string,
   ) {}
 
-  async send(toUserId: string, text: string): Promise<DirectMessageSendResult> {
-    const payload = { actionId: this.newActionId(), toUserId, text };
+  async send(
+    toUserId: string,
+    text: string,
+    replyToMessageId: string | null,
+  ): Promise<DirectMessageSendResult> {
+    const payload = { actionId: this.newActionId(), toUserId, text, replyToMessageId };
     try {
       const answer = await this.transport.emitWithAck(DM_EVENTS.send, payload, SEND_ACK_TIMEOUT_MS);
       return sendResultOf(answer);

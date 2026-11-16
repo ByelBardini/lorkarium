@@ -31,6 +31,8 @@ describe('ChatMessageRow', () => {
           people={PEOPLE}
           viewerNames={[]}
           face={null}
+          quoted={null}
+          onReply={() => undefined}
         />
       </ul>,
     );

@@ -35,6 +35,7 @@ import {
 } from './chat-window-slot';
 import { NewConversationDialog } from './new-conversation-dialog';
 import { useChatPeople, useOpenTableOf, type ChatPeople } from './use-chat-people';
+import { useChatReply, type ChatReplyState } from './use-chat-reply';
 
 /** The app's services the chat needs (the `AppDependencies` of the same names). */
 export type ChatServices = Readonly<{
@@ -83,6 +84,7 @@ function OpenChat(props: OpenChatProps): React.JSX.Element {
   const allConversations = useChatHistory(table.chat, (state) => state.conversations);
   const conversations = allConversations.filter((conversation) => !conversation.closed);
   const shown = useShownConversation(table.chat, conversations, props.initialConversation);
+  const reply = useChatReply(shown.conversation.key);
   const [filter, setFilter] = useState<ChatFeedFilter>('all');
   const live = useTablePresence(table.presence, (state) => state.status === 'live');
   const atTable = shown.conversation.target.kind === 'table';
@@ -115,6 +117,7 @@ function OpenChat(props: OpenChatProps): React.JSX.Element {
       <ConversationFeed
         {...props}
         shown={shown}
+        reply={reply}
         filter={filter}
         people={people}
         name={nameOf(shown.conversation.target)}
@@ -128,6 +131,7 @@ function OpenChat(props: OpenChatProps): React.JSX.Element {
         conversation={shown.conversation}
         people={people}
         live={live}
+        reply={reply}
       />
       <ChatAnnouncer chat={table.chat} people={people} />
       {starting && (
@@ -180,7 +184,13 @@ function firstUnreadIdOf(conversation: ChatConversation | undefined): string | n
 }
 
 type ConversationFeedProps = OpenChatProps &
-  Readonly<{ shown: ShownConversation; filter: ChatFeedFilter; people: ChatPeople; name: string }>;
+  Readonly<{
+    shown: ShownConversation;
+    filter: ChatFeedFilter;
+    people: ChatPeople;
+    name: string;
+    reply: ChatReplyState;
+  }>;
 
 function ConversationFeed(props: ConversationFeedProps): React.JSX.Element {
   const { conversation, firstUnreadId } = props.shown;
@@ -202,6 +212,7 @@ function ConversationFeed(props: ConversationFeedProps): React.JSX.Element {
       viewerNames={viewerNames}
       diceClock={props.services.diceClock}
       tabs={props.table.tabs}
+      onReply={props.reply.start}
     />
   );
 }

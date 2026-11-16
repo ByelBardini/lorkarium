@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { ProfileCardTrigger } from '@/features/profile-card/profile-card-trigger';
 import { ProfileCardHarness } from '../../support/profile-card-harness';
-import { ANA_CARD, LYRA_CARD, lyraCard } from '../../support/profile-card-fixtures';
+import { ANA_CARD, badgesOf, LYRA_CARD, lyraCard } from '../../support/profile-card-fixtures';
 
 const BANNER_ID = '9e8d7c6b-5a49-4f38-8e27-1d0c9b8a7f6e';
 
@@ -94,6 +94,27 @@ describe('ProfileCardTrigger', () => {
     expect(full).toHaveTextContent('Ruínas de Kael');
     expect(full).toHaveTextContent('5 amigos em comum');
     expect(screen.queryByRole('dialog', { name: 'Perfil de Lyra Valen' })).toBeNull();
+  });
+
+  it('eight badges show six and "+2" in the popover, between the attributes and "Sobre", and all eight in the modal', async () => {
+    const popover = await new ProfileCardHarness().open(lyraCard({ badges: badgesOf(8) }));
+
+    const row = within(popover).getByRole('list', { name: 'Insígnias' });
+    expect(within(row).getAllByRole('button')).toHaveLength(6);
+    expect(row).toHaveTextContent('+2');
+    expect(popover).toHaveTextContent(/Aprovação.*Insígnias.*Sobre/);
+    await userEvent.click(screen.getByRole('button', { name: 'Ver perfil completo' }));
+    const full = await screen.findByRole('dialog', { name: 'Perfil completo de Lyra Valen' });
+
+    const fullRow = within(full).getByRole('list', { name: 'Insígnias' });
+    expect(within(fullRow).getAllByRole('button')).toHaveLength(8);
+    expect(fullRow).not.toHaveTextContent('+');
+  });
+
+  it('a card without badges has no "Insígnias" block', async () => {
+    const popover = await new ProfileCardHarness().open();
+
+    expect(popover).not.toHaveTextContent('Insígnias');
   });
 
   it('the popover leaves the full-profile sections out', async () => {

@@ -17,13 +17,15 @@ export type ProfilePreviewProps = Readonly<{
   contact: string;
   memberSince: string;
   seal: PlanSealHolder;
+  /** The account's own badges, in the catalog's order (granted in the backoffice). */
+  badges: ProfileCardDto['badges'];
 }>;
 
 /** "Como a galera te vê": the draft on the real "Brasão" card (the full one, with systems,
  *  schedule and contact), before it is saved, and the ping in the chosen color on a still mini
  *  grid. The counters are the server's on the real card; here they read zero.
  *
- *  Example: `<ProfilePreview {...draft.values} username={profile.username} avatarId={profile.avatarId} bannerId={profile.bannerId} memberSince={profile.memberSince} seal={profile} />` */
+ *  Example: `<ProfilePreview {...draft.values} username={profile.username} avatarId={profile.avatarId} bannerId={profile.bannerId} memberSince={profile.memberSince} seal={profile} badges={profile.badges} />` */
 export function ProfilePreview(props: ProfilePreviewProps): React.JSX.Element {
   const titleId = useId();
   const card = previewCardOf(props);
@@ -70,6 +72,7 @@ function previewCardOf(props: ProfilePreviewProps): ProfileCardDto {
     contact: textOrNull(props.contact),
     mutualCampaigns: [],
     mutualFriends: 0,
+    badges: props.badges,
   };
 }
 

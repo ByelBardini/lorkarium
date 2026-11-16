@@ -21,23 +21,23 @@ import {
 import { PLAN_NAMES } from '@/lib/plan-seal';
 
 export type UserRowCommand =
-  'password-link' | 'grant-admin' | 'revoke-admin' | 'suspend' | 'reactivate' | 'delete';
+  'password-link' | 'grant-admin' | 'revoke-admin' | 'suspend' | 'reactivate' | 'delete' | 'badges';
 export type InvitationRowCommand = 'resend' | 'cancel';
+
+type UserRowMenuProps = Readonly<{
+  user: AdminUserDto;
+  /** The admin's own row: only "Insígnias…" (granting oneself is allowed, the rest is not). */
+  self?: boolean;
+  onCommand: (command: UserRowCommand) => void;
+  onPlan: (plan: UserPlan) => void;
+}>;
 
 /** The menu at the end of an account row; what it offers follows the account's state. "Plano"
  *  opens the plans with the current one marked.
  *
  *  Example: `<UserRowMenu user={bia} onCommand={(command) => open(command, bia)} onPlan={(plan) => setPlan(bia, plan)} />` */
-export function UserRowMenu({
-  user,
-  onCommand,
-  onPlan,
-}: Readonly<{
-  user: AdminUserDto;
-  onCommand: (command: UserRowCommand) => void;
-  onPlan: (plan: UserPlan) => void;
-}>): React.JSX.Element {
-  const active = user.status === 'active';
+export function UserRowMenu(props: UserRowMenuProps): React.JSX.Element {
+  const { user, onCommand } = props;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -46,36 +46,46 @@ export function UserRowMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {active && (
-          <DropdownMenuItem onSelect={() => onCommand('password-link')}>
-            Mandar link de nova senha
-          </DropdownMenuItem>
+        {!props.self && <AccountCommands {...props} />}
+        <DropdownMenuItem onSelect={() => onCommand('badges')}>Insígnias…</DropdownMenuItem>
+        {!props.self && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onSelect={() => onCommand('delete')}>
+              Excluir usuário
+            </DropdownMenuItem>
+          </>
         )}
-        {user.role === 'admin' ? (
-          <DropdownMenuItem onSelect={() => onCommand('revoke-admin')}>
-            Tirar acesso de admin
-          </DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem onSelect={() => onCommand('grant-admin')}>
-            Tornar admin
-          </DropdownMenuItem>
-        )}
-        <PlanSubmenu current={user.plan} onPlan={onPlan} />
-        {active ? (
-          <DropdownMenuItem onSelect={() => onCommand('suspend')}>
-            Suspender acesso
-          </DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem onSelect={() => onCommand('reactivate')}>
-            Reativar acesso
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onSelect={() => onCommand('delete')}>
-          Excluir usuário
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+function AccountCommands({ user, onCommand, onPlan }: UserRowMenuProps): React.JSX.Element {
+  const active = user.status === 'active';
+  return (
+    <>
+      {active && (
+        <DropdownMenuItem onSelect={() => onCommand('password-link')}>
+          Mandar link de nova senha
+        </DropdownMenuItem>
+      )}
+      {user.role === 'admin' ? (
+        <DropdownMenuItem onSelect={() => onCommand('revoke-admin')}>
+          Tirar acesso de admin
+        </DropdownMenuItem>
+      ) : (
+        <DropdownMenuItem onSelect={() => onCommand('grant-admin')}>Tornar admin</DropdownMenuItem>
+      )}
+      <PlanSubmenu current={user.plan} onPlan={onPlan} />
+      {active ? (
+        <DropdownMenuItem onSelect={() => onCommand('suspend')}>Suspender acesso</DropdownMenuItem>
+      ) : (
+        <DropdownMenuItem onSelect={() => onCommand('reactivate')}>
+          Reativar acesso
+        </DropdownMenuItem>
+      )}
+    </>
   );
 }
 

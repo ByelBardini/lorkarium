@@ -4,6 +4,8 @@ export * from './color/hex-color.dto';
 export * from './account/username.dto';
 export * from './account/profile.dto';
 export * from './profiles/profile-card.dto';
+export * from './profiles/profile-lookup.dto';
+export * from './badges/badge.dto';
 export * from './profiles/reputation.dto';
 export * from './profiles/user-report.dto';
 export * from './account/avatar.dto';

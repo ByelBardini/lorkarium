@@ -419,6 +419,7 @@ describe('ChatDock', () => {
             channel: { kind: 'table', whisperTo: null },
             speaker: { kind: 'self' },
             text: 'Boa noite',
+            replyTo: null,
           },
         },
       ]);

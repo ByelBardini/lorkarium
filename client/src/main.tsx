@@ -17,6 +17,7 @@ import { HttpAccountPlanApi } from '@/services/account-plan-api';
 import { HttpAccountSecurityApi } from '@/services/account-security-api';
 import { HttpUserAdminApi } from '@/services/user-admin-api';
 import { HttpUserReportsApi } from '@/services/user-reports-api';
+import { HttpBadgesAdminApi } from '@/services/badges-admin-api';
 import { HttpAuthApi } from '@/services/auth-api';
 import { HttpAssetsApi } from '@/services/assets-api';
 import { HttpCampaignsApi } from '@/services/campaigns-api';
@@ -161,6 +162,7 @@ const router = createBrowserRouter(
     accountPlanApi: new HttpAccountPlanApi(transport),
     userAdminApi: new HttpUserAdminApi(transport),
     userReportsApi: new HttpUserReportsApi(transport),
+    badgesAdminApi: new HttpBadgesAdminApi(transport),
     accountLinksApi: new HttpAccountLinksApi(transport),
     libraryApi: new HttpLibraryApi(transport),
     libraryMapsApi,

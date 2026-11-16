@@ -161,6 +161,26 @@ describe('chatSendCommandDto', () => {
   });
 });
 
+describe('chatSendCommandDto replyTo', () => {
+  it('defaults to no reply and accepts the quoted id with or without calling its author', () => {
+    expect(chatSendCommandDto.parse(command()).replyTo).toBeNull();
+    const calling = { messageId: MESSAGE_ID, mentionUserId: BIA_ID };
+    const silent = { messageId: MESSAGE_ID, mentionUserId: null };
+
+    expect(chatSendCommandDto.parse(command({ replyTo: calling })).replyTo).toEqual(calling);
+    expect(chatSendCommandDto.parse(command({ replyTo: silent })).replyTo).toEqual(silent);
+  });
+
+  it('refuses a quoted text or author name sent with the reply (each client reads its own)', () => {
+    const quoted = { messageId: MESSAGE_ID, mentionUserId: null, text: 'forjado' };
+
+    expect(chatSendCommandDto.safeParse(command({ replyTo: quoted })).success).toBe(false);
+    expect(chatSendCommandDto.safeParse(command({ replyTo: { messageId: 'x' } })).success).toBe(
+      false,
+    );
+  });
+});
+
 describe('chatSendAckDto', () => {
   it('reads a success with the messageId and a failure with the API error', () => {
     expect(chatSendAckDto.parse({ ok: true, messageId: MESSAGE_ID })).toEqual({
@@ -211,5 +231,12 @@ describe('chatSentDto', () => {
     const unnamed = sentEvent({ speaker: { kind: 'token', sceneId: SCENE_ID, tokenId: TOKEN_ID } });
 
     expect(chatSentDto.safeParse(unnamed).success).toBe(false);
+  });
+
+  it('reads a reply, and a message saved before replies as no reply', () => {
+    const replyTo = { messageId: MESSAGE_ID, mentionUserId: ANA_ID };
+
+    expect(chatSentDto.parse(sentEvent({ replyTo })).replyTo).toEqual(replyTo);
+    expect(chatSentDto.parse(sentEvent()).replyTo).toBeNull();
   });
 });

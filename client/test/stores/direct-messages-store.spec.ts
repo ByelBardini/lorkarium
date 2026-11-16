@@ -153,15 +153,21 @@ describe('direct messages store', () => {
   });
 
   it('send that goes answers ok and sends the text to the friend', async () => {
-    expect(await store.getState().send(BIA.userId, 'oi')).toEqual({ ok: true });
-    expect(commands.sent).toEqual([{ toUserId: BIA.userId, text: 'oi' }]);
+    expect(await store.getState().send(BIA.userId, 'oi', null)).toEqual({ ok: true });
+    expect(commands.sent).toEqual([{ toUserId: BIA.userId, text: 'oi', replyToMessageId: null }]);
+  });
+
+  it('send of a reply passes the quoted id on', async () => {
+    const quoted = dmSent();
+    await store.getState().send(BIA.userId, 'isso', quoted.messageId);
+    expect(commands.sent[0]?.replyToMessageId).toBe(quoted.messageId);
   });
 
   it.each([['recipient_offline'], ['offline']] as const)(
     'send refused as %s gives the text back with the failure',
     async (kind) => {
       commands.answer = { ok: false, failure: { kind } };
-      expect(await store.getState().send(BIA.userId, 'oi')).toEqual({
+      expect(await store.getState().send(BIA.userId, 'oi', null)).toEqual({
         ok: false,
         failure: { kind },
         text: 'oi',

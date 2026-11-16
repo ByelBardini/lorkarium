@@ -37,6 +37,7 @@ Contexto lido pelo service: `friends` (`FriendshipsDao.exists`), `senderVisible`
 | `dm:typing`     | client → server | `{ toUserId }`, sem ack                                                                                                                              |
 | `dm:typingFrom` | server → user   | `{ fromUserId, at }` só à sala do destinatário                                                                                                       |
 
+- `replyToMessageId` é repassado como veio (`toDmSentDto`): sem gravação não há como conferir o id; o aparelho que não tem a original mostra "Mensagem original indisponível" (ver [`client/chat-respostas.md`](client/chat-respostas.md)).
 - O remetente é sempre o da sessão (`reauthenticate`); `fromUserId` no payload é `INVALID_BODY` (DTO estrito, §7.3). `messageId` do `randomUUID`, `at` do relógio.
 - Fora da fila por mesa (nada é gravado) e sem versão.
 - `dm:typing` que não poderia virar mensagem, passa do balde, tem payload inválido ou sessão encerrada **cai calado** (sessão encerrada também derruba o socket); só erro inesperado vai ao log.

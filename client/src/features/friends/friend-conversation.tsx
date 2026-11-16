@@ -11,6 +11,7 @@ import { presenceOf, useFriends } from '@/stores/friends-store';
 import { usePresenceChoice } from '@/stores/presence-choice-store';
 import { ConversationComposer } from './conversation-composer';
 import { ConversationFeed } from './conversation-feed';
+import { useDirectReply } from './use-direct-reply';
 import { ConversationHeader } from './conversation-header';
 import { FRIENDS_PATH } from './friends-path';
 import type { FriendsScreenDeps } from './friends-screen';
@@ -55,6 +56,7 @@ function OpenConversation({ deps, accountId, friend }: OpenConversationProps): R
     deps.directMessages,
     (state) => state.conversations[friend.userId]?.messages ?? NO_MESSAGES,
   );
+  const reply = useDirectReply(friend.userId);
   const lock = composerLockOf({ live, choice, friendStatus: presence.status, name: friend.name });
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -64,11 +66,23 @@ function OpenConversation({ deps, accountId, friend }: OpenConversationProps): R
           Reconectando…
         </p>
       )}
-      <ConversationFeed messages={messages} accountId={accountId} friend={friend} now={deps.now} />
+      <ConversationFeed
+        messages={messages}
+        accountId={accountId}
+        friend={friend}
+        now={deps.now}
+        onReply={reply.start}
+      />
       <p aria-live="polite" className="h-5 px-4 text-xs text-muted-foreground italic">
         {typing ? `${friend.name} está digitando…` : ''}
       </p>
-      <ConversationComposer friend={friend} lock={lock} directMessages={deps.directMessages} />
+      <ConversationComposer
+        friend={friend}
+        lock={lock}
+        directMessages={deps.directMessages}
+        accountId={accountId}
+        reply={reply}
+      />
     </div>
   );
 }

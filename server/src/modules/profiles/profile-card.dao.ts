@@ -68,6 +68,16 @@ export class ProfileCardDao {
     return row;
   }
 
+  /** The id behind an exact @ (already in lower case), only while active: a suspended account
+   *  reads as unknown. Example: `await cards.accountIdByUsername('bia') // biaId` */
+  async accountIdByUsername(username: string): Promise<string | undefined> {
+    const [row] = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.username, username), isNull(users.suspendedAt)));
+    return row?.id;
+  }
+
   /** Example: `await cards.seatCountsOf(anaId) // { asMaster: 1, asPlayer: 0 }` */
   async seatCountsOf(userId: string): Promise<ProfileCardSeatCounts> {
     const [row] = await this.db

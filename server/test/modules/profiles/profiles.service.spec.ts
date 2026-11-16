@@ -11,10 +11,17 @@ import {
   ProfilesDaoFake,
   profileRow,
 } from '../../support/profiles-fakes';
+import { AccountBadgesFake } from '../../support/profile-card-fakes';
 
 const NEW_AVATAR = 'c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f';
 const OLD_AVATAR = 'd2e3f4a5-b6c7-4d8e-9f0a-1b2c3d4e5f60';
 const PHOTO = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 1, 2]);
+const VETERANO = {
+  id: '5c1d2e3f-4a5b-4c6d-8e7f-8a9b0c1d2e3f',
+  name: 'Veterano',
+  description: 'Jogou 100 sessões',
+  imageId: '9e8d7c6b-5a4f-4e3d-8c2b-1a0f9e8d7c6b',
+};
 
 describe('ProfilesService', () => {
   let journal: string[];
@@ -42,6 +49,7 @@ describe('ProfilesService', () => {
       processor,
       profileChanged,
       fetcher,
+      badges: new AccountBadgesFake(new Map([[BIA_ID, [VETERANO]]])),
       newId: () => NEW_AVATAR,
     });
   });
@@ -66,7 +74,13 @@ describe('ProfilesService', () => {
         plan: 'amigo_do_dono',
         admin: false,
         lorkariumOwner: false,
+        badges: [],
       });
+    });
+
+    it('the profile carries the badges of that account only', async () => {
+      expect((await service.profileOf(BIA_ID)).badges).toEqual([VETERANO]);
+      expect((await service.update(BIA_ID, { bio: 'x' })).badges).toEqual([VETERANO]);
     });
 
     it('changing only the color writes only the color and answers it as the choice', async () => {

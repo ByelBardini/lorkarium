@@ -39,6 +39,59 @@ describe('HttpProfileCardApi', () => {
     expect(await api.card(LYRA_CARD.id)).toEqual({ ok: false, failure: { kind: 'offline' } });
   });
 
+  it('cardByUsername reads the typed @ without "@" and in lower case from /users/by-username/:username/card', async () => {
+    transport.respondWith(200, { card: LYRA_CARD });
+    expect(await api.cardByUsername(' @LyraValen ')).toEqual({ ok: true, value: LYRA_CARD });
+    expect(transport.requests).toEqual([
+      { method: 'GET', path: '/users/by-username/lyravalen/card', body: undefined },
+    ]);
+  });
+
+  it.each(['a', 'lyra@lorkarium.dev', '', 'bia flor'])(
+    'cardByUsername("%s") outside the @ format is user_not_found without a request',
+    async (typed) => {
+      expect(await api.cardByUsername(typed)).toEqual({
+        ok: false,
+        failure: { kind: 'user_not_found' },
+      });
+      expect(transport.requests).toEqual([]);
+    },
+  );
+
+  it.each([
+    [404, { kind: 'user_not_found' }],
+    [400, { kind: 'user_not_found' }],
+    [401, { kind: 'unauthenticated' }],
+    [500, { kind: 'unexpected' }],
+  ] as const)('cardByUsername answered %i fails as %o', async (status, failure) => {
+    transport.respondWith(status, { code: 'X', message: 'x' });
+    expect(await api.cardByUsername('lyravalen')).toEqual({ ok: false, failure });
+  });
+
+  it('cardByUsername refused 429 carries the retryAfterSeconds of the body', async () => {
+    transport.respondWith(429, { code: 'RATE_LIMITED', message: 'x', retryAfterSeconds: 42 });
+    expect(await api.cardByUsername('lyravalen')).toEqual({
+      ok: false,
+      failure: { kind: 'rate_limited', retryAfterSeconds: 42 },
+    });
+  });
+
+  it('cardByUsername with a body outside the DTO is unexpected', async () => {
+    transport.respondWith(200, { card: { ...LYRA_CARD, passwordHash: 'x' } });
+    expect(await api.cardByUsername('lyravalen')).toEqual({
+      ok: false,
+      failure: { kind: 'unexpected' },
+    });
+  });
+
+  it('cardByUsername offline fails as offline', async () => {
+    transport.failWithNetworkDown();
+    expect(await api.cardByUsername('lyravalen')).toEqual({
+      ok: false,
+      failure: { kind: 'offline' },
+    });
+  });
+
   it('vote PUTs the value to /users/:userId/reputation', async () => {
     transport.respondWith(204, null);
     expect(await api.vote(LYRA_CARD.id, -1)).toEqual({ ok: true, value: null });

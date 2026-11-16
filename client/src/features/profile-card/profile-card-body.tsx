@@ -12,6 +12,8 @@ export type ProfileCardBodyProps = Readonly<{
   full: boolean;
   /** Under the actions (the popover's "Ver perfil completo"). */
   footer?: React.ReactNode;
+  /** Over the banner's top-left corner, once the card is loaded. */
+  corner?: React.ReactNode;
 }>;
 
 /** The card as it stands: loading, the error with "Tentar de novo", or the face with the actions
@@ -23,6 +25,7 @@ export function ProfileCardBody({
   deps,
   full,
   footer,
+  corner,
 }: ProfileCardBodyProps): React.JSX.Element {
   const { state } = read;
   if (state.kind === 'loading') {
@@ -42,7 +45,7 @@ export function ProfileCardBody({
   }
   const own = state.card.id === deps.viewerId || state.card.relation === 'self';
   return (
-    <ProfileCardFace card={state.card} full={full}>
+    <ProfileCardFace card={state.card} full={full} corner={corner}>
       {own && <ReputationTally reputation={state.card.reputation} />}
       {!own && (
         <ProfileCardActions card={state.card} deps={deps} reload={read.reload} full={full} />

@@ -37,6 +37,8 @@ export const dmSendCommandDto = z.strictObject({
   actionId: z.uuid(),
   toUserId: z.uuid(),
   text: directMessageTextDto,
+  /** The quoted message: only its id, each device finds it in its own history. */
+  replyToMessageId: z.uuid().nullable().default(null),
 });
 export type DmSendCommandDto = z.infer<typeof dmSendCommandDto>;
 export type DmSendCommandInput = z.input<typeof dmSendCommandDto>;
@@ -57,6 +59,8 @@ export const dmSentDto = z.strictObject({
   toUserId: z.uuid(),
   text: directMessageTextDto,
   at: z.iso.datetime(),
+  /** Absent in a history saved before replies existed. */
+  replyToMessageId: z.uuid().nullable().default(null),
 });
 export type DmSentDto = z.infer<typeof dmSentDto>;
 

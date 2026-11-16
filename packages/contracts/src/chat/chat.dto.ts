@@ -99,6 +99,17 @@ export const chatSentSpeakerDto = z.discriminatedUnion('kind', [
 ]);
 export type ChatSentSpeakerDto = z.infer<typeof chatSentSpeakerDto>;
 
+/** A reply: only the quoted message's id travels, since nothing is saved — each client finds
+ *  the original in its own history (one that arrived later or was cleared shows it as gone).
+ *  `mentionUserId` is the quoted author to call, or `null` when the reply does not call anyone.
+ *
+ *  Example: `chatReplyDto.parse({ messageId, mentionUserId: biaId })` */
+export const chatReplyDto = z.strictObject({
+  messageId: z.uuid(),
+  mentionUserId: z.uuid().nullable(),
+});
+export type ChatReplyDto = z.infer<typeof chatReplyDto>;
+
 /** `chat:send`: the sender comes from the connection, never from here (§7.3). Nothing is saved.
  *
  *  Example: `chatSendCommandDto.parse({ actionId, campaignId, channel, speaker: { kind: 'self' }, text: 'oi' })` */
@@ -108,6 +119,7 @@ export const chatSendCommandDto = z.strictObject({
   channel: chatChannelDto,
   speaker: chatSpeakerDto,
   text: chatTextDto,
+  replyTo: chatReplyDto.nullable().default(null),
 });
 export type ChatSendCommandDto = z.infer<typeof chatSendCommandDto>;
 export type ChatSendCommandInput = z.input<typeof chatSendCommandDto>;
@@ -133,6 +145,8 @@ export const chatSentDto = z.strictObject({
   channel: chatSentChannelDto,
   speaker: chatSentSpeakerDto,
   text: chatTextDto,
+  /** Absent in a history saved before replies existed. */
+  replyTo: chatReplyDto.nullable().default(null),
 });
 export type ChatSentDto = z.infer<typeof chatSentDto>;
 

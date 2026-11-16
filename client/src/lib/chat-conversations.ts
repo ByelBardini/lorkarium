@@ -1,4 +1,5 @@
 import type { ChatSentChannelDto, ChatSentDto } from '@lorkarium/contracts';
+import { repliesToViewer } from './chat-replies';
 import { searchText } from './search-text';
 
 /** The messages one conversation keeps for this visit (an F5 included). */
@@ -179,14 +180,16 @@ export function isImportantConversation(conversation: ChatConversation): boolean
   return conversation.mentioned;
 }
 
-/** Whether `event` calls the viewer: a whisper to them or an `@` of one of their names. The one
- *  rule of "important" (the gold counter, the notice, the sound); `null` (unknown) is never called.
+/** Whether `event` calls the viewer: a whisper to them, a reply to them with the @ on or an `@` of
+ *  one of their names. The one rule of "important" (the gold counter, the notice, the sound);
+ *  `null` (unknown) is never called.
  *
  *  Example: `callsViewer(chatSent({ text: '@Bia cura?' }), { userId: bia, names: ['Bia'] }) // true` */
 export function callsViewer(event: ChatSentDto, viewer: ChatViewer | null): boolean {
   if (viewer === null) return false;
   const whisperedTo = event.channel.kind === 'table' ? event.channel.whisperTo : null;
-  return whisperedTo === viewer.userId || mentionsAny(event.text, viewer.names);
+  if (whisperedTo === viewer.userId || repliesToViewer(event, viewer.userId)) return true;
+  return mentionsAny(event.text, viewer.names);
 }
 
 // A conversation with no message yet was just opened here: it goes before every other.

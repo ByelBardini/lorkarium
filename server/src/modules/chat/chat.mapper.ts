@@ -51,5 +51,6 @@ export function toChatSentDto(input: ChatSentInput): ChatSentDto {
     channel: toChatSentChannelDto(command.channel, fromUserId),
     speaker,
     text: command.text,
+    replyTo: command.replyTo,
   };
 }

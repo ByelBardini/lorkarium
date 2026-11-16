@@ -10,6 +10,7 @@ import { ChatComposer, type ComposerVoice } from './chat-composer';
 import type { ChatServices } from './chat-panel';
 import { useSpeakAsVoice } from './use-speak-as-voice';
 import type { ChatPeople } from './use-chat-people';
+import type { ChatReplyState } from './use-chat-reply';
 import type { ComposerTools } from './use-chat-composer';
 
 export type ComposerSlotProps = Readonly<{
@@ -22,6 +23,7 @@ export type ComposerSlotProps = Readonly<{
   conversation: ChatConversation;
   people: ChatPeople;
   live: boolean;
+  reply: ChatReplyState;
 }>;
 
 const NO_TOOLS: ComposerTools = { canRoll: false, savedRolls: [], roller: null };
@@ -58,6 +60,7 @@ function KeyedComposer(props: VoicedProps & Readonly<{ tools: ComposerTools }>) 
       send={(request) => services.chat.send(campaignId, request)}
       tools={props.tools}
       voice={props.voice}
+      reply={props.reply}
     />
   );
 }

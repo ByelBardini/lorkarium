@@ -16,12 +16,22 @@ describe('RealtimeDirectMessageCommands', () => {
   });
 
   it('send emits dm:send with a new action id and answers the message id', async () => {
-    const pending = commands.send(BIA.userId, 'oi');
+    const pending = commands.send(BIA.userId, 'oi', null);
     await transport.answerAck({ ok: true, messageId: MESSAGE_ID }, 'dm:send');
     expect(await pending).toEqual({ ok: true, messageId: MESSAGE_ID });
     expect(transport.sent).toEqual([
-      { event: 'dm:send', payload: { actionId: ACTION_ID, toUserId: BIA.userId, text: 'oi' } },
+      {
+        event: 'dm:send',
+        payload: { actionId: ACTION_ID, toUserId: BIA.userId, text: 'oi', replyToMessageId: null },
+      },
     ]);
+  });
+
+  it('a reply carries the quoted message id', async () => {
+    const pending = commands.send(BIA.userId, 'isso', MESSAGE_ID);
+    await transport.answerAck({ ok: true, messageId: MESSAGE_ID }, 'dm:send');
+    await pending;
+    expect(transport.sent[0]?.payload).toMatchObject({ replyToMessageId: MESSAGE_ID });
   });
 
   it.each([
@@ -32,18 +42,18 @@ describe('RealtimeDirectMessageCommands', () => {
     ['UNAUTHENTICATED', { kind: 'unauthenticated' }],
     ['SOMETHING_NEW', { kind: 'unexpected' }],
   ])('a refusal %s fails as %o', async (code, failure) => {
-    const pending = commands.send(BIA.userId, 'oi');
+    const pending = commands.send(BIA.userId, 'oi', null);
     await transport.answerAck({ ok: false, error: { code, message: 'x' } }, 'dm:send');
     expect(await pending).toEqual({ ok: false, failure });
   });
 
   it('RATE_LIMITED carries the seconds to wait (1 when the server says none)', async () => {
-    const first = commands.send(BIA.userId, 'oi');
+    const first = commands.send(BIA.userId, 'oi', null);
     await transport.answerAck(
       { ok: false, error: { code: 'RATE_LIMITED', message: 'x', retryAfterSeconds: 3 } },
       'dm:send',
     );
-    const second = commands.send(BIA.userId, 'oi');
+    const second = commands.send(BIA.userId, 'oi', null);
     await transport.answerAck(
       { ok: false, error: { code: 'RATE_LIMITED', message: 'x' } },
       'dm:send',
@@ -59,13 +69,13 @@ describe('RealtimeDirectMessageCommands', () => {
   });
 
   it('an ack outside the DTO is unexpected', async () => {
-    const pending = commands.send(BIA.userId, 'oi');
+    const pending = commands.send(BIA.userId, 'oi', null);
     await transport.answerAck({ ok: true }, 'dm:send');
     expect(await pending).toEqual({ ok: false, failure: { kind: 'unexpected' } });
   });
 
   it('no ack in time is offline', async () => {
-    const pending = commands.send(BIA.userId, 'oi');
+    const pending = commands.send(BIA.userId, 'oi', null);
     await transport.timeOutAck('dm:send');
     expect(await pending).toEqual({ ok: false, failure: { kind: 'offline' } });
   });
