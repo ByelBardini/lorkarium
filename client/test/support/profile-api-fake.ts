@@ -26,6 +26,7 @@ export const ANA_PROFILE: ProfileDto = {
   plan: ANA.plan,
   admin: ANA.role === 'admin',
   lorkariumOwner: ANA.lorkariumOwner,
+  badges: [],
 };
 
 /** The id the server gives the next photo sent. */

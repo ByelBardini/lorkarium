@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Cropper, { type Area, type Point } from 'react-easy-crop';
+import { useImageDataUrl } from '@/lib/use-image-data-url';
 import type { ImageCropRect } from '@/services/assets-api';
 import { CROP_ZOOM_MAX, CROP_ZOOM_MIN } from './crop-zoom';
 
@@ -43,19 +44,4 @@ export default function CropArea(props: CropAreaProps): React.JSX.Element {
 
 function rectOf(area: Area): ImageCropRect {
   return { x: area.x, y: area.y, width: area.width, height: area.height };
-}
-
-// Read as a data URL, not an object URL: the reader answers in a callback, and a revoked object
-// URL would break the image when Strict Mode runs the effect twice.
-function useImageDataUrl(image: Blob): string | null {
-  const [read, setRead] = useState<Readonly<{ image: Blob; url: string }> | null>(null);
-  useEffect(() => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') setRead({ image, url: reader.result });
-    };
-    reader.readAsDataURL(image);
-    return () => reader.abort();
-  }, [image]);
-  return read?.image === image ? read.url : null;
 }

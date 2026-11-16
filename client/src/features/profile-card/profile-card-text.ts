@@ -1,6 +1,7 @@
 import type { ReputationSummaryDto, UserReportReason } from '@lorkarium/contracts';
 import type {
   ProfileCardLoadFailure,
+  ProfileLookupFailure,
   ReputationFailure,
   UserReportFailure,
 } from '@/services/profile-card-api';
@@ -60,6 +61,19 @@ export function cardLoadFailureText(failure: ProfileCardLoadFailure): string {
   if (failure.kind === 'user_not_found') return 'Essa conta não existe mais.';
   if (failure.kind === 'unauthenticated') return 'Sua sessão caiu. Entre de novo.';
   return 'Não deu para abrir o perfil.';
+}
+
+/** Why the lookup by @ found no card (pt-BR), quoting the text as it was typed.
+ *
+ *  Example: `profileLookupFailureText({ kind: 'user_not_found' }, 'ByelB') // 'O usuário "ByelB" não foi encontrado no Lorkarium.'` */
+export function profileLookupFailureText(failure: ProfileLookupFailure, typed: string): string {
+  if (failure.kind === 'user_not_found') {
+    return `O usuário "${typed}" não foi encontrado no Lorkarium.`;
+  }
+  if (failure.kind === 'rate_limited') {
+    return `Muitas buscas. Tente de novo em ${failure.retryAfterSeconds} s.`;
+  }
+  return cardLoadFailureText(failure);
 }
 
 /** Why a vote or a report was refused (pt-BR).

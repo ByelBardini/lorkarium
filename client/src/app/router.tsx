@@ -41,6 +41,7 @@ import type { AccountPlanApi } from '@/services/account-plan-api';
 import type { AccountSecurityApi } from '@/services/account-security-api';
 import type { UserAdminApi } from '@/services/user-admin-api';
 import type { UserReportsApi } from '@/services/user-reports-api';
+import type { BadgesAdminApi } from '@/services/badges-admin-api';
 import type { AuthApi } from '@/services/auth-api';
 import type { RoomAssetsApi } from '@/services/assets-api';
 import type { CampaignsApi } from '@/services/campaigns-api';
@@ -111,6 +112,8 @@ export type AppDependencies = Readonly<{
   userAdminApi: UserAdminApi;
   /** The backoffice queue of user reports (admins only). */
   userReportsApi: UserReportsApi;
+  /** The backoffice badge catalog and the grants per account (admins only). */
+  badgesAdminApi: BadgesAdminApi;
   /** The public side of the invitation and new-password links. */
   accountLinksApi: AccountLinksApi;
   /** The grids and folders of a table (the library). */
@@ -265,6 +268,10 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
             {
               path: 'users',
               lazy: async () => (await import('@/features/admin/admin-routes')).usersRoute(deps),
+            },
+            {
+              path: 'badges',
+              lazy: async () => (await import('@/features/admin/admin-routes')).badgesRoute(deps),
             },
             {
               path: 'reports',

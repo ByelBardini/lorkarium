@@ -81,12 +81,16 @@ describe('backoffice users (/admin/users)', () => {
       expect(screen.getByRole('columnheader', { name: 'Plano' })).toBeInTheDocument();
     });
 
-    it('the own row says "você" and has no actions', async () => {
+    it('the own row says "você" and its only button is the badges menu', async () => {
       renderAt('/admin/users');
       await table();
       const own = rowOf('@lucas');
       expect(own).toHaveTextContent('você');
-      expect(within(own).queryByRole('button')).toBeNull();
+      expect(
+        within(own)
+          .getAllByRole('button')
+          .map((button) => button.getAttribute('aria-label')),
+      ).toEqual(['Ações de Lucas']);
       expect(screen.getByRole('button', { name: 'Ações de Bia' })).toBeInTheDocument();
     });
 

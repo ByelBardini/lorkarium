@@ -1,6 +1,7 @@
 import type { UserPlan, UserReportReason } from '@lorkarium/contracts';
 import { OFFLINE_MESSAGE, UNEXPECTED_MESSAGE } from '@/features/campaigns/campaign-messages';
 import { PLAN_NAMES } from '@/lib/plan-seal';
+import type { BadgeCatalogFailure, BadgesAdminFailure } from '@/services/badges-admin-api';
 import type { UserAdminFailure } from '@/services/user-admin-api';
 
 type MessageKind = Exclude<UserAdminFailure['kind'], 'rate_limited'>;
@@ -29,6 +30,42 @@ export function adminFailureMessage(failure: UserAdminFailure): string {
     return `Muitas tentativas. Tente de novo em ${failure.retryAfterSeconds} s.`;
   }
   return MESSAGE_BY_KIND[failure.kind];
+}
+
+const CATALOG_MESSAGE_BY_KIND: Readonly<Record<BadgeCatalogFailure['kind'], string>> = {
+  name_taken: 'Já existe uma insígnia com esse nome.',
+  order_stale: 'A lista de insígnias mudou no meio. Ela foi recarregada; ordene de novo.',
+  badge_without_image: 'Uma insígnia marcada não tem imagem. A lista foi recarregada.',
+  image_too_large: 'A imagem passa de 2 MB.',
+  unsupported_image: 'Não deu para ler essa imagem. Use PNG, JPEG, WebP ou GIF.',
+};
+
+/** The sentence a refusal of the badge catalog shows; a vanished badge says so, not "conta".
+ *
+ *  Example: `badgeFailureMessage({ kind: 'name_taken' }) // 'Já existe uma insígnia com esse nome.'` */
+export function badgeFailureMessage(failure: BadgesAdminFailure): string {
+  if (isCatalogFailure(failure)) return CATALOG_MESSAGE_BY_KIND[failure.kind];
+  if (failure.kind === 'not_found')
+    return 'Essa insígnia não existe mais. A lista foi recarregada.';
+  return adminFailureMessage(failure);
+}
+
+function isCatalogFailure(failure: BadgesAdminFailure): failure is BadgeCatalogFailure {
+  return Object.hasOwn(CATALOG_MESSAGE_BY_KIND, failure.kind);
+}
+
+/** What deleting a badge takes away, said before the "Excluir".
+ *
+ *  Example: `badgeDeletionConsequence(12) // '12 contas perdem essa insígnia.'` */
+export function badgeDeletionConsequence(holders: number): string {
+  if (holders === 0) return 'Nenhuma conta tem essa insígnia.';
+  if (holders === 1) return '1 conta perde essa insígnia.';
+  return `${holders} contas perdem essa insígnia.`;
+}
+
+/** Example: `badgeHoldersLabel(1) // '1 conta'` */
+export function badgeHoldersLabel(holders: number): string {
+  return holders === 1 ? '1 conta' : `${holders} contas`;
 }
 
 export const ROLE_LABEL = { admin: 'Admin', user: 'Usuário' } as const;
