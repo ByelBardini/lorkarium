@@ -18,8 +18,8 @@ O chat da mesa por Socket.IO: comando `chat:send`, ack com `messageId` e o event
 
 ## Quem fala
 
-- `chatSpeakerDto` (comando): `{ kind: 'self' }` | `{ kind: 'token', sceneId, tokenId }` (estrito: um `name` mandado pelo client é recusado).
-- `chatSentSpeakerDto` (evento): o token volta com `name` (1–`TOKEN_NAME_MAX_LENGTH`) lido do banco pelo server.
+- `chatSpeakerDto` (comando): `{ kind: 'self' }` | `{ kind: 'token', sceneId, tokenId }` | `{ kind: 'character', characterId }` (estrito: um `name` mandado pelo client é recusado).
+- `chatSentSpeakerDto` (evento): o token e o personagem voltam com `name` (1–`TOKEN_NAME_MAX_LENGTH`) lido do banco pelo server.
 
 ## Comando, ack e evento
 
