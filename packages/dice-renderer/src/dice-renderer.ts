@@ -1,11 +1,11 @@
-import type { DiceAppearanceDto, DiceThrowDto } from '@lorkarium/contracts';
+import type { DiceAppearance, DiceThrow } from './dice-roll-input';
 
 /** A roll handed to the 3D layer: its id, the throw of the event and the roller's appearance
  *  (profile color, texture, number color). */
 export interface DiceRendererRoll {
   readonly rollId: string;
-  readonly throw: DiceThrowDto;
-  readonly appearance: DiceAppearanceDto;
+  readonly throw: DiceThrow;
+  readonly appearance: DiceAppearance;
 }
 
 /** The 3D dice over the whole window, drawn from confirmed throws only. The adapter (three.js,

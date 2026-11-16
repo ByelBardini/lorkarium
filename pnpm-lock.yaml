@@ -316,9 +316,6 @@ importers:
 
   packages/dice-renderer:
     dependencies:
-      '@lorkarium/contracts':
-        specifier: workspace:*
-        version: link:../contracts
       '@lorkarium/game-core':
         specifier: workspace:*
         version: link:../game-core
