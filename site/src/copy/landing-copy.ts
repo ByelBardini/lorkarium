@@ -341,7 +341,7 @@ const faqs: FaqCopy[] = [
   {
     question: 'Por que o Windows mostra um aviso ao instalar?',
     answer:
-      'O SmartScreen pode mostrar o aviso “O Windows protegeu o computador” quando ainda não reconhece o instalador. Se você baixou pelo link deste site, selecione “Mais informações” e depois “Executar assim mesmo” para continuar.',
+      'O SmartScreen mostra “O Windows protegeu o computador” para programas que ele ainda não conhece. O instalador do Lorkarium ainda não tem a assinatura digital de um editor reconhecido pelo Windows, por isso aparece como “Editor desconhecido”. O aviso não significa que um vírus foi encontrado. Se você baixou pelo link deste site, selecione “Mais informações” e depois “Executar assim mesmo”. Isso só acontece na primeira instalação: as atualizações são feitas pelo próprio aplicativo.',
   },
 ];
 

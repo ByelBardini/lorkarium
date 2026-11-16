@@ -41,6 +41,7 @@ export function TokenHoverCard({ request, board, interaction }: TokenHoverCardPr
       <PopoverAnchor virtualRef={anchor} />
       <PopoverContent
         role="tooltip"
+        data-passes-pointer=""
         side="right"
         align="start"
         sideOffset={8}
