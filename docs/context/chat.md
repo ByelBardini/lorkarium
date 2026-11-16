@@ -18,6 +18,7 @@ O chat da sala: a Mesa (a mesa toda), o sussurro inline na Mesa, a conversa priv
   - token ausente do grid → `TOKEN_NOT_FOUND`;
   - jogador só como token que controla; mestre como qualquer token do grid (`TokenAccessBo.requireControl('speak as')` → `FORBIDDEN`);
   - o evento leva o `name` **lido do banco** (`TokensDao.findInScene`), nunca um nome do client.
+- **Falar como personagem** (`speaker: { kind: 'character', characterId }`): mesmas regras de canal e de espectador do token, mas **sem grid**: `CharactersDao.findInCampaign` (personagem de outra mesa ou inexistente → `CHARACTER_NOT_FOUND`; guardado, para quem não é mestre, também) e `CharacterBo.canControl()` (jogador, controladores, mestre) → senão `FORBIDDEN`. O evento leva `{ kind: 'character', characterId, name }` com o nome do banco.
 - Ordem das conferências: mesa → canal × quem fala → público (si mesmo, grupo) → membros destinatários → token (grid, existência, controle). Nada é publicado em nenhuma recusa.
 - `messageId` vem do `newId` (`randomUUID`) e `at` do `ClockPort`.
 - **Resposta** (`replyTo`): o server só a repassa (`toChatSentDto`), sem conferir. Não guarda mensagem, então não há como validar o id citado; e o `mentionUserId` só destaca para quem recebe o evento — forjá-lo não chama ninguém de fora do público (equivale a escrever `@nome`). Detalhe no client em [`client/chat-respostas.md`](client/chat-respostas.md).
@@ -26,13 +27,13 @@ O chat da sala: a Mesa (a mesa toda), o sussurro inline na Mesa, a conversa priv
 
 - `server/src/modules/chat/` — módulo efêmero (sem PO nem DAO), no molde do `dice`/`pings`:
   - `chat-message.bo.ts` — `ChatMessageBo(senderId, channel)`: `audience()` → `{ kind: 'table' }` | `{ kind: 'people', userIds }` (quem manda incluso), `recipientIds()` (os outros, para conferir), `requireSpeaker(speaker, access)`. Tipos próprios `ChatChannel`, `ChatSpeaker`, `ChatAudience` (o BO não importa DTO; o DTO cabe estruturalmente).
-  - `chat.service.ts` — `ChatService.send(userId, command, connectionId)` → `{ messageId }`; deps `{ members, audience, tokens, publisher, clock, newId }`.
-  - `chat.mapper.ts` — `toChatSentChannelDto(channel, senderId)` (o privado vira `{ kind: 'direct', userIds: [a, b] }` em ordem crescente), `toChatTokenSpeakerDto(token, name)`, `toChatSentDto`.
+  - `chat.service.ts` — `ChatService.send(userId, command, connectionId)` → `{ messageId }`; deps `{ members, audience, tokens, characters, publisher, clock, newId }`.
+  - `chat.mapper.ts` — `toChatSentChannelDto(channel, senderId)` (o privado vira `{ kind: 'direct', userIds: [a, b] }` em ordem crescente), `toChatTokenSpeakerDto(token, name)`, `toChatCharacterSpeakerDto(characterId, name)`, `toChatSentDto`.
   - `chat-publisher.port.ts` — `ChatPublisherPort.sent(event, audience)`.
   - `chat.error.ts` — `ChatError` e as quatro recusas (tabela abaixo).
   - `chat.gateway.ts` — `createChatGateway` (`chat:send`); `chat.plugin.ts` — `createChatModule({ members, audience, tokens, publisher, clock, newId, realtime, rate, log })` → `{ gateway }`.
 - **Sem `chat-speaker.port.ts`**: o service usa a `GridAudiencePort` do `pings` (estar na sala do grid) e `Pick<TokensDao, 'findInScene'>`, como o `dice` usa `Pick<ProfilesDao, 'findById'>`. Uma porta a mais só embrulharia os dois.
-- `server/src/app/wire-chat.ts` — `wireChat(realtime, { db, members, clock, log })`, chamado no `wireRealtime` do `build-app.ts` logo depois do `wireDice`: `SocketIoGridAudience`, `new TokensDao(db)`, `SocketIoChatPublisher`, `randomUUID` e um `CommandRateGuard` com `CHAT_RATE`.
+- `server/src/app/wire-chat.ts` — `wireChat(realtime, { db, members, clock, log })`, chamado no `wireRealtime` do `build-app.ts` logo depois do `wireDice`: `SocketIoGridAudience`, `new TokensDao(db)`, `new CharactersDao(db)`, `SocketIoChatPublisher`, `randomUUID` e um `CommandRateGuard` com `CHAT_RATE`.
 - `server/src/infrastructure/chat-publisher/socket-io-chat-publisher.ts` — `SocketIoChatPublisher.sent` (salas abaixo).
 
 ## Salas

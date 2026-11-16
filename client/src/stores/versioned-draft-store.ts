@@ -1,3 +1,4 @@
+import { sameJsonValue } from '@/lib/same-json-value';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { DocumentsResult } from '@/services/documents-api';
@@ -253,5 +254,5 @@ export function createVersionedDraftStore<Remote, Draft extends object>(
 }
 
 function sameDraft<Draft>(left: Draft | null, right: Draft): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
+  return sameJsonValue(left, right);
 }

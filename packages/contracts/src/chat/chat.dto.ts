@@ -78,22 +78,30 @@ export const chatSentChannelDto = z.discriminatedUnion('kind', [
 ]);
 export type ChatSentChannelDto = z.infer<typeof chatSentChannelDto>;
 
-/** Who speaks in a command: oneself, or a token of a grid (the server checks control).
+/** Who speaks in a command: oneself, a token of a grid, or a character of the table even with no
+ *  token on a grid (the server checks control).
  *
  *  Example: `chatSpeakerDto.parse({ kind: 'token', sceneId, tokenId })` */
 export const chatSpeakerDto = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('self') }),
   z.strictObject({ kind: z.literal('token'), sceneId: z.uuid(), tokenId: z.uuid() }),
+  z.strictObject({ kind: z.literal('character'), characterId: z.uuid() }),
 ]);
 export type ChatSpeakerDto = z.infer<typeof chatSpeakerDto>;
 
-/** Who spoke in an event: the token comes back with the name the server read, never the client's. */
+/** Who spoke in an event: the token or character comes back with the name the server read, never
+ *  the client's. */
 export const chatSentSpeakerDto = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('self') }),
   z.strictObject({
     kind: z.literal('token'),
     sceneId: z.uuid(),
     tokenId: z.uuid(),
+    name: z.string().min(1).max(TOKEN_NAME_MAX_LENGTH),
+  }),
+  z.strictObject({
+    kind: z.literal('character'),
+    characterId: z.uuid(),
     name: z.string().min(1).max(TOKEN_NAME_MAX_LENGTH),
   }),
 ]);

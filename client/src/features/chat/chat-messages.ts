@@ -7,6 +7,7 @@ import {
   OFFLINE_MESSAGE,
   UNEXPECTED_MESSAGE,
 } from '@/features/campaigns/campaign-messages';
+import { spokenNameOf } from '@/lib/chat-speaker';
 
 export const EMPTY_CONVERSATION = 'Ninguém falou ainda nesta visita.';
 
@@ -125,12 +126,12 @@ export function chatLineOf(message: ChatMessage, nameOf: (userId: string) => str
   return chatAnnouncement(chatVoiceOf(message, nameOf), placeOf(message), message.event.text);
 }
 
-/** Who a message speaks as: the token's name, or the author's — the start of its `chatLineOf`.
+/** Who a message speaks as: the token's or character's name, or the author's — the start of its `chatLineOf`.
  *
  *  Example: `chatVoiceOf(message, people.nameOf) // 'Kael'` */
 export function chatVoiceOf(message: ChatMessage, nameOf: (userId: string) => string): string {
   const { event } = message;
-  return event.speaker.kind === 'token' ? event.speaker.name : nameOf(event.fromUserId);
+  return spokenNameOf(event.speaker) ?? nameOf(event.fromUserId);
 }
 
 function placeOf({ event }: ChatMessage): AnnouncedPlace {

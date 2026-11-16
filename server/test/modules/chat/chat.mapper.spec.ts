@@ -1,6 +1,10 @@
 import type { ChatChannelDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
-import { toChatSentChannelDto, toChatTokenSpeakerDto } from '../../../src/modules/chat/chat.mapper';
+import {
+  toChatCharacterSpeakerDto,
+  toChatSentChannelDto,
+  toChatTokenSpeakerDto,
+} from '../../../src/modules/chat/chat.mapper';
 import { ANA_ID } from '../../support/auth-factories';
 import { BIA_ID, CAIO_ID } from '../../support/campaigns-factories';
 import { VHARN_SCENE_ID } from '../../support/scenes-factories';
@@ -37,6 +41,16 @@ describe('toChatTokenSpeakerDto', () => {
       kind: 'token',
       sceneId: VHARN_SCENE_ID,
       tokenId: LYRA_ID,
+      name: 'Lyra',
+    });
+  });
+});
+
+describe('toChatCharacterSpeakerDto', () => {
+  it('names the character with the name read by the server', () => {
+    expect(toChatCharacterSpeakerDto(LYRA_ID, 'Lyra')).toEqual({
+      kind: 'character',
+      characterId: LYRA_ID,
       name: 'Lyra',
     });
   });

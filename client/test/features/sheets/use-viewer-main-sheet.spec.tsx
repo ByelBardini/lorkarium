@@ -69,8 +69,12 @@ describe('the main sheet button of the top bar', () => {
     deps.sheetsApi.sheetsOfCharacter[LYRA_CHARACTER_ID] = [lyraSummary()];
     renderItems(<TitleOf viewerId={ANA.id} />);
     const button = await screen.findByRole('button', { name: BUTTON });
-    fireEvent.keyDown(document.body, { key: 'F', shiftKey: true });
-    expect(button).toHaveAttribute('aria-current', 'page');
+    // The shortcut is bound by a passive effect, which can still be pending when the button shows
+    // up under CI load: press until it is listening (opening twice keeps the same tab).
+    await waitFor(() => {
+      fireEvent.keyDown(document.body, { key: 'F', shiftKey: true });
+      expect(button).toHaveAttribute('aria-current', 'page');
+    });
   });
 
   it("is not there for someone else's character, nor with no sheet the viewer may read", async () => {
