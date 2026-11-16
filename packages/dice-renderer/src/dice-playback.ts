@@ -5,7 +5,7 @@ import {
   type DicePose,
   type DieKind,
 } from '@lorkarium/game-core';
-import type { DiceThrowDto, DiceThrowModelDto } from '@lorkarium/contracts';
+import type { DiceThrow, DiceThrowModel } from './dice-roll-input';
 import { DICE_VISIBLE_AFTER_SETTLE_MS, diceOpacityAt } from './dice-fade';
 
 interface PlayingDieModel {
@@ -38,7 +38,7 @@ export interface DiceSceneThrow {
   readonly dice: readonly DiceSceneDie[];
 }
 
-function decodeModel(model: DiceThrowModelDto, index: number): PlayingDieModel {
+function decodeModel(model: DiceThrowModel, index: number): PlayingDieModel {
   if (model.frames.length === 0) {
     throw new RangeError(
       `Dice model ${index} (${model.kind}) has no frames: expected at least 1 pose of ${DICE_POSE_STRIDE} integers.`,
@@ -52,7 +52,7 @@ function decodeModel(model: DiceThrowModelDto, index: number): PlayingDieModel {
  *  Example: `playDiceThrow('roll-1', event.throw, performance.now())` */
 export function playDiceThrow(
   rollId: string,
-  diceThrow: DiceThrowDto,
+  diceThrow: DiceThrow,
   startedAtMs: number,
 ): PlayingDiceThrow {
   const settleMs = Math.max(0, ...diceThrow.models.map((model) => model.settleMs));
