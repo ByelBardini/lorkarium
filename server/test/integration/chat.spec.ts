@@ -13,6 +13,7 @@ import {
   type RealtimeClient,
 } from '../support/realtime-client';
 import type { SignedInUser } from '../support/sign-in';
+import { charactersSynced } from '../support/table-characters';
 import type { Table } from '../support/tables';
 import { tokenCommandFor, useTokenTable } from '../support/token-table';
 
@@ -194,6 +195,38 @@ describe('chat:send — speaking as a token', () => {
       ok: false,
       error: { code: 'CHAT_SPEAKER_NOT_ALLOWED' },
     });
+  });
+});
+
+// Bia's character at Vharn, created when she joined as a player: no token on any grid.
+async function biaCharacterSpeaker(bia: RealtimeClient): Promise<object> {
+  const { characters } = await charactersSynced(bia, live.vharn);
+  const mine = characters.find((character) => character.userId === live.bia.id);
+  if (!mine) throw new Error(`Bia has no character at ${live.vharn.id}`);
+  return { kind: 'character', characterId: mine.id };
+}
+
+describe('chat:send — speaking as a character', () => {
+  it('Bia speaks as her character with no token on a grid: everyone hears its name', async () => {
+    const { clients } = await vharnTable();
+    const speaker = await biaCharacterSpeaker(clients[1]!);
+    const duda = recordEventsOf(clients[3]!);
+
+    expect(await say(clients[1]!, messageOf(live.vharn, { speaker }))).toMatchObject({ ok: true });
+
+    expect((await sentOf(duda)).speaker).toMatchObject({ ...speaker, name: expect.any(String) });
+  });
+
+  it('Caio speaking as the character of Bia is FORBIDDEN and nobody hears it', async () => {
+    const { clients } = await vharnTable();
+    const speaker = await biaCharacterSpeaker(clients[1]!);
+    const recorders = clients.map(recordEventsOf);
+
+    const ack = await say(clients[2]!, messageOf(live.vharn, { speaker }));
+
+    expect(ack).toMatchObject({ ok: false, error: { code: 'FORBIDDEN' } });
+    await silence();
+    expect(recorders.flatMap(heard)).toEqual([]);
   });
 });
 

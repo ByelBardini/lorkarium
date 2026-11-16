@@ -38,6 +38,13 @@ export function toChatTokenSpeakerDto(
   return { kind: 'token', sceneId: token.sceneId, tokenId: token.tokenId, name };
 }
 
+/** The character speaker with the name read from the table, never the one the client could send.
+ *
+ *  Example: `toChatCharacterSpeakerDto(characterId, 'Lyra')` */
+export function toChatCharacterSpeakerDto(characterId: string, name: string): ChatSentSpeakerDto {
+  return { kind: 'character', characterId, name };
+}
+
 /** The `chat:sent` of an accepted command.
  *
  *  Example: `toChatSentDto({ command, messageId, fromUserId, speaker, at })` */

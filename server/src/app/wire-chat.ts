@@ -6,6 +6,7 @@ import { SocketIoGridAudience } from '../infrastructure/grid-audience/socket-io-
 import type { ClockPort } from '../modules/auth/clock.port';
 import { CommandRateLimitedError } from '../modules/board/board.error';
 import type { MembershipReader } from '../modules/campaigns/cached-memberships';
+import { CharactersDao } from '../modules/characters/characters.dao';
 import { createChatModule } from '../modules/chat/chat.plugin';
 import { TokensDao } from '../modules/tokens/tokens.dao';
 import { CommandRateGuard } from '../realtime/command-rate-guard';
@@ -35,6 +36,7 @@ export function wireChat(realtime: Realtime, wiring: ChatWiring): void {
     members,
     audience: new SocketIoGridAudience(realtime.io),
     tokens: new TokensDao(db),
+    characters: new CharactersDao(db),
     publisher: new SocketIoChatPublisher(realtime.io),
     clock,
     newId: randomUUID,

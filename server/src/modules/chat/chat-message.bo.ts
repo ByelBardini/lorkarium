@@ -18,9 +18,11 @@ export type ChatChannel =
       memberIds: readonly string[];
     }>;
 
-/** Who speaks: oneself, or a token of a grid. */
+/** Who speaks: oneself, a token of a grid, or a character of the table. */
 export type ChatSpeaker =
-  Readonly<{ kind: 'self' }> | Readonly<{ kind: 'token'; sceneId: string; tokenId: string }>;
+  | Readonly<{ kind: 'self' }>
+  | Readonly<{ kind: 'token'; sceneId: string; tokenId: string }>
+  | Readonly<{ kind: 'character'; characterId: string }>;
 
 /** Who hears a message: the whole table, or only these people (the sender among them). */
 export type ChatAudience =
@@ -60,9 +62,9 @@ export class ChatMessageBo {
     return audience.userIds.filter((userId) => userId !== this.senderId);
   }
 
-  /** Oneself speaks anywhere; a token only on the Table without a whisper, and never by a
-   *  spectator, who watches and does not play. Control of the token is checked apart, once it
-   *  is read.
+  /** Oneself speaks anywhere; a token or a character only on the Table without a whisper, and
+   *  never by a spectator, who watches and does not play. Control of the token or character is
+   *  checked apart, once it is read.
    *
    *  Example: `message.requireSpeaker({ kind: 'self' }, access)` */
   requireSpeaker(speaker: ChatSpeaker, access: CampaignAccessBo): void {
@@ -70,7 +72,8 @@ export class ChatMessageBo {
     if (this.channel.kind !== 'table' || this.channel.whisperTo !== null) {
       throw new ChatSpeakerNotAllowedError(this.kindOf());
     }
-    if (access.isSpectator()) access.forbid('speak as a token', 'the player or master role');
+    if (access.isSpectator())
+      access.forbid(`speak as a ${speaker.kind}`, 'the player or master role');
   }
 
   private groupMemberIds(): readonly string[] {
