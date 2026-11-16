@@ -26,6 +26,7 @@ function cardOf(overrides: Record<string, unknown> = {}): Record<string, unknown
     contact: null,
     mutualCampaigns: [{ id: '3a2b1c0d-9e8f-4a7b-8c6d-5e4f3a2b1c0d', name: 'Vharn' }],
     mutualFriends: 0,
+    badges: [],
     ...overrides,
   };
 }

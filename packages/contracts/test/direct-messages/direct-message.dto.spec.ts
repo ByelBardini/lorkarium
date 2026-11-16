@@ -55,7 +55,14 @@ describe('dmSentDto e digitando', () => {
       text: 'oi',
       at: AT,
     };
-    expect(dmSentDto.parse(event)).toEqual(event);
+    expect(dmSentDto.parse(event)).toEqual({ ...event, replyToMessageId: null });
+  });
+
+  it('a resposta leva só o id da original, e o histórico antigo lê sem ela', () => {
+    const reply = { ...send('isso'), replyToMessageId: MESSAGE_ID };
+    expect(dmSendCommandDto.parse(reply).replyToMessageId).toBe(MESSAGE_ID);
+    expect(dmSendCommandDto.parse(send('oi')).replyToMessageId).toBeNull();
+    expect(dmSendCommandDto.safeParse({ ...reply, replyToMessageId: 'x' }).success).toBe(false);
   });
 
   it('o digitando só leva o destino, e a volta só a origem', () => {

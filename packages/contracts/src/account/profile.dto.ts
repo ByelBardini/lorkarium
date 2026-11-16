@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { badgeDto } from '../badges/badge.dto';
 import { userPlanDto } from '../plans/user-plan.dto';
 import { diceNumberColorDto } from './dice-texture.dto';
 import { memberColorDto } from './username.dto';
@@ -61,6 +62,8 @@ export const profileDto = z.strictObject({
   plan: userPlanDto,
   admin: z.boolean(),
   lorkariumOwner: z.boolean(),
+  /** The person's own badges, as others see them on the card. */
+  badges: z.array(badgeDto),
 });
 
 export type ProfileDto = z.infer<typeof profileDto>;
