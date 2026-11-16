@@ -64,6 +64,7 @@ describe('ChatFeed lines', () => {
       viewerNames: VIEWER_NAMES,
       diceClock: new InteractionClockFake(),
       tabs: openVharnTabs(new TableSessionApiFake()).tabs,
+      onReply: () => undefined,
     };
   });
 

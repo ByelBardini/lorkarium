@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { SceneTabsStore } from '@/stores/scene-tabs-store';
 import type { ChatMessage } from '@/lib/chat-conversations';
+import { messagesByIdOf } from '@/lib/chat-replies';
 import { chatFeedOf, type ChatFeedFilter, type ChatFeedItem } from '@/lib/chat-feed';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import type { DiceHistoryEntry } from '@/stores/dice-history-store';
@@ -27,6 +28,8 @@ export type ChatFeedProps = Readonly<{
   /** The wall clock of the rolls' `revealAtMs`. */
   diceClock: InteractionClock;
   tabs: StoreApi<SceneTabsStore>;
+  /** Starts answering a message (the composer shows "Respondendo a …"). */
+  onReply: (message: ChatMessage) => void;
 }>;
 
 /** The feed of one conversation: messages in blocks of one voice, the Table's rolls by the dice
@@ -42,6 +45,7 @@ export function ChatFeed(props: ChatFeedProps): React.JSX.Element {
   const { scroller, content } = useFollowBottom(items.length);
   const voices = useMemo(() => chatVoicesOf(props.messages), [props.messages]);
   const faces = useChatTokenFaces(props.tabs, voices);
+  const byId = useMemo(() => messagesByIdOf(props.messages), [props.messages]);
   return (
     <div
       ref={scroller}
@@ -54,9 +58,16 @@ export function ChatFeed(props: ChatFeedProps): React.JSX.Element {
         {items.length === 0 ? (
           <p className="px-2 py-6 text-sm text-muted-foreground">{EMPTY_CONVERSATION}</p>
         ) : (
-          <ol className="flex flex-col">
+          <ol data-message-list className="flex flex-col">
             {items.map((item) => (
-              <FeedItem key={keyOf(item)} item={item} now={now} faces={faces} {...props} />
+              <FeedItem
+                key={keyOf(item)}
+                item={item}
+                now={now}
+                faces={faces}
+                byId={byId}
+                {...props}
+              />
             ))}
           </ol>
         )}
@@ -66,9 +77,15 @@ export function ChatFeed(props: ChatFeedProps): React.JSX.Element {
 }
 
 type FeedItemProps = ChatFeedProps &
-  Readonly<{ item: ChatFeedItem<DiceHistoryEntry>; now: number; faces: ChatTokenFaces }>;
+  Readonly<{
+    item: ChatFeedItem<DiceHistoryEntry>;
+    now: number;
+    faces: ChatTokenFaces;
+    byId: ReadonlyMap<string, ChatMessage>;
+  }>;
 
-function FeedItem({ item, now, people, viewerNames, faces }: FeedItemProps): React.JSX.Element {
+function FeedItem(props: FeedItemProps): React.JSX.Element {
+  const { item, now, people } = props;
   if (item.kind === 'unread-divider') return <UnreadDivider />;
   if (item.kind === 'roll') {
     const roller = people.identityOf(item.entry.event.rollerId);
@@ -79,10 +96,20 @@ function FeedItem({ item, now, people, viewerNames, faces }: FeedItemProps): Rea
       message={item.message}
       continued={item.continued}
       people={people}
-      viewerNames={viewerNames}
-      face={chatFaceOf(faces, item.message)}
+      viewerNames={props.viewerNames}
+      face={chatFaceOf(props.faces, item.message)}
+      quoted={quotedIn(props.byId, item.message)}
+      onReply={props.onReply}
     />
   );
+}
+
+function quotedIn(
+  byId: ReadonlyMap<string, ChatMessage>,
+  message: ChatMessage,
+): ChatMessage | null {
+  const quotedId = message.event.replyTo?.messageId;
+  return quotedId === undefined ? null : (byId.get(quotedId) ?? null);
 }
 
 function UnreadDivider(): React.JSX.Element {

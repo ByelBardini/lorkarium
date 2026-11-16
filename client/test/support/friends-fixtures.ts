@@ -80,6 +80,7 @@ export function dmSent(changes: Partial<DmSentDto> = {}): DmSentDto {
     toUserId: ME_ID,
     text: 'oi',
     at: AT,
+    replyToMessageId: null,
     ...changes,
   };
 }

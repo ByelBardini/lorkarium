@@ -23,10 +23,12 @@ describe('ChatShortcutsButton', () => {
     expect(help).not.toHaveTextContent('/r');
   });
 
-  it('out of the Table only Enter, Shift+Enter and @nome are listed', async () => {
+  it('out of the Table only Enter, Shift+Enter, @nome and the emote codes are listed', async () => {
     const help = await openHelp(false, true);
     expect(help).toHaveTextContent('Shift+Enter');
     expect(help).toHaveTextContent('@nome');
+    expect(help).toHaveTextContent(':nomeMeme ou smiley');
+    expect(help).toHaveTextContent(':) :D <3Smileys de texto viram imagem');
     expect(help).not.toHaveTextContent('/w');
     expect(help).not.toHaveTextContent('Digite /');
   });

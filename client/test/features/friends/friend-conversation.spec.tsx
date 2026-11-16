@@ -46,7 +46,7 @@ describe('friend conversation', () => {
   }
 
   async function field(): Promise<HTMLElement> {
-    return screen.findByRole('textbox', { name: 'Mensagem para Bia' });
+    return screen.findByRole('combobox', { name: 'Mensagem para Bia' });
   }
 
   it('Enter sends the message; Shift+Enter breaks the line', async () => {
@@ -56,7 +56,7 @@ describe('friend conversation', () => {
     expect(input).toHaveValue('oi\ntudo bem?');
     await userEvent.type(input, '{Enter}');
     expect(deps.directMessageCommands.sent).toEqual([
-      { toUserId: BIA.userId, text: 'oi\ntudo bem?' },
+      { toUserId: BIA.userId, text: 'oi\ntudo bem?', replyToMessageId: null },
     ]);
     expect(input).toHaveValue('');
   });
@@ -65,6 +65,27 @@ describe('friend conversation', () => {
     renderAt(BIA_PATH);
     await userEvent.type(await field(), 'o');
     expect(deps.directMessageCommands.typings).toEqual([BIA.userId]);
+  });
+
+  it('":" lists the memes and smileys, and "Memes e smileys" writes a code', async () => {
+    renderAt(BIA_PATH);
+    const input = await field();
+    await userEvent.type(input, 'kkk :pika');
+    const list = screen.getByRole('listbox', { name: 'Sugestões' });
+    expect(within(list).getByRole('option')).toHaveAttribute('data-value', ':pikachu:');
+    await userEvent.keyboard('{Enter}');
+    expect(input).toHaveValue('kkk :pikachu: ');
+    expect(deps.directMessageCommands.sent).toEqual([]);
+    await userEvent.click(screen.getByRole('button', { name: 'Memes e smileys' }));
+    await userEvent.click(screen.getByRole('button', { name: '=)' }));
+    expect(input).toHaveValue('kkk :pikachu: =) ');
+  });
+
+  it('a meme or smiley code in a message is drawn as its picture', async () => {
+    receive({ text: 'bora :doge: <3' });
+    renderAt(BIA_PATH);
+    expect(await screen.findByRole('img', { name: ':doge:' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '<3' })).toBeInTheDocument();
   });
 
   it('messages are grouped by author with the time at the end, under a day separator', async () => {
@@ -153,5 +174,49 @@ describe('friend conversation', () => {
     deps.friendsApi.lists = friendsOverview({ friends: [] });
     await deps.friends.getState().load();
     await waitFor(() => expect(router.state.location.pathname).toBe('/friends'));
+  });
+
+  describe('answering a message', () => {
+    const QUOTED_ID = '2c3d4e5f-6071-4a82-8b93-ffffffffffff';
+
+    it('"Responder" shows who is answered and sends the quoted id; Esc cancels', async () => {
+      receive({ messageId: QUOTED_ID, text: 'Bora jogar?' });
+      renderAt(BIA_PATH);
+      const input = await field();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Responder Bia' }));
+      expect(screen.getByText(/Respondendo a/)).toHaveTextContent('Respondendo a Bia');
+      expect(screen.queryByRole('button', { name: 'Mencionar Bia' })).toBeNull();
+      expect(input).toHaveFocus();
+      await userEvent.type(input, 'Bora!{Enter}');
+
+      expect(deps.directMessageCommands.sent.at(-1)).toEqual({
+        toUserId: BIA.userId,
+        text: 'Bora!',
+        replyToMessageId: QUOTED_ID,
+      });
+      expect(screen.queryByText(/Respondendo a/)).toBeNull();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Responder Bia' }));
+      await userEvent.keyboard('{Escape}');
+      expect(screen.queryByText(/Respondendo a/)).toBeNull();
+    });
+
+    it('a reply quotes its original, and one this device lost shows as unavailable', async () => {
+      receive({ messageId: QUOTED_ID, text: 'Bora jogar?' });
+      receive({ text: 'Respondendo eu mesma', replyToMessageId: QUOTED_ID });
+      receive({ text: 'Lembra?', replyToMessageId: '2c3d4e5f-6071-4a82-8b93-eeeeeeeeeeee' });
+      renderAt(BIA_PATH);
+
+      const quote = await screen.findByRole('button', {
+        name: 'Ir para a mensagem de Bia: Bora jogar?',
+      });
+      await userEvent.click(quote);
+
+      expect(document.querySelector(`[data-message-id="${QUOTED_ID}"]`)).toHaveAttribute(
+        'data-flash',
+      );
+      expect(screen.getByText('Mensagem original indisponível')).toBeInTheDocument();
+    });
   });
 });

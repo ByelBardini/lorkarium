@@ -11,9 +11,12 @@ const FRAME = { camera: { offsetX: 0, offsetY: 0, zoom: 1 } };
  *  measures no text). */
 class SpeechBubbleFake {
   readonly made: string[] = [];
+  /** The last bubble's "a picture arrived" call, as the real one makes when an emote loads. */
+  redraw: () => void = () => undefined;
 
-  readonly make = (speakerName: string, text: string): Container => {
+  readonly make = (speakerName: string, text: string, redraw: () => void): Container => {
     this.made.push(`${speakerName}: ${text}`);
+    this.redraw = redraw;
     return new Container();
   };
 }
@@ -149,5 +152,16 @@ describe('PixiSpeechLayer', () => {
     layer.animate(FRAME);
 
     expect(layer.shownCount()).toBe(1);
+  });
+
+  it('a picture of the line arriving later asks for one render, then the layer rests again', () => {
+    const { layer, bubbles } = layerWith();
+    layer.showSpeech(SCENE, [balloon({ text: 'Ninguém me pega :trollface:' })]);
+    layer.animate(FRAME);
+    expect(layer.animate(FRAME)).toBe(false);
+
+    bubbles.redraw();
+
+    expect([layer.animate(FRAME), layer.animate(FRAME)]).toEqual([true, false]);
   });
 });
