@@ -40,9 +40,10 @@ export type ChatHistoryState = Readonly<{
   conversations: readonly ChatConversation[];
   /** The conversation on screen; `null` while the chat is not shown (unread rises everywhere). */
   activeKey: ChatConversationKey | null;
-  /** The token chosen in "Falar como"; `null` is oneself. Whether it still speaks is the screen's
-   *  call: it must be on the grid shown and under the viewer's control. */
-  speakAsTokenId: string | null;
+  /** The token or character chosen in "Falar como" (both uuids, never the same); `null` is
+   *  oneself. Whether it still speaks is the screen's call: a token must be on the grid shown,
+   *  and either one under the viewer's control. */
+  speakAsId: string | null;
 }>;
 
 export type ChatHistoryStore = ChatHistoryState &
@@ -57,7 +58,7 @@ export type ChatHistoryStore = ChatHistoryState &
     /** The conversation now on screen (read at once), or `null` when the chat is hidden. */
     setActive: (key: ChatConversationKey | null) => void;
     markRead: (key: ChatConversationKey) => void;
-    setSpeakAsTokenId: (tokenId: string | null) => void;
+    setSpeakAsId: (voiceId: string | null) => void;
     /** Leaving the table: forgets every conversation and the storage key. */
     clear: () => void;
     /** Hears each message as it enters (the announcer, the speech balloon, the notices), with
@@ -119,7 +120,7 @@ export function createChatHistoryStore(deps: ChatHistoryDeps): StoreApi<ChatHist
     campaignId: deps.campaignId,
     conversations: readStored(deps),
     activeKey: null,
-    speakAsTokenId: readSpeakAs(deps),
+    speakAsId: readSpeakAs(deps),
     apply: (update, receivedAtMs) => {
       if (update.kind !== 'chatSent' || update.event.campaignId !== deps.campaignId) return;
       const message = { event: update.event, receivedAtMs };
@@ -139,12 +140,12 @@ export function createChatHistoryStore(deps: ChatHistoryDeps): StoreApi<ChatHist
       if (key !== null) save(deps, set, withRead(get().conversations, key));
     },
     markRead: (key) => save(deps, set, withRead(get().conversations, key)),
-    setSpeakAsTokenId: (tokenId) => {
-      set({ speakAsTokenId: tokenId });
-      writeSpeakAs(deps, tokenId);
+    setSpeakAsId: (voiceId) => {
+      set({ speakAsId: voiceId });
+      writeSpeakAs(deps, voiceId);
     },
     clear: () => {
-      set({ conversations: [EMPTY_TABLE_CONVERSATION], activeKey: null, speakAsTokenId: null });
+      set({ conversations: [EMPTY_TABLE_CONVERSATION], activeKey: null, speakAsId: null });
       removeStored(deps);
       writeSpeakAs(deps, null);
     },

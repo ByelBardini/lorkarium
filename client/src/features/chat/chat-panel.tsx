@@ -128,6 +128,7 @@ function OpenChat(props: OpenChatProps): React.JSX.Element {
         services={services}
         board={props.board}
         chat={table.chat}
+        characters={table.characters}
         conversation={shown.conversation}
         people={people}
         live={live}
