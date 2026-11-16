@@ -1,16 +1,5 @@
-import { Loader2Icon } from 'lucide-react';
-import { Alert } from '@/components/ui/alert';
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
 import { adminFailureMessage } from './admin-messages';
+import { ConfirmDialogFrame } from './confirm-dialog-frame';
 import type { UsersIntent } from './users-action';
 import { useOnUsersSettled, usersFailureOf, useUsersFetcher } from './use-users-fetcher';
 
@@ -38,30 +27,16 @@ export function ConfirmCommandDialog(props: ConfirmCommandDialogProps): React.JS
     if (!('failure' in result)) props.onDone();
   });
   return (
-    <AlertDialog open onOpenChange={(open) => !open && !fetcher.busy && props.onClose()}>
-      <AlertDialogContent aria-busy={fetcher.busy}>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{props.title}</AlertDialogTitle>
-          <AlertDialogDescription>{props.consequence}</AlertDialogDescription>
-        </AlertDialogHeader>
-        {failure && (
-          <Alert variant="destructive" className="px-3.5 py-3 text-sm">
-            {adminFailureMessage(failure)}
-          </Alert>
-        )}
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={fetcher.busy}>Cancelar</AlertDialogCancel>
-          <Button
-            variant={props.danger ? 'destructive' : 'default'}
-            size="lg"
-            disabled={fetcher.busy}
-            onClick={() => fetcher.send(props.intent)}
-          >
-            {fetcher.busy && <Loader2Icon aria-hidden="true" className="animate-spin" />}
-            {fetcher.busy ? props.busyLabel : props.confirmLabel}
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmDialogFrame
+      title={props.title}
+      consequence={props.consequence}
+      confirmLabel={props.confirmLabel}
+      busyLabel={props.busyLabel}
+      danger={props.danger}
+      busy={fetcher.busy}
+      failureMessage={failure && adminFailureMessage(failure)}
+      onConfirm={() => fetcher.send(props.intent)}
+      onClose={props.onClose}
+    />
   );
 }

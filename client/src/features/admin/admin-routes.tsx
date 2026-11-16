@@ -1,5 +1,6 @@
 import {
   listUserReportsQueryDto,
+  type AdminBadgeDto,
   type AdminDirectoryResponseDto,
   type MailSampleDto,
   type UserReportsPageDto,
@@ -12,10 +13,12 @@ import { ApiLoadError } from '@/app/shell/api-loader';
 import { ProfileCardProvider } from '@/features/profile-card/profile-card-provider';
 import { ProfileCardTrigger } from '@/features/profile-card/profile-card-trigger';
 import { skipSearchOnlyRevalidation } from '@/lib/search-only-revalidation';
-import type { UserAdminFailure } from '@/services/user-admin-api';
+import type { BadgesAdminFailure } from '@/services/badges-admin-api';
 import { useSession } from '@/stores/session-store';
 import { AdminErrorScreen } from './admin-error-screen';
 import { AdminLayout } from './admin-layout';
+import { badgesAction } from './badges-action';
+import { BadgesPage } from './badges-page';
 import { mailTestAction } from './mail-test-action';
 import { MailTestPage } from './mail-test-page';
 import { reportsAction } from './reports-action';
@@ -58,7 +61,13 @@ export function usersRoute(
       const session = useSession(deps.sessionStore);
       const selfId = session.status === 'authenticated' ? session.user.id : null;
       return (
-        <UsersPage directory={directory} now={now} selfId={selfId} clipboard={deps.clipboard} />
+        <UsersPage
+          directory={directory}
+          now={now}
+          selfId={selfId}
+          clipboard={deps.clipboard}
+          badgesApi={deps.badgesAdminApi}
+        />
       );
     },
     ErrorBoundary: function UsersErrorBoundary(): React.JSX.Element | null {
@@ -94,6 +103,38 @@ export function mailTestRoute(
           sessionStore={deps.sessionStore}
           pageTitle="Lorkarium · E-mails"
           failedHeading="Não deu para carregar os e-mails do sistema."
+        />
+      );
+    },
+  };
+}
+
+export type BadgesLoaderData = Readonly<{ badges: AdminBadgeDto[] }>;
+
+/** "Insígnias" (`/admin/badges`): the catalog in its order, the text commands through one action
+ *  (the images go straight to the service).
+ *
+ *  Example: `{ path: 'badges', lazy: async () => (await import('@/features/admin/admin-routes')).badgesRoute(deps) }` */
+export function badgesRoute(
+  deps: AppDependencies,
+): Pick<RouteObject, 'loader' | 'action' | 'Component' | 'ErrorBoundary'> {
+  return {
+    loader: async ({ request }): Promise<BadgesLoaderData> => {
+      const result = await deps.badgesAdminApi.catalog();
+      if (result.ok) return { badges: result.value };
+      return refusedLoad(deps, result.failure.kind, request);
+    },
+    action: badgesAction(deps),
+    Component: function BadgesRoute(): React.JSX.Element {
+      const { badges } = useLoaderData<BadgesLoaderData>();
+      return <BadgesPage badges={badges} api={deps.badgesAdminApi} />;
+    },
+    ErrorBoundary: function BadgesErrorBoundary(): React.JSX.Element | null {
+      return (
+        <AdminErrorScreen
+          sessionStore={deps.sessionStore}
+          pageTitle="Lorkarium · Insígnias"
+          failedHeading="Não deu para carregar as insígnias."
         />
       );
     },
@@ -161,7 +202,7 @@ function usersLoader(deps: AppDependencies): LoaderFunction {
 // A backoffice load refused: the login, "Sem acesso" or the error screen with "Tentar de novo".
 function refusedLoad(
   { sessionStore }: AppDependencies,
-  kind: UserAdminFailure['kind'],
+  kind: BadgesAdminFailure['kind'],
   request: Request,
 ): never {
   if (kind === 'unauthenticated') {

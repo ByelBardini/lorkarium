@@ -1,5 +1,6 @@
 import {
   profileCardResponseDto,
+  profileLookupParamsDto,
   type ProfileCardDto,
   type ReputationVoteValue,
   type UserReportRequestDto,
@@ -11,11 +12,16 @@ import {
   type AccountLoadFailure,
   type AccountResult,
 } from './account-failure';
-import { callApi, parseOk, type ApiCall } from './api-call';
+import { callApi, parseOk, retryAfterOf, type ApiCall } from './api-call';
 import type { HttpTransport } from './http-transport';
 
 /** A card read: suspended or missing accounts answer 404. */
 export type ProfileCardLoadFailure = AccountLoadFailure | Readonly<{ kind: 'user_not_found' }>;
+
+/** A card looked up by the @: a text outside the @ format is `user_not_found` too, and the route
+ *  has its own per-account limit (429). */
+export type ProfileLookupFailure =
+  ProfileCardLoadFailure | Readonly<{ kind: 'rate_limited'; retryAfterSeconds: number }>;
 
 /** A vote of someone with no table in common (403 `REPUTATION_NOT_ALLOWED`). */
 export type ReputationFailure =
@@ -34,6 +40,8 @@ export type UserReportFailure =
  *  Example: `const result = await profileCardApi.card(userId); if (result.ok) result.value.name` */
 export interface ProfileCardApi {
   card(userId: string): Promise<AccountResult<ProfileCardDto, ProfileCardLoadFailure>>;
+  /** The card of the exact @ as typed (with or without "@", any case). */
+  cardByUsername(typed: string): Promise<AccountResult<ProfileCardDto, ProfileLookupFailure>>;
   vote(userId: string, value: ReputationVoteValue): Promise<AccountResult<null, ReputationFailure>>;
   removeVote(userId: string): Promise<AccountResult<null, ReputationFailure>>;
   report(
@@ -72,6 +80,17 @@ export class HttpProfileCardApi implements ProfileCardApi {
     return { ok: false, failure: loadFailureOf(call) };
   }
 
+  async cardByUsername(
+    typed: string,
+  ): Promise<AccountResult<ProfileCardDto, ProfileLookupFailure>> {
+    const params = profileLookupParamsDto.safeParse({ username: typed });
+    if (!params.success) return { ok: false, failure: USER_NOT_FOUND };
+    const path = `/users/by-username/${encodeURIComponent(params.data.username)}/card`;
+    const call = await callApi(this.transport, 'GET', path);
+    if (call.kind === 'ok') return parseOk(profileCardResponseDto, call.body, (body) => body.card);
+    return { ok: false, failure: lookupFailureOf(call) };
+  }
+
   async vote(
     userId: string,
     value: ReputationVoteValue,
@@ -92,6 +111,16 @@ export class HttpProfileCardApi implements ProfileCardApi {
     const call = await callApi(this.transport, 'POST', pathOf(userId, 'reports'), report);
     return emptied(call, REPORT_FAILURE_BY_CODE);
   }
+}
+
+// A 400 is the server's format check agreeing with the client's: the @ does not exist.
+function lookupFailureOf(call: Exclude<ApiCall, { kind: 'ok' }>): ProfileLookupFailure {
+  if (call.kind === 'offline') return loadFailureOf(call);
+  const { status } = call.response;
+  if (status === 404 || status === 400) return USER_NOT_FOUND;
+  if (status === 429)
+    return { kind: 'rate_limited', retryAfterSeconds: retryAfterOf(call.response) };
+  return loadFailureOf(call);
 }
 
 function emptied<F>(

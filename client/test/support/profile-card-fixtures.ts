@@ -1,5 +1,28 @@
-import type { ProfileCardDto } from '@lorkarium/contracts';
+import type { BadgeDto, ProfileCardDto } from '@lorkarium/contracts';
 import { ANA } from './auth-api-fake';
+
+/** "Veterano", the first badge of the catalog. */
+export const VETERANO_BADGE: BadgeDto = {
+  id: '3c2b1a09-8f7e-4d6c-9b5a-4f3e2d1c0b9a',
+  name: 'Veterano',
+  description: 'Jogou 100 sessões',
+  imageId: '6e5d4c3b-2a19-4f08-8e7d-6c5b4a392817',
+};
+
+/** `count` badges in catalog order ("Insígnia 1", "Insígnia 2", …), each with its own image.
+ *
+ *  Example: `lyraCard({ badges: badgesOf(8) })` */
+export function badgesOf(count: number): BadgeDto[] {
+  return Array.from({ length: count }, (_, index) => {
+    const tail = String(index + 1).padStart(12, '0');
+    return {
+      id: `00000000-0000-4000-8000-${tail}`,
+      name: `Insígnia ${index + 1}`,
+      description: `Descrição ${index + 1}`,
+      imageId: `11111111-1111-4111-8111-${tail}`,
+    };
+  });
+}
 
 /** Lyra's card as Ana reads it: friends, online, Apoiador, no banner image, 128 up and 4 down
  *  (97%), two tables in common, every preference written. */
@@ -30,6 +53,7 @@ export const LYRA_CARD: ProfileCardDto = {
     { id: '2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e', name: 'Ruínas de Kael' },
   ],
   mutualFriends: 5,
+  badges: [],
 };
 
 /** Lyra's card with some fields changed.
@@ -47,4 +71,15 @@ export const ANA_CARD: ProfileCardDto = lyraCard({
   relation: 'self',
   presence: null,
   plan: 'free',
+});
+
+/** Bia's card as Ana reads it: no relation, no table in common; found by her @ "bia". */
+export const BIA_CARD: ProfileCardDto = lyraCard({
+  id: '8b7a6c5d-4e3f-4a2b-9c1d-0e9f8a7b6c5d',
+  username: 'bia',
+  name: 'Bia',
+  relation: 'none',
+  presence: null,
+  mutualCampaigns: [],
+  mutualFriends: 0,
 });

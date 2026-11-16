@@ -8,6 +8,7 @@ import {
   ProfileCardRelation,
   ProfileCardSection,
 } from './profile-card-parts';
+import { ProfileCardBadges } from './profile-card-badges';
 import { ProfileCardSealWatermark } from './profile-card-seal-watermark';
 
 export type ProfileCardFaceProps = Readonly<{
@@ -16,13 +17,19 @@ export type ProfileCardFaceProps = Readonly<{
   full: boolean;
   /** The actions bar and anything under it (the popover's "Ver perfil completo"). */
   children?: React.ReactNode;
+  /** Over the banner's top-left corner (the modal's "Buscar @usuário"). */
+  corner?: React.ReactNode;
 }>;
 
+// The popover stays one row wide; the rest reads as "+N" and the modal shows them all.
+const POPOVER_BADGES = 6;
+
 /** The "Brasão" card: golden frame, the seal as a watermark on the right half, banner, avatar,
- *  relation, attributes and the "Sobre"; the profile color only paints the banner.
+ *  relation, attributes, badges and the "Sobre"; the profile color only paints the banner.
  *
  *  Example: `<ProfileCardFace card={card} full={false}><ProfileCardActions … /></ProfileCardFace>` */
-export function ProfileCardFace({ card, full, children }: ProfileCardFaceProps): React.JSX.Element {
+export function ProfileCardFace(props: ProfileCardFaceProps): React.JSX.Element {
+  const { card, full, children } = props;
   return (
     <div
       className={cn(
@@ -32,12 +39,18 @@ export function ProfileCardFace({ card, full, children }: ProfileCardFaceProps):
     >
       <ProfileCardSealWatermark holder={card} />
       <ProfileCardBanner card={card} full={full} />
+      {props.corner !== undefined && (
+        <div className="absolute top-2.5 left-3 z-10 w-64 max-w-[calc(100%-7rem)]">
+          {props.corner}
+        </div>
+      )}
       <ProfileCardHeader card={card} full={full} />
       <ProfileCardRelation card={card} full={full} />
       <ProfileCardOrnament full={full} />
       <ProfileCardAttributes card={card} full={full} />
       <ProfileCardOrnament full={full} />
       <div className={cn('flex flex-col gap-4 pb-3.5', full ? 'px-6' : 'px-4.5')}>
+        <ProfileCardBadges badges={card.badges} limit={full ? undefined : POPOVER_BADGES} />
         <ProfileCardSection label="Sobre" text={card.bio} />
         {full && <FullProfileSections card={card} />}
       </div>

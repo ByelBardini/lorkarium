@@ -55,6 +55,7 @@ export function ProfileSection(props: ProfileSectionProps): React.JSX.Element {
               bannerId={profile.bannerId}
               memberSince={profile.memberSince}
               seal={profile}
+              badges={profile.badges}
             />
           }
         >
