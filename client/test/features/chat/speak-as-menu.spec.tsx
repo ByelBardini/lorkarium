@@ -24,6 +24,12 @@ import {
   VHARN_SCENE,
   vharnBoard,
 } from '../../support/table-session-fixtures';
+import {
+  charactersSynced,
+  kaelCharacter,
+  linkedLyra,
+  lyraCharacter,
+} from '../../support/character-fixtures';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { TORRE_SCENE, torreBoard } from '../../support/scene-tab-fixtures';
 
@@ -66,6 +72,35 @@ describe('SpeakAsMenu — who one may speak as', () => {
       expect.stringContaining('Você'),
       expect.stringContaining('Lyra'),
     ]);
+  });
+
+  it('a player sees their character under Personagens with no token on the grid', async () => {
+    const table = openVharnChat(deps, {
+      account: BIA_ACCOUNT,
+      members: [ANA_AT_TABLE, BIA_ONLINE],
+    });
+    const kaelOfCaio = kaelCharacter({ canControl: false });
+    act(() => table.characters.getState().apply(charactersSynced(3, lyraCharacter(), kaelOfCaio)));
+    renderChatPanel(deps, 'player');
+    await user.click(speakAs());
+    expect(screen.getByText('Personagens')).toBeInTheDocument();
+    expect(menuChoices()).toEqual([
+      expect.stringContaining('Você'),
+      expect.stringContaining('Lyra'),
+    ]);
+  });
+
+  it('a token linked to a listed character is not repeated under Tokens do grid', async () => {
+    const table = openVharnChat(deps, {
+      account: BIA_ACCOUNT,
+      members: [ANA_AT_TABLE, BIA_ONLINE],
+    });
+    act(() => table.characters.getState().apply(charactersSynced(3, lyraCharacter())));
+    receiveBoard(deps, vharnBoard({ tokens: [linkedLyra()] }));
+    renderChatPanel(deps, 'player');
+    await user.click(speakAs());
+    expect(screen.queryByText('Tokens do grid')).not.toBeInTheDocument();
+    expect(menuChoices()).toHaveLength(2);
   });
 
   it('the master sees every token of the grid', async () => {

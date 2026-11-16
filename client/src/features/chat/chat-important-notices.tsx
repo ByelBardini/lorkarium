@@ -7,6 +7,7 @@ import { TABLE_CONVERSATION_NAME } from './chat-messages';
 import type { ChatPeople } from './use-chat-people';
 import type { ChatNoticeItem } from './use-chat-notices';
 import { chatFaceOf, chatVoicesOf, useChatTokenFaces, type ChatTokenFaces } from './use-chat-token';
+import { spokenNameOf } from '@/lib/chat-speaker';
 
 const WHISPER_PLACE = 'Sussurro na Mesa';
 
@@ -79,7 +80,8 @@ function NoticeCard({ item, people, faces, onOpen }: NoticeCardProps): React.JSX
 
 function voiceOf({ event }: ChatMessage, people: ChatPeople): string {
   const author = people.nameOf(event.fromUserId);
-  return event.speaker.kind === 'token' ? `${event.speaker.name} (${author})` : author;
+  const spoken = spokenNameOf(event.speaker);
+  return spoken === null ? author : `${spoken} (${author})`;
 }
 
 function placeOf({ event }: ChatMessage): string {
