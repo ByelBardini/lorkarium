@@ -1,4 +1,5 @@
 import type {
+  BadgeDto,
   ProfileCardDto,
   ProfileCardPresence,
   ProfileCardRelation,
@@ -30,6 +31,8 @@ export type ProfileCardParts = Readonly<{
   reputation: ReputationSummaryDto;
   mutualCampaigns: readonly MutualCampaignRow[];
   mutualFriends: number;
+  /** Granted badges with an image, in catalog order. */
+  badges: readonly BadgeDto[];
 }>;
 
 /** The relation the card shows. Being blocked by the other reads as no relation: the block is
@@ -86,5 +89,6 @@ export function toProfileCardDto(parts: ProfileCardParts): ProfileCardDto {
     contact: account.contact,
     mutualCampaigns: parts.mutualCampaigns.map(({ id, name }) => ({ id, name })),
     mutualFriends: parts.mutualFriends,
+    badges: [...parts.badges],
   };
 }

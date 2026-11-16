@@ -1,17 +1,24 @@
 import type { AdminUserDto } from '@lorkarium/contracts';
+import type { BadgesAdminApi } from '@/services/badges-admin-api';
 import type { Clipboard } from '@/services/clipboard';
 import { ConfirmCommandDialog } from './confirm-command-dialog';
 import { DeleteUserDialog } from './delete-user-dialog';
 import { LinkResultDialog } from './link-result-dialog';
+import { UserBadgesDialog } from './user-badges-dialog';
 
 /** The one dialog of the users page open at a time. */
 export type OpenDialog =
-  | Readonly<{ kind: 'grant-admin' | 'suspend' | 'delete' | 'password-link'; user: AdminUserDto }>
+  | Readonly<{
+      kind: 'grant-admin' | 'suspend' | 'delete' | 'password-link' | 'badges';
+      user: AdminUserDto;
+    }>
   | Readonly<{ kind: 'resend'; invitationId: string; email: string }>;
 
 export type UsersDialogProps = Readonly<{
   dialog: OpenDialog;
   clipboard: Clipboard;
+  /** The catalog and the grants of "Insígnias…". */
+  badgesApi: BadgesAdminApi;
   /** The command went through: the page writes `message` in its notice and closes the dialog. */
   onDone: (message: string) => void;
   /** Another dialog takes its place ("Suspender em vez disso"). */
@@ -19,16 +26,23 @@ export type UsersDialogProps = Readonly<{
   onClose: () => void;
 }>;
 
-/** Picks the dialog of the command: the confirmations, the deletion and the issued links.
+/** Picks the dialog of the command: the confirmations, the deletion, the issued links and the
+ *  badges of the account.
  *
  *  Example: `<UsersDialog dialog={{ kind: 'suspend', user }} clipboard={clipboard} onDone={…} onSwitch={…} onClose={…} />` */
 export function UsersDialog({
   dialog,
   clipboard,
+  badgesApi,
   onDone,
   onSwitch,
   onClose,
 }: UsersDialogProps): React.JSX.Element {
+  if (dialog.kind === 'badges') {
+    return (
+      <UserBadgesDialog user={dialog.user} api={badgesApi} onDone={onDone} onClose={onClose} />
+    );
+  }
   if (dialog.kind === 'resend') {
     return (
       <LinkResultDialog

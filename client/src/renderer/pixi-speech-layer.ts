@@ -1,5 +1,6 @@
-import { Container, Graphics, Text, type TextStyleOptions } from 'pixi.js';
-import { zoomProofTextResolution, type Camera, type Point } from './camera';
+import { Container, Graphics, type TextStyleOptions } from 'pixi.js';
+import type { Camera, Point } from './camera';
+import { speechLineOf, speechTextOf } from './pixi-speech-line';
 import {
   shownSpeechOf,
   speechAnchorOf,
@@ -19,8 +20,13 @@ const LINE_GAP = 2;
 const TAIL = 6;
 const TEXT_WIDTH_MAX = 216;
 
-/** Makes the bubble of one line, with (0, 0) at the tip of its tail (bottom center). */
-export type SpeechBubbleMaker = (speakerName: string, text: string) => Container;
+/** Makes the bubble of one line, with (0, 0) at the tip of its tail (bottom center); `redraw`
+ *  asks for a render when a picture of the line arrives later. */
+export type SpeechBubbleMaker = (
+  speakerName: string,
+  text: string,
+  redraw: () => void,
+) => Container;
 
 /** What placing the balloons needs each frame: the camera. */
 export type SpeechFrame = Readonly<{ camera: Camera }>;
@@ -37,6 +43,10 @@ export class PixiSpeechLayer {
   private tokenViews: readonly TokenView[] = [];
   private tokensById: ReadonlyMap<string, TokenView> | null = null;
   private readonly bubbles = new Map<string, Container>();
+  private redrawDue = false;
+  private readonly markRedraw = (): void => {
+    this.redrawDue = true;
+  };
 
   constructor(
     private readonly now: () => number = Date.now,
@@ -70,7 +80,9 @@ export class PixiSpeechLayer {
     const removed = this.removeGone(shown);
     const added = this.addNew(shown);
     const moved = this.place(shown, frame.camera);
-    return removed || added || moved;
+    const loaded = this.redrawDue;
+    this.redrawDue = false;
+    return removed || added || moved || loaded;
   }
 
   shownCount(): number {
@@ -102,7 +114,7 @@ export class PixiSpeechLayer {
   private addNew(shown: readonly ShownSpeech[]): boolean {
     const fresh = shown.filter(({ id }) => !this.bubbles.has(id));
     for (const speech of fresh) {
-      const bubble = this.bubbleOf(speech.speakerName, speech.text);
+      const bubble = this.bubbleOf(speech.speakerName, speech.text, this.markRedraw);
       this.bubbles.set(speech.id, bubble);
       this.container.addChild(bubble);
     }
@@ -128,27 +140,27 @@ function moveTo(bubble: Container, anchor: Point): boolean {
   return true;
 }
 
-/** The real bubble: the speaker's name over a semibold sans-serif line, dark ink on
- *  the light surface, 4 px corners, no shadow. Measures text, so it runs in the browser only
- *  (the spec hands the layer a fake maker). */
-export function speechBubbleOf(speakerName: string, text: string): Container {
-  const name = speechText(speakerName, nameStyle());
-  const line = speechText(text, lineStyle());
-  line.position.set(PAD_X, PAD_Y + name.height + LINE_GAP);
+/** The real bubble: the speaker's name over a semibold sans-serif line (memes and smileys drawn
+ *  as pictures), dark ink on the light surface, 4 px corners, no shadow. Measures text, so it
+ *  runs in the browser only (the spec hands the layer a fake maker). */
+export function speechBubbleOf(
+  speakerName: string,
+  text: string,
+  redraw: () => void = () => undefined,
+): Container {
+  const name = speechTextOf(speakerName, nameStyle(), INK_COLOR);
+  const look = { style: lineStyle(), ink: INK_COLOR, maxWidth: TEXT_WIDTH_MAX, redraw };
+  const line = speechLineOf(text, look);
+  line.view.position.set(PAD_X, PAD_Y + name.height + LINE_GAP);
   name.position.set(PAD_X, PAD_Y);
   const width = Math.max(name.width, line.width) + PAD_X * 2;
   const height = PAD_Y * 2 + name.height + LINE_GAP + line.height;
   const content = new Container();
-  content.addChild(bubbleShape(width, height), name, line);
+  content.addChild(bubbleShape(width, height), name, line.view);
   content.position.set(-width / 2, -(height + TAIL));
   const bubble = new Container();
   bubble.addChild(content);
   return bubble;
-}
-
-function speechText(content: string, style: TextStyleOptions): Text {
-  const resolution = zoomProofTextResolution(globalThis.devicePixelRatio);
-  return new Text({ text: content, resolution, style: { ...style, fill: INK_COLOR } });
 }
 
 function nameStyle(): TextStyleOptions {

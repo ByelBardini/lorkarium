@@ -66,6 +66,7 @@ describe('ChatFeed of 300 messages, half of them spoken as Lyra', () => {
           viewerNames={[]}
           diceClock={new InteractionClockFake()}
           tabs={table.tabs}
+          onReply={() => undefined}
         />
       </Profiler>,
     );

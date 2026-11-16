@@ -31,6 +31,7 @@ import { LYRA_ID, lyraRow } from '../../support/tokens-factories';
 
 const NOW = new Date('2026-10-27T20:00:00Z');
 const MESSAGE_ID = '2e3f4a5b-6c7d-4e8f-9a0b-1c2d3e4f5a6b';
+const QUOTED_ID = '3f4a5b6c-7d8e-4f9a-8b1c-2d3e4f5a6b7c';
 const ACTION_ID = '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a';
 const OTHER_TABLE_ID = '4c2f0b63-7d5e-4a9b-8f3c-2b8d6e4a9f21';
 const GROUP_ID = '1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f';
@@ -69,6 +70,7 @@ function commandOf(overrides: Partial<ChatSendCommandDto> = {}): ChatSendCommand
     channel: TABLE,
     speaker: { kind: 'self' },
     text: 'Abram a porta.',
+    replyTo: null,
     ...overrides,
   };
 }
@@ -94,10 +96,20 @@ describe('ChatService.send — channels and audience', () => {
           channel: TABLE,
           speaker: { kind: 'self' },
           text: 'Abram a porta.',
+          replyTo: null,
         },
         audience: { kind: 'table' },
       },
     ]);
+  });
+
+  it('a reply carries the quoted id and the called author as they came', async () => {
+    const { service, publisher } = harness();
+    const replyTo = { messageId: QUOTED_ID, mentionUserId: ANA_ID };
+
+    await service.send(BIA_ID, commandOf({ replyTo }), CONNECTION);
+
+    expect(publisher.published[0]?.event.replyTo).toEqual(replyTo);
   });
 
   it('Ana whispering to Bia goes only to Ana and Bia, the channel keeps the whisper', async () => {

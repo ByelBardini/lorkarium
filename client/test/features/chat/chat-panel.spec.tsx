@@ -105,13 +105,25 @@ describe('ChatPanel — feed and text', () => {
     expect(within(feed()).getByText('Oi, mesa.')).toBeInTheDocument();
   });
 
+  it('a meme or smiley code in a message is drawn as its picture', () => {
+    renderChatPanel(deps);
+    receiveChat(deps, chatSent({ text: 'Rolem iniciativa :trollface: :D' }));
+    expect(within(feed()).getByRole('img', { name: ':trollface:' })).toBeInTheDocument();
+    expect(within(feed()).getByRole('img', { name: ':D' })).toBeInTheDocument();
+  });
+
   it('Enter sends the text to the whole Table as oneself and empties the field', async () => {
     renderChatPanel(deps);
     await user.type(field(), 'Boa noite!{Enter}');
     expect(deps.chat.sent).toEqual([
       {
         campaignId: VHARN.id,
-        request: { channel: TABLE_CHANNEL, speaker: { kind: 'self' }, text: 'Boa noite!' },
+        request: {
+          channel: TABLE_CHANNEL,
+          speaker: { kind: 'self' },
+          text: 'Boa noite!',
+          replyTo: null,
+        },
       },
     ]);
     expect(field()).toHaveValue('');

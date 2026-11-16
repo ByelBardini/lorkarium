@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { memberColorDto } from '../account/username.dto';
 import { userPlanDto } from '../plans/user-plan.dto';
+import { badgeDto } from '../badges/badge.dto';
 import { reputationSummaryDto } from './reputation.dto';
 
 /** Presence on the card: only for friends (`null` otherwise); invisible reads as `offline`. */
@@ -55,6 +56,8 @@ export const profileCardDto = z.strictObject({
   contact: z.string().nullable(),
   mutualCampaigns: z.array(mutualCampaignDto),
   mutualFriends: countDto,
+  /** Granted badges with an image, in catalog order. */
+  badges: z.array(badgeDto),
 });
 export type ProfileCardDto = z.infer<typeof profileCardDto>;
 

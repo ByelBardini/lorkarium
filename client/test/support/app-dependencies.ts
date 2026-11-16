@@ -22,6 +22,7 @@ import { AccountPlanApiFake } from './account-plan-api-fake';
 import { AccountSecurityApiFake } from './account-security-api-fake';
 import { UserAdminApiFake } from './user-admin-api-fake';
 import { UserReportsApiFake } from './user-reports-api-fake';
+import { BadgesAdminApiFake } from './badges-admin-api-fake';
 import { AssetsApiFake } from './assets-api-fake';
 import { AuthApiFake } from './auth-api-fake';
 import { BoardRenderersFake } from './board-renderer-fake';
@@ -72,6 +73,7 @@ export type TestDependencies = AppDependencies & {
   accountPlanApi: AccountPlanApiFake;
   userAdminApi: UserAdminApiFake;
   userReportsApi: UserReportsApiFake;
+  badgesAdminApi: BadgesAdminApiFake;
   accountLinksApi: AccountLinksApiFake;
   libraryApi: LibraryApiFake;
   libraryMapsApi: LibraryMapsApiFake;
@@ -219,6 +221,7 @@ export function testDependencies(): TestDependencies {
     accountPlanApi: new AccountPlanApiFake(),
     userAdminApi: new UserAdminApiFake(TEST_NOW),
     userReportsApi: new UserReportsApiFake(),
+    badgesAdminApi: new BadgesAdminApiFake(),
     accountLinksApi: new AccountLinksApiFake(),
     libraryApi: new LibraryApiFake(),
     libraryMapsApi,

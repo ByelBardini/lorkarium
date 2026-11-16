@@ -5,9 +5,10 @@ import type { AssetStoragePort } from '../assets/asset-storage.port';
 import type { ImageFetcherPort } from '../assets/image-fetcher.port';
 import { UsersDao } from '../auth/users.dao';
 import { FriendshipsDao } from '../friends/friendships.dao';
+import type { AccountBadgesPort } from './account-badges.port';
 import type { AvatarProcessorPort } from './avatar-processor.port';
 import type { ProfileCardPresencePort } from './profile-card-presence.port';
-import { registerProfileCardRoute } from './profile-card.routes';
+import { registerProfileCardRoute, registerProfileLookupRoute } from './profile-card.routes';
 import { ProfileCardDao } from './profile-card.dao';
 import { ProfileCardService, type ProfileCardServiceDeps } from './profile-card.service';
 import type { ProfileChangedPort } from './profile-changed.port';
@@ -29,6 +30,8 @@ export type ProfilesModuleOptions = Readonly<{
   reputation: ProfileCardServiceDeps['reputation'];
   /** The account presence: a friend's card shows online or offline. */
   presence: ProfileCardPresencePort;
+  /** The badges module's service: the badges of the card and of the own profile. */
+  badges: AccountBadgesPort;
 }>;
 
 export type ProfilesModule = Readonly<{ plugin: (app: FastifyInstance) => Promise<void> }>;
@@ -46,6 +49,7 @@ export function createProfilesModule(options: ProfilesModuleOptions): ProfilesMo
     profileChanged: options.profileChanged,
     accounts: new UsersDao(options.db),
     fetcher: options.fetcher,
+    badges: options.badges,
     newId: randomUUID,
   });
   const cards = new ProfileCardService({
@@ -53,10 +57,12 @@ export function createProfilesModule(options: ProfilesModuleOptions): ProfilesMo
     friendships: new FriendshipsDao(options.db),
     reputation: options.reputation,
     presence: options.presence,
+    badges: options.badges,
   });
   return {
-    plugin: profilesRoutes(service, profileImageEdgesOf(service), (app) =>
-      registerProfileCardRoute(app, cards),
-    ),
+    plugin: profilesRoutes(service, profileImageEdgesOf(service), (app) => {
+      registerProfileCardRoute(app, cards);
+      registerProfileLookupRoute(app, cards);
+    }),
   };
 }

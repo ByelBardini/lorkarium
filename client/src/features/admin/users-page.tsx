@@ -12,6 +12,7 @@ import {
   type DirectoryFilters,
   type DirectoryRow,
 } from '@/lib/user-directory';
+import type { BadgesAdminApi } from '@/services/badges-admin-api';
 import type { Clipboard } from '@/services/clipboard';
 import { adminFailureMessage, planChangedNotice } from './admin-messages';
 import { InviteSheet } from './invite-sheet';
@@ -27,6 +28,8 @@ export type UsersPageProps = Readonly<{
   now: Date;
   selfId: string | null;
   clipboard: Clipboard;
+  /** The catalog and the grants of "Insígnias…" in each row's menu. */
+  badgesApi: BadgesAdminApi;
 }>;
 
 /** "Usuários": who has access and how they came in. Search and filters live in the URL; commands
@@ -38,6 +41,7 @@ export function UsersPage({
   now,
   selfId,
   clipboard,
+  badgesApi,
 }: UsersPageProps): React.JSX.Element {
   const [params, setParams] = useSearchParams();
   // The typed text answers each key at once; the URL follows it (a navigation per key is async).
@@ -70,6 +74,7 @@ export function UsersPage({
     row.kind === 'user' ? (
       <UserRowMenu
         user={row.user}
+        self={row.user.id === selfId}
         onCommand={(command) => openUser(command, row.user)}
         onPlan={(plan) => changePlan(row.user, plan)}
       />
@@ -142,6 +147,7 @@ export function UsersPage({
         <UsersDialog
           dialog={dialog}
           clipboard={clipboard}
+          badgesApi={badgesApi}
           onDone={(message) => {
             setNotice(message);
             setDialog(null);

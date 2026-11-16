@@ -23,15 +23,20 @@ function stateOf(result: AccountResult<ProfileCardDto, ProfileCardLoadFailure>):
     : { kind: 'failed', failure: result.failure };
 }
 
-/** The card of `userId`, read when `active` turns on (the popover or the modal opens).
+/** The card of `userId`, read when `active` turns on (the popover or the modal opens). A card
+ *  already `loaded` elsewhere (the lookup by @) is on screen from the start, so its holder passes
+ *  `active: false` to skip the read; `reload` still reads it.
  *
  *  Example: `const { state, reload } = useProfileCard(api, userId, open)` */
 export function useProfileCard(
   api: ProfileCardApi | null,
   userId: string,
   active: boolean,
+  loaded: ProfileCardDto | null = null,
 ): ProfileCardRead {
-  const [state, setState] = useState<ProfileCardState>(LOADING);
+  const [state, setState] = useState<ProfileCardState>(() =>
+    loaded === null ? LOADING : { kind: 'ready', card: loaded },
+  );
   const reload = useCallback(async (): Promise<void> => {
     if (api !== null) setState(stateOf(await api.card(userId)));
   }, [api, userId]);

@@ -20,6 +20,7 @@ O chat da sala: a Mesa (a mesa toda), o sussurro inline na Mesa, a conversa priv
   - o evento leva o `name` **lido do banco** (`TokensDao.findInScene`), nunca um nome do client.
 - Ordem das conferências: mesa → canal × quem fala → público (si mesmo, grupo) → membros destinatários → token (grid, existência, controle). Nada é publicado em nenhuma recusa.
 - `messageId` vem do `newId` (`randomUUID`) e `at` do `ClockPort`.
+- **Resposta** (`replyTo`): o server só a repassa (`toChatSentDto`), sem conferir. Não guarda mensagem, então não há como validar o id citado; e o `mentionUserId` só destaca para quem recebe o evento — forjá-lo não chama ninguém de fora do público (equivale a escrever `@nome`). Detalhe no client em [`client/chat-respostas.md`](client/chat-respostas.md).
 
 ## Estrutura (server)
 

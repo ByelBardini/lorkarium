@@ -1,10 +1,11 @@
 import { searchText } from './search-text';
 
 /** What the composer's list offers for the text before the caret: the `/` commands while the
- *  command itself is typed (the field starts with `/`, no space yet), or the members after an
- *  `@` that starts a word. `from`/`to` are what accepting replaces. */
+ *  command itself is typed (the field starts with `/`, no space yet), the memes and smileys after
+ *  a `:` and two letters that start a word, or the members after an `@` that starts a word.
+ *  `from`/`to` are what accepting replaces. */
 export type SuggestionQuery = Readonly<{
-  kind: 'command' | 'member';
+  kind: 'command' | 'emote' | 'member';
   typed: string;
   from: number;
   to: number;
@@ -15,6 +16,8 @@ export type MentionableMember = Readonly<{ userId: string; name: string; usernam
 
 const COMMAND_TYPED = /^\/(\S*)$/u;
 const MENTION_TYPED = /(?:^|\s)@([^\s@]*)$/u;
+// Two letters at least: a lone `:` (or `:)`, `:D`) is not asking for the list.
+const EMOTE_TYPED = /(?:^|\s):([^\s:]{2,})$/u;
 
 /** The list the text before the caret asks for; `null` when none.
  *
@@ -23,10 +26,15 @@ export function suggestionQueryOf(draft: string, caret: number): SuggestionQuery
   const before = draft.slice(0, caret);
   const command = COMMAND_TYPED.exec(before);
   if (command) return { kind: 'command', typed: command[1] ?? '', from: 0, to: caret };
+  const emote = EMOTE_TYPED.exec(before);
+  if (emote) return wordQuery('emote', emote[1] ?? '', caret);
   const mention = MENTION_TYPED.exec(before);
-  if (!mention) return null;
-  const typed = mention[1] ?? '';
-  return { kind: 'member', typed, from: caret - typed.length - 1, to: caret };
+  return mention ? wordQuery('member', mention[1] ?? '', caret) : null;
+}
+
+// The typed word and its one-character mark (`:` or `@`) are what accepting replaces.
+function wordQuery(kind: 'emote' | 'member', typed: string, caret: number): SuggestionQuery {
+  return { kind, typed, from: caret - typed.length - 1, to: caret };
 }
 
 /** The members with a word of the nickname, or the @, starting with what was typed (no accent,

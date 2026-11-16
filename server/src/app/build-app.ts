@@ -25,6 +25,7 @@ import { createAssetsModule } from '../modules/assets/assets.plugin';
 import { SharpAvatarProcessor } from '../infrastructure/avatar-processor/sharp-avatar-processor';
 import type { ProfileCardPresencePort } from '../modules/profiles/profile-card-presence.port';
 import { createProfilesModule } from '../modules/profiles/profiles.plugin';
+import { createBadgesModule } from '../modules/badges/badges.plugin';
 import type { ProfileChangedPort } from '../modules/profiles/profile-changed.port';
 import { CryptoCampaignCode } from '../infrastructure/campaign-code/crypto-campaign-code';
 import { AesGcmDataCipher } from '../infrastructure/data-cipher/aes-gcm-data-cipher';
@@ -253,6 +254,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   await app.register(createPlansModule({ db: deps.db, clock }).plugin, { prefix: API_PREFIX });
   const { profileChanged } = outlets;
   const avatars = new SharpAvatarProcessor();
+  const badges = createBadgesModule({ db: deps.db, storage, processor: avatars });
   // Capped at the photo's limit: a larger link is cut while it downloads, not after.
   const avatarFetcher = new GuardedImageFetcher({ maxBytes: AVATAR_MAX_BYTES });
   const profilesOptions = {
@@ -263,6 +265,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
     fetcher: avatarFetcher,
     reputation: reputation.service,
     presence: outlets.accountPresence,
+    badges: badges.service,
   };
   const profiles = createProfilesModule(profilesOptions);
   await app.register(profiles.plugin, { prefix: API_PREFIX });
@@ -271,7 +274,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const juggernauts = campaigns.juggernaut();
   const planOutlets = { profiles: profileChanged, ownedTables: campaigns.settings() };
   const backoffice = { ...links, memberships, juggernauts, ...planOutlets, storage, mailer };
-  await wireBackoffice(app, backoffice, API_PREFIX);
+  await wireBackoffice(app, { ...backoffice, badges }, API_PREFIX);
   // After every /api route: its not-found handler answers the SPA for the rest.
   if (env.clientDistDir) await serveClient(app, env.clientDistDir);
   return app;

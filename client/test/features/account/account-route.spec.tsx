@@ -12,6 +12,7 @@ import {
   UPLOADED_BANNER_ID,
   UPLOADED_DICE_TEXTURE_ID,
 } from '../../support/profile-api-fake';
+import { VETERANO_BADGE } from '../../support/profile-card-fixtures';
 
 describe('account route (/account)', () => {
   let deps: TestDependencies;
@@ -594,6 +595,15 @@ describe('account route (/account)', () => {
       await waitFor(() =>
         expect(within(preview).queryByTestId('profile-card-banner-image')).toBeNull(),
       );
+    });
+
+    it('the card preview shows the account’s own badges, as the others see them', async () => {
+      deps.profileApi.profile = { ...ANA_PROFILE, badges: [VETERANO_BADGE] };
+      await openAccount();
+      const preview = screen.getByRole('complementary', { name: 'Como a galera te vê' });
+
+      const row = within(preview).getByRole('list', { name: 'Insígnias' });
+      expect(within(row).getByRole('button', { name: 'Insígnia Veterano' })).toBeInTheDocument();
     });
 
     it('a schedule past 200 characters is an inline error', async () => {

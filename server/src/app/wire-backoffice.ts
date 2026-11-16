@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import type { BadgesModule } from '../modules/badges/badges.plugin';
 import {
   createAccountLinksModule,
   type AccountLinksModuleOptions,
@@ -9,15 +10,18 @@ import {
 } from '../modules/user-admin/user-admin.plugin';
 
 /** What `buildApp` already has for the backoffice: the links module's needs plus the deletion's
- *  (memberships to forget, the bucket of the photos). */
+ *  (memberships to forget, the bucket of the photos), and the badges module (built earlier: the
+ *  profiles read the badges through its service). */
 export type BackofficeWiring = AccountLinksModuleOptions &
   Pick<
     UserAdminModuleOptions,
     'memberships' | 'juggernauts' | 'profiles' | 'ownedTables' | 'storage' | 'mailer'
-  >;
+  > &
+  Readonly<{ badges: BadgesModule }>;
 
-/** Registers the invitation and new-password links and the backoffice over the accounts under
- *  `prefix`; the account list reads the pending invitations from the links module.
+/** Registers the invitation and new-password links, the backoffice over the accounts and the
+ *  badge catalog under `prefix`; the account list reads the pending invitations from the links
+ *  module.
  *
  *  Example: `await wireBackoffice(app, { ...shared, memberships, storage }, '/api')` */
 export async function wireBackoffice(
@@ -45,4 +49,5 @@ export async function wireBackoffice(
     mailer,
   });
   await app.register(userAdmin.plugin, { prefix });
+  await app.register(wiring.badges.plugin, { prefix });
 }

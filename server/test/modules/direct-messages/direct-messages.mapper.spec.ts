@@ -11,9 +11,27 @@ const MESSAGE_ID = '7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d';
 
 describe('direct messages mapper', () => {
   it('a message goes out with the instant as ISO text', () => {
-    const message = { messageId: MESSAGE_ID, fromUserId: ANA_ID, toUserId: BIA_ID, text: 'oi' };
+    const message = {
+      messageId: MESSAGE_ID,
+      fromUserId: ANA_ID,
+      toUserId: BIA_ID,
+      text: 'oi',
+      replyToMessageId: null,
+    };
 
     expect(toDmSentDto({ ...message, at: AT })).toEqual({ ...message, at: AT.toISOString() });
+  });
+
+  it('a reply carries the quoted id as it came', () => {
+    const reply = {
+      messageId: MESSAGE_ID,
+      fromUserId: ANA_ID,
+      toUserId: BIA_ID,
+      text: 'isso',
+      replyToMessageId: MESSAGE_ID,
+    };
+
+    expect(toDmSentDto({ ...reply, at: AT }).replyToMessageId).toBe(MESSAGE_ID);
   });
 
   it('"digitando…" carries who types and when', () => {

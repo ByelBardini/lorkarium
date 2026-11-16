@@ -6,6 +6,7 @@ export type DirectMessage = Readonly<{
   toUserId: string;
   text: string;
   at: Date;
+  replyToMessageId: string | null;
 }>;
 
 /** Example: `toDmSentDto({ messageId, fromUserId: anaId, toUserId: biaId, text: 'oi', at })` */
