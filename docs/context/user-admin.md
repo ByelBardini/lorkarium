@@ -24,6 +24,8 @@ O backoffice sobre as contas: listar, trocar o papel, suspender e reativar, conf
 | `GET /admin/mail-samples`                 | 200 `{ samples: [{ id, name, subject }] }` (os 11, na ordem do catálogo) | —                                                                                          |
 | `POST /admin/mail-samples/:sampleId/send` | 200 `{ subject, to }`; corpo `{ to }` (aparado, minúsculas)              | 400 · 404 `MAIL_SAMPLE_NOT_FOUND` · 502 `MAIL_DELIVERY_FAILED` · 429 (30/10 min por admin) |
 
+As insígnias da conta (`GET` e `PUT /admin/users/:userId/badges`, mesma guarda) são do módulo [`badges`](badges.md), ligado pelo mesmo `wireBackoffice` depois deste.
+
 Id malformado é 400 (o `adminUserParamsDto`). Cada ação vai ao log pino como `{ adminId, targetUserId, action }` "backoffice action" (nunca e-mail nem token): é o rastro do futuro "Registro de atividade".
 
 ## Regras e ordem
