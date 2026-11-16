@@ -101,6 +101,7 @@ describe('ChatComposer — rolls by command', () => {
       channel: { kind: 'table', whisperTo: CAIO_AT_TABLE.userId },
       speaker: { kind: 'self' },
       text: 'psiu',
+      replyTo: null,
     });
   });
 
@@ -171,6 +172,26 @@ describe('ChatComposer — suggestions', () => {
     await user.type(field(), 'bi{Enter}');
     expect(field()).toHaveValue('Olha @Bia ');
     expect(deps.chat.sent).toEqual([]);
+  });
+
+  it('":" and two letters list the memes and smileys with their picture; Enter writes the code', async () => {
+    await user.type(field(), 'Rolem :tro');
+    expect(optionNames()).toEqual([':trollface:']);
+    const list = screen.getByRole('listbox', { name: 'Sugestões' });
+    expect(within(list).getByRole('option').querySelector('img')).toHaveAttribute('alt', '');
+    await user.keyboard('{Enter}');
+    expect(field()).toHaveValue('Rolem :trollface: ');
+    expect(deps.chat.sent).toEqual([]);
+  });
+
+  it('"Memes e smileys" writes the clicked code at the caret and gives the field the focus', async () => {
+    await user.type(field(), 'boa');
+    await user.click(screen.getByRole('button', { name: 'Memes e smileys' }));
+    await user.click(screen.getByRole('tab', { name: 'Memes' }));
+    await user.click(screen.getByRole('button', { name: ':doge:' }));
+    expect(field()).toHaveValue('boa :doge: ');
+    expect(field()).toHaveFocus();
+    expect(screen.queryByRole('dialog', { name: 'Memes e smileys' })).toBeNull();
   });
 
   // Regression: command examples wrapped into a dense tutorial under the field (2026-10-28).

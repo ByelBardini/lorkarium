@@ -3,8 +3,11 @@ import { LockIcon } from 'lucide-react';
 import { memo } from 'react';
 import { ProfileCardTrigger } from '@/features/profile-card/profile-card-trigger';
 import { TokenFace } from '@/features/tokens/token-face';
+import { EmoteText } from '@/components/emote-text';
+import { ReplyButton, ReplyQuote, type QuotedMessage } from '@/components/message-reply';
 import { UserAvatar } from '@/components/user-avatar';
 import { mentionsAny, type ChatMessage } from '@/lib/chat-conversations';
+import { repliesToViewer } from '@/lib/chat-replies';
 import { initialsOf } from '@lorkarium/game-core';
 import { cn } from '@/lib/utils';
 import { MENTION_MARK, whisperMark } from './chat-messages';
@@ -21,6 +24,10 @@ export type ChatMessageRowProps = Readonly<{
   /** The face of the token spoken as, from the grids open here (`null`: none open, or spoken as
    *  oneself). */
   face: ChatTokenFace | null;
+  /** What a reply quotes, when this device still has it (`null` for no reply or one gone). */
+  quoted: ChatMessage | null;
+  /** Starts answering this message; keeps its identity across renders (the row is a `memo`). */
+  onReply: (message: ChatMessage) => void;
 }>;
 
 const TIME_FORMAT = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -36,37 +43,48 @@ const TIME_FORMAT = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: 
 export const ChatMessageRow = memo(function ChatMessageRow(
   props: ChatMessageRowProps,
 ): React.JSX.Element {
-  const { event } = props.message;
-  const mine = event.fromUserId === props.people.viewerId;
-  const mentioned = !mine && mentionsAny(event.text, props.viewerNames);
+  const { message, people } = props;
+  const { event } = message;
+  const mine = event.fromUserId === people.viewerId;
+  const mentioned =
+    !mine &&
+    (mentionsAny(event.text, props.viewerNames) || repliesToViewer(event, people.viewerId));
   const whispered = whisperToOf(event) !== null;
   const spoken = event.speaker.kind === 'token';
+  const continued = props.continued && event.replyTo === null;
   return (
     <li
+      data-message-id={event.messageId}
       className={cn(
-        'flex gap-2.5 border-l-2 border-transparent px-2 [contain-intrinsic-size:auto_2.5rem] [content-visibility:auto]',
-        props.continued ? 'pt-0.5' : 'pt-3',
+        'group relative flex flex-col border-l-2 border-transparent px-2 transition-colors duration-700 [contain-intrinsic-size:auto_2.5rem] [content-visibility:auto] data-[flash]:bg-primary/20',
+        continued ? 'pt-0.5' : 'pt-3',
         whispered && 'border-chart-2 bg-chart-2/5',
         mentioned && 'border-primary bg-primary/5',
       )}
     >
-      <span className="flex w-7 shrink-0 justify-center">
-        {!props.continued && (
-          <ChatVoiceAvatar event={event} people={props.people} face={props.face} />
-        )}
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        {!props.continued && <RowHeader event={event} people={props.people} mine={mine} />}
-        <p
-          className={cn(
-            'text-sm break-words whitespace-pre-wrap text-foreground',
-            spoken && 'font-display text-[17px] leading-snug italic',
-          )}
-        >
-          {event.text}
-        </p>
-        {mentioned && <span className="sr-only">{MENTION_MARK}</span>}
+      {event.replyTo !== null && <ReplyQuote quoted={quotedOf(props.quoted, people)} />}
+      <div className="flex gap-2.5">
+        <span className="flex w-7 shrink-0 justify-center">
+          {!continued && <ChatVoiceAvatar event={event} people={people} face={props.face} />}
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          {!continued && <RowHeader event={event} people={people} mine={mine} />}
+          <p
+            className={cn(
+              'text-sm break-words whitespace-pre-wrap text-foreground',
+              spoken && 'font-display text-[17px] leading-snug italic',
+            )}
+          >
+            <EmoteText text={event.text} />
+          </p>
+          {mentioned && <span className="sr-only">{MENTION_MARK}</span>}
+        </div>
       </div>
+      <ReplyButton
+        authorName={chatVoiceNameOf(event, people)}
+        onReply={() => props.onReply(message)}
+        className="absolute top-1 right-1"
+      />
     </li>
   );
 });
@@ -146,6 +164,19 @@ function SpeakerName({ event, people, mine }: RowPartProps & Readonly<{ mine: bo
       <span className="text-[11px] text-muted-foreground">{npc ? `NPC · ${author}` : author}</span>
     </>
   );
+}
+
+/** The name a message speaks with: the token's, or its author's.
+ *
+ *  Example: `chatVoiceNameOf(message.event, people) // 'Lyra'` */
+export function chatVoiceNameOf(event: ChatSentDto, people: ChatPeople): string {
+  return event.speaker.kind === 'token' ? event.speaker.name : people.nameOf(event.fromUserId);
+}
+
+function quotedOf(quoted: ChatMessage | null, people: ChatPeople): QuotedMessage | null {
+  if (quoted === null) return null;
+  const { messageId, text } = quoted.event;
+  return { messageId, authorName: chatVoiceNameOf(quoted.event, people), text };
 }
 
 function whisperToOf(event: ChatSentDto): string | null {

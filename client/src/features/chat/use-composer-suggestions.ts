@@ -1,6 +1,8 @@
 import { useId, useState } from 'react';
 import { suggestChatCommands, type ChatCommandEntry } from '@/lib/chat-commands-catalog';
 import type { ChatInputMember } from '@/lib/chat-input';
+import type { Emote } from '@/lib/emote-catalog';
+import { suggestEmotes, type EmoteSuggestion } from '@/lib/emote-input';
 import {
   mentionTextOf,
   suggestionQueryOf,
@@ -9,11 +11,13 @@ import {
   type SuggestionQuery,
 } from '@/lib/chat-suggestions';
 
-/** One line of the list: what it shows, and what accepting writes in place of what was typed. */
+/** One line of the list: what it shows, and what accepting writes in place of what was typed.
+ *  An emote line also shows its picture. */
 export type ComposerSuggestion = Readonly<{
   value: string;
   insert: string;
   description: string;
+  emote?: Emote;
 }>;
 
 export type ComposerSuggestionsInput = Readonly<{
@@ -41,8 +45,8 @@ export type ComposerSuggestionsState = Readonly<{
   accept: (index: number) => void;
 }>;
 
-/** The autocomplete of the field: the commands and saved rolls after a leading `/`, the people
- *  after an `@`. ↑/↓ move, Enter or Tab take, Esc closes until the next keystroke.
+/** The autocomplete of the field: the commands and saved rolls after a leading `/`, the memes
+ *  and smileys after a `:` and two letters, the people after an `@`. ↑/↓ move, Enter or Tab take, Esc closes until the next keystroke.
  *
  *  Example: `const suggestions = useComposerSuggestions({ draft, caret, catalog, members, onAccept })` */
 export function useComposerSuggestions(input: ComposerSuggestionsInput): ComposerSuggestionsState {
@@ -100,6 +104,7 @@ function optionsOf(
 ): readonly ComposerSuggestion[] {
   if (query.kind === 'command')
     return suggestChatCommands(input.catalog, query.typed).map(commandOption);
+  if (query.kind === 'emote') return suggestEmotes(query.typed).map(emoteOption);
   return suggestMembers(input.members, query.typed).map((member) => {
     const mention = mentionTextOf(member);
     return { value: mention, insert: `${mention} `, description: member.name };
@@ -110,6 +115,11 @@ function commandOption(entry: ChatCommandEntry): ComposerSuggestion {
   const value = `/${entry.command}`;
   if (entry.kind === 'saved') return { value, insert: value, description: entry.savedRoll.name };
   return { value, insert: `${value} `, description: `${entry.usage} · ${entry.description}` };
+}
+
+function emoteOption({ emote, code }: EmoteSuggestion): ComposerSuggestion {
+  const others = emote.codes.filter((each) => each !== code).join('  ');
+  return { value: code, insert: `${code} `, description: others, emote };
 }
 
 /** The DOM id of the option at `index` of the list `listId`.

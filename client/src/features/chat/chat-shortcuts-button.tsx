@@ -8,7 +8,7 @@ export type ChatShortcutsButtonProps = Readonly<{
   canRoll: boolean;
 }>;
 
-/** "Atalhos" and its popover (Enter, Shift+Enter, @nome and the commands the conversation and the
+/** "Atalhos" and its popover (Enter, Shift+Enter, @nome, the meme and smiley codes and the commands the conversation and the
  *  role allow), an icon of the chat's header line so it takes no line of its own.
  *
  *  Example: `<ChatShortcutsButton atTable canRoll={!watchesOnly(role)} />` */
@@ -38,6 +38,8 @@ export function ChatShortcutsButton({ atTable, canRoll }: ChatShortcutsButtonPro
             <ShortcutRow shortcut="Enter" description="Enviar mensagem" />
             <ShortcutRow shortcut="Shift+Enter" description="Quebrar linha" />
             <ShortcutRow shortcut="@nome" description="Mencionar alguém" />
+            <ShortcutRow shortcut=":nome" description="Meme ou smiley (lista ao digitar)" />
+            <ShortcutRow shortcut=":) :D <3" description="Smileys de texto viram imagem" />
             {atTable && <ShortcutRow shortcut="/w nome mensagem" description="Sussurrar" />}
             {atTable && canRoll && (
               <>

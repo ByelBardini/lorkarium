@@ -47,7 +47,12 @@ export type DirectMessagesStore = DirectMessagesState &
     apply: (event: DirectMessageEvent) => void;
     /** The conversation now on screen (unread goes to zero), or `null` when none is. */
     setActive: (friendId: string | null) => void;
-    send: (friendId: string, text: string) => Promise<DirectSendOutcome>;
+    /** `replyToMessageId`: the message answered, or `null`. */
+    send: (
+      friendId: string,
+      text: string,
+      replyToMessageId: string | null,
+    ) => Promise<DirectSendOutcome>;
     /** The person is typing to `friendId`: tells them, at most every 2 s. */
     notifyTyping: (friendId: string) => void;
     /** A friend blocked: their conversation goes from this device (removing keeps it). */
@@ -106,8 +111,8 @@ export function createDirectMessagesStore(deps: DirectMessagesDeps): StoreApi<Di
         set({ activeFriendId: friendId });
         if (friendId) markRead(friendId, deps.storage, set, get);
       },
-      send: async (friendId, text) => {
-        const result = await deps.commands.send(friendId, text);
+      send: async (friendId, text, replyToMessageId) => {
+        const result = await deps.commands.send(friendId, text, replyToMessageId);
         return result.ok ? { ok: true } : { ok: false, failure: result.failure, text };
       },
       notifyTyping: (friendId) => {
