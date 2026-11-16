@@ -59,6 +59,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Janelas de Chat, Dados e Imagens: host, portal, controles e portais Radix                      | [`chat-janela.md`](client/chat-janela.md)                       |
 | Som do chat: menção e sussurro, asset CC0, intervalo, chave "Som do chat"                      | [`chat-som.md`](client/chat-som.md)                             |
 | Responder mensagem (chat da mesa e privadas): citação, barra, @, mesmo sussurro, salto         | [`chat-respostas.md`](client/chat-respostas.md)                 |
+| "Falar como" no chat: Você, personagens sem grid, tokens do grid, voz guardada                 | [`chat-falar-como.md`](client/chat-falar-como.md)               |
 | Memes e smileys: catálogo, troca por imagem, lista do `:`, botão da grade, balão, origem       | [`chat-emotes.md`](client/chat-emotes.md)                       |
 | Brilho do ícone na barra de tarefas (desktop): pendente por mesa, foco, porta Tauri            | [`chat-atencao.md`](client/chat-atencao.md)                     |
 | Rotas: tabela, guardas, `restoreOpenTables`, árvore, `next` do login                           | [`rotas.md`](client/rotas.md)                                   |
