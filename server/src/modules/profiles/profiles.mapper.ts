@@ -1,14 +1,15 @@
-import type { ProfileDto, UpdateProfileRequestDto } from '@lorkarium/contracts';
+import type { BadgeDto, ProfileDto, UpdateProfileRequestDto } from '@lorkarium/contracts';
 import { memberColorOf } from '@lorkarium/game-core';
 import type { ProfileChanges, ProfileRow } from './profiles.dao';
 
 /** Every stored photo is a WebP, whatever was sent. */
 export const AVATAR_CONTENT_TYPE = 'image/webp';
 
-/** PO → DTO: the person's own profile, with the effective color and the automatic one apart.
+/** PO → DTO: the person's own profile, with the effective color and the automatic one apart,
+ *  and the badges others see on the card.
  *
- *  Example: `toProfileDto(row).colorChoice // null when the color is drawn from the id` */
-export function toProfileDto(row: ProfileRow): ProfileDto {
+ *  Example: `toProfileDto(row, []).colorChoice // null when the color is drawn from the id` */
+export function toProfileDto(row: ProfileRow, badges: readonly BadgeDto[]): ProfileDto {
   return {
     id: row.id,
     username: row.username,
@@ -27,6 +28,7 @@ export function toProfileDto(row: ProfileRow): ProfileDto {
     plan: row.plan,
     admin: row.role === 'admin',
     lorkariumOwner: row.lorkariumOwner,
+    badges: [...badges],
   };
 }
 

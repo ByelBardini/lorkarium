@@ -1,4 +1,5 @@
-import type { ReputationSummaryDto } from '@lorkarium/contracts';
+import type { BadgeDto, ReputationSummaryDto } from '@lorkarium/contracts';
+import type { AccountBadgesPort } from '../../src/modules/profiles/account-badges.port';
 import type { ProfileCardPresencePort } from '../../src/modules/profiles/profile-card-presence.port';
 import type { RelationReadingRow } from '../../src/modules/friends/friendships.dao';
 import type {
@@ -58,6 +59,7 @@ export function cardParts(overrides: Partial<ProfileCardParts> = {}): ProfileCar
     reputation: NO_VOTES,
     mutualCampaigns: [],
     mutualFriends: 0,
+    badges: [],
     ...overrides,
   };
 }
@@ -82,6 +84,11 @@ export class ProfileCardDaoFake {
 
   async accountOf(userId: string): Promise<ProfileCardAccountRow | undefined> {
     return this.accounts.find((account) => account.id === userId);
+  }
+
+  async accountIdByUsername(username: string): Promise<string | undefined> {
+    this.asked.push(`username:${username}`);
+    return this.accounts.find((account) => account.username === username)?.id;
   }
 
   async seatCountsOf(userId: string): Promise<ProfileCardSeatCounts> {
@@ -124,5 +131,17 @@ export class ReputationSummaryFake {
   async summaryOf(targetId: string, viewerId: string): Promise<ReputationSummaryDto> {
     this.asked.push(`${targetId}<-${viewerId}`);
     return this.summary;
+  }
+}
+
+/** A fixed set of badges per account; any other account shows none. Records who was asked. */
+export class AccountBadgesFake implements AccountBadgesPort {
+  readonly asked: string[] = [];
+
+  constructor(private readonly byAccount: ReadonlyMap<string, readonly BadgeDto[]> = new Map()) {}
+
+  async badgesOf(userId: string): Promise<BadgeDto[]> {
+    this.asked.push(userId);
+    return [...(this.byAccount.get(userId) ?? [])];
   }
 }

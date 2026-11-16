@@ -55,6 +55,7 @@ export {
   userReportStatus,
   userReports,
 } from '../modules/reports/user-reports.po';
+export { badges, userBadges } from '../modules/badges/badges.po';
 
 export { libraryImages } from '../modules/library/library-images.po';
 export { libraryImagePresentations } from '../modules/library/image-presentations.po';

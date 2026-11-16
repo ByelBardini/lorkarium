@@ -14,6 +14,7 @@ import {
 
 const NOW = new Date('2026-11-12T12:00:00Z');
 const MESSAGE_ID = '7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d';
+const QUOTED_ID = '3f4a5b6c-7d8e-4f9a-8b1c-2d3e4f5a6b7c';
 const ACTION_ID = '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
 
 describe('DirectMessagesService', () => {
@@ -40,7 +41,12 @@ describe('DirectMessagesService', () => {
   });
 
   function sendTo(toUserId: string, from = ANA_ID): Promise<{ messageId: string }> {
-    return service.send(from, { actionId: ACTION_ID, toUserId, text: 'oi' });
+    return service.send(from, {
+      actionId: ACTION_ID,
+      toUserId,
+      text: 'oi',
+      replyToMessageId: null,
+    });
   }
 
   it('Ana → Bia: one dm:sent with the new id and the clock, from the session user', async () => {
@@ -53,8 +59,22 @@ describe('DirectMessagesService', () => {
         toUserId: BIA_ID,
         text: 'oi',
         at: NOW.toISOString(),
+        replyToMessageId: null,
       },
     ]);
+  });
+
+  it('a reply goes out with the quoted id', async () => {
+    const command = {
+      actionId: ACTION_ID,
+      toUserId: BIA_ID,
+      text: 'isso',
+      replyToMessageId: QUOTED_ID,
+    };
+
+    await service.send(ANA_ID, command);
+
+    expect(publisher.sentEvents[0]?.replyToMessageId).toBe(QUOTED_ID);
   });
 
   it('Ana → Caio (not friends) is refused and nothing goes out', async () => {
