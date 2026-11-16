@@ -14,6 +14,8 @@ describe('the thank-you page', () => {
 
     const steps = [...page.querySelectorAll('ol[aria-label="Como instalar"] > li')];
     expect(steps).toHaveLength(3);
+    expect(steps[1]?.textContent).toContain('assinatura digital');
+    expect(steps[1]?.textContent).toContain('não significa que um vírus');
     expect(steps[1]?.textContent).toContain('Mais informações');
     expect(steps[1]?.textContent).toContain('Executar assim mesmo');
     expect(steps[2]?.textContent).toContain('convite');
