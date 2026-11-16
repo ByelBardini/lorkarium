@@ -159,6 +159,16 @@ describe('chatSendCommandDto', () => {
 
     expect(chatSendCommandDto.safeParse(named).success).toBe(false);
   });
+
+  it('accepts speaking as a character and refuses one with a name or without characterId', () => {
+    const asCharacter = command({ speaker: { kind: 'character', characterId: TOKEN_ID } });
+    const named = command({ speaker: { kind: 'character', characterId: TOKEN_ID, name: 'Lyra' } });
+    const bare = command({ speaker: { kind: 'character' } });
+
+    expect(chatSendCommandDto.safeParse(asCharacter).success).toBe(true);
+    expect(chatSendCommandDto.safeParse(named).success).toBe(false);
+    expect(chatSendCommandDto.safeParse(bare).success).toBe(false);
+  });
 });
 
 describe('chatSendCommandDto replyTo', () => {
@@ -230,6 +240,16 @@ describe('chatSentDto', () => {
   it('refuses a token speaker without a name', () => {
     const unnamed = sentEvent({ speaker: { kind: 'token', sceneId: SCENE_ID, tokenId: TOKEN_ID } });
 
+    expect(chatSentDto.safeParse(unnamed).success).toBe(false);
+  });
+
+  it('reads a character speaker only with the name the server read', () => {
+    const named = sentEvent({
+      speaker: { kind: 'character', characterId: TOKEN_ID, name: 'Lyra' },
+    });
+    const unnamed = sentEvent({ speaker: { kind: 'character', characterId: TOKEN_ID } });
+
+    expect(chatSentDto.safeParse(named).success).toBe(true);
     expect(chatSentDto.safeParse(unnamed).success).toBe(false);
   });
 
