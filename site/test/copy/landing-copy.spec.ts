@@ -18,6 +18,17 @@ describe('landingCopy', () => {
   });
 });
 
+describe('landingCopy.faqs', () => {
+  it('explains the SmartScreen warning as a missing signature, not a virus, shown once', () => {
+    const smartScreen = landingCopy.faqs.find((faq) => faq.question.includes('aviso'));
+
+    expect(smartScreen?.answer).toContain('assinatura digital');
+    expect(smartScreen?.answer).toContain('não significa que um vírus');
+    expect(smartScreen?.answer).toContain('primeira instalação');
+    expect(smartScreen?.answer).toContain('Executar assim mesmo');
+  });
+});
+
 describe('landingCopy.acts', () => {
   it('tells the session in six acts, in order, numbered I to VI', () => {
     expect(landingCopy.acts.map((act) => act.id)).toEqual([
