@@ -34,9 +34,9 @@ Fora da mesa: relações entre contas (amizade, pedido, bloqueio) por HTTP, e pr
 
 - `DM_EVENTS` — `dm:send`, `dm:sent`, `dm:typing`, `dm:typingFrom`.
 - `directMessageTextDto` — apara, 1 a 2000.
-- `dmSendCommandDto` `{ actionId, toUserId, text }` (remetente vem da conexão; `fromUserId` é recusado) → `dmSendAckDto` `{ ok, messageId }` | erro.
+- `dmSendCommandDto` `{ actionId, toUserId, text, replyToMessageId }` (remetente vem da conexão; `fromUserId` é recusado) → `dmSendAckDto` `{ ok, messageId }` | erro.
 - `DM_ERROR_CODES` / `DmErrorCode` — `DM_NOT_FRIENDS`, `DM_RECIPIENT_OFFLINE`, `DM_SENDER_INVISIBLE`, `RATE_LIMITED`.
-- `dmSentDto` `{ messageId, fromUserId, toUserId, text, at }` às duas contas, sem versão.
+- `dmSentDto` `{ messageId, fromUserId, toUserId, text, at, replyToMessageId }` às duas contas, sem versão. `replyToMessageId` (uuid ou `null`, padrão `null` nos dois DTOs, para o histórico antigo do aparelho) é só o id da mensagem respondida; cada aparelho a acha no próprio histórico.
 - `dmTypingCommandDto` `{ toUserId }` (sem ack) e `dmTypingFromDto` `{ fromUserId, at }`.
 - Tipos dos genéricos: `DmClientEvents`, `DmServerEvents`.
 

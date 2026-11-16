@@ -25,6 +25,7 @@ client/src/lib/utils.ts  # O `cn` gerado pelo shadcn (aliases do components.json
 client/src/code-editor/  # CodeMirror 6 (o único lugar que o importa, por `lazy`): o campo de código do editor de modelo de ficha
 client/src/components/color-picker/ # Seletor de cor personalizada (popover, cores salvas); `hex-color-canvas.tsx` é o único import do `react-colorful`
 client/src/components/image-crop/ # Diálogo de recorte por formato (foto 1:1, capa 2:1, banner 3:1); `crop-area.tsx` é o único import do `react-easy-crop`, por `lazy`
+client/src/emotes/       # Imagens dos memes e smileys do chat (PNG 96 px) e o `emoteImageUrlOf`; catálogo e troca em src/lib/emote-*.ts
 client/src/sheet-sandbox/ # Iframe isolado da ficha (srcdoc + CSP), SDK `window.lorkarium`, ponte do host e host da prévia
 server/                  # API Fastify (PORT 3333, rotas sob /api); encanamento em src/{app,config,database}/
 site/                    # @lorkarium/site: landing comercial em Astro (download do .exe); specs em site/test/, imagem em site/Dockerfile
@@ -99,6 +100,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | tokens           | Barras, controle, cone, luz, aura, formas, invisível, bloqueio, elenco, patrulha      | [`docs/context/tokens.md`](docs/context/tokens.md)                     |
 | characters       | Personagem da mesa: tabelas, regra, `character:*`, ciclo de vida, token ligado        | [`docs/context/characters.md`](docs/context/characters.md)             |
 | profiles         | Perfil: apelido, cor, bio, foto, banner, preferências, card de outra conta            | [`docs/context/profiles.md`](docs/context/profiles.md)                 |
+| badges           | Insígnias: catálogo do admin, imagem 128, ordem, concessão por conta, card            | [`docs/context/badges.md`](docs/context/badges.md)                     |
 | saved-colors     | Cores salvas por conta: tabela, teto de 24, três rotas, trava da corrida              | [`docs/context/saved-colors.md`](docs/context/saved-colors.md)         |
 | plans            | Planos: grade, dono da mesa × conta, admin, Dono, Apoiador, `PLAN_LIMIT`, selo, cota  | [`docs/context/plans.md`](docs/context/plans.md)                       |
 | combat           | Condições (lista, cor, stacks, imagem) e combate: entradas, turno, rodada             | [`docs/context/combat.md`](docs/context/combat.md)                     |

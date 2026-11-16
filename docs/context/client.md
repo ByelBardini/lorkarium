@@ -52,11 +52,14 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Minha conta em abas (`?aba=`): perfil, banner, preferências, dados, segurança, 2FA, Seu plano  | [`account.md`](client/account.md)                               |
 | Banner do perfil em Minha conta: bloqueio pelo plano, recorte 3:1 no navegador, envio          | [`account-banner.md`](client/account-banner.md)                 |
 | Backoffice: moldura, Usuários, busca/filtros na URL, convidar, menus e diálogos das contas     | [`backoffice.md`](client/backoffice.md)                         |
+| Backoffice · Insígnias: catálogo, gaveta com recorte 1:1, ordem, exclusão, concessão por conta | [`backoffice-badges.md`](client/backoffice-badges.md)           |
 | Dados: rede, stores, 3D (conta e adaptador), e o índice da aba "Dados"                         | [`dice.md`](client/dice.md)                                     |
 | Aba "Dados": bandeja, salvas em etiquetas, histórico em linhas, aviso sobre o tabuleiro        | [`dice-tab.md`](client/dice-tab.md)                             |
 | Chat da mesa: rodapé (barra, gaveta, prévia, aviso), store de conversas, campo, feed, destino  | [`chat.md`](client/chat.md)                                     |
 | Janelas de Chat, Dados e Imagens: host, portal, controles e portais Radix                      | [`chat-janela.md`](client/chat-janela.md)                       |
 | Som do chat: menção e sussurro, asset CC0, intervalo, chave "Som do chat"                      | [`chat-som.md`](client/chat-som.md)                             |
+| Responder mensagem (chat da mesa e privadas): citação, barra, @, mesmo sussurro, salto         | [`chat-respostas.md`](client/chat-respostas.md)                 |
+| Memes e smileys: catálogo, troca por imagem, lista do `:`, botão da grade, balão, origem       | [`chat-emotes.md`](client/chat-emotes.md)                       |
 | Brilho do ícone na barra de tarefas (desktop): pendente por mesa, foco, porta Tauri            | [`chat-atencao.md`](client/chat-atencao.md)                     |
 | Rotas: tabela, guardas, `restoreOpenTables`, árvore, `next` do login                           | [`rotas.md`](client/rotas.md)                                   |
 | Links de conta: `/invite` (escolher @ e senha) e `/reset-password`                             | [`account-links.md`](client/account-links.md)                   |
