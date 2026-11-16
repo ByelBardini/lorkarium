@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { MENTION_MARK, whisperMark } from './chat-messages';
 import type { ChatPeople } from './use-chat-people';
 import type { ChatTokenFace } from './use-chat-token';
+import { spokenNameOf } from '@/lib/chat-speaker';
 
 export type ChatMessageRowProps = Readonly<{
   message: ChatMessage;
@@ -50,13 +51,13 @@ export const ChatMessageRow = memo(function ChatMessageRow(
     !mine &&
     (mentionsAny(event.text, props.viewerNames) || repliesToViewer(event, people.viewerId));
   const whispered = whisperToOf(event) !== null;
-  const spoken = event.speaker.kind === 'token';
+  const spoken = event.speaker.kind !== 'self';
   const continued = props.continued && event.replyTo === null;
   return (
     <li
       data-message-id={event.messageId}
       className={cn(
-        'group relative flex flex-col border-l-2 border-transparent px-2 transition-colors duration-700 [contain-intrinsic-size:auto_2.5rem] [content-visibility:auto] data-[flash]:bg-primary/20',
+        'group relative flex min-h-7 flex-col border-l-2 border-transparent px-2 transition-colors duration-700 [contain-intrinsic-size:auto_2.5rem] [content-visibility:auto] data-[flash]:bg-primary/20',
         continued ? 'pt-0.5' : 'pt-3',
         whispered && 'border-chart-2 bg-chart-2/5',
         mentioned && 'border-primary bg-primary/5',
@@ -101,7 +102,10 @@ export function ChatVoiceAvatar({
   face,
 }: RowPartProps & Pick<ChatMessageRowProps, 'face'>): React.JSX.Element {
   if (event.speaker.kind === 'token') {
-    return <TokenMessageAvatar speaker={event.speaker} face={face} />;
+    return <TokenMessageAvatar name={event.speaker.name} face={face} />;
+  }
+  if (event.speaker.kind === 'character') {
+    return <TokenMessageAvatar name={event.speaker.name} face={null} />;
   }
   const author = people.identityOf(event.fromUserId);
   return (
@@ -110,15 +114,12 @@ export function ChatVoiceAvatar({
 }
 
 function TokenMessageAvatar({
-  speaker,
+  name,
   face,
-}: Readonly<{
-  speaker: Extract<ChatSentDto['speaker'], { kind: 'token' }>;
-  face: ChatTokenFace | null;
-}>): React.JSX.Element {
+}: Readonly<{ name: string; face: ChatTokenFace | null }>): React.JSX.Element {
   return (
     <TokenFace
-      initials={face?.initials ?? initialsOf(speaker.name)}
+      initials={face?.initials ?? initialsOf(name)}
       imageAssetId={face?.imageAssetId ?? null}
       round={face?.frame === 'round'}
       className="size-7 bg-muted font-display text-[11px] text-foreground"
@@ -166,11 +167,11 @@ function SpeakerName({ event, people, mine }: RowPartProps & Readonly<{ mine: bo
   );
 }
 
-/** The name a message speaks with: the token's, or its author's.
+/** The name a message speaks with: the token's or character's, or its author's.
  *
  *  Example: `chatVoiceNameOf(message.event, people) // 'Lyra'` */
 export function chatVoiceNameOf(event: ChatSentDto, people: ChatPeople): string {
-  return event.speaker.kind === 'token' ? event.speaker.name : people.nameOf(event.fromUserId);
+  return spokenNameOf(event.speaker) ?? people.nameOf(event.fromUserId);
 }
 
 function quotedOf(quoted: ChatMessage | null, people: ChatPeople): QuotedMessage | null {

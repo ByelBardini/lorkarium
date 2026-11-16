@@ -9,6 +9,7 @@ import {
   ChatSenderNotInGroupError,
   ChatSpeakerNotAllowedError,
 } from '../../../src/modules/chat/chat.error';
+import { CharacterNotFoundError } from '../../../src/modules/characters/characters.error';
 import { ChatService } from '../../../src/modules/chat/chat.service';
 import { SceneNotFoundError } from '../../../src/modules/scenes/scenes.error';
 import { TokenNotFoundError } from '../../../src/modules/tokens/tokens.error';
@@ -23,6 +24,8 @@ import {
   VHARN_ID,
   campaignMemberPo,
 } from '../../support/campaigns-factories';
+import { characterRow, LYRA_CHARACTER_ID } from '../../support/characters-factories';
+import { CharactersDaoFake } from '../../support/characters-fakes';
 import { ChatPublisherFake } from '../../support/chat-fakes';
 import { GridAudienceFake } from '../../support/pings-fakes';
 import { VHARN_SCENE_ID } from '../../support/scenes-factories';
@@ -38,6 +41,7 @@ const GROUP_ID = '1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f';
 const MISSING_TOKEN_ID = '9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a';
 const CONNECTION = 'socket-1';
 const TABLE: ChatChannelDto = { kind: 'table', whisperTo: null };
+const AS_LYRA_CHARACTER: ChatSpeakerDto = { kind: 'character', characterId: LYRA_CHARACTER_ID };
 const AS_LYRA: ChatSpeakerDto = { kind: 'token', sceneId: VHARN_SCENE_ID, tokenId: LYRA_ID };
 
 type Harness = Readonly<{
@@ -57,9 +61,10 @@ function harness(): Harness {
   ]);
   const audience = new GridAudienceFake().join(CONNECTION, VHARN_ID, VHARN_SCENE_ID);
   const tokens = new TokensDaoFake([], [lyraRow()]);
+  const characters = new CharactersDaoFake([], [characterRow({ controllerIds: [BIA_ID] })]);
   const publisher = new ChatPublisherFake();
   const clock = new ClockFake(NOW);
-  const deps = { members, audience, tokens, publisher, clock, newId: () => MESSAGE_ID };
+  const deps = { members, audience, tokens, characters, publisher, clock, newId: () => MESSAGE_ID };
   return { service: new ChatService(deps), members, audience, publisher };
 }
 
@@ -287,5 +292,62 @@ describe('ChatService.send — speaking as a token', () => {
       fromUserId: ANA_ID,
       speaker: { kind: 'token', tokenId: LYRA_ID, name: 'Lyra' },
     });
+  });
+});
+
+describe('ChatService.send — speaking as a character', () => {
+  it('Bia speaks as Lyra with no token on any grid: the name is read from the table', async () => {
+    const { service, publisher } = harness();
+
+    await service.send(BIA_ID, commandOf({ speaker: AS_LYRA_CHARACTER }), 'no-grid-open');
+
+    expect(publisher.published[0]?.event.speaker).toEqual({ ...AS_LYRA_CHARACTER, name: 'Lyra' });
+  });
+
+  it('Ana, the master, speaks as any character of the table', async () => {
+    const { service, publisher } = harness();
+
+    await service.send(ANA_ID, commandOf({ speaker: AS_LYRA_CHARACTER }), CONNECTION);
+
+    expect(publisher.published[0]?.event.speaker).toMatchObject({ kind: 'character' });
+  });
+
+  it('Caio speaking as Lyra, whom he does not control, is FORBIDDEN and nothing goes out', async () => {
+    const { service, publisher } = harness();
+
+    const sent = service.send(CAIO_ID, commandOf({ speaker: AS_LYRA_CHARACTER }), CONNECTION);
+
+    await expect(sent).rejects.toBeInstanceOf(ForbiddenActionError);
+    expect(publisher.published).toEqual([]);
+  });
+
+  it('Duda, a spectator, speaking as a character is FORBIDDEN', async () => {
+    const { service } = harness();
+
+    const sent = service.send(DUDA_ID, commandOf({ speaker: AS_LYRA_CHARACTER }), CONNECTION);
+
+    await expect(sent).rejects.toBeInstanceOf(ForbiddenActionError);
+  });
+
+  it('a character of another table, or none, is CHARACTER_NOT_FOUND', async () => {
+    const { service } = harness();
+    const speaker: ChatSpeakerDto = { kind: 'character', characterId: MISSING_TOKEN_ID };
+
+    const sent = service.send(BIA_ID, commandOf({ speaker }), CONNECTION);
+
+    await expect(sent).rejects.toBeInstanceOf(CharacterNotFoundError);
+  });
+
+  it('speaking as a character in a whisper is CHAT_SPEAKER_NOT_ALLOWED', async () => {
+    const { service } = harness();
+    const channel: ChatChannelDto = { kind: 'table', whisperTo: CAIO_ID };
+
+    const sent = service.send(
+      BIA_ID,
+      commandOf({ channel, speaker: AS_LYRA_CHARACTER }),
+      CONNECTION,
+    );
+
+    await expect(sent).rejects.toBeInstanceOf(ChatSpeakerNotAllowedError);
   });
 });

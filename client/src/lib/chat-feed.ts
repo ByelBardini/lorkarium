@@ -1,5 +1,6 @@
 import type { ChatSentDto } from '@lorkarium/contracts';
 import type { ChatMessage } from './chat-conversations';
+import { spokenVoiceIdOf } from './chat-speaker';
 
 /** "Tudo" shows the Table's rolls among the messages; "Só conversa" (`talk`) leaves them out. */
 export type ChatFeedFilter = 'all' | 'talk';
@@ -74,7 +75,7 @@ function continues<Roll>(above: ChatFeedItem<Roll> | undefined, message: ChatMes
 
 // Author, who they spoke as and to whom they whispered: the same voice draws as one block.
 function voiceOf(event: ChatSentDto): string {
-  const speaker = event.speaker.kind === 'token' ? event.speaker.tokenId : 'self';
+  const speaker = spokenVoiceIdOf(event.speaker);
   const whisper = event.channel.kind === 'table' ? (event.channel.whisperTo ?? '') : '';
   return `${event.fromUserId}|${speaker}|${whisper}`;
 }
