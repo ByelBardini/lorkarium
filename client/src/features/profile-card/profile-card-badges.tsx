@@ -12,8 +12,9 @@ export type ProfileCardBadgesProps = Readonly<{
 }>;
 
 const LABEL_CLASS = 'font-brand text-[10px] font-semibold tracking-[0.14em] uppercase';
-const BADGE_CLASS =
-  'flex size-12 items-center justify-center overflow-hidden rounded-md border border-border bg-muted/85';
+const BADGE_CLASS = 'flex size-12 items-center justify-center overflow-hidden rounded-md';
+// The image is the badge (a transparent PNG draws its own shape); only "+N" gets a frame.
+const MORE_CLASS = 'border border-border bg-muted/85';
 
 /** "Insígnias": the person's badges as a row of images, each opening its name and description in
  *  a tooltip by hover, focus or tap; nothing when they have none.
@@ -98,7 +99,7 @@ function BadgeImage({ badge }: Readonly<{ badge: BadgeDto }>): React.JSX.Element
 
 function MoreBadges({ count }: Readonly<{ count: number }>): React.JSX.Element {
   return (
-    <li className={cn(BADGE_CLASS, 'text-xs font-semibold text-muted-foreground')}>
+    <li className={cn(BADGE_CLASS, MORE_CLASS, 'text-xs font-semibold text-muted-foreground')}>
       <span aria-hidden="true">{`+${count}`}</span>
       <span className="sr-only">{`e mais ${count} insígnias`}</span>
     </li>
