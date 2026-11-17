@@ -10,7 +10,7 @@ const SIZE_CLASS = {
   sticker: 'size-10 align-middle',
 } as const;
 
-/** A message's text with its codes drawn as pictures (`:)`, `:troll:`); a message of only
+/** A message's text with its codes drawn as pictures (`:)`, `:doge:`); a message of only
  *  pictures draws them bigger. The sent text never changes: each picture keeps its code as `alt`
  *  and `title`, for the screen reader and the hover.
  *

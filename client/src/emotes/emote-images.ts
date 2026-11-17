@@ -1,4 +1,4 @@
-// Smileys: Noto Emoji (Google, Apache 2.0). Memes and the Pac-Man: from the Firecast pack the user
+// Smileys: Noto Emoji (Google, Apache 2.0). Memes: from the Firecast pack the user
 // asked for. Each file is 96 px, enough for the 40 px sticker size at 2x.
 const IMAGE_URLS = import.meta.glob<string>('./images/*.png', {
   eager: true,
@@ -8,7 +8,7 @@ const IMAGE_URLS = import.meta.glob<string>('./images/*.png', {
 
 /** The URL (hashed by Vite, cached for good) of an emote's picture.
  *
- *  Example: `emoteImageUrlOf('trollface') // '/assets/trollface-3f2a1c.png'` */
+ *  Example: `emoteImageUrlOf('doge') // '/assets/doge-3f2a1c.png'` */
 export function emoteImageUrlOf(id: string): string {
   const url = IMAGE_URLS[`./images/${id}.png`];
   if (url === undefined) {

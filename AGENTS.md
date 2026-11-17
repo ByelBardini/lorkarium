@@ -40,6 +40,7 @@ e2e/                     # @lorkarium/e2e: Playwright (playwright.config.ts sobe
 .github/                 # CI: workflows/ci.yml, actions/setup (composite), dependabot.yml
 infra/docker/smoke.sh    # Smoke da imagem (healthy, /api/health, SPA, pasta do cache gravável, ordem do log), usado pelo job docker-image do CI
 infra/compose/compose.yaml # Postgres 17 (5432, usuário/senha/db lorkarium), SeaweedFS/S3 (8333, identidade em seaweedfs/s3.json) e Mailpit (SMTP 1025, caixa 8025) de desenvolvimento (pnpm db:up)
+LICENSE.md, NOTICE.md     # FSL-1.1-MIT na raiz; game-core e dice-renderer em MIT (LICENSE próprio); o NOTICE lista o conteúdo de terceiros fora das duas
 docs/spec.md             # Planejamento e arquitetura do produto (escopo, modelo, API, eventos, segurança, fases)
 docs/context/            # Memória do projeto para agentes de IA: <area>.md é o índice, <area>/ o detalhe
 docs/plans/              # Planos do /planejamento, /construir-tela e /refatorar
