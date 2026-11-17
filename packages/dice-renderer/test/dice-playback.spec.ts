@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { DiceThrowDto } from '@lorkarium/contracts';
+import type { DiceThrow } from '../src/dice-roll-input';
 import {
   DICE_FRAME_MS,
   IDENTITY_QUATERNION,
@@ -24,7 +24,7 @@ function rollingPoses(count: number, fromX: number): DicePose[] {
 // launched at 1300 ms (300 ms after the first stopped) that stops at 2000 ms.
 const D20_FRAMES = encodeDiceFrames(rollingPoses(31, -2));
 const D6_FRAMES = encodeDiceFrames(rollingPoses(22, 1));
-const TWO_WAVES: DiceThrowDto = {
+const TWO_WAVES: DiceThrow = {
   aspect: 16 / 9,
   frameMs: DICE_FRAME_MS,
   models: [
@@ -89,7 +89,7 @@ describe('diceSceneAt', () => {
 
 describe('playDiceThrow', () => {
   it('a model with no frames is refused, naming the model', () => {
-    const empty: DiceThrowDto = {
+    const empty: DiceThrow = {
       ...TWO_WAVES,
       models: [{ kind: 'd4', startMs: 0, settleMs: 0, frames: [] }],
     };
@@ -102,7 +102,7 @@ describe('playDiceThrow', () => {
     const still = encodeDiceFrames([
       { position: { x: 0, y: 1, z: 0 }, quaternion: IDENTITY_QUATERNION },
     ]);
-    const track: DiceThrowDto = {
+    const track: DiceThrow = {
       ...TWO_WAVES,
       models: [{ kind: 'd8', startMs: 0, settleMs: 0, frames: still }],
     };

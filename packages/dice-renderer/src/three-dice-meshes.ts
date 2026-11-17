@@ -1,6 +1,6 @@
 import type * as Three from 'three';
 import type { DieKind } from '@lorkarium/game-core';
-import type { DiceAppearanceDto } from '@lorkarium/contracts';
+import type { DiceAppearance } from './dice-roll-input';
 import { dieGeometryOf, type DieLabel } from './die-geometry';
 import { labelRightOf } from './dice-stage';
 
@@ -12,9 +12,9 @@ export type ThreeModule = typeof Three;
  *  Example: `{ colorHex: memberColorNumber, numberColorOf: diceNumberColorOf, textureUrlOf: diceTextureUrlOf }` */
 export interface DiceLook {
   /** The `0xrrggbb` of a profile color, a name or a custom hex; `undefined` if the page has none. */
-  readonly colorHex: (color: DiceAppearanceDto['color']) => number | undefined;
+  readonly colorHex: (color: DiceAppearance['color']) => number | undefined;
   /** The `#rrggbb` of the numbers for an appearance. */
-  readonly numberColorOf: (appearance: DiceAppearanceDto) => string;
+  readonly numberColorOf: (appearance: DiceAppearance) => string;
   /** Where an uploaded texture is fetched from. */
   readonly textureUrlOf: (textureId: string) => string;
 }
@@ -58,7 +58,7 @@ export class ThreeDiceMeshes {
   /** The objects of one roll, `kinds` in the order of `throw.models`.
    *
    *  Example: `meshes.rollObjects(['d20'], event.appearance).dice[0].position.set(0, 1, 0)` */
-  rollObjects(kinds: readonly DieKind[], appearance: DiceAppearanceDto): DiceRollObjects {
+  rollObjects(kinds: readonly DieKind[], appearance: DiceAppearance): DiceRollObjects {
     const base = this.baseMaterialOf(appearance, this.colorHexOf(appearance.color, kinds));
     const labels = new Map<string, Three.MeshLambertMaterial>();
     const numberColor = this.look.numberColorOf(appearance);
@@ -134,7 +134,7 @@ export class ThreeDiceMeshes {
     return geometry;
   }
 
-  private colorHexOf(color: DiceAppearanceDto['color'], kinds: readonly DieKind[]): number {
+  private colorHexOf(color: DiceAppearance['color'], kinds: readonly DieKind[]): number {
     const hex = this.look.colorHex(color);
     if (hex !== undefined) return hex;
     throw new RangeError(
@@ -142,10 +142,7 @@ export class ThreeDiceMeshes {
     );
   }
 
-  private baseMaterialOf(
-    appearance: DiceAppearanceDto,
-    colorHex: number,
-  ): Three.MeshLambertMaterial {
+  private baseMaterialOf(appearance: DiceAppearance, colorHex: number): Three.MeshLambertMaterial {
     const material = new this.three.MeshLambertMaterial({
       color: colorHex,
       transparent: true,
