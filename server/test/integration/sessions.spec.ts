@@ -17,6 +17,7 @@ import {
   connectRealtime,
   disconnectionOf,
   recordEventsOf,
+  type EventRecorder,
   type RealtimeClient,
   type RecordedEvent,
 } from '../support/realtime-client';
@@ -413,6 +414,14 @@ describe('live table session over Socket.IO', () => {
         .map(({ payload }) => sessionMemberActivityDto.parse(payload));
     }
 
+    // Counts only memberActivity: the ack reaches Bia's socket before the room event
+    // reaches Ana's, so a raw event count races on a loaded runner.
+    async function activitiesUntil(recorder: EventRecorder, count: number): Promise<void> {
+      while (activitiesOf(recorder.events).length < count) {
+        await recorder.until(recorder.events.length + 1);
+      }
+    }
+
     it('past the bucket, session:setActivity is refused with RATE_LIMITED without a query', async () => {
       const biaClient = await connect(bia);
       await joined(biaClient, vharn.id);
@@ -454,7 +463,7 @@ describe('live table session over Socket.IO', () => {
         ok: true,
       });
 
-      await anaEvents.until(2);
+      await activitiesUntil(anaEvents, 1);
       const [went] = activitiesOf(anaEvents.events);
       expect(went).toMatchObject({ campaignId: vharn.id, userId: bia.id, version: 3 });
       expect(went?.awaySince).toEqual(expect.any(String));
@@ -477,7 +486,7 @@ describe('live table session over Socket.IO', () => {
       expect(activitiesOf(anaEvents.events)).toEqual([]);
 
       await setActivity(secondTab, vharn.id, true);
-      await anaEvents.until(1);
+      await activitiesUntil(anaEvents, 1);
       expect(activitiesOf(anaEvents.events)).toHaveLength(1);
     });
 
@@ -486,13 +495,14 @@ describe('live table session over Socket.IO', () => {
       await joined(anaClient, vharn.id);
       const biaClient = await connect(bia);
       await joined(biaClient, vharn.id);
-      await setActivity(biaClient, vharn.id, true);
       const anaEvents = recordEventsOf(anaClient);
+      await setActivity(biaClient, vharn.id, true);
+      await activitiesUntil(anaEvents, 1);
 
       await setActivity(biaClient, vharn.id, false);
 
-      await anaEvents.until(1);
-      expect(activitiesOf(anaEvents.events)).toEqual([
+      await activitiesUntil(anaEvents, 2);
+      expect(activitiesOf(anaEvents.events).slice(1)).toEqual([
         expect.objectContaining({ userId: bia.id, awaySince: null }),
       ]);
     });
