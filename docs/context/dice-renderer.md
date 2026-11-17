@@ -1,10 +1,10 @@
 # Dice-renderer
 
-O desenho 3D dos dados sobre a janela, em three.js. Vive em `packages/dice-renderer/src/`, exportado por `@lorkarium/dice-renderer` (`src/index.ts`). É o **único** lugar do `three` no monorepo. Sem React e sem nada do client: o que é do app (paleta do perfil, cor dos números, endereço da textura) entra pela opção `look`. Usado pelo client por `import()` ([`client/dice.md`](client/dice.md), Dados 3D na janela) e pelo `site/`, também por `import()`. Specs em `packages/dice-renderer/test/` (Vitest, `jsdom`, three real; sem WebGL). Regra pura dos dados (forma, poses, caixa, trajeto): [`game-core/dados.md`](game-core/dados.md); DTOs: [`contracts/dados.md`](contracts/dados.md).
+O desenho 3D dos dados sobre a janela, em three.js. Vive em `packages/dice-renderer/src/`, exportado por `@lorkarium/dice-renderer` (`src/index.ts`). É o **único** lugar do `three` no monorepo. Sem React e sem nada do client: o que é do app (paleta do perfil, cor dos números, endereço da textura) entra pela opção `look`. Usado pelo client por `import()` ([`client/dice.md`](client/dice.md), Dados 3D na janela) e pelo `site/`, também por `import()`. Specs em `packages/dice-renderer/test/` (Vitest, `jsdom`, three real; sem WebGL). Regra pura dos dados (forma, poses, caixa, trajeto): [`game-core/dados.md`](game-core/dados.md); DTOs (que encaixam nos tipos de entrada daqui): [`contracts/dados.md`](contracts/dados.md).
 
 ## Workspace
 
-- `package.json` — `exports: { ".": "./src/index.ts" }` (fonte TS, como o game-core); dependências `three`, `@lorkarium/contracts`, `@lorkarium/game-core`; dev `@types/three`, `jsdom`, `@lorkarium/tsconfig`.
+- `package.json` — `exports: { ".": "./src/index.ts" }` (fonte TS, como o game-core); dependências `three` e `@lorkarium/game-core` (sem o contracts: o pacote anda sozinho, fora do monorepo); dev `@types/three`, `jsdom`, `@lorkarium/tsconfig`.
 - `tsconfig.json` — `base.json` + `lib` com `DOM` (canvas, `window`); inclui `src`, `test` e `vitest.config.ts`.
 - `vitest.config.ts` — projeto `@lorkarium/dice-renderer`, `environment: 'jsdom'`; entra no `projects` da raiz e no `pnpm test:packages`. Sem alias: os specs importam `../src/...`.
 - ESLint: globais do navegador (`packages/dice-renderer/**/*.ts` no bloco do `desktop/src` e `site/src`).
@@ -12,7 +12,7 @@ O desenho 3D dos dados sobre a janela, em three.js. Vive em `packages/dice-rende
 ## Ponto de entrada (`src/index.ts`)
 
 - Valores: `ThreeDiceRenderer` (a classe), `createThreeDiceRenderer(options)` (faz o `import('three')` e devolve a classe pronta) e `playDiceThrow` (decodifica um arremesso e o prende no relógio local; serve para saber o `settleMs` sem desenhar).
-- Tipos: `DiceRenderer`, `DiceRendererRoll`, `DiceRendererFactory`, `PlayingDiceThrow`, `DiceLook`, `ThreeDiceRendererOptions`, `DiceOverlayHost`, `DiceGl`, `DiceGlFactory`.
+- Tipos: `DiceThrow`, `DiceThrowModel`, `DiceAppearance`, `DiceColor`, `DiceRenderer`, `DiceRendererRoll`, `DiceRendererFactory`, `PlayingDiceThrow`, `DiceLook`, `ThreeDiceRendererOptions`, `DiceOverlayHost`, `DiceGl`, `DiceGlFactory`.
 - Nenhum arquivo importa `three` como valor fora do `import('three')` do `createThreeDiceRenderer`: os outros só têm `import type`. Importar o pacote não puxa o three; quem quer o three fora do bundle inicial importa o **pacote** por `import()` (o client faz isso por um módulo próprio, `app-dice-renderer.ts`, e o Vite gera `app-dice-renderer-*.js` + `three.module-*.js`).
 
 ## Opções
@@ -27,8 +27,9 @@ O desenho 3D dos dados sobre a janela, em three.js. Vive em `packages/dice-rende
 
 ## Estrutura (`src/`)
 
-Conta pura (sem `three` e sem WebGL; os tipos de entrada são os DTOs do contracts, `startMs`/`settleMs` no relógio do arremesso, 0 = o evento chegou):
+Conta pura (sem `three` e sem WebGL; os tipos de entrada são os do `dice-roll-input.ts`, `startMs`/`settleMs` no relógio do arremesso, 0 = o evento chegou):
 
+- `dice-roll-input.ts` — os tipos de entrada do próprio pacote: `DiceThrow` (`aspect`, `frameMs`, `models`), `DiceThrowModel` (`kind`, `startMs`, `settleMs`, `frames`), `DiceAppearance` (`color`, `textureId`, `numberColor`) e `DiceColor` (nome da paleta do game-core ou `#rrggbb`). Mesma forma dos DTOs de dados do contracts, que encaixam por estrutura: o client passa o evento direto. Mudou um DTO de dados? Mudar aqui junto, ou o typecheck do client acusa.
 - `dice-renderer.ts` — a porta: `DiceRenderer` (`show(roll)`, `clear()`, `destroy()`), `DiceRendererRoll` `{ rollId, throw, appearance }`, `DiceRendererFactory` (`() => Promise<DiceRenderer>`). `show` repetido com o mesmo `rollId` é ignorado; `clear` tira tudo e o renderer segue usável; `destroy` é final.
 - `dice-fade.ts` — `DICE_REST_HOLD_MS` = 3000, `DICE_FADE_MS` = 600, `DICE_VISIBLE_AFTER_SETTLE_MS` = 3600; `diceOpacityAt(settleMs, tMs)`: 1 até `+3000`, linear até 0, `null` em `+3600`. `settleMs` negativo → `RangeError`.
 - `dice-playback.ts` — `playDiceThrow(rollId, throw, startedAtMs)` decodifica os quadros uma vez; `settleMs` = o maior dos modelos. `diceSceneAt(arremessos, agora)` → `DiceSceneThrow[]` (pose pelo `poseAt`, onda não lançada fica fora, antes do início ou depois de `settleMs + 3600` fica fora). `isDiceThrowGone`. Modelo sem quadros → `RangeError` citando índice e tipo.
