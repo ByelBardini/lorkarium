@@ -1,6 +1,7 @@
 {
   "name": "lorkarium",
   "private": true,
+  "license": "FSL-1.1-MIT",
   "type": "module",
   "packageManager": "pnpm@11.9.0",
   "engines": {
