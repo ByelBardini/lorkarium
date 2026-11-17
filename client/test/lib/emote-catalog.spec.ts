@@ -2,10 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { EMOTES, MEMES, SMILEYS, isNamedEmoteCode } from '@/lib/emote-catalog';
 
 describe('emote catalog', () => {
-  it('has 25 smileys and 22 memes, the star left out', () => {
-    expect(SMILEYS).toHaveLength(25);
-    expect(MEMES).toHaveLength(22);
+  it('has 24 smileys and 20 memes, the star left out', () => {
+    expect(SMILEYS).toHaveLength(24);
+    expect(MEMES).toHaveLength(20);
     expect(EMOTES.flatMap((emote) => emote.codes)).not.toContain(':gold:');
+  });
+
+  it('leaves out the pictures whose owners enforce them (Pikachu, Pac-Man, Trollface)', () => {
+    const ids = EMOTES.map((emote) => emote.id);
+    for (const id of ['pikachu', 'pacman', 'trollface']) expect(ids).not.toContain(id);
   });
 
   it('never gives one code (or one :name: in any case) to two emotes', () => {

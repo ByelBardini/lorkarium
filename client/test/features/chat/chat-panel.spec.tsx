@@ -107,8 +107,8 @@ describe('ChatPanel — feed and text', () => {
 
   it('a meme or smiley code in a message is drawn as its picture', () => {
     renderChatPanel(deps);
-    receiveChat(deps, chatSent({ text: 'Rolem iniciativa :trollface: :D' }));
-    expect(within(feed()).getByRole('img', { name: ':trollface:' })).toBeInTheDocument();
+    receiveChat(deps, chatSent({ text: 'Rolem iniciativa :doge: :D' }));
+    expect(within(feed()).getByRole('img', { name: ':doge:' })).toBeInTheDocument();
     expect(within(feed()).getByRole('img', { name: ':D' })).toBeInTheDocument();
   });
 

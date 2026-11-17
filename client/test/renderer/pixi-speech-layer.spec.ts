@@ -156,7 +156,7 @@ describe('PixiSpeechLayer', () => {
 
   it('a picture of the line arriving later asks for one render, then the layer rests again', () => {
     const { layer, bubbles } = layerWith();
-    layer.showSpeech(SCENE, [balloon({ text: 'Ninguém me pega :trollface:' })]);
+    layer.showSpeech(SCENE, [balloon({ text: 'Ninguém me pega :doge:' })]);
     layer.animate(FRAME);
     expect(layer.animate(FRAME)).toBe(false);
 

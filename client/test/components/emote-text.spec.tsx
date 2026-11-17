@@ -6,10 +6,10 @@ describe('EmoteText', () => {
   it('draws each code as a picture named by the code, with the text around it', () => {
     const { container } = render(
       <p>
-        <EmoteText text="rolem :troll: :)" />
+        <EmoteText text="rolem :doge: :)" />
       </p>,
     );
-    expect(screen.getByRole('img', { name: ':troll:' })).toHaveClass('size-[1.75em]');
+    expect(screen.getByRole('img', { name: ':doge:' })).toHaveClass('size-[1.75em]');
     expect(screen.getByRole('img', { name: ':)' })).toHaveClass('size-[1.375em]');
     expect(container.querySelector('p')).toHaveTextContent('rolem');
   });

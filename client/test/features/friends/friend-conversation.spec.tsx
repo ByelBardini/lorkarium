@@ -70,15 +70,15 @@ describe('friend conversation', () => {
   it('":" lists the memes and smileys, and "Memes e smileys" writes a code', async () => {
     renderAt(BIA_PATH);
     const input = await field();
-    await userEvent.type(input, 'kkk :pika');
+    await userEvent.type(input, 'kkk :hueh');
     const list = screen.getByRole('listbox', { name: 'Sugestões' });
-    expect(within(list).getByRole('option')).toHaveAttribute('data-value', ':pikachu:');
+    expect(within(list).getByRole('option')).toHaveAttribute('data-value', ':huehue:');
     await userEvent.keyboard('{Enter}');
-    expect(input).toHaveValue('kkk :pikachu: ');
+    expect(input).toHaveValue('kkk :huehue: ');
     expect(deps.directMessageCommands.sent).toEqual([]);
     await userEvent.click(screen.getByRole('button', { name: 'Memes e smileys' }));
     await userEvent.click(screen.getByRole('button', { name: '=)' }));
-    expect(input).toHaveValue('kkk :pikachu: =) ');
+    expect(input).toHaveValue('kkk :huehue: =) ');
   });
 
   it('a meme or smiley code in a message is drawn as its picture', async () => {

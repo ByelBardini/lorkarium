@@ -175,12 +175,12 @@ describe('ChatComposer — suggestions', () => {
   });
 
   it('":" and two letters list the memes and smileys with their picture; Enter writes the code', async () => {
-    await user.type(field(), 'Rolem :tro');
-    expect(optionNames()).toEqual([':trollface:']);
+    await user.type(field(), 'Rolem :dog');
+    expect(optionNames()).toEqual([':doge:']);
     const list = screen.getByRole('listbox', { name: 'Sugestões' });
     expect(within(list).getByRole('option').querySelector('img')).toHaveAttribute('alt', '');
     await user.keyboard('{Enter}');
-    expect(field()).toHaveValue('Rolem :trollface: ');
+    expect(field()).toHaveValue('Rolem :doge: ');
     expect(deps.chat.sent).toEqual([]);
   });
 

@@ -2,12 +2,12 @@
 
 Índice: [`../client.md`](../client.md) · chat: [`chat.md`](chat.md) · amigos: [`../friends.md`](../friends.md).
 
-O texto enviado **não muda**: o server recebe e repassa `:troll:` ou `:)` como qualquer texto (nada no contrato nem no `chat:send`/`dm:send`). A troca por imagem é só na hora de desenhar, no client.
+O texto enviado **não muda**: o server recebe e repassa `:doge:` ou `:)` como qualquer texto (nada no contrato nem no `chat:send`/`dm:send`). A troca por imagem é só na hora de desenhar, no client.
 
 ## Catálogo (`src/lib/emote-catalog.ts`)
 
 - `Emote` = `{ id, kind: 'smiley' | 'meme', codes, keywords }`. `id` é o nome do arquivo (`src/emotes/images/<id>.png`); o **primeiro código** é o que o seletor insere; `keywords` (pt-BR, sem acento) são para a busca.
-- `SMILEYS` (25), `MEMES` (22), `EMOTES` (os dois, smileys antes). Sem estrela (`:gold:`), por escolha do usuário: o spec do catálogo garante.
+- `SMILEYS` (24), `MEMES` (20), `EMOTES` (os dois, smileys antes). Sem estrela (`:gold:`), por escolha do usuário: o spec do catálogo garante.
 - Todo emote tem um código `:nome:` (os smileys ganharam `:smile:`, `:sad:`, `:cool:`…), para a lista do `:` oferecer todos. `isNamedEmoteCode(code)` diz se é `:nome:`.
 - Nenhum código repete entre emotes (o `:nome:` comparado sem caixa): o spec do catálogo garante.
 
@@ -15,7 +15,7 @@ O texto enviado **não muda**: o server recebe e repassa `:troll:` ou `:)` como 
 
 - `emotePiecesOf(text)` → `EmotePiece[]` (`{ kind: 'text', text }` | `{ kind: 'emote', emote, code }`, `code` como foi digitado). O código mais longo ganha (`:-D`, nunca `:-` + `D`); índice por primeiro caractere, montado uma vez.
 - Só vale **solto**: antes, início ou espaço; depois, fim, espaço ou `.,!?;`. Por isso `10:30`, `http://`, `a:b`, `oi:)` e `:D:D` ficam texto.
-- `:nome:` casa sem caixa (`:Troll:`); smiley de texto só como escrito (`xd` não é `xD`).
+- `:nome:` casa sem caixa (`:Doge:`); smiley de texto só como escrito (`xd` não é `xD`).
 - `emotesOnly(pieces)` → só imagens e espaços: a mensagem vira "figurinha" (40 px).
 
 ## Desenho
@@ -24,10 +24,11 @@ O texto enviado **não muda**: o server recebe e repassa `:troll:` ou `:)` como 
 - Usado em `chat-message-row.tsx` (feed da mesa: Mesa, sussurro, privado, grupo, fala de token) e em `features/friends/conversation-feed.tsx` (DMs). A prévia, a barra, o aviso e o anunciador continuam com o texto cru (`chatLineOf`).
 - `src/emotes/emote-images.ts` — `emoteImageUrlOf(id)` pelo `import.meta.glob('./images/*.png', { eager, query: '?url' })`: cada PNG vira `assets/<id>-<hash>.png` (cache imutável), e só baixa quando aparece numa mensagem. Id sem arquivo → erro com o id e o caminho esperado.
 
-## Imagens (`src/emotes/images/`, 47 PNG, 96 px, ~410 KB no total)
+## Imagens (`src/emotes/images/`, 44 PNG, 96 px)
 
 - **Smileys:** Noto Emoji (Google, Apache 2.0), `png/128` da tag `v2.047`, reduzidos para 96 px. Escolha do usuário entre Fluent 3D, Noto e Twemoji: não trocar sem perguntar.
-- **Memes e o Pac-Man (`:v`):** do pacote do Firecast (`resource.zip`, pasta `smileys/`, 128 px → 96 px), a pedido do usuário. **Sem licença conferida**: os rage faces não têm dono claro e o pacote é de outro produto. Trocar antes de qualquer uso comercial que dependa disso. O Noto não tem Pac-Man.
+- **Memes:** do pacote do Firecast (`resource.zip`, pasta `smileys/`, 128 px → 96 px), a pedido do usuário. **Sem licença**: os Termos do Firecast só dão uso pessoal e os rage faces não têm dono claro; ficam fora da licença do repositório. O usuário aceitou o risco dos que sobraram.
+- **Removidos por ter dono que cobra:** `pikachu` (Nintendo), `pacman` (Bandai Namco, era o smiley `:v`) e `trollface` (o autor registrou e cobra licença). Não trazer de volta nem pôr personagem de franquia no lugar.
 - Refazer: redimensionar para 96×96 com bicúbico e fundo transparente; o nome do arquivo é o `id` do catálogo.
 
 ## Inserir (`src/lib/emote-input.ts`)
