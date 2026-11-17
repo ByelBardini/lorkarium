@@ -11,7 +11,7 @@ export const EMOTE_SUGGESTION_LIMIT = 8;
  *  accent, no case), in the catalog's order. The code shown is the one that matched, or the
  *  emote's first `:name:` when a keyword did.
  *
- *  Example: `suggestEmotes('tro')[0]?.code // ':trollface:'` */
+ *  Example: `suggestEmotes('dog')[0]?.code // ':doge:'` */
 export function suggestEmotes(typed: string): EmoteSuggestion[] {
   const folded = searchText(typed);
   return EMOTES.flatMap((emote) => {

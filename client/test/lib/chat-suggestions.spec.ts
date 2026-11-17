@@ -32,7 +32,7 @@ describe('chat suggestions', () => {
     ['oi :t', 5],
     ['oi :)', 5],
     ['às 10:30', 8],
-    ['oi :troll: ', 11],
+    ['oi :doge: ', 10],
   ])('"%s" with the caret at %i asks for nothing', (draft, caret) => {
     expect(suggestionQueryOf(draft, caret)).toBeNull();
   });

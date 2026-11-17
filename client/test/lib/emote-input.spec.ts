@@ -9,7 +9,7 @@ import {
 
 describe('suggestEmotes', () => {
   it('offers the :name: code that starts with what was typed', () => {
-    expect(suggestEmotes('tro').map((each) => each.code)).toEqual([':trollface:']);
+    expect(suggestEmotes('dog').map((each) => each.code)).toEqual([':doge:']);
     expect(suggestEmotes('godw').map((each) => each.code)).toEqual([':godwhy:']);
   });
 
@@ -19,13 +19,7 @@ describe('suggestEmotes', () => {
 
   it('keeps the catalog order, smileys before memes, within the limit', () => {
     const found = suggestEmotes('p');
-    expect(found.map((each) => each.code)).toEqual([
-      ':wink:',
-      ':pacman:',
-      ':poop:',
-      ':pokerface:',
-      ':pikachu:',
-    ]);
+    expect(found.map((each) => each.code)).toEqual([':wink:', ':poop:', ':pokerface:']);
     expect(found.length).toBeLessThanOrEqual(EMOTE_SUGGESTION_LIMIT);
   });
 

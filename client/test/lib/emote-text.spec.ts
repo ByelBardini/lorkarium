@@ -9,11 +9,11 @@ function shapeOf(pieces: readonly EmotePiece[]): string[] {
 
 describe('emotePiecesOf', () => {
   it('cuts a smiley and a meme out of the text, keeping the code as typed', () => {
-    expect(shapeOf(emotePiecesOf('oi :) rolem :troll:'))).toEqual([
+    expect(shapeOf(emotePiecesOf('oi :) rolem :doge:'))).toEqual([
       'text:oi ',
       'smile::)',
       'text: rolem ',
-      'trollface::troll:',
+      'doge::doge:',
     ]);
   });
 
@@ -22,7 +22,7 @@ describe('emotePiecesOf', () => {
   });
 
   it('matches a :name: code without case, a text smiley only as written', () => {
-    expect(shapeOf(emotePiecesOf(':Troll:'))).toEqual(['trollface::Troll:']);
+    expect(shapeOf(emotePiecesOf(':Doge:'))).toEqual(['doge::Doge:']);
     expect(shapeOf(emotePiecesOf('xd'))).toEqual(['text:xd']);
   });
 

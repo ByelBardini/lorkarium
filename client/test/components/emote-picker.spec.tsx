@@ -18,12 +18,12 @@ async function openPicker(): Promise<{ picked: PickedCodes; panel: HTMLElement }
 }
 
 describe('EmotePicker', () => {
-  it('opens on the smileys, and the Memes tab shows the 22 memes', async () => {
+  it('opens on the smileys, and the Memes tab shows the 20 memes', async () => {
     const { panel } = await openPicker();
     expect(within(panel).getByRole('button', { name: '=)' })).toBeInTheDocument();
     await userEvent.click(within(panel).getByRole('tab', { name: 'Memes' }));
     const memes = within(screen.getByRole('tabpanel')).getAllByRole('button');
-    expect(memes).toHaveLength(22);
+    expect(memes).toHaveLength(20);
   });
 
   it('a click gives the first code and closes the grid', async () => {

@@ -15,11 +15,11 @@ function size(width: number, height = 20, gapAfter = 0) {
 describe('speechRunsOf', () => {
   // Regression: PixiJS measured "Ninguém " without its space and the balloon read "Ninguémmepega".
   it('cuts the line into words and pictures, marking the ones a space follows', () => {
-    expect(shapeOf(speechRunsOf('Ninguém me pega :trollface: :D'))).toEqual([
+    expect(shapeOf(speechRunsOf('Ninguém me pega :doge: :D'))).toEqual([
       'Ninguém_',
       'me_',
       'pega_',
-      '[trollface]_',
+      '[doge]_',
       '[grin]',
     ]);
   });
