@@ -1,6 +1,6 @@
 # Lorkarium
 
-**Mesa virtual para combates de RPG de mesa.** Grid, tokens, iniciativa, barras, condições, dados 3D e chat, tudo sincronizado em tempo real com o grupo, pelo app para Windows ou pelo navegador. Funciona com qualquer sistema: D&D, Tormenta20, Ordem Paranormal ou aquele que vocês inventaram.
+**Mesa virtual para combates de RPG de mesa.** Grid, tokens, iniciativa, barras, condições, visão e luz, dados 3D, fichas e chat, tudo sincronizado em tempo real com o grupo, pelo app para Windows ou pelo navegador. Funciona com qualquer sistema: D&D, Tormenta20, Ordem Paranormal ou aquele que vocês inventaram.
 
 [**Baixar para Windows**](https://github.com/ByelBardini/lorkarium/releases/latest) · Windows 10 ou 11, 64 bits · grátis durante o acesso antecipado, com conta por convite
 
@@ -9,29 +9,29 @@
 ## Como se joga
 
 1. **O mestre cria a mesa.** Dá um nome, escolhe o sistema e manda o código de entrada no grupo.
-2. **O grupo entra.** Cada um usa a própria conta, pelo app ou pelo navegador, e entra pelo código como espectador. O mestre promove quem vai jogar.
+2. **O grupo entra.** Cada um usa a própria conta, pelo app ou pelo navegador, e entra pelo código como espectador. O mestre promove quem vai jogar, e cada jogador ganha o seu personagem na mesa.
 3. **Bora jogar.** O mestre abre um grid, coloca os tokens e rola iniciativa. O resto se ajusta no caminho.
 
-Mapas, tokens, barras, condições e a biblioteca de grids ficam salvos no servidor. Quem cai da internet recupera o estado da mesa ao voltar, até em outro computador. Mensagens do chat e resultados dos dados têm histórico local durante a visita à mesa; quem chega depois começa com esse histórico vazio.
+Mapas, tokens, personagens, fichas, documentos e a biblioteca ficam salvos no servidor. Quem cai da internet recupera o estado da mesa ao voltar, até em outro computador. O chat, as mensagens privadas e os resultados dos dados não são gravados no servidor: têm histórico local durante a visita, e quem chega depois começa com ele vazio.
 
 ## Recursos
 
 ### Tabuleiro
 
 - Grids em abas, cada um com a sua imagem de fundo, e câmera com zoom e arraste.
-- Tokens que andam casa por casa, régua com distância e três camadas: tokens, objetos e fundo.
+- Tokens que andam casa por casa ou livres, régua com distância e três camadas: tokens, objetos e fundo.
 - Desenhos e formas com cor, áreas de efeito com as casas atingidas pintadas e ping no mapa com o nome e a cor de quem marcou.
 - Copiar e colar (Ctrl+C/V), desfazer e refazer (Ctrl+Z/Y).
-- **Biblioteca de grids:** prepare os mapas antes, organize em pastas, deixe privado até a hora da surpresa e leve o grupo para lá com um clique.
 
-### Tokens
+### Tokens e personagens
 
 - Imagem ou iniciais, borda quadrada ou redonda, de meia casa a 10 casas, virado para qualquer direção.
-- **Até 8 barras por token** (PV, mana, escudo, sanidade…), com cor, número ou porcentagem e quem pode ver os valores. Dano e cura direto na barra: `−7` tira, `+5` soma.
-- O mestre decide quais jogadores controlam cada token, e cada jogador tem o seu token principal à mão.
-- Tokens invisíveis para os jogadores, marca de abatido e um elenco de personagens que leva o mesmo estado para qualquer grid.
-- **Até 8 formas por token:** formas nomeadas com imagem, borda e tamanho próprios para representar transformações, mantendo barras, condições e controle.
+- **Barras por token** (PV, mana, escudo, sanidade…), com cor, número ou porcentagem, valor temporário e quem pode ver os valores. Dano e cura direto na barra: `−7` tira, `+5` soma.
+- **Personagem da mesa:** cada jogador tem o seu, com barras, CA, CD, anotações, condições, formas e fichas. Os tokens ligados a ele levam o mesmo estado para qualquer grid.
+- O mestre decide quem controla cada token. Tokens invisíveis para os jogadores, tokens que bloqueiam a visão e marca de abatido.
+- **Formas:** versões nomeadas do token, com imagem, borda e tamanho próprios, para representar transformações sem perder barras, condições e controle.
 - Auras com cor, efeito animado ou imagem, com alcance e opacidade configuráveis.
+- **Patrulha:** o mestre desenha um trajeto e o token anda sozinho por ele, levando a luz junto.
 
 ### Combate e condições
 
@@ -44,37 +44,46 @@ Mapas, tokens, barras, condições e a biblioteca de grids ficam salvos no servi
 ### Visão, luz e paredes
 
 - Cada token enxerga até onde alcança, em luz plena e na penumbra, com névoa sobre o resto e campo de visão em cone.
-- Luzes no mapa e nos tokens: alcance, cor, feixe de lanterna, acesas ou apagadas. Tochas acompanham quem as carrega.
+- Luzes no mapa e nos tokens: alcance, cor, feixe de lanterna ou holofote, acesas ou apagadas. Tochas acompanham quem as carrega.
 - Paredes bloqueiam a visão e a passagem; portas abrem, fecham e trancam na hora certa.
 - O mestre vê o mapa inteiro e pode olhar a cena pelos olhos de qualquer token.
 
-### Mesa e grupo
+### Biblioteca, fichas e documentos
 
-- Dono da mesa, co-mestres, jogadores e espectadores, com permissões próprias e presença ao vivo.
-- Ficha da mesa por membro: nome do personagem, CA, CD e anotações.
-- Perfil com apelido, cor, bio e foto.
-- Configurações da mesa, capa e exclusão.
+- **Biblioteca da mesa:** grids, imagens, documentos e fichas em pastas. Prepare tudo antes, deixe privado até a hora da surpresa e leve o grupo para um grid com um clique.
+- **Fichas programáveis:** o mestre escreve o modelo de ficha do sistema em HTML, CSS e JavaScript, com editor de código e prévia, e cria as fichas a partir dele. Cada ficha roda isolada, sem acesso à rede, e só fala com a mesa pelo SDK `window.lorkarium`, com cada pedido conferido pelo servidor.
+- **Documentos ricos** em abas, com imagens e tabelas, para lore, anotações e handouts, com quem pode ler e quem pode editar.
 
 ### Dados
 
 - **Dados 3D com física no servidor:** d4, d6, d8, d10, d12, d20 e d100. A face em que o dado para determina o resultado; quem pode ver a rolagem acompanha o mesmo lançamento. Até 20 modelos por rolagem, com os demais dados sorteados no servidor.
 - Fórmulas como `1d20+5`, vantagem e desvantagem, manter ou descartar dados, explosões, rerrolagens e contagem de sucessos. Dados personalizados de 2 a 1000 faces.
 - Rolagens públicas ou só para os mestres e quem rolou, salvas por mesa e histórico com os resultados de cada dado. A rolagem secreta mostra apenas um aviso a quem não pode vê-la.
-- Aparência, som e exibição dos dados 3D configuráveis na conta.
+- Aparência (cor e textura), som e exibição dos dados 3D configuráveis na conta.
 
 ### Chat
 
 - Conversa da mesa, sussurros, privados e grupos. Espectadores também conversam; os mestres só recebem as conversas das quais participam.
 - Fale como um token que controla, com balão no tabuleiro; o mestre pode falar como qualquer token da cena.
 - Comandos `/r` para rolar, `/gr` para rolar só para os mestres e `/w` para sussurrar, além de atalhos para as rolagens salvas.
+- Memes e smileys (`:doge:`, `:)`), menções com `@` e som ao ser mencionado ou receber um sussurro.
 - **Chat e Dados em janelas separadas**, abertas ao mesmo tempo enquanto você usa o tabuleiro. No app para Windows, elas podem ficar sempre por cima.
+
+### Mesa e comunidade
+
+- Dono da mesa, co-mestres, jogadores e espectadores, com permissões próprias e presença ao vivo.
+- Configurações da mesa, capa, banner, tags e exclusão.
+- Perfil com apelido, cor, bio, foto, banner, insígnias e cores salvas.
+- **Amigos:** pedidos pelo @, bloqueio, presença online e mensagens privadas.
+- **Card de perfil** com reputação (👍/👎 de quem já dividiu mesa) e denúncia, que vai para a fila do admin.
 
 ### Conta e segurança
 
 - Acesso por convite: quem recebe escolhe o próprio @ e a senha.
 - Login em duas etapas, verificação em duas etapas por aplicativo autenticador, lista de sessões ativas, troca de senha e de e-mail e avisos de segurança por e-mail.
 - E-mail cifrado no banco e registros de acesso guardados conforme o Marco Civil da Internet.
-- Painel de administração das contas: papel, suspensão, exclusão, convites e link de nova senha.
+- Planos por conta (Grátis, Apoiador, Narrador e Lenda): os limites de cada mesa seguem o plano do dono dela.
+- Painel de administração: contas, papéis, suspensão, exclusão, convites, link de nova senha, planos, insígnias e denúncias.
 
 ### App para Windows
 
@@ -84,7 +93,7 @@ Mapas, tokens, barras, condições e a biblioteca de grids ficam salvos no servi
 
 ## Como funciona
 
-O servidor é a autoridade sobre a mesa: o cliente pede cada ação, o servidor confere a permissão, aplica e salva as mudanças persistentes antes de avisar o grupo. Chat, dados e pings são eventos efêmeros, sem gravação no servidor. O estado compartilhado que aparece na tela é confirmado pelo servidor, e cada um recebe só o que pode ver: barras restritas e tokens ocultos são enviados apenas a quem tem permissão, assim como as conversas e rolagens privadas.
+O servidor é a autoridade sobre a mesa: o cliente pede cada ação, o servidor confere a permissão, aplica e salva as mudanças persistentes antes de avisar o grupo. Chat, mensagens privadas, dados e pings são eventos efêmeros, sem gravação no servidor. O estado compartilhado que aparece na tela é confirmado pelo servidor, e cada um recebe só o que pode ver: barras restritas e tokens ocultos são enviados apenas a quem tem permissão, assim como as conversas e rolagens privadas.
 
 ```mermaid
 flowchart LR
@@ -101,34 +110,34 @@ flowchart LR
 ```
 
 - **Um processo, uma origem:** a mesma imagem Docker serve a SPA, a API e o Socket.IO, e migra o banco ao subir.
-- **Regra de jogo separada da tela:** distância, turnos, condições, visão e luz moram num pacote de TypeScript puro, usado igual pelo servidor e pelo cliente.
-- **Independente de sistema:** barras, condições e iniciativa são genéricas e configuráveis por mesa.
-- **Segurança desde a base:** autenticação, autorização, validação de toda entrada e isolamento entre mesas.
+- **Regra de jogo separada da tela:** distância, turnos, condições, visão, luz, patrulha e a regra dos dados moram num pacote de TypeScript puro, usado igual pelo servidor e pelo cliente.
+- **Independente de sistema:** barras, condições, iniciativa e fichas são genéricas e configuráveis por mesa.
+- **Segurança desde a base:** autenticação, autorização, validação de toda entrada com Zod, isolamento entre mesas e fichas em sandbox.
 - **Simples de operar:** monólito modular numa instância só, numa VPS.
 
 ## Stack
 
-| Camada    | Tecnologias                                                                                                                                       |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Frontend  | React 19, TypeScript, Vite 8, PixiJS 8, three.js, Zustand 5, Tailwind CSS v4, shadcn/ui, React Router 8, Socket.IO Client 4, Zod 4                |
-| Backend   | Node.js 26, TypeScript, Fastify 5, Socket.IO 4, Zod 4, PostgreSQL 17, Drizzle ORM, Pino, AWS SDK (S3), sharp, nodemailer, otpauth, cannon-es      |
-| Desktop   | Tauri 2 + Rust, instalador NSIS; splash em TypeScript puro + Vite                                                                                 |
-| Landing   | Astro 7 estático, Tailwind CSS v4, servido por Caddy                                                                                              |
-| Qualidade | Vitest 5, Playwright, Testing Library, ESLint 10, Prettier 3, TypeScript 6 strict, Husky + lint-staged                                            |
-| Infra     | Docker (imagem multi-estágio), Docker Compose (Postgres, SeaweedFS, Mailpit), Coolify, VPS Linux, AWS S3, SMTP, GitHub Actions + semantic-release |
+| Camada    | Tecnologias                                                                                                                                                                                       |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend  | React 19, TypeScript, Vite 8, PixiJS 8, three.js, Zustand 5, Tailwind CSS v4, shadcn/ui, React Router 8, Socket.IO Client 4, Zod 4, Tiptap (documentos), CodeMirror 6 (editor de modelo de ficha) |
+| Backend   | Node.js 26, TypeScript, Fastify 5, Socket.IO 4, Zod 4, PostgreSQL 17, Drizzle ORM, Pino, AWS SDK (S3), sharp, nodemailer, otpauth, cannon-es                                                      |
+| Desktop   | Tauri 2 + Rust, instalador NSIS; splash em TypeScript puro + Vite                                                                                                                                 |
+| Landing   | Astro 7 estático, Tailwind CSS v4, servido por Caddy                                                                                                                                              |
+| Qualidade | Vitest 5, Playwright, Testing Library, ESLint 10, Prettier 3, TypeScript 6 strict, Husky + lint-staged                                                                                            |
+| Infra     | Docker (imagem multi-estágio), Docker Compose (Postgres, SeaweedFS, Mailpit), Coolify, VPS Linux, AWS S3, SMTP, GitHub Actions + semantic-release                                                 |
 
 ## Estrutura do repositório
 
 ```text
 lorkarium/
-├── client/                 # SPA (React + Vite); PixiJS em src/renderer/; dados 3D pelo packages/dice-renderer/
-├── server/                 # API e tempo real (Fastify + Socket.IO + Drizzle); módulos em src/modules/
+├── client/                 # SPA (React + Vite); PixiJS em src/renderer/; fichas em sandbox em src/sheet-sandbox/
+├── server/                 # API e tempo real (Fastify + Socket.IO + Drizzle); um módulo por feature em src/modules/
 ├── site/                   # Landing (Astro): apresentação, download do instalador, Termos e Privacidade
 ├── desktop/                # App para Windows (Tauri 2): splash em src/, Rust e instalador em src-tauri/
 ├── packages/
-│   ├── game-core/          # Regra de jogo pura: células, distância, turnos, condições, visão, luz
+│   ├── game-core/          # Regra de jogo pura, sem dependência (MIT)
+│   ├── dice-renderer/      # Dados 3D em three.js, sem React e sem depender do resto (MIT)
 │   ├── contracts/          # DTOs Zod que atravessam client ↔ server (HTTP e Socket.IO)
-│   ├── dice-renderer/      # Dados 3D em three.js, usados pelo client
 │   ├── brand/              # Paleta, fontes e logo
 │   └── tsconfig/           # Configurações TypeScript compartilhadas
 ├── e2e/                    # Testes ponta a ponta com Playwright
@@ -138,10 +147,11 @@ lorkarium/
 ├── docs/context/           # Documentação técnica, uma área por arquivo
 ├── .github/                # CI, release do desktop e Dependabot
 ├── Dockerfile              # Imagem de produção
+├── LICENSE.md, NOTICE.md   # Licenças do repositório e conteúdo de terceiros
 └── pnpm-workspace.yaml
 ```
 
-Os pacotes internos (`@lorkarium/game-core`, `@lorkarium/contracts`) são consumidos direto pelo código-fonte TypeScript, sem build próprio; o build do server os coloca dentro do bundle.
+Os pacotes internos são consumidos direto pelo código-fonte TypeScript, sem build próprio; o build do server e o do client os colocam dentro do bundle. O `game-core` e o `dice-renderer` não dependem de nenhum outro pacote do monorepo e podem ser usados fora dele.
 
 ## Desenvolvimento
 
@@ -184,34 +194,34 @@ A landing roda à parte, com `cp site/.env.example site/.env` e `pnpm site:dev` 
 
 Executados na raiz do repositório:
 
-| Script                  | Descrição                                                                         |
-| ----------------------- | --------------------------------------------------------------------------------- |
-| `pnpm dev`              | Sobe a infra local, aplica as migrações e roda client e server                    |
-| `pnpm build`            | Gera o build de todos os pacotes que têm build                                    |
-| `pnpm typecheck`        | Verifica tipos em todo o workspace (specs incluídos)                              |
-| `pnpm lint`             | Executa o ESLint                                                                  |
-| `pnpm format`           | Formata o código com Prettier                                                     |
-| `pnpm format:check`     | Verifica a formatação sem alterar arquivos                                        |
-| `pnpm test`             | Testes (Vitest) de todos os projetos, sem a integração                            |
-| `pnpm test:packages`    | Testes de game-core, contracts e da splash do desktop, com cobertura              |
-| `pnpm test:client`      | Testes do client, com cobertura                                                   |
-| `pnpm test:server`      | Testes unitários do server, com cobertura                                         |
-| `pnpm test:integration` | Testes de integração do server (exige Postgres)                                   |
-| `pnpm e2e:install`      | Baixa o Chromium do Playwright                                                    |
-| `pnpm test:e2e`         | Testes ponta a ponta (sobe server e client próprios; pare o `pnpm dev`)           |
-| `pnpm test:e2e:site`    | Testes ponta a ponta da landing                                                   |
-| `pnpm bench`            | Benchmarks do tabuleiro, da visão e da física dos dados (fora dos testes e do CI) |
-| `pnpm db:up`            | Sobe Postgres, SeaweedFS e Mailpit via Docker Compose                             |
-| `pnpm db:down`          | Derruba os containers locais                                                      |
-| `pnpm db:generate`      | Gera o SQL de migração a partir das tabelas                                       |
-| `pnpm db:migrate`       | Aplica as migrações no `DATABASE_URL`                                             |
-| `pnpm db:seed-dev`      | Cria os jogadores de teste Bia e Caio (recusa em produção)                        |
-| `pnpm db:seed-stress`   | Cria a "Mesa de estresse" da Bia no tamanho do bench (recusa em produção)         |
-| `pnpm mail:preview`     | Envia um exemplar de cada e-mail do sistema ao Mailpit                            |
-| `pnpm site:dev`         | Roda a landing em http://localhost:4321                                           |
-| `pnpm site:build`       | Gera a landing estática em `site/dist/`                                           |
-| `pnpm desktop:dev`      | Abre a janela do app desktop sobre o `pnpm dev`                                   |
-| `pnpm desktop:build`    | Gera o instalador NSIS do app desktop                                             |
+| Script                  | Descrição                                                                           |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| `pnpm dev`              | Sobe a infra local, aplica as migrações e roda client e server                      |
+| `pnpm build`            | Gera o build de todos os pacotes que têm build                                      |
+| `pnpm typecheck`        | Verifica tipos em todo o workspace (specs incluídos)                                |
+| `pnpm lint`             | Executa o ESLint                                                                    |
+| `pnpm format`           | Formata o código com Prettier                                                       |
+| `pnpm format:check`     | Verifica a formatação sem alterar arquivos                                          |
+| `pnpm test`             | Testes (Vitest) de todos os projetos, sem a integração                              |
+| `pnpm test:packages`    | Testes de game-core, contracts, dice-renderer e da splash do desktop, com cobertura |
+| `pnpm test:client`      | Testes do client, com cobertura                                                     |
+| `pnpm test:server`      | Testes unitários do server, com cobertura                                           |
+| `pnpm test:integration` | Testes de integração do server (exige Postgres)                                     |
+| `pnpm e2e:install`      | Baixa o Chromium do Playwright                                                      |
+| `pnpm test:e2e`         | Testes ponta a ponta (sobe server e client próprios; pare o `pnpm dev`)             |
+| `pnpm test:e2e:site`    | Testes ponta a ponta da landing                                                     |
+| `pnpm bench`            | Benchmarks do tabuleiro, da visão e da física dos dados (fora dos testes e do CI)   |
+| `pnpm db:up`            | Sobe Postgres, SeaweedFS e Mailpit via Docker Compose                               |
+| `pnpm db:down`          | Derruba os containers locais                                                        |
+| `pnpm db:generate`      | Gera o SQL de migração a partir das tabelas                                         |
+| `pnpm db:migrate`       | Aplica as migrações no `DATABASE_URL`                                               |
+| `pnpm db:seed-dev`      | Cria os jogadores de teste Bia e Caio (recusa em produção)                          |
+| `pnpm db:seed-stress`   | Cria a "Mesa de estresse" da Bia no tamanho do bench (recusa em produção)           |
+| `pnpm mail:preview`     | Envia um exemplar de cada e-mail do sistema ao Mailpit                              |
+| `pnpm site:dev`         | Roda a landing em http://localhost:4321                                             |
+| `pnpm site:build`       | Gera a landing estática em `site/dist/`                                             |
+| `pnpm desktop:dev`      | Abre a janela do app desktop sobre o `pnpm dev`                                     |
+| `pnpm desktop:build`    | Gera o instalador NSIS do app desktop                                               |
 
 Para rodar um script num pacote específico: `pnpm --filter @lorkarium/client <script>`. Um spec só: `pnpm exec vitest run <caminho>`.
 
@@ -242,3 +252,13 @@ Antes de abrir um PR: `pnpm test && pnpm lint && pnpm typecheck`. O CI roda as m
 - [docs/context/](docs/context/): o detalhe de cada área (contratos, eventos, tabelas, armadilhas). É a fonte da verdade de quem mexe no código e acompanha cada mudança.
 
 Commits seguem o padrão convencional (`feat`, `fix`, `docs`…), em português.
+
+## Licença
+
+O código é aberto para leitura, estudo e uso próprio, mas não para competir com o Lorkarium.
+
+- **Repositório:** [Functional Source License 1.1, MIT Future License](LICENSE.md) (FSL-1.1-MIT). Pode usar, copiar, modificar e redistribuir para qualquer fim que não seja oferecer um produto ou serviço comercial concorrente. Dois anos depois de cada versão ser publicada, ela passa a valer também sob a licença MIT.
+- **`packages/game-core` e `packages/dice-renderer`:** [MIT](packages/game-core/LICENSE), livres para qualquer uso, inclusive comercial.
+- **Conteúdo de terceiros** (smileys do Noto Emoji, memes e sons) não é coberto por nenhuma das duas; a lista está no [NOTICE.md](NOTICE.md).
+
+O nome e o logo do Lorkarium não estão licenciados.

@@ -35,7 +35,6 @@ export const SMILEYS: readonly Emote[] = [
   smiley('kiss', ['=*', ':*', ':-*', ':kiss:'], ['beijo']),
   smiley('sunglasses', ['8-)', '8)', 'B-)', 'B)', '8D', ':cool:'], ['oculos']),
   smiley('flushed', ['o.O', 'O.o', 'oO', 'Oo', ':flushed:'], ['confuso']),
-  smiley('pacman', [':v', ':V', '=v', '=V', ':-v', ':-V', ':pacman:'], []),
   smiley('expressionless', ['-_-', ':meh:'], ['sem paciencia']),
   smiley('angel', ['O:)', 'O:-)', 'O=D', 'O=)', ':angel:'], ['anjo']),
   smiley('devil', ['3:)', '(6)', '3:-)', '3=)', '3=]', ':devil:'], ['capetinha']),
@@ -54,7 +53,6 @@ export const SMILEYS: readonly Emote[] = [
 
 /** Every meme, in the picker's order. */
 export const MEMES: readonly Emote[] = [
-  meme('trollface', [':trollface:', ':troll:']),
   meme('okayface', [':okayface:', ':okay:']),
   meme('lolface', [':lolface:', ':lol:']),
   meme('megusta', [':megusta:', ':megustaface:']),
@@ -75,16 +73,15 @@ export const MEMES: readonly Emote[] = [
   meme('huehue', [':huehue:', ':hue:', ':hu3:']),
   meme('dinofauro', [':dinofauro:', ':fauro:', ':dino:']),
   meme('doge', [':doge:']),
-  meme('pikachu', [':pikachu:']),
 ];
 
 /** Smileys first, then memes. */
 export const EMOTES: readonly Emote[] = [...SMILEYS, ...MEMES];
 
-/** A `:name:` code: matched without case (`:Troll:` is `:troll:`), and the only kind the `:`
+/** A `:name:` code: matched without case (`:Doge:` is `:doge:`), and the only kind the `:`
  *  list offers.
  *
- *  Example: `isNamedEmoteCode(':troll:') // true; isNamedEmoteCode(':)') // false` */
+ *  Example: `isNamedEmoteCode(':doge:') // true; isNamedEmoteCode(':)') // false` */
 export function isNamedEmoteCode(code: string): boolean {
   return /^:[^\s:]{2,}:$/u.test(code);
 }
