@@ -16,6 +16,8 @@ import { BIA_AT_TABLE, LYRA_ID, VHARN_GRID } from '../../support/table-session-f
 import { cell } from '@lorkarium/game-core';
 import { boardCommandFailureMessage } from '@/features/board/board-messages';
 import { TableTokenKeysContext } from '@/features/board/table-token-rights';
+import { OPEN_GATE, planLockGate, type PlanGate } from '@/features/plans/plan-gate';
+import { PLAN_LIMITS } from '@lorkarium/contracts';
 
 // Every tool button has one Tooltip: counting them counts the buttons drawn again.
 const tooltipRenders = vi.hoisted(() => ({ count: 0 }));
@@ -345,5 +347,48 @@ describe('BoardToolbar, "Novo token" of a player', () => {
   it('a spectator with the create key sees no "Novo token"', () => {
     renderAs('spectator', { create: true, delete: true });
     expect(screen.queryByRole('button', { name: 'Novo token' })).toBeNull();
+  });
+});
+
+describe('BoardToolbar on a grid past the plan', () => {
+  const READ_ONLY =
+    'Este grid passou do limite do plano Grátis (3) e está só leitura. Apague um grid mais antigo ou suba de plano.';
+
+  function renderMaster(setupLock: PlanGate): void {
+    const interaction = createBoardInteractionStore({
+      scopeOf: () => VHARN_GRID,
+      commands: new TableBoardCommandsFake(),
+      describeRefusal: String,
+    });
+    render(
+      <BoardToolbar
+        interaction={interaction}
+        renderer={new BoardRendererFake(() => undefined, 'resolve')}
+        role="master"
+        auraMotion={createAuraMotionStore(new StorageFake())}
+        setupLock={setupLock}
+        onConfigure={() => undefined}
+        onNewToken={() => undefined}
+      />,
+    );
+  }
+
+  it('Paredes is disabled and described by the readOnly sentence; Régua and Luzes stay', () => {
+    renderMaster(planLockGate(PLAN_LIMITS.free, 'scenes', { planLocked: true }));
+
+    const walls = screen.getByRole('button', { name: 'Paredes (P)' });
+    expect(walls).toBeDisabled();
+    expect(walls).toHaveAccessibleDescription(READ_ONLY);
+    expect(screen.getByRole('button', { name: 'Régua (R)' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Luzes (L)' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Configurar cena' })).toBeEnabled();
+  });
+
+  it('within the plan Paredes is enabled and has no description', () => {
+    renderMaster(OPEN_GATE);
+
+    const walls = screen.getByRole('button', { name: 'Paredes (P)' });
+    expect(walls).toBeEnabled();
+    expect(walls).not.toHaveAccessibleDescription();
   });
 });

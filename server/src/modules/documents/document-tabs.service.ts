@@ -16,8 +16,8 @@ import {
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import { viewerAccessOf } from '../campaigns/member-access';
 import type { LibraryRequester } from '../library/library.service';
-import type { DocumentTabSummaryPo } from './document-tabs.po';
-import { DocumentTabsBo } from './document-tabs.bo';
+import type { DocumentTabRankedPo } from './document-tabs.dao';
+import { DocumentTabsBo, isTabPlanLocked, requireTabConfigurable } from './document-tabs.bo';
 import { toDocumentTabDto, toDocumentTabSummaryDto } from './document-tabs.mapper';
 import {
   DocumentError,
@@ -36,10 +36,11 @@ import {
 
 type TabOperation = 'tab-create' | 'tab-update' | 'tab-reorder' | 'tab-delete';
 type StructuralInput = Readonly<{ actionId: string; expectedVersion: number }>;
-type TabsScope = DocumentScope & Readonly<{ tabs: DocumentTabsBo<DocumentTabSummaryPo> }>;
+type TabsScope = DocumentScope & Readonly<{ tabs: DocumentTabsBo<DocumentTabRankedPo> }>;
+type Write = () => Promise<string | undefined>;
 /** Checks the change against the tabs (throwing before anything is written) and returns the
  *  write, which answers the tab it touched, if any, for the receipt. */
-type Change = (scope: TabsScope, limits: PlanLimits) => () => Promise<string | undefined>;
+type Change = (scope: TabsScope, limits: PlanLimits) => Write | Promise<Write>;
 
 /** The tabs of a document: read one, create, rename/hide, reorder, delete and save a body.
  *  Structural changes bump the document version; a body bumps only its own tab.
@@ -58,10 +59,11 @@ export class DocumentTabsService {
     return this.deps.snapshot(async (daos) => {
       const access = await viewerAccessOf(daos.members, requester.campaignId, requester.userId);
       const scope = await this.tabsScope(daos, access, documentId);
-      scope.tabs.requireVisible(tabId);
+      const { rank } = scope.tabs.requireVisible(tabId);
       const tab = await daos.tabs.findInDocument(requester.campaignId, documentId, tabId);
       if (!tab) throw new DocumentTabNotFoundError(documentId, tabId);
-      return toDocumentTabDto(tab);
+      const limits = await this.steps.ownerLimits(daos, requester);
+      return toDocumentTabDto(tab, isTabPlanLocked(rank, limits));
     });
   }
   async create(
@@ -90,9 +92,10 @@ export class DocumentTabsService {
     tabId: string,
     input: UpdateDocumentTabRequestDto,
   ): Promise<DocumentWriteResponseDto> {
-    const change: Change = (scope) => {
+    const change: Change = async (scope, limits) => {
       if (input.visibility !== undefined) scope.tabs.requireVisibilityChange(tabId);
       else scope.tabs.requireEdit(tabId);
+      if (input.name !== undefined) await this.requireConfigurable(scope, tabId, limits);
       return async () => {
         await scope.daos.tabs.update(requester.campaignId, documentId, tabId, {
           ...(input.name === undefined ? {} : { name: input.name }),
@@ -143,17 +146,30 @@ export class DocumentTabsService {
       const access = await this.steps.tabLockedAccess(daos, requester, documentId, tabId);
       const scope = await this.tabsScope(daos, access, documentId);
       const tab = scope.tabs.requireEdit(tabId);
+      const limits = await this.steps.ownerLimits(daos, requester);
       const fingerprint = commandFingerprint('tab-content', tabId, input);
       const previous = await this.steps.previous(daos, requester, input.actionId, fingerprint);
-      if (previous)
-        return { value: { tab: toDocumentTabSummaryDto(tab), receipt: previous }, changed: false };
-      if (tab.version !== input.expectedVersion)
-        throw new DocumentTabVersionConflictError(tabId, input.expectedVersion, tab.version);
+      if (previous) {
+        const summary = toDocumentTabSummaryDto(tab, isTabPlanLocked(tab.rank, limits));
+        return { value: { tab: summary, receipt: previous }, changed: false };
+      }
+      await this.requireBodyWritable(scope, tab, input.expectedVersion, limits);
       const value = await this.saveBody(scope, tabId, input);
       await this.steps.record(daos, requester, value.receipt, fingerprint);
       return { value, changed: true };
     });
     return this.steps.tabChanged(requester.campaignId, result);
+  }
+  /** The plan before the version: a read-only tab is refused even with a stale version. */
+  private async requireBodyWritable(
+    scope: TabsScope,
+    tab: DocumentTabRankedPo,
+    expectedVersion: number,
+    limits: PlanLimits,
+  ): Promise<void> {
+    await this.requireConfigurable(scope, tab.id, limits);
+    if (tab.version !== expectedVersion)
+      throw new DocumentTabVersionConflictError(tab.id, expectedVersion, tab.version);
   }
   private async saveBody(
     scope: TabsScope,
@@ -173,7 +189,8 @@ export class DocumentTabsService {
       version: saved.version,
       operation: 'tab-content',
     };
-    return { tab: toDocumentTabSummaryDto(saved), receipt };
+    // `requireBodyWritable` just passed: the saved tab is within the plan.
+    return { tab: toDocumentTabSummaryDto(saved, false), receipt };
   }
   private async structural(
     requester: LibraryRequester,
@@ -189,7 +206,7 @@ export class DocumentTabsService {
       const fingerprint = commandFingerprint(operation, targetId, input);
       const previous = await this.steps.previous(daos, requester, input.actionId, fingerprint);
       if (previous) return this.replay(scope, previous);
-      const apply = change(scope, limits);
+      const apply = await change(scope, limits);
       scope.document.requireVersion(input.expectedVersion);
       const tabId = await apply();
       const row = await this.steps.bumpDocument(scope);
@@ -201,6 +218,17 @@ export class DocumentTabsService {
       };
     });
     return this.steps.published(requester.campaignId, result);
+  }
+  /** The plan's word on the tab's name or body, by its rank read in this transaction. */
+  private async requireConfigurable(
+    scope: TabsScope,
+    tabId: string,
+    limits: PlanLimits,
+  ): Promise<void> {
+    const { campaignId, id: documentId } = scope.row;
+    const rank = await scope.daos.tabs.rankOf(campaignId, documentId, tabId);
+    if (rank === undefined) throw new DocumentTabNotFoundError(documentId, tabId);
+    requireTabConfigurable(rank, limits);
   }
   private async tabsScope(
     daos: DocumentDaos,

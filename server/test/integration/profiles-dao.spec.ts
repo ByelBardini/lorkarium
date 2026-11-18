@@ -39,10 +39,12 @@ describe('ProfilesDao on Postgres', () => {
       color: null,
       plan: 'free',
       role: 'user',
+      activePaidPlan: null,
       lorkariumOwner: false,
     });
     expect(Object.keys(row ?? {}).sort()).toEqual(
       [
+        'activePaidPlan',
         'avatarId',
         'bannerId',
         'bio',

@@ -161,8 +161,8 @@ describe('campaign photo and banner upload', () => {
     return { pages: metadata.pages ?? 1, format: metadata.format };
   }
 
-  it('on a Narrador owner a GIF photo keeps its 3 frames, each cut to the picked half', async () => {
-    await setAccountPlan(connection.db, anaId, 'narrador');
+  it('on a Lenda owner a GIF photo keeps its 3 frames, each cut to the picked half', async () => {
+    await setAccountPlan(connection.db, anaId, 'lenda');
 
     const query = `purpose=campaign_photo&${RIGHT_HALF}`;
     const asset = assetOf(await upload(ana, await halvedGif(), query, 'image/gif'));
@@ -174,9 +174,9 @@ describe('campaign photo and banner upload', () => {
   });
 
   it.each(['cover', 'campaign_banner'] as const)(
-    'on a Narrador owner a %s GIF sent by a Grátis player stays animated: the owner plan counts',
+    'on a Lenda owner a %s GIF sent by a Grátis player stays animated: the owner plan counts',
     async (purpose) => {
-      await setAccountPlan(connection.db, anaId, 'narrador');
+      await setAccountPlan(connection.db, anaId, 'lenda');
 
       const asset = assetOf(
         await upload(bia, await halvedGif(), `purpose=${purpose}`, 'image/gif'),
@@ -187,7 +187,21 @@ describe('campaign photo and banner upload', () => {
     },
   );
 
-  it.each(['free', 'apoiador'] as const)(
+  it.each(['cover', 'campaign_banner'] as const)(
+    'on a Narrador owner a %s GIF is kept as its still first frame: no animatedCampaignArt',
+    async (purpose) => {
+      await setAccountPlan(connection.db, anaId, 'narrador');
+
+      const asset = assetOf(
+        await upload(ana, await halvedGif(), `purpose=${purpose}`, 'image/gif'),
+      );
+
+      expect(asset.mimeType).toBe('image/png');
+      expect((await pagesOf(asset.id)).pages).toBe(1);
+    },
+  );
+
+  it.each(['free', 'apoiador', 'narrador'] as const)(
     'on a %s owner a GIF photo is kept as its still first frame, not refused',
     async (plan) => {
       await setAccountPlan(connection.db, anaId, plan);

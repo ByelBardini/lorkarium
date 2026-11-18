@@ -20,7 +20,7 @@
 ## Leitura
 
 - `mapRegionDto` `{ id, name, description, geometry, color (hexColorDto), icon (mapPinIconDto), hidden, link (mapRegionLinkDto) }`. `MAP_PIN_ICONS` lista os ícones de pino (`pin` é o marcador simples); polígono carrega o campo e o ignora.
-- `libraryMapSummaryDto` `{ id, name, folderId | null, visibility, isMain, asset, version, updatedAt }`: a linha da biblioteca, sem regiões. `campaignLibraryDto` leva `maps` (estes resumos) e `mainMapId` (uuid | null), os dois obrigatórios.
+- `libraryMapSummaryDto` `{ id, name, folderId | null, visibility, isMain, asset, version, planLocked, updatedAt }`: a linha da biblioteca, sem regiões (`planLocked`: o mapa passou do teto de mapas do dono e nome, pasta, visibilidade e regiões estão só leitura). `campaignLibraryDto` leva `maps` (estes resumos) e `mainMapId` (uuid | null), os dois obrigatórios.
 - `libraryMapDetailDto`: o resumo + `regions` (até 300), resposta do `GET …/library-maps/:mapId`.
 - `mainMapResponseDto` `{ map: resumo | null }`, do `GET …/library-maps/main` (`null` = mesa sem Principal).
 - `mapAppearanceDto` `{ mapId, mapName, regionId, regionName, tabName | null }` e `mapAppearancesResponseDto` `{ appearances }`, do "Aparece em" de um documento.

@@ -16,12 +16,13 @@ import type {
 /** Who owns the roll: the session's user at the route's table. */
 export type SavedRollOwner = Readonly<{ campaignId: string; userId: string }>;
 
-/** The roll as its owner reads it: no table, owner, key nor dates.
+/** The roll as its owner reads it: no table, owner, key nor dates; `planLocked` says the table
+ *  plan keeps its name and parts read only (`SavedRollRulesBo.isPlanLocked`).
  *
- *  Example: `toSavedRollDto(row) // { id, name: 'Acerto', parts: [...] }` */
-export function toSavedRollDto(row: SavedRollPo): SavedRollDto {
+ *  Example: `toSavedRollDto(row, false) // { id, name: 'Acerto', parts: [...], planLocked: false }` */
+export function toSavedRollDto(row: SavedRollPo, planLocked: boolean): SavedRollDto {
   const parts = row.parts.map((part) => ({ label: part.label, expression: part.expression }));
-  return { id: row.id, name: row.name, folderId: row.folderId, parts };
+  return { id: row.id, name: row.name, folderId: row.folderId, parts, planLocked };
 }
 
 /** The row a new roll inserts, with the name key the unique index compares.

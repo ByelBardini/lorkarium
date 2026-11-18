@@ -57,7 +57,12 @@ describe("the image of a condition holds to the table owner's plan", () => {
     const ack = await send(ana, 'condition:define', sangrandoDefine(live.vharn, image.id));
 
     expect(ack).toMatchObject({ ok: false, error: { code: 'PLAN_LIMIT' } });
-    expect(planLimitOf(ack)).toEqual({ resource: 'conditionImage', limit: 0, plan: 'free' });
+    expect(planLimitOf(ack)).toEqual({
+      resource: 'conditionImage',
+      limit: 0,
+      plan: 'free',
+      reason: 'room',
+    });
     await silence();
     expect(biaEvents.events.filter(({ name }) => name === 'condition:defined')).toEqual([]);
     const names = (await synced(ana, live.vharn)).conditionDefinitions.map(({ name }) => name);
@@ -85,7 +90,12 @@ describe("the image of a condition holds to the table owner's plan", () => {
       cegoEdit(live.vharn, cego, { imageAssetId: image.id }),
     );
 
-    expect(planLimitOf(ack)).toEqual({ resource: 'conditionImage', limit: 0, plan: 'free' });
+    expect(planLimitOf(ack)).toEqual({
+      resource: 'conditionImage',
+      limit: 0,
+      plan: 'free',
+      reason: 'room',
+    });
     expect(cegoOf(await synced(ana, live.vharn)).imageAssetId).toBeNull();
   });
 

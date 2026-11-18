@@ -63,20 +63,28 @@ function saveFolder(user: SignedInUser, table: Table, name: string) {
 }
 
 describe("dice with physics hold to the table owner's plan", () => {
-  it('at Ana’s free table, 12d6 throws 10 models and draws 2 dice, and the total sums all 12', async () => {
+  it('at Ana’s free table, 10d6 throws 8 models and draws 2 dice, and the total sums all 10', async () => {
     await setAccountPlan(live.connection.db, live.ana.id, 'free');
 
-    const rolled = await rolledAt(live.vharn, '12d6');
+    const rolled = await rolledAt(live.vharn, '10d6');
 
-    expect(rolled.throw?.models).toHaveLength(10);
-    expect(modeledDiceOf(rolled)).toBe(10);
+    expect(rolled.throw?.models).toHaveLength(8);
+    expect(modeledDiceOf(rolled)).toBe(8);
     const dice = rolled.parts[0]?.dice ?? [];
-    expect(dice).toHaveLength(12);
+    expect(dice).toHaveLength(10);
     expect(rolled.total).toBe(dice.reduce((sum, die) => sum + die.value, 0));
   });
 
-  it('at Ana’s narrador table, 20d6 throws 20 models', async () => {
+  it('at Ana’s narrador table, 16d6 throws 15 models', async () => {
     await setAccountPlan(live.connection.db, live.ana.id, 'narrador');
+
+    const rolled = await rolledAt(live.vharn, '16d6');
+
+    expect(rolled.throw?.models).toHaveLength(15);
+  });
+
+  it('at Ana’s lenda table, 20d6 throws 20 models', async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'lenda');
 
     const rolled = await rolledAt(live.vharn, '20d6');
 
@@ -94,21 +102,21 @@ describe("dice with physics hold to the table owner's plan", () => {
 
     const rolls = heard.events.filter(({ name }) => name === 'dice:rolled');
     const models = rolls.map(({ payload }) => diceRolledDto.parse(payload).throw?.models.length);
-    expect(models).toEqual([12, 10]);
+    expect(models).toEqual([12, 8]);
   });
 });
 
 describe("saved rolls and folders hold to the table owner's plan", () => {
-  it('at Ana’s free table, Bia’s 6th saved roll is 403 PLAN_LIMIT savedRolls, limit 5', async () => {
+  it('at Ana’s free table, Bia’s 4th saved roll is 403 PLAN_LIMIT savedRolls, limit 3', async () => {
     await setAccountPlan(live.connection.db, live.ana.id, 'free');
-    await keepRollsOf(live.bia, live.vharn, 5);
+    await keepRollsOf(live.bia, live.vharn, 3);
 
-    const response = await saveRoll(live.bia, live.vharn, 'Sexta');
+    const response = await saveRoll(live.bia, live.vharn, 'Quarta');
 
     expect(response.statusCode).toBe(403);
     expect(apiErrorDto.parse(response.json())).toMatchObject({
       code: 'PLAN_LIMIT',
-      planLimit: { resource: 'savedRolls', limit: 5, plan: 'free' },
+      planLimit: { resource: 'savedRolls', limit: 3, plan: 'free' },
     });
   });
 
@@ -122,27 +130,28 @@ describe("saved rolls and folders hold to the table owner's plan", () => {
       resource: 'savedRollFolders',
       limit: 0,
       plan: 'free',
+      reason: 'room',
     });
   });
 
-  it('at Ana’s narrador table, Bia’s 21st is PLAN_LIMIT with limit 20, and a folder is created', async () => {
+  it('at Ana’s narrador table, Bia’s 16th is PLAN_LIMIT with limit 15, and a folder is created', async () => {
     await setAccountPlan(live.connection.db, live.ana.id, 'narrador');
-    await keepRollsOf(live.bia, live.vharn, 20);
+    await keepRollsOf(live.bia, live.vharn, 15);
 
-    const roll21 = await saveRoll(live.bia, live.vharn, 'Vigésima primeira');
+    const roll16 = await saveRoll(live.bia, live.vharn, 'Décima sexta');
     const folder = await saveFolder(live.bia, live.vharn, 'Magias');
 
-    expect(apiErrorDto.parse(roll21.json()).planLimit).toMatchObject({ limit: 20 });
+    expect(apiErrorDto.parse(roll16.json()).planLimit).toMatchObject({ limit: 15 });
     expect(folder.statusCode).toBe(201);
   });
 
-  it('Bia’s 5 rolls at the free Vharn do not count at Caio’s free Quelm', async () => {
+  it('Bia’s 3 rolls at the free Vharn do not count at Caio’s free Quelm', async () => {
     await setAccountPlan(live.connection.db, live.ana.id, 'free');
     await setAccountPlan(live.connection.db, live.caio.id, 'free');
     await live.joinAsSpectator(live.bia, live.quelm);
     const promote = `/api/campaigns/${live.quelm.id}/members/${live.bia.id}`;
     await live.http(live.caio, { method: 'PATCH', url: promote, payload: { role: 'player' } });
-    await keepRollsOf(live.bia, live.vharn, 5);
+    await keepRollsOf(live.bia, live.vharn, 3);
 
     const response = await saveRoll(live.bia, live.quelm, 'Na Quelm');
 

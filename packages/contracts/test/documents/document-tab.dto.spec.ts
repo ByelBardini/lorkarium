@@ -20,6 +20,7 @@ const tabSummary = {
   visibility: 'masters',
   version: 0,
   updatedAt,
+  planLocked: false,
 };
 const documentSummary = {
   id: '00000000-0000-4000-8000-000000000003',
@@ -101,6 +102,17 @@ describe('document tab responses', () => {
     expect(documentDto.parse(document)).toEqual(document);
     expect(documentDto.safeParse({ ...documentSummary, schemaVersion: 2 }).success).toBe(false);
     expect(documentDto.safeParse({ ...document, schemaVersion: 1 }).success).toBe(false);
+  });
+  it('a tab summary says whether the plan keeps it read only, and is refused without planLocked', () => {
+    const withoutLock: Record<string, unknown> = { ...tabSummary };
+    delete withoutLock.planLocked;
+    const locked = { ...tabSummary, planLocked: true };
+    expect(
+      documentDto.parse({ ...documentSummary, schemaVersion: 2, tabs: [locked] }).tabs,
+    ).toEqual([locked]);
+    expect(
+      documentDto.safeParse({ ...documentSummary, schemaVersion: 2, tabs: [withoutLock] }).success,
+    ).toBe(false);
   });
   it('a receipt of a tab operation names the tab', () => {
     const receipt = {

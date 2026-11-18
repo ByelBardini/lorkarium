@@ -175,8 +175,8 @@ describe('sheet items of a free token', () => {
   });
 
   describe('NPC sheets and the table plan', () => {
-    // Ten sheets held by loose tokens: the free table's ceiling.
-    const npcSheets = Array.from({ length: 10 }, (_, index) =>
+    // Five sheets held by loose tokens: the free table's ceiling.
+    const npcSheets = Array.from({ length: 5 }, (_, index) =>
       lyraSummary({
         id: `6a6a6a6a-1b1b-4c2c-8d3d-${String(index).padStart(12, '0')}`,
         name: `NPC ${index}`,
@@ -185,14 +185,14 @@ describe('sheet items of a free token', () => {
       }),
     );
 
-    it('a free table with 10 NPC sheets offers no template, only the plan sentence', async () => {
+    it('a free table with 5 NPC sheets offers no template, only the plan sentence', async () => {
       const { deps, renderItems } = sheetRoom(detailOf(VHARN, { limits: PLAN_LIMITS.free }));
       libraryWithTormenta(deps, npcSheets);
       renderItems(<TokenMenu token={kael()} isMaster />);
       await openMenu('Kael');
       await userEvent.click(await screen.findByRole('menuitem', { name: 'Nova ficha' }));
       const refusal = await screen.findByRole('menuitem', {
-        name: /^Esta mesa usa o plano Grátis, que permite até 10 fichas de NPC\./,
+        name: /^Esta mesa usa o plano Grátis, que permite até 5 fichas de NPC\./,
       });
       expect(refusal).toHaveAttribute('aria-disabled', 'true');
       expect(screen.queryByRole('menuitem', { name: 'Ficha Tormenta' })).not.toBeInTheDocument();
@@ -207,7 +207,7 @@ describe('sheet items of a free token', () => {
       expect(await screen.findByRole('menuitem', { name: 'Ficha Tormenta' })).toBeInTheDocument();
     });
 
-    it('a free table below 10 NPC sheets still offers the templates', async () => {
+    it('a free table below 5 NPC sheets still offers the templates', async () => {
       const { deps, renderItems } = sheetRoom(detailOf(VHARN, { limits: PLAN_LIMITS.free }));
       libraryWithTormenta(deps, npcSheets.slice(1));
       renderItems(<TokenMenu token={kael()} isMaster />);

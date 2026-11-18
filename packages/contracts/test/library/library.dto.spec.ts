@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createLibrarySceneRequestDto,
   createSceneFolderRequestDto,
+  librarySceneDto,
   sceneActivatedDto,
   sceneClosedDto,
   updateLibrarySceneRequestDto,
@@ -9,6 +10,28 @@ import {
 } from '../../src/library/library.dto';
 
 const ATO_1_ID = '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
+
+describe('librarySceneDto', () => {
+  const card = {
+    id: ATO_1_ID,
+    name: 'Cripta',
+    folderId: null,
+    visibility: 'private',
+    widthCells: 20,
+    heightCells: 12,
+    background: null,
+    tokenCount: 3,
+    updatedAt: '2026-11-18T12:00:00.000Z',
+  };
+
+  it('a grid marked read only by the plan is accepted', () => {
+    expect(librarySceneDto.parse({ ...card, planLocked: true }).planLocked).toBe(true);
+  });
+
+  it('a grid without planLocked is refused', () => {
+    expect(librarySceneDto.safeParse(card).success).toBe(false);
+  });
+});
 
 describe('createLibrarySceneRequestDto', () => {
   it('an empty body is accepted (the server names the grid and puts it at the root)', () => {

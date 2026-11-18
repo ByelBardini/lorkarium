@@ -6,7 +6,8 @@ import {
   sessionRemovedFromTableDto,
 } from '@lorkarium/contracts';
 import { eq } from 'drizzle-orm';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { users } from '../../src/modules/auth/users.po';
 import { hiddenTable } from '../support/hidden-tokens';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
@@ -15,6 +16,11 @@ import type { SignedInUser } from '../support/sign-in';
 import { useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+beforeEach(async () => {
+  await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+  await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+});
 
 type Emit = (event: string, payload: object) => Promise<unknown>;
 

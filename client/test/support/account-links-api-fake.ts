@@ -17,6 +17,8 @@ export const MARINA: AuthUserDto = {
   color: 'violet',
   avatarId: null,
   plan: 'free',
+  paidPlan: null,
+  paidPlanUntil: null,
   lorkariumOwner: false,
   limits: PLAN_LIMITS.free,
   customization: false,

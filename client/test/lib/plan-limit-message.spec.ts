@@ -4,20 +4,20 @@ import { amountText, planLimitMessage } from '@/lib/plan-limit-message';
 
 describe('planLimitMessage', () => {
   it('names the ceiling of the table owner plan and the plan that frees more', () => {
-    expect(planLimitMessage({ resource: 'scenes', limit: 5, plan: 'free' })).toBe(
-      'Esta mesa usa o plano Grátis, que permite até 5 grids. O Narrador libera 20.',
+    expect(planLimitMessage({ resource: 'scenes', limit: 3, plan: 'free' })).toBe(
+      'Esta mesa usa o plano Grátis, que permite até 3 grids. O Narrador libera 15.',
     );
   });
 
   it('points a Narrador table at Lenda, with its article', () => {
-    expect(planLimitMessage({ resource: 'lights', limit: 50, plan: 'narrador' })).toBe(
-      'Esta mesa usa o plano Narrador, que permite até 50 luzes por cena. A Lenda libera 100.',
+    expect(planLimitMessage({ resource: 'lights', limit: 30, plan: 'narrador' })).toBe(
+      'Esta mesa usa o plano Narrador, que permite até 30 luzes por cena. A Lenda libera 100.',
     );
   });
 
-  it('skips a plan above that frees no more (bars are 8 from Narrador on)', () => {
-    expect(planLimitMessage({ resource: 'tokenBars', limit: 2, plan: 'free' })).toBe(
-      'Esta mesa usa o plano Grátis, que permite até 2 barras por token. O Narrador libera 8.',
+  it('skips a plan above that frees no more (a ceiling of 4 bars skips the Narrador, also 4)', () => {
+    expect(planLimitMessage({ resource: 'tokenBars', limit: 4, plan: 'free' })).toBe(
+      'Esta mesa usa o plano Grátis, que permite até 4 barras por token. A Lenda libera 8.',
     );
   });
 
@@ -29,21 +29,31 @@ describe('planLimitMessage', () => {
 
   it('speaks of the person own plan for the tables they own, in the singular at 1', () => {
     expect(planLimitMessage({ resource: 'campaigns', limit: 1, plan: 'free' })).toBe(
-      'Seu plano Grátis permite até 1 mesa como dono. O Narrador libera 5.',
+      'Seu plano Grátis permite até 1 mesa como dono. O Narrador libera 3.',
     );
   });
 
   it('writes storage in MB and GB', () => {
     expect(planLimitMessage({ resource: 'storage', limit: 100 * 1024 ** 2, plan: 'free' })).toBe(
-      'Esta mesa usa o plano Grátis, que permite até 100 MB de arquivos. O Narrador libera 2 GB.',
+      'Esta mesa usa o plano Grátis, que permite até 100 MB de arquivos. O Narrador libera 1 GB.',
     );
   });
 
-  it('says a feature the plan lacks is in the paid plans', () => {
+  it('says a feature the plan lacks is in the cheapest plan that has it', () => {
     expect(planLimitMessage({ resource: 'auraKind', limit: 0, plan: 'free' })).toBe(
-      'Aura com efeito ou imagem está nos planos pagos.',
+      'Aura com efeito ou imagem está na Lenda.',
     );
   });
+
+  it.each([
+    ['sheetScripts', 'Scripts no modelo de ficha estão no Narrador.'],
+    ['animatedCampaignArt', 'Imagens animadas da mesa estão na Lenda.'],
+  ] as const)(
+    'the %s refusal is the sentence of a missing feature, never a ceiling',
+    (resource, sentence) => {
+      expect(planLimitMessage({ resource, limit: 0, plan: 'free' })).toBe(sentence);
+    },
+  );
 
   it('says a ceiling of 0 is a resource the plan lacks, not "até 0"', () => {
     expect(planLimitMessage({ resource: 'patrols', limit: 0, plan: 'free' })).toBe(
@@ -70,18 +80,119 @@ describe('planLimitMessage', () => {
   });
 
   it('an Apoiador table points at the Narrador, never at the Apoiador', () => {
-    expect(planLimitMessage({ resource: 'scenes', limit: 5, plan: 'apoiador' })).toBe(
-      'Esta mesa usa o plano Apoiador, que permite até 5 grids. O Narrador libera 20.',
+    expect(planLimitMessage({ resource: 'scenes', limit: 3, plan: 'apoiador' })).toBe(
+      'Esta mesa usa o plano Apoiador, que permite até 3 grids. O Narrador libera 15.',
     );
     expect(planLimitMessage({ resource: 'campaigns', limit: 1, plan: 'free' })).not.toContain(
       'O Apoiador',
     );
   });
 
+  it.each([
+    ['desktopWindows', 'narrador', 'As janelas de Chat e Imagens estão na Lenda.'],
+    ['auraKind', 'narrador', 'Aura com efeito ou imagem está na Lenda.'],
+    ['animatedCampaignArt', 'narrador', 'Imagens animadas da mesa estão na Lenda.'],
+    ['sceneCopy', 'free', 'Duplicar grid está no Narrador.'],
+  ] as const)(
+    'a %s refusal on %s names the cheapest plan that has it',
+    (resource, plan, sentence) => {
+      expect(planLimitMessage({ resource, limit: 0, plan })).toBe(sentence);
+    },
+  );
+
+  it('an account customization names the paid plans (the Apoiador frees it, outside the table grid)', () => {
+    expect(planLimitMessage({ resource: 'profileBanner', limit: 0, plan: 'free' })).toBe(
+      'Banner de perfil está nos planos pagos.',
+    );
+  });
+
   it('has a sentence for every resource of the contract', () => {
     for (const resource of [...PLAN_COUNT_RESOURCES, ...PLAN_FEATURE_RESOURCES]) {
-      expect(planLimitMessage({ resource, limit: 0, plan: 'free' })).toMatch(/planos pagos\.$/);
+      expect(planLimitMessage({ resource, limit: 0, plan: 'free' })).toMatch(
+        /(planos pagos|no Narrador|na Lenda)\.$/,
+      );
     }
+  });
+});
+
+describe('planLimitMessage with reason readOnly', () => {
+  it('a grid past the free ceiling is read only: delete an older one or move up', () => {
+    expect(
+      planLimitMessage({ resource: 'scenes', limit: 3, plan: 'free', reason: 'readOnly' }),
+    ).toBe(
+      'Este grid passou do limite do plano Grátis (3) e está só leitura. Apague um grid mais antigo ou suba de plano.',
+    );
+  });
+
+  it.each([
+    [
+      'libraryMaps',
+      0,
+      'free',
+      'Este mapa interativo passou do limite do plano Grátis (0) e está só leitura: mostrar, Principal e apagar seguem livres. Apague um mapa mais antigo ou suba de plano.',
+    ],
+    [
+      'sheetTemplates',
+      1,
+      'free',
+      'Este modelo de ficha passou do limite do plano Grátis (1) e está só leitura: criar fichas com ele segue livre. Apague um modelo mais antigo ou suba de plano.',
+    ],
+    [
+      'documentTabs',
+      3,
+      'free',
+      'Esta aba passou do limite do plano Grátis (3) e está só leitura: ocultar, reordenar e excluir seguem livres. Apague uma aba mais antiga deste documento ou suba de plano.',
+    ],
+    [
+      'savedRolls',
+      3,
+      'free',
+      'Esta rolagem salva passou do limite do plano Grátis (3) e está só leitura: rolar, mover para pasta e excluir seguem livres. Apague uma rolagem mais antiga ou suba de plano.',
+    ],
+    [
+      'tokenBars',
+      1,
+      'free',
+      'Esta barra passou do limite do plano Grátis (1) e está só leitura: o valor muda; nome, máximo e cor não. Apague uma barra acima dela ou suba de plano.',
+    ],
+    [
+      'tokenForms',
+      2,
+      'free',
+      'Esta forma passou do limite do plano Grátis (2) e está só leitura: trocar para ela segue livre; nome e imagem não. Apague uma forma antes dela ou suba de plano.',
+    ],
+    [
+      'lights',
+      10,
+      'free',
+      'Esta luz passou do limite do plano Grátis (10) e está só leitura: acender e apagar seguem livres. Exclua uma luz mais antiga ou suba de plano.',
+    ],
+    [
+      'patrols',
+      3,
+      'narrador',
+      'Esta patrulha passou do limite do plano Narrador (3) e está só leitura: pause a patrulha para mudar a rota. Pause uma patrulha mais antiga ou suba de plano.',
+    ],
+    [
+      'sightBlockers',
+      5,
+      'narrador',
+      'Este token que bloqueia a visão passou do limite do plano Narrador (5) e está só leitura: desligar o bloqueio segue livre. Desligue um bloqueio mais antigo ou suba de plano.',
+    ],
+  ] as const)('a %s past the ceiling of %s says what stays free', (resource, limit, plan, text) => {
+    expect(planLimitMessage({ resource, limit, plan, reason: 'readOnly' })).toBe(text);
+  });
+
+  it('a readOnly reason on a resource that never locks falls back to the ceiling sentence', () => {
+    expect(
+      planLimitMessage({ resource: 'campaigns', limit: 1, plan: 'free', reason: 'readOnly' }),
+    ).toBe('Seu plano Grátis permite até 1 mesa como dono. O Narrador libera 3.');
+  });
+
+  it('reason room reads as the creation refusal of today', () => {
+    expect(planLimitMessage({ resource: 'scenes', limit: 3, plan: 'free', reason: 'room' })).toBe(
+      'Esta mesa usa o plano Grátis, que permite até 3 grids. O Narrador libera 15.',
+    );
   });
 });
 

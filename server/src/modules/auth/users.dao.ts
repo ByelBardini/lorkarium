@@ -1,4 +1,6 @@
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import type { UserPlan } from '@lorkarium/contracts';
+import { and, eq, isNull, sql, type SQL } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { lorkariumOwnerSql } from '../../database/lorkarium-owner-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { users, type NewUserPo, type SealedEmail, type UserPlanPo, type UserPo } from './users.po';
@@ -10,8 +12,31 @@ import { users, type NewUserPo, type SealedEmail, type UserPlanPo, type UserPo }
 export const PLAN_ACCOUNT_COLUMNS = {
   role: users.role,
   plan: users.plan,
+  activePaidPlan: activePaidPlanSql(),
   lorkariumOwner: lorkariumOwnerSql(users.username),
 };
+
+/** The paid plan while its end is ahead of the database clock, null after (the end already holds
+ *  the grace days): the expiry needs no job on this side.
+ *
+ *  Example: `db.select({ activePaidPlan: activePaidPlanSql(ownerUsers) }).from(campaigns)…` */
+export function activePaidPlanSql(
+  account: Readonly<{ paidPlan: AnyPgColumn; paidPlanUntil: AnyPgColumn }> = users,
+): SQL<UserPlan | null> {
+  return sql<UserPlan | null>`CASE WHEN ${account.paidPlanUntil} > now() THEN ${account.paidPlan} END`;
+}
+
+/** The end of the paid plan while it is ahead of the database clock, null after: the date that
+ *  goes with `activePaidPlanSql`.
+ *
+ *  Example: `db.select({ until: activePaidPlanUntilSql() }).from(users)` */
+export function activePaidPlanUntilSql(
+  account: Readonly<{ paidPlanUntil: AnyPgColumn }> = users,
+): SQL<Date | null> {
+  const until = sql`CASE WHEN ${account.paidPlanUntil} > now() THEN ${account.paidPlanUntil} END`;
+  // The driver hands a raw timestamptz back (drizzle keeps it a string outside a column).
+  return until.mapWith((raw: string | Date | null) => (raw === null ? null : new Date(raw)));
+}
 
 /** An account still keeping its e-mail in clear (between migrations 0038 and 0039). */
 export type PlainEmailRow = Readonly<{ id: string; email: string }>;

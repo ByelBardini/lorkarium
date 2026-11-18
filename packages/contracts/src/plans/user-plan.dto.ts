@@ -47,7 +47,9 @@ export const PLAN_FEATURE_RESOURCES = [
   'animatedAvatar',
   'profileBanner',
   'campaignArt',
+  'animatedCampaignArt',
   'privateCampaign',
+  'sheetScripts',
 ] as const;
 
 /** Every resource a `PLAN_LIMIT` refusal may name. The dice with physics are not here: past the
@@ -60,6 +62,11 @@ export type PlanLimitResource = z.infer<typeof planLimitResourceDto>;
 export type PlanCountResource = (typeof PLAN_COUNT_RESOURCES)[number];
 export type PlanFeatureResource = (typeof PLAN_FEATURE_RESOURCES)[number];
 
+/** Why a `PLAN_LIMIT` refusal happened: `room` = creating past the ceiling; `readOnly` = editing
+ *  an item kept past the ceiling after the plan went down (absent reads as `room`). */
+export const PLAN_LIMIT_REASONS = ['room', 'readOnly'] as const;
+export type PlanLimitReason = (typeof PLAN_LIMIT_REASONS)[number];
+
 /** What a `PLAN_LIMIT` error body carries: the client builds the pt-BR sentence from it. `limit`
  *  is the ceiling of the plan (0 for a feature the plan lacks); `plan` is the one whose limits
  *  apply (the table owner's, or the person's own for a customization of the account).
@@ -69,6 +76,7 @@ export const planLimitDto = z.strictObject({
   resource: planLimitResourceDto,
   limit: z.number().int().nonnegative(),
   plan: userPlanDto,
+  reason: z.enum(PLAN_LIMIT_REASONS).optional(),
 });
 export type PlanLimitDto = z.infer<typeof planLimitDto>;
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { setAccountPlan } from '../support/account-plans';
 import { recordEventsOf, type EventRecorder } from '../support/realtime-client';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
@@ -19,6 +19,11 @@ function customBarCommand(table: Table, controllerId: string): object {
 
 describe('tokens over Socket.IO', () => {
   const live = useTokenTable();
+  // Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+  beforeEach(async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+    await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+  });
 
   async function waitFor(recorder: EventRecorder, name: string): Promise<void> {
     await eventPayload(recorder, name);

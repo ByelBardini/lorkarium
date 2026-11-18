@@ -13,6 +13,7 @@ import {
 } from '@/sheet-sandbox/sheet-preview-host';
 import { sameSheetSource, type SheetSource } from '@/sheet-sandbox/sheet-srcdoc';
 import { SheetPreviewTestData } from './sheet-preview-test-data';
+import { useSheetScriptsNotice } from './sheet-scripts-gate';
 
 /** How long the preview waits after the last keystroke before running the new code. */
 export const SHEET_PREVIEW_DELAY_MS = 800;
@@ -47,6 +48,8 @@ export function SheetTemplatePreview(props: SheetTemplatePreviewProps): React.JS
   const [shown, setShown] = useState<ShownCode>({ source: props.source, run: 0 });
   const [reloaded, setReloaded] = useState(false);
   const host = useRef<SheetPreviewHost | null>(null);
+  // The preview runs as the table would: without the JS when its plan has no `sheetScripts`.
+  const notice = useSheetScriptsNotice(shown.source);
   useEffect(() => {
     const timer = setTimeout(
       () => setShown((current) => next(current, props.source, false)),
@@ -63,7 +66,7 @@ export function SheetTemplatePreview(props: SheetTemplatePreviewProps): React.JS
     setShown((current) => next(current, props.source, true));
   };
   const connect = (port: MessagePort): void => {
-    host.current = previewHostOf(port, props, shown.source);
+    host.current = previewHostOf(port, props, shown.source, notice);
   };
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
@@ -84,8 +87,9 @@ export function SheetTemplatePreview(props: SheetTemplatePreviewProps): React.JS
           </p>
         ) : (
           <SheetSourceFrame
-            key={shown.run}
+            key={`${shown.run}:${notice === undefined}`}
             source={shown.source}
+            scripts={notice === undefined}
             title="Prévia da ficha"
             createChannel={props.createChannel}
             onConnect={connect}
@@ -103,9 +107,10 @@ function previewHostOf(
   port: MessagePort,
   props: SheetTemplatePreviewProps,
   source: SheetSource,
+  notice: string | undefined,
 ): SheetPreviewHost {
   const { onConsole, now = () => new Date(), permissions, documents } = props;
-  const data = { data: props.testData, onDataChange: props.onTestData, documents };
+  const data = { data: props.testData, onDataChange: props.onTestData, documents, notice };
   if (!onConsole) return createSheetPreviewHost(port, { permissions, ...data });
   const sink = (message: SheetConsoleMessageDto): void =>
     onConsole(consoleEntryOf(message, source, now()));

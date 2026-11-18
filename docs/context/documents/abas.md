@@ -13,7 +13,7 @@ Hub: [../documents.md](../documents.md).
 
 A migração copia o `content`/`schema_version` de cada documento numa aba "Geral" (posição 0, `document`, versão 0, mesmos timestamps) e dá `DROP` nas duas colunas de `library_documents`: o corpo só existe na aba. A FK `SET NULL ("folder_id")` da pasta não foi tocada (armadilha da `0033`, conferida no SQL e no `document-tabs-migration.spec.ts`).
 
-`DocumentTabsDao`: `listOfDocument` (resumos sem `content`, por posição), `findInDocument` (com conteúdo), `countOfDocument`, `insert`, `update` (nome/visibilidade), `saveContent` (soma a versão **da aba**; a do documento não muda), `reorder` (um `UPDATE … FROM (VALUES …)`) e `delete`. Toda consulta filtra por `campaign_id` + `document_id`.
+`DocumentTabsDao`: `listOfDocument` (resumos sem `content`, por posição, cada um com o `rank` = `row_number() over (order by created_at, id) - 1` no documento), `rankOf(campaignId, documentId, tabId)` (`count` das abas do mesmo documento com `(created_at, id)` menor, por `LEFT JOIN` num alias `older`; `undefined` se a aba não é daquele documento), `findInDocument` (com conteúdo), `countOfDocument`, `insert`, `update` (nome/visibilidade), `saveContent` (soma a versão **da aba**; a do documento não muda), `reorder` (um `UPDATE … FROM (VALUES …)`) e `delete`. Toda consulta filtra por `campaign_id` + `document_id`.
 
 ## Regra (`document-tabs.bo.ts`)
 
@@ -22,18 +22,20 @@ A migração copia o `content`/`schema_version` de cada documento numa aba "Gera
 - `visibleTo()` exige leitura do documento; `requireVisible(tabId)` → `DOCUMENT_TAB_NOT_FOUND` para aba inexistente **ou oculta** (nunca `FORBIDDEN`).
 - `requireEdit(tabId)` (renomear, conteúdo): visível primeiro, depois edição (mestre ou dono) → leitor de documento público recebe `FORBIDDEN` só em aba que vê.
 - `requireVisibilityChange(tabId)`: visível e `requireManage` (só mestre; dono → `FORBIDDEN`).
-- `requireCreate(limits)`: edição; total + 1 acima do limite técnico → `DOCUMENT_TAB_LIMIT` ("would have 201 tabs; expected at most 200"), igual para todo plano; abaixo dele, o plano do dono (`limits`, lido na trava) → 403 `PLAN_LIMIT` `documentTabs` (5 no Grátis); devolve a posição seguinte à maior. O documento novo nasce com uma aba e sempre cabe.
+- `requireCreate(limits)`: edição; total + 1 acima do limite técnico → `DOCUMENT_TAB_LIMIT` ("would have 201 tabs; expected at most 200"), igual para todo plano; abaixo dele, o plano do dono (`limits`, lido na trava) → 403 `PLAN_LIMIT` `documentTabs` (3 no Grátis, 10 no Narrador); devolve a posição seguinte à maior. O documento novo nasce com uma aba e sempre cabe.
+- **Excedente só leitura** ([regra](../plans/excedente-so-leitura.md)): `requireTabConfigurable(rank, limits)` → `PlanLimitsBo.requireEditable('documentTabs', …)`, 403 `PLAN_LIMIT` `reason: 'readOnly'` ("document tab 4 of plan free is read only (plan allows 3)"); `isTabPlanLocked(rank, limits)` é o mesmo sem lançar, o `planLocked` do DTO. O grupo é o **documento**: as N abas mais antigas por `(created_at, id)` seguem editáveis, seja qual for a posição na faixa; apagar uma destrava a seguinte.
 - `requireDelete(tabId)`: edição; a única aba do documento → `DOCUMENT_TAB_LAST`. Um documento pode ficar só com abas `masters` (o jogador recebe `tabs: []`).
 - `mergedOrder(visibleOrder)`: id fora das visíveis (de outro documento ou oculto) → `DOCUMENT_TAB_NOT_FOUND` citando o id. As casas das abas pedidas recebem a ordem pedida, em sequência; aba oculta **ou omitida** fica na casa dela (A, B oculta, C + `[C, A]` → C, B, A). Posições renumeradas de 0 sem buraco.
 
-Mapper: `toDocumentDto(row, owners, access, tabs)` (`schemaVersion: 2`) leva só os resumos de `visibleTabsOf`, sem corpo; `document-tabs.mapper.ts`: `toDocumentTabSummaryDto` e `toDocumentTabDto` (com `content` revalidado pelo contrato).
+Mapper: `toDocumentDto(row, owners, access, tabs, limits)` (`schemaVersion: 2`) leva só os resumos de `visibleTabsOf`, sem corpo, cada um com `planLocked` pelo `rank` (conta também as `masters`, que o jogador não vê); `document-tabs.mapper.ts`: `toDocumentTabSummaryDto(row, planLocked)` e `toDocumentTabDto(row, planLocked)` (com `content` revalidado pelo contrato). O plano das leituras e do corpo vem de `DocumentWriteSteps.ownerLimits` (`CampaignsDao.findOwnerPlan`, sem trava); o `view` o lê sempre.
 
 ## Service e rotas (`document-tabs.service.ts`)
 
 `DocumentTabsService(deps)` reusa os passos de `DocumentWriteSteps` (trava `lockById`, escopo, recibo, publicação depois do commit). Criar documento já cria a aba "Geral" vazia (`FIRST_DOCUMENT_TAB_NAME`) na mesma transação.
 
 - **Estruturais** (criar, renomear/ocultar, reordenar, excluir): `lock → load tabs → recibo anterior? → BO (permissão) → versão do documento → grava → bump do documento → recibo → commit → publish`. A versão esperada é a **do documento**, que soma 1; o recibo leva a versão nova, `operation` `tab-*` e `tabId` (a criada, a renomeada, a excluída; reordenar não leva). Resposta `{ document, receipt }` com as abas que o leitor vê. A permissão vem antes da versão (leitor sem posse recebe 403, não 409); o recibo repetido vem antes da permissão, então uma exclusão retransmitida devolve o recibo mesmo com a aba já apagada.
-- **Corpo** (`tab-content`): `lock → load tabs → requireEdit → recibo anterior? → versão da aba → imagens → saveContent → recibo → commit → publish`. Versão esperada **da aba**; divergente → `DOCUMENT_VERSION_CONFLICT` sem gravar. A do documento não muda, então duas pessoas em abas diferentes não conflitam. Resposta `{ tab: resumo, receipt }`.
+- **Renomear** (`name` no PATCH): depois do BO de permissão, `rankOf` na transação (depois do `lockWithOwner`) e `requireTabConfigurable`, antes da versão. Ocultar, reordenar e excluir não passam pelo plano.
+- **Corpo** (`tab-content`): `lock → load tabs → requireEdit → plano do dono (sem trava: o corpo nunca espera a mesa) → recibo anterior? → rankOf → requireTabConfigurable → versão da aba → imagens → saveContent → recibo → commit → publish`. A aba travada é recusada mesmo com versão velha; o recibo repetido devolve o resumo com o `planLocked` de agora. Versão esperada **da aba**; divergente → `DOCUMENT_VERSION_CONFLICT` sem gravar. A do documento não muda, então duas pessoas em abas diferentes não conflitam. Resposta `{ tab: resumo, receipt }`.
 - `library:changed` sai a cada mutação aplicada e nunca na recusa nem na repetição.
 
 | Método e caminho (sob `/api/campaigns/:campaignId/documents/:documentId`) | Corpo                                                                  | Resposta                               |
@@ -50,6 +52,8 @@ Erros: `DOCUMENT_TAB_NOT_FOUND` 404 (também aba oculta e `tabId` malformado), `
 ## Provas
 
 `server/test/integration/document-tabs-dao.spec.ts`: ordem, conteúdo, versão só da aba, troca 1ª↔3ª sem violar o único, `CHECK` do nome (0 e 41), isolamento Quelm × Vharn, FK composta (`23503`) e cascata. `document-tabs-migration.spec.ts`: banco de rascunho até a `0069`, documento com corpo vira uma aba "Geral" com o mesmo JSON, colunas removidas e FK da pasta intacta. Mutação: `saveContent` sem `+ 1` deixou o cenário da versão vermelho.
+
+Excedente só leitura: integração `documents-plan-limit.spec.ts` (mesa Grátis com 5 abas nascidas no `amigo_do_dono`: corpo da 3ª 200 e da 4ª 403 `readOnly` sem gravar; renomear a 4ª 403 e ocultar, reordenar e renomear a 3ª 200; `planLocked` `[f, f, f, t, t]` no documento e na aba aberta; excluir a 2ª e a antiga 4ª salva; rank por documento; Ermo, outra mesa da Ana, não conta a Vharn) e `document-tabs-dao.spec.ts` (`rankOf` e o `rank` da lista pelo nascimento, não pela posição; `undefined` em outro documento ou mesa). Unit: o `describe` do plano em `document-tabs.bo.spec.ts` e o `planLocked` pelo rank em `documents.mapper.spec.ts`. Mutações desfeitas: rank por mesa (sem `document_id`), sem `requireEditable` e `<` trocado por `>` deixaram cada cenário certo vermelho.
 
 Unit: `document-tabs.bo.spec.ts` (19) e `document-tabs.mapper.spec.ts`/`documents.mapper.spec.ts`. Mutações desfeitas: sem filtro de `masters` (8 vermelhos), limite +1, última aba, mescla sem casa fixa e `FORBIDDEN` antes do 404 deixaram cada cenário certo vermelho.
 

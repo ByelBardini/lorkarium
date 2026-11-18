@@ -35,6 +35,7 @@ const summary = {
   isMain: false,
   asset: { id, mimeType: 'image/webp', width: 8192, height: 4096 },
   version: 0,
+  planLocked: false,
   updatedAt: at,
 };
 const region = { ...newRegion, id, description: '', icon: 'pin', hidden: false, link: null };
@@ -46,6 +47,18 @@ function polygonOf(vertices: number): { shape: string; points: { x: number; y: n
   }));
   return { shape: 'polygon', points };
 }
+
+describe('the map summary and planLocked', () => {
+  it('a summary marked read only by the plan is accepted', () => {
+    expect(libraryMapSummaryDto.parse({ ...summary, planLocked: true }).planLocked).toBe(true);
+  });
+
+  it('a summary without planLocked is refused', () => {
+    const unmarked: Partial<typeof summary> = { ...summary };
+    delete unmarked.planLocked;
+    expect(libraryMapSummaryDto.safeParse(unmarked).success).toBe(false);
+  });
+});
 
 describe('library map bodies', () => {
   it('trims the name of a new map and needs nothing else besides the asset', () => {

@@ -7,7 +7,8 @@ import { ScriptedAnswers } from './scripted-answers';
 const MEBIBYTE = 1024 * 1024;
 
 /** "Seu plano" of an account on `plan`, with the limits of that same plan (an admin is
- *  `accountPlanOf('free', { limitsOf: 'amigo_do_dono' })`).
+ *  `accountPlanOf('free', { limitsOf: 'amigo_do_dono' })`; a paid Lenda is
+ *  `accountPlanOf('free', { limitsOf: 'lenda', paid: { plan: 'lenda', until } })`).
  *
  *  Example: `accountPlanOf('free', { campaignsOwned: 1, storageMegabytes: 40 })` */
 export function accountPlanOf(
@@ -16,11 +17,14 @@ export function accountPlanOf(
     campaignsOwned?: number;
     storageMegabytes?: number;
     limitsOf?: UserPlan;
+    paid?: Readonly<{ plan: UserPlan; until: string }>;
   }> = {},
 ): AccountPlanDto {
   const limitsOf = options.limitsOf ?? plan;
   return {
     plan,
+    paidPlan: options.paid?.plan ?? null,
+    paidPlanUntil: options.paid?.until ?? null,
     limits: PLAN_LIMITS[limitsOf],
     customization: plan !== 'free' || limitsOf !== 'free',
     usage: {

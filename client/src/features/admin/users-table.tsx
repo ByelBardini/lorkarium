@@ -2,6 +2,7 @@ import { MailIcon } from 'lucide-react';
 import type { UserPlan } from '@lorkarium/contracts';
 import { UserAvatar } from '@/components/user-avatar';
 import { UserHandle } from '@/components/user-handle';
+import { paidPlanLine } from '@/lib/paid-plan-text';
 import { PLAN_NAMES, sealHolderOfAccount } from '@/lib/plan-seal';
 import { lastAccessLabel, type DirectoryRow } from '@/lib/user-directory';
 import { ROLE_LABEL } from './admin-messages';
@@ -23,6 +24,17 @@ const CELL = 'px-3.5 py-3 align-middle text-sm whitespace-nowrap text-label';
  *  narrow screen.
  *
  *  Example: `<UsersTable rows={rows} now={now} selfId={me.id} actionsOf={(row) => <RowMenu row={row} />} />` */
+const COLUMN_TITLES = [
+  'Usuário',
+  'E-mail',
+  'Papel',
+  'Plano do admin',
+  'Plano pago',
+  'Status',
+  'Mesas',
+  'Último acesso',
+] as const;
+
 export function UsersTable({ rows, now, selfId, actionsOf }: UsersTableProps): React.JSX.Element {
   return (
     <div className="w-full overflow-x-auto">
@@ -30,13 +42,11 @@ export function UsersTable({ rows, now, selfId, actionsOf }: UsersTableProps): R
         <caption className="sr-only">Usuários</caption>
         <thead>
           <tr>
-            {['Usuário', 'E-mail', 'Papel', 'Plano', 'Status', 'Mesas', 'Último acesso'].map(
-              (title) => (
-                <th key={title} scope="col" className={HEAD}>
-                  {title}
-                </th>
-              ),
-            )}
+            {COLUMN_TITLES.map((title) => (
+              <th key={title} scope="col" className={HEAD}>
+                {title}
+              </th>
+            ))}
             <th scope="col" className={HEAD}>
               <span className="sr-only">Ações</span>
             </th>
@@ -96,6 +106,9 @@ function UserCells({
         <PlanCell plan={user.plan} />
       </td>
       <td className={CELL}>
+        <PaidPlanCell paidPlan={user.paidPlan} paidPlanUntil={user.paidPlanUntil} />
+      </td>
+      <td className={CELL}>
         <UserStatusLabel status={row.status} />
       </td>
       <td className={`${CELL} tabular-nums`}>{user.campaignCount}</td>
@@ -142,7 +155,16 @@ function RoleLabel({ role }: Readonly<{ role: 'admin' | 'user' }>): React.JSX.El
 }
 
 // The seal beside the @ shows the highest mark (an admin's hides the plan): the column names the
-// stored plan, which is what the backoffice manages.
+// plan the admin set, which is what the backoffice manages.
+// Read only: the billing service writes the paid plan, the backoffice never edits it.
+function PaidPlanCell({
+  paidPlan,
+  paidPlanUntil,
+}: Readonly<{ paidPlan: UserPlan | null; paidPlanUntil: string | null }>): React.JSX.Element {
+  const line = paidPlanLine(paidPlan, paidPlanUntil);
+  return <span className="text-xs text-muted-foreground">{line ?? '—'}</span>;
+}
+
 function PlanCell({ plan }: Readonly<{ plan: UserPlan }>): React.JSX.Element {
   return (
     <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">

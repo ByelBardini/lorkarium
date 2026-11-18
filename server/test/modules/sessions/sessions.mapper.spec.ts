@@ -138,7 +138,7 @@ describe('sessions mapper', () => {
   it('a member with a chosen color, a photo, a banner and a bio carries them as the table sees them', () => {
     const ana = campaignMemberRow({
       ...{ colorChoice: 'rose', avatarId: PHOTO_ID, bannerId: BANNER_ID, bio: 'Mestre' },
-      account: { role: 'user', plan: 'apoiador', lorkariumOwner: false },
+      account: { role: 'user', plan: 'apoiador', activePaidPlan: null, lorkariumOwner: false },
     });
     const [member] = toSessionStateDto(VHARN_ID, [ana], presenceRoster({ version: 1 }), AT).members;
     expect(member).toMatchObject({
@@ -155,10 +155,10 @@ describe('sessions mapper', () => {
   it('each member carries the seal fields: Bia lenda, an admin with its stored plan', () => {
     const bia = campaignMemberRow({
       ...{ userId: BIA_ID, name: 'Bia', role: 'player' },
-      account: { role: 'user', plan: 'lenda', lorkariumOwner: false },
+      account: { role: 'user', plan: 'lenda', activePaidPlan: null, lorkariumOwner: false },
     });
     const root = campaignMemberRow({
-      account: { role: 'admin', plan: 'free', lorkariumOwner: false },
+      account: { role: 'admin', plan: 'free', activePaidPlan: null, lorkariumOwner: false },
     });
     const roster = presenceRoster({ version: 1 });
 

@@ -8,6 +8,7 @@ import type {
   LibraryImageDto,
   ImagePresentationStateDto,
   LibraryMapSummaryDto,
+  PlanLimits,
 } from '@lorkarium/contracts';
 import { LibraryMapAccessBo } from '../library-maps/library-map-access.bo';
 import type { LibraryMapsDao } from '../library-maps/library-maps.dao';
@@ -29,7 +30,8 @@ import type { LibraryPublisherPort } from './library-publisher.port';
 import { requireLibraryImageAsset } from './library-image.bo';
 import { LibraryImageNotFoundError } from './library-image.error';
 import { toLibraryImageDto, toImagePresentationState } from './library-image.mapper';
-import { toLibrarySceneDto, toSceneFolderDto } from './library.mapper';
+import { planRanksOf, toLibrarySceneDto, toSceneFolderDto } from './library.mapper';
+import { effectiveLimitsOf } from '../plans/plan-limits.bo';
 import { FolderPrivacyBo } from './folder-privacy.bo';
 import { SceneLibraryBo } from './scene-library.bo';
 import { DocumentAccessBo } from '../documents/document-access.bo';
@@ -45,7 +47,7 @@ export type LibraryImageDaos = Readonly<{
   sheetTemplates?: Pick<SheetTemplatesDao, 'listOfCampaign'>;
   sheets?: Pick<SheetsDao, 'listOfCampaign' | 'holdersOf'>;
   documents?: Pick<DocumentsDao, 'listOfCampaign' | 'ownersOfCampaign'>;
-  campaigns: Pick<CampaignsDao, 'lockById' | 'findById'>;
+  campaigns: Pick<CampaignsDao, 'lockById' | 'findWithOwner'>;
   members: Pick<CampaignMembersDao, 'findMembership'>;
   assets: Pick<AssetsDao, 'findInCampaign'>;
   images: Pick<
@@ -79,8 +81,9 @@ export class LibraryImageService {
   async list(requester: LibraryRequester): Promise<CampaignLibraryDto> {
     return this.deps.snapshot(async (daos) => {
       const access = await viewerAccessOf(daos.members, requester.campaignId, requester.userId);
-      const campaign = await daos.campaigns.findById(requester.campaignId);
+      const campaign = await daos.campaigns.findWithOwner(requester.campaignId);
       if (!campaign) throw new CampaignNotFoundError(requester);
+      const limits = effectiveLimitsOf(campaign.owner);
       const folders = await daos.folders.listOfCampaign(requester.campaignId);
       const scenes = await daos.scenes.listOfCampaign(requester.campaignId);
       const privacy = new FolderPrivacyBo(folders);
@@ -92,9 +95,10 @@ export class LibraryImageService {
         folders,
         scenes,
       });
+      const placeOfScene = planRanksOf(scenes, limits);
       const documents = await documentsFor(daos, access, privacy);
       const sheets = await sheetsFor(daos, access, privacy);
-      const maps = await visibleMapsOf(daos, access, privacy);
+      const maps = await visibleMapsOf(daos, access, privacy, limits);
       const visible = tree.visibleTo(new SceneAccessBo(access, campaign.activeSceneId), [
         ...images.map((row) => row.image.folderId),
         ...documents.map((document) => document.folderId),
@@ -104,12 +108,14 @@ export class LibraryImageService {
       return {
         activeSceneId: campaign.activeSceneId,
         folders: visible.folders.map(toSceneFolderDto),
-        scenes: visible.scenes.map((row) => toLibrarySceneDto(row, access.isMaster())),
+        scenes: visible.scenes.map((row) => {
+          return toLibrarySceneDto(row, access.isMaster(), placeOfScene(row.id));
+        }),
         images: images.map(toLibraryImageDto),
         documents,
         maps,
         mainMapId: maps.find((map) => map.isMain)?.id ?? null,
-        ...(await sheetTemplatesFor(daos, access)),
+        ...(await sheetTemplatesFor(daos, access, limits)),
         ...(daos.sheets ? { sheets } : {}),
       };
     });
@@ -200,10 +206,12 @@ export class LibraryImageService {
     this.deps.publisher.imagePresentationChanged({ ...state, eventId: this.deps.newId() });
   }
 }
+// Each map is ranked among all the table's maps (the list comes oldest first), seen or not.
 async function visibleMapsOf(
   daos: LibraryImageDaos,
   access: CampaignAccessBo,
   privacy: FolderPrivacyBo,
+  limits: PlanLimits,
 ): Promise<LibraryMapSummaryDto[]> {
   const listed = (await daos.maps?.listOfCampaign(access.campaignIdOf())) ?? [];
   const rows = listed.map(({ map, asset }) => ({
@@ -211,7 +219,12 @@ async function visibleMapsOf(
     asset,
   }));
   const mapAccess = new LibraryMapAccessBo(access);
-  return rows.filter((row) => mapAccess.canSee(row.map)).map(toLibraryMapSummaryDto);
+  const placeOf = planRanksOf(
+    listed.map(({ map }) => map),
+    limits,
+  );
+  const seen = rows.filter((row) => mapAccess.canSee(row.map));
+  return seen.map((row) => toLibraryMapSummaryDto(row, placeOf(row.map.id)));
 }
 
 // A master gets every image; anyone else the public ones no private folder hides.
@@ -249,10 +262,12 @@ function userIdOf(owner: Readonly<{ userId: string }>): string {
 async function sheetTemplatesFor(
   daos: LibraryImageDaos,
   access: CampaignAccessBo,
+  limits: PlanLimits,
 ): Promise<{ sheetTemplates?: SheetTemplateSummaryDto[] }> {
   if (!access.isMaster() || !daos.sheetTemplates) return {};
   const rows = await daos.sheetTemplates.listOfCampaign(access.campaignIdOf());
-  return { sheetTemplates: rows.map(toSheetTemplateSummaryDto) };
+  const placeOf = planRanksOf(rows, limits);
+  return { sheetTemplates: rows.map((row) => toSheetTemplateSummaryDto(row, placeOf(row.id))) };
 }
 
 // A master gets every sheet; anyone else those they read (by their holder's place and control).

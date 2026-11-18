@@ -15,6 +15,8 @@ import { SceneThumbnail } from './scene-thumbnail';
 import type { LibrarySubmit } from './use-library-submit';
 import { PlanGateHint } from '@/features/plans/plan-gate-hint';
 import { planHintIdOf } from '@/features/plans/plan-gate';
+import { PlanLockSeal } from '@/features/plans/plan-lock-seal';
+import { usePlanLock } from '@/features/plans/use-plan-limits';
 import { useLibraryPlanGates } from './library-plan-gates';
 
 type Visibility = LibrarySceneDto['visibility'];
@@ -44,7 +46,8 @@ export type SceneDetailsProps = Readonly<{
 }>;
 
 /** The panel of the grid picked: the master edits the name and who sees it (the folder changes by dragging it in the tree), takes the
- *  group there, opens, duplicates or deletes it; a player only opens it.
+ *  group there, opens, duplicates or deletes it; a player only opens it. A grid past the plan's
+ *  ceiling keeps its name and Duplicar off (who sees it, opening and deleting stay).
  *
  *  Example: `<SceneDetails scene={picked} isMaster live … />` */
 export function SceneDetails(props: SceneDetailsProps): React.JSX.Element {
@@ -120,6 +123,8 @@ function MasterFields(props: PickedProps): React.JSX.Element {
 
 function NameField({ scene, submit, live, now, focusName }: PickedProps): React.JSX.Element {
   const id = useId();
+  const lockHintId = useId();
+  const lock = usePlanLock('scenes', scene);
   const binding = useDraftField({
     confirmed: scene.name,
     save: async (draft) => {
@@ -131,18 +136,26 @@ function NameField({ scene, submit, live, now, focusName }: PickedProps): React.
   });
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={id} className="text-xs font-semibold tracking-[0.06em] text-label uppercase">
-        Nome
-      </label>
+      <div className="flex items-center gap-2">
+        <label
+          htmlFor={id}
+          className="text-xs font-semibold tracking-[0.06em] text-label uppercase"
+        >
+          Nome
+        </label>
+        <PlanLockSeal gate={lock} className="[&_svg]:size-3.5" />
+      </div>
       <Input
         id={id}
         {...binding}
         autoFocus={focusName}
-        disabled={!live}
+        disabled={!live || !lock.open}
+        aria-describedby={planHintIdOf(lock, lockHintId)}
         maxLength={SCENE_NAME_MAX_LENGTH}
         className="h-10 font-display text-[19px] font-semibold"
       />
       <span className="text-xs text-muted-foreground">{sceneMeta(scene, now)}</span>
+      <PlanGateHint id={lockHintId} gate={lock} />
     </div>
   );
 }
@@ -150,7 +163,10 @@ function NameField({ scene, submit, live, now, focusName }: PickedProps): React.
 function MasterActions(props: PickedProps & Readonly<{ isGroup: boolean }>): React.JSX.Element {
   const { scene, submit, live, isGroup } = props;
   const [confirming, setConfirming] = useState(false);
-  const copy = useLibraryPlanGates().duplicate;
+  const gates = useLibraryPlanGates();
+  const lock = usePlanLock('scenes', scene);
+  // A locked grid is read only first: its sentence wins over the plan's copy and count.
+  const copy = lock.open ? gates.duplicate : lock;
   const copyHintId = useId();
   return (
     <div className="mt-auto flex flex-col gap-2">

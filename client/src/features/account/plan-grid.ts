@@ -70,6 +70,8 @@ export const PLAN_FEATURE_ROWS: readonly PlanGridRow[] = [
   { label: 'Condição com imagem própria', cellOf: (l) => yesNo(l.conditionImage) },
   { label: 'Duplicar grid', cellOf: (l) => yesNo(l.sceneCopy) },
   { label: 'Janelas Chat e Imagens', cellOf: (l) => yesNo(l.desktopWindows) },
+  { label: 'Scripts na ficha', cellOf: (l) => yesNo(l.sheetScripts) },
+  { label: 'Arte animada da mesa', cellOf: (l) => yesNo(l.animatedCampaignArt) },
   { label: 'Cor personalizada no conteúdo da mesa', cellOf: (l) => yesNo(l.customColor) },
   // Of the account, not of the tables: what sets the Apoiador apart from Grátis.
   {
@@ -87,7 +89,7 @@ function countAmount(resource: PlanCountResource, limits: PlanLimits): number | 
 
 /** The numeric lines, below the marks: the counted resources in the order of the contracts.
  *
- *  Example: `PLAN_AMOUNT_ROWS[0]?.amountOf?.(PLAN_LIMITS.narrador) // 5` */
+ *  Example: `PLAN_AMOUNT_ROWS[0]?.amountOf?.(PLAN_LIMITS.narrador) // 3` */
 export const PLAN_AMOUNT_ROWS: readonly PlanGridRow[] = [
   ...PLAN_COUNT_RESOURCES.map((resource) => ({
     label: PLAN_COUNT_LABELS[resource],

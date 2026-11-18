@@ -1,5 +1,5 @@
 import { PLAN_LIMITS, accountPlanDto, meResponseDto, type UserPlan } from '@lorkarium/contracts';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { users } from '../../src/modules/auth/users.po';
 import type { SignedInUser } from '../support/sign-in';
@@ -29,6 +29,43 @@ async function meOf(user: SignedInUser) {
   return me;
 }
 
+describe('the paid plan in "Seu plano" and /me', () => {
+  async function payLendaUntil(user: SignedInUser, interval: string): Promise<void> {
+    await live.connection.db
+      .update(users)
+      .set({ paidPlan: 'lenda', paidPlanUntil: sql`now() + ${interval}::interval` })
+      .where(eq(users.id, user.id));
+  }
+
+  it('Bia on free paying the Lenda sees the paid plan, its end and the Lenda limits', async () => {
+    await setAccount(live.bia, { plan: 'free' });
+    await payLendaUntil(live.bia, '30 days');
+
+    const plan = await planOf(live.bia);
+    const me = await meOf(live.bia);
+
+    expect(plan).toMatchObject({ plan: 'free', paidPlan: 'lenda', limits: PLAN_LIMITS.lenda });
+    expect(Date.parse(plan.paidPlanUntil ?? '')).toBeGreaterThan(Date.now());
+    expect(me).toMatchObject({
+      plan: 'free',
+      paidPlan: 'lenda',
+      paidPlanUntil: plan.paidPlanUntil,
+    });
+  });
+
+  it('a paid plan that already ended shows nothing and the free limits', async () => {
+    await setAccount(live.bia, { plan: 'free' });
+    await payLendaUntil(live.bia, '-1 minute');
+
+    expect(await planOf(live.bia)).toMatchObject({
+      paidPlan: null,
+      paidPlanUntil: null,
+      limits: PLAN_LIMITS.free,
+    });
+    expect(await meOf(live.bia)).toMatchObject({ paidPlan: null, limits: PLAN_LIMITS.free });
+  });
+});
+
 describe('GET /api/account/plan', () => {
   it('Bia on free owning one table gets the free plan, its limits and one table owned', async () => {
     await setAccount(live.bia, { plan: 'free' });
@@ -41,6 +78,8 @@ describe('GET /api/account/plan', () => {
 
     expect(await planOf(live.bia)).toEqual({
       plan: 'free',
+      paidPlan: null,
+      paidPlanUntil: null,
       limits: PLAN_LIMITS.free,
       customization: false,
       usage: { campaignsOwned: 1, storageBytes: 0 },

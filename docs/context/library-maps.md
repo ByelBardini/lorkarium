@@ -57,6 +57,7 @@ Recebem `db` ou `tx` pelo construtor. **Toda consulta filtra por `campaign_id`**
 - `insert(NewLibraryMapPo)` → `LibraryMapPo`
 - `listOfCampaign(campaignId)` → `LibraryMapRow[]` (ordem de criação)
 - `countOfCampaign(campaignId)` → `number` (o que o plano do dono conta em `libraryMaps`)
+- `rankOf(campaignId, mapId)` → `number` (mapas da mesa com `(created_at, id)` menor; outra mesa ou inexistente = 0)
 - `findInCampaign(campaignId, mapId)` e `findMainOfCampaign(campaignId)` → `LibraryMapRow | undefined`
 - `findByAsset(campaignId, assetId)` → `LibraryMapPo | undefined`
 - `update(campaignId, mapId, LibraryMapChangesPo)` → `LibraryMapPo | undefined` (só as chaves recebidas de `name`/`folderId`/`visibility`, e o `updated_at`)
@@ -113,6 +114,8 @@ Todas sob `/api`, exigem sessão (401 sem cookie), aninhadas na mesa (§2.6). DT
 ## Service e plugin
 
 - `LibraryMapsService` (`library-maps.service.ts`): `create`, `detail`, `main`, `update`, `delete`, `setMain`, `unsetMain`. O requerente é `LibraryRequester { userId, campaignId }` (sessão + URL). Toda edição passa por `editAsMaster` (exportada, também é a das regiões): `requireMaster` → transação que trava a mesa com o plano do dono (`lockWithOwner`) → trabalho (recebe `daos`, `access` e a linha travada `CampaignWithOwnerPo`) → commit → publicação. O `create` conta `countOfCampaign` contra o plano do dono (`requireRoom('libraryMaps', …)`) antes de conferir a imagem. O `detail` lê em snapshot. `requireMapRow` acha o mapa pelo endereço ou recusa com `LIBRARY_MAP_NOT_FOUND`.
+- **Mapa além do plano** ([regra](plans/excedente-so-leitura.md); grupo = mesa): `requireEditableMap(daos, campaign, mapId)` (exportada do service) no `update` e em toda escrita de região (`MapRegionsService.write`, depois do `requireMapRow`): 403 `PLAN_LIMIT` `readOnly`, sem versão nem publicação. Livres: `delete`, `setMain`/`unsetMain` e o `show` (efêmero). No Grátis (teto 0) todo mapa trava.
+- **`planLocked`** em todo `libraryMapSummaryDto` (e no detalhe): `toLibraryMapSummaryDto(row, place)` / `toLibraryMapDetailDto(row, regions, place)`; `mapPlaceOf` faz o `rankOf`. `detail` e `main` leem o plano por `findOwnerPlan`; o agregado ranqueia pela lista inteira da mesa (não só a visível). Unit em `library-maps.service-plan.spec.ts`.
 - `createLibraryMapsModule({ db, publisher, clock })` (`library-maps.plugin.ts`, registrado no `build-app` depois da biblioteca, com o `SocketIoLibraryPublisher`); `libraryMapDaos(executor)` monta os DAOs num executor só. `libraryMapsRoutes` recebe os quatro services (`maps`, `regions`, `shows`, `appearances`).
 - **Erros** (`library-maps.error.ts`, base `LibraryMapError` com `LibraryMapErrorCode`): `LIBRARY_MAP_NOT_FOUND` (404), `MAP_IS_MAIN` (409), `MAP_REGION_NOT_FOUND` (404), `MAP_REGION_GEOMETRY_INVALID` (400), `MAP_REGIONS_FULL` (422), `MAP_LINK_SELF` (422), `MAP_LINK_TARGET_NOT_FOUND` (404), `MAP_REGION_NOT_SHOWABLE` (409). Código novo entra em `LibraryMapErrorCode` e nas duas tabelas da borda (`STATUS_BY_CODE`, `PUBLIC_MESSAGE`, em `library-maps.routes.ts`). A borda traduz também `DocumentError` (404) das aparições.
 - O agregado `GET …/library` e a exclusão de pasta moram na biblioteca; ver [`library.md`](library.md) (Mapas).

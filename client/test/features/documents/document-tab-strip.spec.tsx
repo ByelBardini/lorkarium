@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { PLAN_LIMITS, type PlanLimits } from '@lorkarium/contracts';
+import { PLAN_LIMITS, type DocumentTabSummaryDto, type PlanLimits } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
@@ -22,7 +22,6 @@ import {
   ITEMS_TAB_ID,
   documentFixture,
   documentTabFixture,
-  tabSummaryFixture,
   documentText,
   threeTabs,
 } from '../../support/documents-fixtures';
@@ -208,24 +207,61 @@ describe('document tab strip', () => {
   });
 
   describe('the table plan', () => {
-    const fiveTabs = () => [
-      ...threeTabs(),
-      tabSummaryFixture({ id: '4d4d4d4d-1e1e-4f2f-8a3a-b4b4b4b4b4b4', name: 'Quarta' }),
-      tabSummaryFixture({ id: '5d5d5d5d-1e1e-4f2f-8a3a-b4b4b4b4b4b4', name: 'Quinta' }),
-    ];
-
-    it('a free table at 5 tabs turns "Nova aba" off, with the plan sentence', async () => {
-      await strip('master', fiveTabs(), PLAN_LIMITS.free);
+    it('a free table at 3 tabs turns "Nova aba" off, with the plan sentence', async () => {
+      await strip('master', threeTabs(), PLAN_LIMITS.free);
       const create = screen.getByRole('button', { name: 'Nova aba' });
       expect(create).toBeDisabled();
       expect(create).toHaveAccessibleDescription(
-        'Esta mesa usa o plano Grátis, que permite até 5 abas por documento. O Narrador libera 30.',
+        'Esta mesa usa o plano Grátis, que permite até 3 abas por documento. O Narrador libera 10.',
       );
     });
 
-    it('a free table below 5 tabs still creates', async () => {
-      await strip('master', threeTabs(), PLAN_LIMITS.free);
+    it('a free table below 3 tabs still creates', async () => {
+      await strip('master', threeTabs().slice(0, 2), PLAN_LIMITS.free);
       expect(screen.getByRole('button', { name: 'Nova aba' })).toBeEnabled();
+    });
+  });
+
+  describe('a tab past the plan ceiling (planLocked)', () => {
+    const LOCKED =
+      'Esta aba passou do limite do plano Grátis (3) e está só leitura: ocultar, reordenar e excluir seguem livres. Apague uma aba mais antiga deste documento ou suba de plano.';
+    const withItemsLocked = (): DocumentTabSummaryDto[] =>
+      threeTabs().map((tab) => (tab.id === ITEMS_TAB_ID ? { ...tab, planLocked: true } : tab));
+
+    it('the locked tab carries the lock named "Só leitura", the others none', async () => {
+      await strip('master', withItemsLocked(), PLAN_LIMITS.free);
+      const items = screen.getByRole('tab', { name: 'Itens' });
+      expect(within(items).getByRole('img', { name: 'Só leitura' }).parentElement).toHaveAttribute(
+        'title',
+        LOCKED,
+      );
+      expect(
+        within(screen.getByRole('tab', { name: 'Geral' })).queryByRole('img', {
+          name: 'Só leitura',
+        }),
+      ).toBeNull();
+    });
+
+    it('its menu turns Renomear off with the sentence; moving, Só mestres and Excluir stay', async () => {
+      await strip('master', withItemsLocked(), PLAN_LIMITS.free);
+      const menu = await openMenu('Itens');
+      const rename = within(menu).getByRole('menuitem', { name: 'Renomear' });
+      expect(rename).toHaveAttribute('aria-disabled', 'true');
+      expect(rename).toHaveAccessibleDescription(LOCKED);
+      for (const name of ['Mover para a esquerda', 'Mover para a direita', 'Excluir'])
+        expect(within(menu).getByRole('menuitem', { name })).not.toHaveAttribute('aria-disabled');
+      expect(
+        within(menu).getByRole('menuitemcheckbox', { name: 'Só mestres' }),
+      ).not.toHaveAttribute('aria-disabled');
+    });
+
+    it('without planLocked the menu renames as before', async () => {
+      await strip('master', threeTabs(), PLAN_LIMITS.free);
+      const menu = await openMenu('Itens');
+      expect(within(menu).getByRole('menuitem', { name: 'Renomear' })).not.toHaveAttribute(
+        'aria-disabled',
+      );
+      expect(screen.queryByRole('img', { name: 'Só leitura' })).toBeNull();
     });
   });
 });

@@ -44,13 +44,13 @@ describe('LightRulesBo', () => {
       );
     });
 
-    it('on a free table the 16th light is PLAN_LIMIT lights, limit 15; the 15th passes', () => {
-      expect(() => rules(PLAN_LIMITS.free).admit(14, 1)).not.toThrow();
-      expect(() => rules(PLAN_LIMITS.free).admit(15, 1)).toThrow(
+    it('on a free table the 11th light is PLAN_LIMIT lights, limit 10; the 10th passes', () => {
+      expect(() => rules(PLAN_LIMITS.free).admit(9, 1)).not.toThrow();
+      expect(() => rules(PLAN_LIMITS.free).admit(10, 1)).toThrow(
         expect.objectContaining({
           code: 'PLAN_LIMIT',
           resource: 'lights',
-          limit: 15,
+          limit: 10,
           plan: 'free',
         }),
       );
@@ -66,6 +66,44 @@ describe('LightRulesBo', () => {
 
     it('exposes the limits it was built with', () => {
       expect(rules(PLAN_LIMITS.narrador).plan).toBe(PLAN_LIMITS.narrador);
+    });
+  });
+
+  describe('requireConfigurable (past the plan)', () => {
+    it('the 10th light (rank 9) of the 1st grid of a free table takes new settings', () => {
+      expect(() => rules(PLAN_LIMITS.free).requireConfigurable(0, 9)).not.toThrow();
+    });
+
+    it('the 11th light (rank 10) of a free table is PLAN_LIMIT lights read only', () => {
+      expect(() => rules(PLAN_LIMITS.free).requireConfigurable(0, 10)).toThrow(
+        expect.objectContaining({
+          code: 'PLAN_LIMIT',
+          resource: 'lights',
+          reason: 'readOnly',
+          stored: 11,
+          limit: 10,
+        }),
+      );
+    });
+
+    it('any light of the 4th grid (rank 3) of a free table is PLAN_LIMIT scenes read only', () => {
+      expect(() => rules(PLAN_LIMITS.free).requireConfigurable(3, 0)).toThrow(
+        expect.objectContaining({ resource: 'scenes', reason: 'readOnly', stored: 4, limit: 3 }),
+      );
+    });
+
+    it('on narrador the 30th light of the 15th grid passes; amigo_do_dono never locks', () => {
+      expect(() => rules(PLAN_LIMITS.narrador).requireConfigurable(14, 29)).not.toThrow();
+      expect(() => rules().requireConfigurable(499, 99)).not.toThrow();
+    });
+  });
+
+  describe('requireSceneConfigurable', () => {
+    it('a light placed on the 4th grid of a free table is PLAN_LIMIT scenes read only; the 3rd passes', () => {
+      expect(() => rules(PLAN_LIMITS.free).requireSceneConfigurable(2)).not.toThrow();
+      expect(() => rules(PLAN_LIMITS.free).requireSceneConfigurable(3)).toThrow(
+        expect.objectContaining({ code: 'PLAN_LIMIT', resource: 'scenes', reason: 'readOnly' }),
+      );
     });
   });
 

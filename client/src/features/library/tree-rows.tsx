@@ -4,6 +4,7 @@ import {
   SCENE_NAME_MAX_LENGTH,
   SHEET_NAME_MAX_LENGTH,
   type LibrarySceneDto,
+  type PlanLimits,
   type SceneFolderDto,
 } from '@lorkarium/contracts';
 import {
@@ -27,7 +28,11 @@ import {
   type MapEntry,
 } from '@/lib/library-entries';
 import type { FolderNode } from '@/lib/folder-tree';
+import type { PlanReadOnlyResource } from '@/lib/plan-limit-message';
 import { cn } from '@/lib/utils';
+import { OPEN_GATE, planLockGate, type PlanGate } from '@/features/plans/plan-gate';
+import { PLAN_LOCK_NAME, PlanLockSeal } from '@/features/plans/plan-lock-seal';
+import { usePlanLimits } from '@/features/plans/use-plan-limits';
 import { folderDescription, sceneDescription } from './library-messages';
 import { sceneIdOf, sceneKey } from './library-view';
 import { HiddenItemSeal, TreeFolderIcon } from './tree-icons';
@@ -122,10 +127,13 @@ type SceneItemsProps = Readonly<{
  *
  *  Example: `<SceneItems context={context} scenes={tree.looseScenes} level={1} />` */
 export function SceneItems({ context, scenes, level }: SceneItemsProps): React.JSX.Element {
+  const { table } = usePlanLimits();
   return (
     <>
       {scenes.map((scene) => {
         const look = entryLookOf(scene, context);
+        // Only the master configures: a player's tree shows no lock.
+        const lock = context.editing ? lockOf(table, scene) : OPEN_GATE;
         return (
           <TreeRow
             key={scene.id}
@@ -133,9 +141,10 @@ export function SceneItems({ context, scenes, level }: SceneItemsProps): React.J
             itemKey={sceneKey(scene.id)}
             label={scene.name}
             level={level}
-            description={look.description}
+            description={lock.open ? look.description : `${look.description} · ${PLAN_LOCK_NAME}`}
             live={look.isGroupGrid}
             mainMap={look.isMainMap}
+            lock={lock}
             leaf
             icon={
               look.showsHiddenSeal && scene.visibility === 'private' ? (
@@ -149,6 +158,21 @@ export function SceneItems({ context, scenes, level }: SceneItemsProps): React.J
       })}
     </>
   );
+}
+
+// The items the plan may lock past its ceiling, by the resource they count against.
+function lockOf(table: PlanLimits | null, entry: LibraryEntry): PlanGate {
+  const resource = lockResourceOf(entry);
+  return resource === null || !('planLocked' in entry)
+    ? OPEN_GATE
+    : planLockGate(table, resource, entry);
+}
+
+function lockResourceOf(entry: LibraryEntry): PlanReadOnlyResource | null {
+  if (!('kind' in entry)) return 'scenes';
+  if (entry.kind === 'map') return 'libraryMaps';
+  if (entry.kind === 'sheet-template') return 'sheetTemplates';
+  return null;
 }
 
 type EntryLook = Readonly<{
@@ -213,6 +237,8 @@ type TreeRowProps = Readonly<{
   live?: boolean;
   /** The table's main map: marked with the star. */
   mainMap?: boolean;
+  /** Closed on an item kept past the plan's ceiling: marked with the lock. */
+  lock?: PlanGate;
   /** `undefined` for an item that cannot expand (a grid, an empty folder). */
   expanded?: boolean;
   /** An item, not a folder: a double click opens it. */
@@ -304,6 +330,7 @@ function ItemName(props: TreeRowLineProps): React.JSX.Element {
   return (
     <>
       <span className="min-w-0 flex-1 truncate">{props.label}</span>
+      {props.lock && <PlanLockSeal gate={props.lock} />}
       {props.mainMap && <StarIcon aria-hidden="true" className="text-primary" />}
       {props.live && <UsersIcon aria-hidden="true" className="text-primary" />}
       {props.count !== undefined && (

@@ -18,7 +18,7 @@ import type { EffectAreasDao } from '../effect-areas/effect-areas.dao';
 import { toEffectAreaDto } from '../effect-areas/effect-areas.mapper';
 import type { LightsDao } from '../lights/lights.dao';
 import { toLightDto } from '../lights/lights.mapper';
-import { reachedGridOf } from '../scenes/locked-scene';
+import { gridPlanLockOf, reachedGridOf } from '../scenes/locked-scene';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import { tokenConditionsOf } from '../tokens/token-transaction';
 import { TokenAccessBo, type TokenAudience } from '../tokens/token-access.bo';
@@ -32,7 +32,7 @@ import { toBoardStateDto } from './board.mapper';
 
 /** The DAOs the snapshot reads with, bound to its read-only transaction. */
 export type BoardReadDaos = Readonly<{
-  scenes: Pick<ScenesDao, 'findGridInCampaign'>;
+  scenes: Pick<ScenesDao, 'findGridInCampaign' | 'rankOf'>;
   tokens: Pick<TokensDao, 'listOfScene'>;
   conditions: Pick<ConditionsDao, 'listDefinitions' | 'listOfHolders'>;
   combat: Pick<CombatDao, 'findOfScene'>;
@@ -77,6 +77,7 @@ export class BoardService {
         address,
         await daos.scenes.findGridInCampaign(campaignId, sceneId),
       );
+      const planLocked = await gridPlanLockOf(daos.scenes, scene);
       const seen = await tokensFor(daos, access, scene.id);
       const combatRow = await daos.combat.findOfScene(scene.id);
       const combat = combatSeenBy(combatRow ? toCombatDto(combatRow) : null, seen.invisible);
@@ -86,7 +87,8 @@ export class BoardService {
       const at = this.deps.clock.now();
       const { tokens, veiledLights } = seen;
       const pieces = { tokens, ...shared, veiledLights, combat, conditionDefinitions };
-      return toBoardStateDto({ campaignId, viewer: { userId, role }, scene, ...pieces, at });
+      const viewer = { userId, role };
+      return toBoardStateDto({ campaignId, viewer, scene, planLocked, ...pieces, at });
     });
   }
 }

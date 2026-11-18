@@ -39,6 +39,16 @@ export type FolderRemoval = Readonly<{
 
 export type VisibleLibrary<F, S> = Readonly<{ folders: readonly F[]; scenes: readonly S[] }>;
 
+/** Whether a library edit of a grid changes its setup (name or folder), which a grid past the
+ *  owner's plan keeps; publishing or hiding it is not setup.
+ *
+ *  Example: `editsGridSetup({ visibility: 'public' }) // false` */
+export function editsGridSetup(
+  changes: Readonly<{ name?: string; folderId?: string | null }>,
+): boolean {
+  return changes.name !== undefined || changes.folderId !== undefined;
+}
+
 /** The name of a grid's copy: `name` + `suffix`, the name cut (and its trailing spaces dropped)
  *  so the whole fits in `maxLength`.
  *

@@ -6,7 +6,8 @@ import {
   type CharacterSyncDto,
   type TokenDto,
 } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { gridAck } from '../support/grids';
 import { hiddenTable } from '../support/hidden-tokens';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
@@ -19,6 +20,11 @@ import { characterOfUser, characterUpdate, charactersSynced } from '../support/t
 import { tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+beforeEach(async () => {
+  await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+  await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+});
 
 const BIA_CARD = { armorClass: 15, noteOne: 'Deve um favor ao ferreiro' };
 

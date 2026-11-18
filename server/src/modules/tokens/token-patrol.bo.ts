@@ -85,6 +85,23 @@ export class TokenPatrolBo {
     return { tokenId: token.tokenId, timeline, pose: patrolPoseNowOf(token, now).pose };
   }
 
+  /** Whether the patrol of `token` counts on the table's plan: only a running one does (saving
+   *  or taking away a paused route never counts), so only its route can be past the ceiling.
+   *
+   *  Example: `if (rule.countsOnPlan(token)) rule.requireRouteEditable(await patrols.runningRankOf(sceneId, tokenId))` */
+  countsOnPlan(token: PatrolledToken): boolean {
+    return Boolean(token.timeline?.startedAt);
+  }
+
+  /** A new route for the running patrol of `runningRank` (how many running patrols of the grid
+   *  belong to older tokens, by `(created_at, id)`) is PLAN_LIMIT `patrols` read only past the
+   *  plan; pausing it and taking it away stay free.
+   *
+   *  Example: `new TokenPatrolBo({ scene, runningLimit: 30, plan: PLAN_LIMITS.free }).requireRouteEditable(0) // throws` */
+  requireRouteEditable(runningRank: number): void {
+    PlanLimitsBo.requireEditable('patrols', runningRank, this.state.plan);
+  }
+
   /** The patrol taken away; a running one leaves the token where it is now. */
   remove(token: PatrolledToken, now: Date): PatrolWrite {
     return { tokenId: token.tokenId, timeline: null, pose: patrolPoseNowOf(token, now).pose };

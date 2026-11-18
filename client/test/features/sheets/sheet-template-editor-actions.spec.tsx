@@ -1,3 +1,4 @@
+import { PLAN_LIMITS, type PlanLimits } from '@lorkarium/contracts';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -9,6 +10,7 @@ import { replaceCode } from '../../support/code-editor-input';
 import { TORMENTA_TEMPLATE_ID } from '../../support/sheet-fixtures';
 import { SheetChannelsFake } from '../../support/sheet-frame-fakes';
 import { SheetTemplatesApiFake } from '../../support/sheet-templates-api-fake';
+import { onTablePlan } from '../../support/table-plan';
 
 const NOTICE = 'Atributos que não vão rodar';
 const WITH_ONCLICK = '<main>\n  <h1>Lyra</h1>\n  <button onclick="curar()">+1 PV</button>\n</main>';
@@ -19,14 +21,17 @@ beforeEach(() => {
   api = new SheetTemplatesApiFake();
 });
 
-async function openTormenta() {
+async function openTormenta(limits?: PlanLimits) {
   const user = userEvent.setup();
   const draft = createSheetTemplateDraftStore({
     api,
     campaignId: VHARN.id,
     templateId: TORMENTA_TEMPLATE_ID,
   });
-  render(<SheetTemplateEditor draft={draft} live createChannel={new SheetChannelsFake().create} />);
+  const editor = (
+    <SheetTemplateEditor draft={draft} live createChannel={new SheetChannelsFake().create} />
+  );
+  render(limits ? onTablePlan(limits, editor) : editor);
   await screen.findByRole('textbox', { name: 'Arquivo index.html' });
   return user;
 }
@@ -74,5 +79,24 @@ describe('InlineHandlerNotice', () => {
   it('draws nothing with nothing saved', () => {
     const { container } = render(<InlineHandlerNotice savedFiles={null} />);
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('the editor warns, before saving, that the JS does not run on the plan of the table', () => {
+  const SCRIPTS_NOTICE = 'Scripts que não vão rodar';
+
+  it('on a Grátis table a template with JS says it does not run there, and where it does', async () => {
+    await openTormenta(PLAN_LIMITS.free);
+    const notice = screen.getByRole('note', { name: SCRIPTS_NOTICE });
+    expect(notice).toHaveTextContent(
+      'Os scripts deste modelo não rodam no plano Grátis. Disponível no Narrador',
+    );
+    expect(notice).toHaveTextContent('JS novo ou alterado não é salvo.');
+    expect(screen.getByRole('button', { name: 'Salvar' })).toBeInTheDocument();
+  });
+
+  it('on a Narrador table nothing is said about the JS', async () => {
+    await openTormenta(PLAN_LIMITS.narrador);
+    expect(screen.queryByRole('note', { name: SCRIPTS_NOTICE })).toBeNull();
   });
 });

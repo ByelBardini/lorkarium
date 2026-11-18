@@ -14,6 +14,7 @@ import { buildRoutes } from '@/app/router';
 import { NO_PERF_PROBE, RecordingPerfProbe } from '@/lib/perf-probe';
 import { HttpAccountLinksApi } from '@/services/account-links-api';
 import { HttpAccountPlanApi } from '@/services/account-plan-api';
+import { HttpBillingApi } from '@/services/billing-api';
 import { HttpAccountSecurityApi } from '@/services/account-security-api';
 import { HttpUserAdminApi } from '@/services/user-admin-api';
 import { HttpUserReportsApi } from '@/services/user-reports-api';
@@ -160,6 +161,9 @@ const router = createBrowserRouter(
     savedColorsApi: new HttpSavedColorsApi(transport),
     accountSecurityApi: new HttpAccountSecurityApi(transport),
     accountPlanApi: new HttpAccountPlanApi(transport),
+    billingApi: new HttpBillingApi(transport),
+    goToCheckout: (url) => window.location.assign(url),
+    waitBeforeBillingCheck: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     userAdminApi: new HttpUserAdminApi(transport),
     userReportsApi: new HttpUserReportsApi(transport),
     badgesAdminApi: new HttpBadgesAdminApi(transport),

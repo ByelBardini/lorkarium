@@ -28,6 +28,7 @@ export function libraryMapSummary(
     isMain: false,
     asset: { id: MUNDO_ASSET_ID, mimeType: 'image/webp', width: 2000, height: 1000 },
     version: 3,
+    planLocked: false,
     updatedAt: AT,
     ...overrides,
   };

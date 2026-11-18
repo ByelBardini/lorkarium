@@ -27,6 +27,7 @@ const FAKE_DATE = new Date('2026-10-01T12:00:00Z');
 const FRIEND_OF_THE_OWNER: UserPlanPo = {
   role: 'user',
   plan: 'amigo_do_dono',
+  activePaidPlan: null,
   lorkariumOwner: false,
 };
 

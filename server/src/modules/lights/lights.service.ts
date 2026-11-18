@@ -23,10 +23,10 @@ import {
   type SceneTransaction,
 } from '../scenes/locked-scene';
 import { CustomColorPlanBo } from '../plans/custom-color-plan.bo';
-import { effectiveLimitsOf } from '../plans/plan-limits.bo';
+import { PlanLimitsBo, effectiveLimitsOf } from '../plans/plan-limits.bo';
 import type { AddressedSceneRow } from '../scenes/scenes.dao';
 import { LightRulesBo } from './light-rules.bo';
-import type { LightsDao } from './lights.dao';
+import type { LightsDao, RankedLightPo } from './lights.dao';
 import { LightNotFoundError } from './lights.error';
 import {
   colorOfLight,
@@ -66,6 +66,8 @@ export type LightWriteDaos = GridLockDaos &
       | 'insertMany'
       | 'countOfScene'
       | 'findManyInScene'
+      | 'findManyRankedInScene'
+      | 'sceneRankOf'
       | 'moveMany'
       | 'setRanges'
       | 'setColors'
@@ -107,6 +109,7 @@ export class LightsService {
       { campaignId, sceneId: command.sceneId, access },
       async (locked) => {
         const rules = this.rulesFor(locked.scene);
+        rules.requireSceneConfigurable(await sceneRankFor(locked, rules));
         for (const placement of command.lights) {
           rules.place(sceneLightOfPlacement(placement));
           CustomColorPlanBo.requirePaletteUnlessAllowed(placement.color, rules.plan);
@@ -236,8 +239,9 @@ export class LightsService {
     return saved.version;
   }
 
-  /** Locks the addressed grid, finds every light changed (all or none), checks each against its
-   *  change and writes the group; answers what it saved. */
+  /** Locks the addressed grid, finds every light changed (all or none) with its rank, refuses a
+   *  grid or a light past the plan (read only), checks each against its change and writes the
+   *  group; answers what it saved. */
   private async changeEach<Change extends Readonly<{ lightId: string }>>(
     address: GridAddress,
     changes: readonly Change[],
@@ -247,10 +251,12 @@ export class LightsService {
     const { campaignId } = address;
     return inLockedGrid(this.deps.transaction, address, async (locked) => {
       const ids = changes.map(({ lightId }) => lightId);
-      const rows = await lightsIn(locked, campaignId, ids);
+      const rows = await rankedLightsIn(locked, campaignId, ids);
       const rules = this.rulesFor(locked.scene);
+      const sceneRank = await sceneRankFor(locked, rules);
       rows.forEach((row, index) => {
         const change = changes[index];
+        rules.requireConfigurable(sceneRank, row.rank);
         if (change) check(rules, row, change);
       });
       await write(locked.daos.lights, locked.scene.id);
@@ -281,11 +287,41 @@ async function lightsIn(
   campaignId: string,
   lightIds: readonly string[],
 ): Promise<LightPo[]> {
-  const found = await daos.lights.findManyInScene(scene.id, lightIds);
+  return inIdOrder(campaignId, lightIds, await daos.lights.findManyInScene(scene.id, lightIds));
+}
+
+// The same, with the rank of each light on the plan read in the query that finds them.
+async function rankedLightsIn(
+  { daos, scene }: Locked,
+  campaignId: string,
+  lightIds: readonly string[],
+): Promise<RankedLightPo[]> {
+  const found = await daos.lights.findManyRankedInScene(scene.id, lightIds);
+  return inIdOrder(campaignId, lightIds, found);
+}
+
+function inIdOrder<Row extends LightPo>(
+  campaignId: string,
+  lightIds: readonly string[],
+  found: readonly Row[],
+): Row[] {
   const byId = new Map(found.map((row) => [row.id, row]));
   return lightIds.map((lightId) => {
     const row = byId.get(lightId);
     if (!row) throw new LightNotFoundError(campaignId, lightId);
     return row;
   });
+}
+
+// A plan that locks no grid (null or technical ceiling) needs no rank: 0 keeps every grid open
+// without the count.
+async function sceneRankFor(
+  locked: Readonly<{
+    daos: Readonly<{ lights: Pick<LightsDao, 'sceneRankOf'> }>;
+    scene: AddressedSceneRow;
+  }>,
+  rules: LightRulesBo,
+): Promise<number> {
+  if (!PlanLimitsBo.mayLock('scenes', rules.plan)) return 0;
+  return locked.daos.lights.sceneRankOf(locked.scene.id);
 }

@@ -21,7 +21,7 @@ import {
   campaignPo,
 } from './campaigns-factories';
 import { ATO_1_ID, QUELM_FOLDER_ID, sceneFolderPo } from './library-factories';
-import { LibraryCampaignsDaoFake, SceneFoldersDaoFake } from './library-fakes';
+import { OwnerPlanCampaignsDaoFake, SceneFoldersDaoFake } from './library-fakes';
 
 export const TORMENTA_ID = '4e5f6a7b-8c9d-4e0f-8a1b-3c4d5e6f7a8b';
 export const QUELM_TEMPLATE_ID = '5f6a7b8c-9d0e-4f1a-9b2c-4d5e6f7a8b9c';
@@ -67,6 +67,15 @@ export class SheetTemplatesDaoFake implements TemplateOperations {
 
   async countOfCampaign(campaignId: string): Promise<number> {
     return this.rows.filter((row) => row.campaignId === campaignId).length;
+  }
+
+  /** The place of the template among its table's, as stored (the oldest first); a missing one, 0. */
+  async rankOf(campaignId: string, templateId: string): Promise<number> {
+    const templates = this.rows.filter((row) => row.campaignId === campaignId);
+    return Math.max(
+      0,
+      templates.findIndex((row) => row.id === templateId),
+    );
   }
 
   async insert(input: NewSheetTemplatePo): Promise<SheetTemplatePo> {
@@ -116,7 +125,7 @@ export class SheetTemplatesHarness {
   readonly assets = new AssetsDaoFake(this.journal);
   readonly requester = { campaignId: VHARN_ID, userId: ANA_ID };
   /** Vharn; its owner's plan is `campaigns.owner` (no plan limit until a spec sets one). */
-  readonly campaigns = new LibraryCampaignsDaoFake(this.journal, [campaignPo({ id: VHARN_ID })]);
+  readonly campaigns = new OwnerPlanCampaignsDaoFake(this.journal, [campaignPo({ id: VHARN_ID })]);
   readonly daos: SheetTemplateDaos = {
     campaigns: this.campaigns,
     folders: new SceneFoldersDaoFake(this.journal, [

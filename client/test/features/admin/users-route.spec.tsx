@@ -78,7 +78,23 @@ describe('backoffice users (/admin/users)', () => {
       expect(within(biaRow).getByText('@biaflor').nextElementSibling).toBe(seal);
       expect(biaRow).toHaveTextContent('Narrador');
       expect(rowOf('@pedrinho')).toHaveTextContent(/Usuário.*Grátis.*Suspenso/);
-      expect(screen.getByRole('columnheader', { name: 'Plano' })).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'Plano do admin' })).toBeInTheDocument();
+    });
+
+    it('the paid plan sits beside the plan of the admin, read only, with its end', async () => {
+      deps.userAdminApi.users = deps.userAdminApi.users.map((user) =>
+        user.username === 'biaflor'
+          ? { ...user, plan: 'free', paidPlan: 'lenda', paidPlanUntil: '2026-12-23T15:00:00.000Z' }
+          : user,
+      );
+      renderAt('/admin/users');
+      await table();
+
+      const biaRow = rowOf('@biaflor');
+      expect(screen.getByRole('columnheader', { name: 'Plano pago' })).toBeInTheDocument();
+      expect(biaRow).toHaveTextContent(/Grátis.*Lenda até 23\/12\/2026/);
+      expect(within(biaRow).getByRole('img', { name: 'Plano Lenda' })).toBeVisible();
+      expect(rowOf('@pedrinho')).toHaveTextContent(/Grátis.*—.*Suspenso/);
     });
 
     it('the own row says "você" and its only button is the badges menu', async () => {

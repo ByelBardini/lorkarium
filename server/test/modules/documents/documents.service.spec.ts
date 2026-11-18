@@ -44,6 +44,7 @@ describe('DocumentsService', () => {
     harness.campaigns.owner = {
       role: 'user',
       plan: 'free',
+      activePaidPlan: null,
       lorkariumOwner: false,
     };
     const result = await new DocumentsService(harness.deps).create(harness.requester, {

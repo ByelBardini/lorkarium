@@ -4,7 +4,7 @@ import {
   tokensDraggedDto,
   type TokenDto,
 } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { setAccountPlan } from '../support/account-plans';
 import { gridAck, newGrid } from '../support/grids';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
@@ -46,6 +46,11 @@ function configureOn(table: Table, freeMovement?: boolean, sceneId?: string): ob
 
 describe('free movement over Socket.IO', () => {
   const live = useTokenTable();
+  // Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+  beforeEach(async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+    await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+  });
 
   // The free Vharn with Lyra of Bia at (3, 4), and Ana and Bia at the table.
   async function freeTableWithLyra(): Promise<{

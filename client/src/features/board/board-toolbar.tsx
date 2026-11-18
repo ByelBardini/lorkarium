@@ -21,9 +21,11 @@ import {
   UserPlusIcon,
   UsersIcon,
 } from 'lucide-react';
+import { useId } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { OPEN_GATE, type PlanGate } from '@/features/plans/plan-gate';
 import type { BoardRenderer } from '@/renderer/board-renderer';
 import type { AddPlayersResult } from '@/services/table-board-commands';
 import { toolsOf } from '@/lib/table-role';
@@ -49,6 +51,8 @@ export type BoardToolbarProps = Readonly<{
   members?: readonly ToolbarMember[];
   /** "Animar auras": local to this browser, for everyone at the table. */
   auraMotion: StoreApi<AuraMotionStore>;
+  /** Closed when the grid is past the owner's plan: Paredes is off, with the sentence. */
+  setupLock?: PlanGate;
   onConfigure: () => void;
   onNewToken: () => void;
 }>;
@@ -88,6 +92,7 @@ export function BoardToolbar({
   sightOn = false,
   members = [],
   auraMotion,
+  setupLock = OPEN_GATE,
   onConfigure,
   onNewToken,
 }: BoardToolbarProps): React.JSX.Element {
@@ -106,7 +111,7 @@ export function BoardToolbar({
         aria-orientation="vertical"
         className="absolute top-16 left-3 flex max-h-[calc(100%-4.75rem)] [scrollbar-width:thin] [scrollbar-color:var(--color-input)_transparent] flex-col gap-1 overflow-y-auto border border-border bg-panel p-1 *:shrink-0"
       >
-        <PickedTools interaction={interaction} tools={toolsOf(role)} />
+        <PickedTools interaction={interaction} tools={toolsOf(role)} setupLock={setupLock} />
         <ToolButton
           label="Grid (G)"
           icon={Grid3x3Icon}
@@ -213,10 +218,12 @@ function AuraMotionButton({ auraMotion }: Pick<BoardToolbarProps, 'auraMotion'>)
 type PickedToolsProps = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
   tools: readonly BoardTool[];
+  setupLock: PlanGate;
 }>;
 
-// The tools the role may pick, in the toolbar's order; the pressed one is the store's.
-function PickedTools({ interaction, tools }: PickedToolsProps): React.JSX.Element {
+// The tools the role may pick, in the toolbar's order; the pressed one is the store's. Paredes
+// edits the grid's setup, so a grid past the plan keeps it off.
+function PickedTools({ interaction, tools, setupLock }: PickedToolsProps): React.JSX.Element {
   const tool = useBoardInteraction(interaction, (state) => state.tool);
   const offered = PICKED_TOOLS.filter((candidate) => tools.includes(candidate.tool));
   return (
@@ -227,6 +234,7 @@ function PickedTools({ interaction, tools }: PickedToolsProps): React.JSX.Elemen
           label={label}
           icon={icon}
           pressed={tool === candidate}
+          hint={candidate === 'walls' ? setupLock.hint : null}
           onClick={() => interaction.getState().setTool(candidate)}
         />
       ))}
@@ -261,31 +269,58 @@ type ToolButtonProps = Readonly<{
   onClick: () => void;
   pressed?: boolean;
   disabled?: boolean;
+  /** Why the plan keeps the tool off: it disables the button and describes it. */
+  hint?: string | null;
 }>;
 
-function ToolButton({
-  label,
-  icon: Icon,
-  onClick,
-  pressed,
-  disabled,
-}: ToolButtonProps): React.JSX.Element {
+function ToolButton(props: ToolButtonProps): React.JSX.Element {
+  const { label, hint = null } = props;
+  if (hint !== null) return <LockedToolButton {...props} hint={hint} />;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{toolIconButton(props)}</TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+// A disabled button gets no pointer: the span holds the tooltip with the sentence.
+function LockedToolButton(props: ToolButtonProps & Readonly<{ hint: string }>): React.JSX.Element {
+  const hintId = useId();
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={label}
-          aria-pressed={pressed}
-          disabled={disabled}
-          onClick={onClick}
-          className={pressed ? 'text-primary' : 'text-muted-foreground'}
-        >
-          <Icon aria-hidden="true" />
-        </Button>
+        <span className="flex">
+          {toolIconButton({ ...props, disabled: true }, hintId)}
+          <span id={hintId} className="sr-only">
+            {props.hint}
+          </span>
+        </span>
       </TooltipTrigger>
-      <TooltipContent side="right">{label}</TooltipContent>
+      <TooltipContent side="right" className="max-w-64">
+        {`${props.label}: ${props.hint}`}
+      </TooltipContent>
     </Tooltip>
+  );
+}
+
+// An element, not a component: the tooltip trigger hands its props straight to the button.
+function toolIconButton(
+  { label, icon: Icon, onClick, pressed, disabled }: ToolButtonProps,
+  describedBy?: string,
+): React.JSX.Element {
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label={label}
+      aria-pressed={pressed}
+      aria-describedby={describedBy}
+      disabled={disabled}
+      onClick={onClick}
+      className={pressed ? 'text-primary' : 'text-muted-foreground'}
+    >
+      <Icon aria-hidden="true" />
+    </Button>
   );
 }

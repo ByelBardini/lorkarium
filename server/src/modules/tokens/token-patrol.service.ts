@@ -62,7 +62,8 @@ export class TokenPatrolService {
   constructor(private readonly deps: TokenPatrolServiceDeps) {}
 
   /** Saves the route (or takes it away, `patrol: null`) of one token; saving over a running
-   *  patrol restarts it from the first point, from where the token is now. */
+   *  patrol restarts it from the first point, from where the token is now. A new route on a
+   *  running patrol past the table's plan is read only (its rank read only then). */
   async setPatrol(userId: string, campaignId: string, command: SetTokenPatrol): Promise<number> {
     const access = await memberAccessOf(this.deps.members, campaignId, userId);
     access.requireMaster(`set a token patrol on token ${command.tokenId}`);
@@ -72,6 +73,8 @@ export class TokenPatrolService {
       const row = await tokenIn(daos, scene, campaignId, command.tokenId);
       const token = toPatrolledToken(row);
       const bo = this.ruleOf(scene);
+      if (command.patrol && bo.countsOnPlan(token))
+        bo.requireRouteEditable(await daos.tokens.patrols.runningRankOf(scene.id, row.token.id));
       const write = command.patrol
         ? bo.save(token, toTokenPatrol(row.token.id, command.patrol), now)
         : bo.remove(token, now);

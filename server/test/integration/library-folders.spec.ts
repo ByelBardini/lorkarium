@@ -5,7 +5,8 @@ import {
   type LibraryDto,
   type SceneFolderDto,
 } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { SceneFoldersDao } from '../../src/modules/library/scene-folders.dao';
 import { silence } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
@@ -13,6 +14,11 @@ import type { SignedInUser } from '../support/sign-in';
 import { useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+beforeEach(async () => {
+  await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+  await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+});
 
 function foldersUrl(): string {
   return `/api/campaigns/${live.vharn.id}/scene-folders`;

@@ -41,6 +41,10 @@ export const users = pgTable(
     passwordHash: text('password_hash').notNull(),
     role: userRole('role').notNull().default('user'),
     plan: userPlan('plan').notNull().default('free'),
+    // The plan bought at the gateway, written only by the billing service (column grants); the
+    // end already holds the grace days, so this side only compares it with now().
+    paidPlan: userPlan('paid_plan'),
+    paidPlanUntil: timestamp('paid_plan_until', { withTimezone: true }),
     // A name of the palette or a custom hex; null = automatic, drawn from the id.
     color: text('color').$type<MemberColorDto>(),
     bio: text('bio'),
@@ -94,6 +98,14 @@ export const users = pgTable(
     check('users_color_value', paletteOrHexSql(table.color, MEMBER_COLOR_NAMES)),
     check('users_dice_number_color_hex', sql`${table.diceNumberColor} ~ '^#[0-9a-f]{6}$'`),
     check(
+      'users_paid_plan_pair',
+      sql`(${table.paidPlan} IS NULL) = (${table.paidPlanUntil} IS NULL)`,
+    ),
+    check(
+      'users_paid_plan_sold',
+      sql`${table.paidPlan} IS NULL OR ${table.paidPlan} IN ('apoiador', 'narrador', 'lenda')`,
+    ),
+    check(
       'users_terms_acceptance_pair',
       sql`(${table.termsAcceptedAt} IS NULL) = (${table.termsVersion} IS NULL)`,
     ),
@@ -103,8 +115,11 @@ export const users = pgTable(
 export type UserPo = typeof users.$inferSelect;
 export type NewUserPo = typeof users.$inferInsert;
 /** What the plans module needs of an account to resolve its limits (`effectiveLimitsOf`):
- *  `lorkariumOwner` is no column, it is `lorkariumOwnerSql` read in the same select
- *  (`planAccountColumnsOf`). */
-export type UserPlanPo = Pick<UserPo, 'role' | 'plan'> & Readonly<{ lorkariumOwner: boolean }>;
+ *  `lorkariumOwner` is no column, it is `lorkariumOwnerSql` read in the same select, and
+ *  `activePaidPlan` is the paid plan only while `paid_plan_until` is ahead (`activePaidPlanSql`),
+ *  both in `PLAN_ACCOUNT_COLUMNS`. Not named `paidPlan`: a whole `UserPo` (raw, maybe expired
+ *  `paidPlan`) must never pass for an account whose paid plan is in force. */
+export type UserPlanPo = Pick<UserPo, 'role' | 'plan'> &
+  Readonly<{ activePaidPlan: UserPo['paidPlan']; lorkariumOwner: boolean }>;
 /** The two columns that keep an e-mail at rest. */
 export type SealedEmail = Pick<UserPo, 'emailCipher' | 'emailIndex'>;

@@ -5,11 +5,12 @@ import { ConfirmCommandDialog } from './confirm-command-dialog';
 import { DeleteUserDialog } from './delete-user-dialog';
 import { LinkResultDialog } from './link-result-dialog';
 import { UserBadgesDialog } from './user-badges-dialog';
+import { UserBillingDialog, type UserBillingDialogProps } from './user-billing-dialog';
 
 /** The one dialog of the users page open at a time. */
 export type OpenDialog =
   | Readonly<{
-      kind: 'grant-admin' | 'suspend' | 'delete' | 'password-link' | 'badges';
+      kind: 'grant-admin' | 'suspend' | 'delete' | 'password-link' | 'badges' | 'billing';
       user: AdminUserDto;
     }>
   | Readonly<{ kind: 'resend'; invitationId: string; email: string }>;
@@ -19,6 +20,10 @@ export type UsersDialogProps = Readonly<{
   clipboard: Clipboard;
   /** The catalog and the grants of "Insígnias…". */
   badgesApi: BadgesAdminApi;
+  /** The billing of an account and its refunds ("Cobrança…"). */
+  billingApi: UserBillingDialogProps['api'];
+  /** The admin's own 2FA is on: the refund needs it. */
+  twoFactorOn: boolean;
   /** The command went through: the page writes `message` in its notice and closes the dialog. */
   onDone: (message: string) => void;
   /** Another dialog takes its place ("Suspender em vez disso"). */
@@ -34,10 +39,22 @@ export function UsersDialog({
   dialog,
   clipboard,
   badgesApi,
+  billingApi,
+  twoFactorOn,
   onDone,
   onSwitch,
   onClose,
 }: UsersDialogProps): React.JSX.Element {
+  if (dialog.kind === 'billing') {
+    return (
+      <UserBillingDialog
+        user={dialog.user}
+        api={billingApi}
+        twoFactorOn={twoFactorOn}
+        onClose={onClose}
+      />
+    );
+  }
   if (dialog.kind === 'badges') {
     return (
       <UserBadgesDialog user={dialog.user} api={badgesApi} onDone={onDone} onClose={onClose} />

@@ -335,7 +335,7 @@ describe('CharactersDao on Postgres', () => {
 
       expect(vharn).toEqual({
         version: 0,
-        owner: { role: 'user', plan: 'narrador', lorkariumOwner: false },
+        owner: { role: 'user', plan: 'narrador', activePaidPlan: null, lorkariumOwner: false },
       });
       expect(quelm?.owner.plan).toBe('lenda');
     });

@@ -137,22 +137,32 @@ describe('DiceService.roll', () => {
     expect(random.asked).toEqual([6, 6, 6, 6, 6]);
   });
 
-  it('12d6 at a free table: 10 dice go to the physics, 2 to crypto, and the total sums all 12', async () => {
-    const { service, physics, random, publisher, tables } = harness(Array(10).fill(3), [5, 6]);
+  it('10d6 at a free table: 8 dice go to the physics, 2 to crypto, and the total sums all 10', async () => {
+    const { service, physics, random, publisher, tables } = harness(Array(8).fill(3), [5, 6]);
     tables.set(VHARN_ID, planAccount({ plan: 'free' }));
 
-    const answer = await service.roll(BIA_ID, rollOf(['12d6']));
+    const answer = await service.roll(BIA_ID, rollOf(['10d6']));
 
-    expect(physics.throws[0]?.kinds).toHaveLength(10);
+    expect(physics.throws[0]?.kinds).toHaveLength(8);
     expect(random.asked).toEqual([6, 6]);
-    expect(answer.total).toBe(10 * 3 + 5 + 6);
-    expect(publisher.full[0]?.throw?.models).toHaveLength(10);
+    expect(answer.total).toBe(8 * 3 + 5 + 6);
+    expect(publisher.full[0]?.throw?.models).toHaveLength(8);
     expect(tables.asked).toEqual([VHARN_ID]);
   });
 
-  it('20d6 at a narrador table: all 20 dice go to the physics', async () => {
+  it('16d6 at a narrador table: 15 dice go to the physics and 1 to crypto', async () => {
     const { service, physics, random, tables } = harness();
     tables.set(VHARN_ID, planAccount({ plan: 'narrador' }));
+
+    await service.roll(BIA_ID, rollOf(['16d6']));
+
+    expect(physics.throws[0]?.kinds).toHaveLength(15);
+    expect(random.asked).toEqual([6]);
+  });
+
+  it('20d6 at a lenda table: all 20 dice go to the physics', async () => {
+    const { service, physics, random, tables } = harness();
+    tables.set(VHARN_ID, planAccount({ plan: 'lenda' }));
 
     await service.roll(BIA_ID, rollOf(['20d6']));
 

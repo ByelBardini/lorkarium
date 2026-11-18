@@ -14,13 +14,13 @@ Não é plano: é a conta cujo @ está na env opcional `OWNER_USERNAME` do serve
 
 ## Os campos do selo
 
-Os DTOs de membro (`sessionMemberDto`, `campaignMemberDto`) e o `profileDto` levam o plano **gravado** (nunca o efetivo: o admin aparece com o plano dele), `admin` (`role = 'admin'`) e `lorkariumOwner`. Montados por `accountSealFieldsOf(account)` (`campaigns.mapper.ts`, usado pelo `sessions.mapper.ts`) e pelo `toProfileDto`. O `authUserDto` e o `adminUserDto` já têm `role`. Os limites efetivos (`limits` da mesa e da conta) não mudaram.
+Os DTOs de membro (`sessionMemberDto`, `campaignMemberDto`) e o `profileDto` levam o **maior entre o plano do admin e o pago em vigor** (`effectivePlanOf`; nunca o da grade aplicada: o admin aparece com o plano dele), `admin` (`role = 'admin'`) e `lorkariumOwner`. Montados por `accountSealFieldsOf(account)` (`campaigns.mapper.ts`, usado pelo `sessions.mapper.ts`) e pelo `toProfileDto`. O `authUserDto` e o `adminUserDto` já têm `role`. Os limites efetivos (`limits` da mesa e da conta) não mudaram.
 
 A troca no backoffice avisa as mesas vivas: plano e **papel global** (`changeRole`, `UserAdminService.tellSealAndLimits`) publicam `session:memberUpdated` (o selo) e, nas mesas de que a conta é dona, `session:campaignUpdated` (os limites: o admin não tem teto). Provado em `user-admin-plan.spec.ts` e `user-admin.service.spec.ts`.
 
 ## Um selo só (`client/src/lib/plan-seal.ts`)
 
-`planSealOf(holder)` → `PlanSealLook | null`, o mais alto: **Dono do Lorkarium > Admin > Amigo do Dono > Lenda > Narrador > Apoiador**. O Apoiador é um plano (`apoiador`), o mais baixo dos selos; o Grátis não tem selo. `PlanSealHolder` = `{ plan, admin, lorkariumOwner }`; `sealHolderOfAccount(conta)` tira o `admin` do `role` (`/me`, backoffice). `PLAN_NAMES` = os cinco planos.
+`planSealOf(holder)` → `PlanSealLook | null`, o mais alto: **Dono do Lorkarium > Admin > Amigo do Dono > Lenda > Narrador > Apoiador**. O Apoiador é um plano (`apoiador`), o mais baixo dos selos; o Grátis não tem selo. `PlanSealHolder` = `{ plan, admin, lorkariumOwner }`; `sealHolderOfAccount(conta)` tira o `admin` do `role` e o `plan` de `higherPlanOf(plan, paidPlan)` (`/me`, backoffice). `PLAN_NAMES` = os cinco planos.
 
 | Selo          | `kind`            | Nome acessível      | Cor      | Ícone (`plan-seal-icons.tsx`; o mapa por `kind` em `plan-seal-icon-map.ts`) |
 | ------------- | ----------------- | ------------------- | -------- | --------------------------------------------------------------------------- |
@@ -36,8 +36,8 @@ A troca no backoffice avisa as mesas vivas: plano e **papel global** (`changeRol
 - `PlanSeal holder` (`components/plan-seal.tsx`): só o símbolo, na cor do selo (estilo inline de `memberColorCss`), da altura do texto (`size-[1.05em]`), `role="img"` com o nome acessível e o mesmo nome no `title`; `data-seal` = o `kind`. Nada para Grátis.
 - `UserHandle username seal` (`components/user-handle.tsx`): o `@username` com o símbolo colado à direita, na mesma linha. Todo @ mostrado como identificação passa por ele: card de perfil (`features/profile-card/profile-card-parts.tsx`, que também desenha o selo em marca-d'água), prévia "Como a galera te vê", a linha "Nome de usuário" do Perfil, o menu da conta (linha nova com o @ acima do e-mail) e a linha do backoffice. O @ dentro de uma frase (avisos, títulos de diálogo, "Você está conectado como @…") fica em texto.
 - Onde a tela não mostra o @, o símbolo vai colado ao nome: as linhas de "Na mesa" (`NickLine`), "Participantes" do detalhe da mesa (o `campaignMemberDto` não tem @).
-- "Seu plano" de `/account` não usa o `PlanSeal`: desenha o ícone grande pelo `PLAN_SEAL_ICONS` no `PlanCard` e um pequeno, decorativo, no cabeçalho de cada coluna da grade (ver [`../client/account.md`](../client/account.md), Seu plano).
-- A coluna "Plano" do backoffice escreve o plano gravado em palavras ("Lenda", "Apoiador"); o selo único foi para o lado do @.
+- "Seu plano" de `/account` não usa o `PlanSeal`: desenha o ícone grande pelo `PLAN_SEAL_ICONS` no `PlanCard` e um pequeno, decorativo, no cabeçalho de cada coluna da grade (ver [`../client/account-plan.md`](../client/account-plan.md)).
+- A coluna "Plano do admin" do backoffice escreve o plano que o admin definiu em palavras ("Lenda", "Apoiador"); ao lado, "Plano pago" (só leitura) diz "Lenda até 23/12/2026" ou "—" (`paidPlanLine`, `lib/paid-plan-text.ts`); o selo único foi para o lado do @.
 - A coroa "Dono"/"Mestre" da mesa (`master-row.tsx`) é outra coisa (o dono da campanha) e não mudou.
 - Provado em `client/test/lib/plan-seal.spec.ts` (a precedência inteira), `components/plan-seal.spec.tsx`, `components/plan-seal-icon-map.spec.tsx` (todo ícone, traço e grade), `components/user-handle.spec.tsx` e nos specs das telas.
 

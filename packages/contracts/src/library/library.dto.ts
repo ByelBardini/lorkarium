@@ -35,9 +35,11 @@ export const sceneFolderDto = z.strictObject({
 export type SceneFolderDto = z.infer<typeof sceneFolderDto>;
 
 /** A grid as the library card shows it. `tokenCount` is `null` for a player (what is on a grid
- *  is the master's business); `folderId: null` = no folder.
+ *  is the master's business); `folderId: null` = no folder. `planLocked`: the owner's plan went
+ *  down and this grid is past its ceiling of grids, so its setup (name, folder, background, ruler,
+ *  walls, copy) is read only; play on it goes on.
  *
- *  Example: `librarySceneDto.parse(body).visibility // 'private'` */
+ *  Example: `librarySceneDto.parse(body).planLocked // true for the 4th grid of a free table` */
 export const librarySceneDto = z.strictObject({
   id: z.uuid(),
   name: z.string(),
@@ -47,6 +49,7 @@ export const librarySceneDto = z.strictObject({
   heightCells: z.number().int().positive(),
   background: sceneBackgroundDto.nullable(),
   tokenCount: z.number().int().nonnegative().nullable(),
+  planLocked: z.boolean(),
   updatedAt: z.iso.datetime(),
 });
 export type LibrarySceneDto = z.infer<typeof librarySceneDto>;

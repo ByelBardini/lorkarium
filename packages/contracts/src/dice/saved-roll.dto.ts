@@ -34,6 +34,9 @@ export const savedRollDto = z.strictObject({
   name: z.string(),
   folderId: z.uuid().nullable(),
   parts: z.array(z.strictObject({ label: z.string().nullable(), expression: z.string() })),
+  /** Past the table owner's plan (`savedRolls`, by creation order among the member's rolls): the
+   *  name and the parts are read only, while moving to a folder and deleting still pass. */
+  planLocked: z.boolean(),
 });
 export type SavedRollDto = z.infer<typeof savedRollDto>;
 

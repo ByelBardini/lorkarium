@@ -7,6 +7,7 @@ import {
   type SheetTemplateSummaryDto,
   type UpdateSheetTemplateRequestDto,
 } from '@lorkarium/contracts';
+import { planLockedOf, type PlanRank } from '../library/library.mapper';
 import type {
   SheetTemplateChangesPo,
   SheetTemplateFilesPo,
@@ -15,15 +16,20 @@ import type {
   SheetTemplateSummaryPo,
 } from './sheet-templates.po';
 
-/** The library row of a template, without the code.
+/** The library row of a template, without the code; `place` (its rank among the table's
+ *  templates and the owner's limits) decides `planLocked`.
  *
- *  Example: `toSheetTemplateSummaryDto(row).name // 'Ficha Tormenta'` */
-export function toSheetTemplateSummaryDto(row: SheetTemplateSummaryPo): SheetTemplateSummaryDto {
+ *  Example: `toSheetTemplateSummaryDto(row, { rank: 1, limits: PLAN_LIMITS.free }).planLocked // true` */
+export function toSheetTemplateSummaryDto(
+  row: SheetTemplateSummaryPo,
+  place: PlanRank,
+): SheetTemplateSummaryDto {
   return {
     id: row.id,
     folderId: row.folderId,
     name: row.name,
     version: row.version,
+    planLocked: planLockedOf('sheetTemplates', place),
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -45,11 +51,13 @@ export function toSheetTemplateFilesDto(files: SheetTemplateFilesPo): SheetTempl
   return files.map(({ path, content }) => ({ path, content }));
 }
 
-/** The template with its files and manifest, as the master's editor reads it. */
-export function toSheetTemplateDto(row: SheetTemplatePo): SheetTemplateDto {
+/** The template with its files and manifest, as the master's editor reads it.
+ *
+ *  Example: `toSheetTemplateDto(row, { rank: 0, limits }).files[0]?.path // 'index.html'` */
+export function toSheetTemplateDto(row: SheetTemplatePo, place: PlanRank): SheetTemplateDto {
   const files = toSheetTemplateFilesDto(row.files);
   const manifest = toSheetTemplateManifestDto(row.manifest);
-  return { ...toSheetTemplateSummaryDto(row), files, manifest };
+  return { ...toSheetTemplateSummaryDto(row, place), files, manifest };
 }
 
 /** The files a sheet runs and the manifest its host enforces, sent with the sheet. */

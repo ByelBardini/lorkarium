@@ -57,5 +57,6 @@ export function savedRollOf(n: number, name: string, expression = '1d20'): Saved
     name,
     folderId: null,
     parts: [{ label: null, expression }],
+    planLocked: false,
   };
 }

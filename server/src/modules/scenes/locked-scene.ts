@@ -1,5 +1,6 @@
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
+import { PlanLimitsBo, effectiveLimitsOf } from '../plans/plan-limits.bo';
 import { SceneAccessBo, type GridReach } from './scene-access.bo';
 import type { AddressedSceneRow, ScenesDao } from './scenes.dao';
 import { SceneNotFoundError } from './scenes.error';
@@ -51,6 +52,34 @@ export async function inLockedGrid<Daos extends GridLockDaos, T>(
     const value = await work({ daos, scene });
     return { value, version: await daos.scenes.bumpVersion(scene.id), sceneId: scene.id };
   });
+}
+
+/** Refuses with PLAN_LIMIT `readOnly` a change of setup (ruler, background, walls) on a grid past
+ *  the owner's plan, ranked among its table's grids; play on it never calls this. Call it inside
+ *  `inLockedGrid`, with the DAO of its `tx`.
+ *
+ *  Example: `await requireEditableGrid(locked.daos.scenes, locked.scene)` */
+export async function requireEditableGrid(
+  scenes: Pick<ScenesDao, 'rankOf'>,
+  scene: Pick<AddressedSceneRow, 'id' | 'campaignId' | 'owner'>,
+): Promise<void> {
+  const limits = effectiveLimitsOf(scene.owner);
+  if (!PlanLimitsBo.mayLock('scenes', limits)) return;
+  PlanLimitsBo.requireEditable('scenes', await scenes.rankOf(scene.campaignId, scene.id), limits);
+}
+
+/** Whether the grid is past the owner's plan, ranked among its table's grids: the `planLocked`
+ *  of the scene the room receives. One count, in the snapshot's or the write's transaction, and
+ *  none when the owner's plan locks no grid.
+ *
+ *  Example: `await gridPlanLockOf(daos.scenes, scene) // true for the 4th grid of a free table` */
+export async function gridPlanLockOf(
+  scenes: Pick<ScenesDao, 'rankOf'>,
+  scene: Pick<AddressedSceneRow, 'id' | 'campaignId' | 'owner'>,
+): Promise<boolean> {
+  const limits = effectiveLimitsOf(scene.owner);
+  if (!PlanLimitsBo.mayLock('scenes', limits)) return false;
+  return PlanLimitsBo.isReadOnly('scenes', await scenes.rankOf(scene.campaignId, scene.id), limits);
 }
 
 /** The grid read for an address, if the requester may act on it: the master any grid of the

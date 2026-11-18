@@ -7,7 +7,8 @@ import {
   type SheetWriteResponseDto,
 } from '@lorkarium/contracts';
 import { sql } from 'drizzle-orm';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { linkToPlayerCharacter, lyraPoisonedAtVharn, tokenIn } from '../support/characters';
 import { gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
@@ -18,6 +19,11 @@ import type { Table } from '../support/tables';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+beforeEach(async () => {
+  await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+  await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+});
 const CODE = { files: [{ path: 'index.html', content: '<p id="pv"></p>' }] };
 
 function sheetsUrl(table: Table = live.vharn): string {

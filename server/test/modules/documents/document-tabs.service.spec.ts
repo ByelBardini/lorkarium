@@ -289,39 +289,47 @@ describe('DocumentTabsService tab content', () => {
 });
 
 describe("DocumentTabsService against the owner's plan", () => {
-  // The Diário of a free table (5 tabs per document) with `count` tabs.
+  // The Diário of a free table (3 tabs per document) with `count` tabs.
   function freeDiaryWith(count: number): DocumentsHarness {
     const harness = diary();
     harness.campaigns.owner = {
       role: 'user',
       plan: 'free',
+      activePaidPlan: null,
       lorkariumOwner: false,
     };
     for (let position = 2; position < count; position += 1)
       harness.tabs.rows.push(
-        documentTabPo({ id: randomUUID(), name: `Aba ${position}`, position }),
+        // Born after the Geral, one minute apart: the rank by (createdAt, id) must not hang on
+        // the random id.
+        documentTabPo({
+          id: randomUUID(),
+          name: `Aba ${position}`,
+          position,
+          createdAt: new Date(Date.UTC(2026, 9, 29, 16, position)),
+        }),
       );
     return harness;
   }
-  it('the owner creating the 6th tab is PLAN_LIMIT documentTabs, and nothing is written nor published', async () => {
-    const harness = freeDiaryWith(5);
+  it('the owner creating the 4th tab is PLAN_LIMIT documentTabs, and nothing is written nor published', async () => {
+    const harness = freeDiaryWith(3);
     const create = serviceWith(harness).create(bia(harness), DOCUMENT_ID, versioned);
     await expect(create).rejects.toMatchObject({
       code: 'PLAN_LIMIT',
       resource: 'documentTabs',
-      limit: 5,
+      limit: 3,
       plan: 'free',
     });
-    expect(harness.tabs.rows).toHaveLength(5);
+    expect(harness.tabs.rows).toHaveLength(3);
     expect(harness.documents.rows[0]?.version).toBe(3);
     expect(harness.journal).not.toContain('publish');
   });
-  it('the 5th tab of the free table is created', async () => {
-    const harness = freeDiaryWith(4);
+  it('the 3rd tab of the free table is created', async () => {
+    const harness = freeDiaryWith(2);
     const result = await serviceWith(harness).create(bia(harness), DOCUMENT_ID, versioned);
     expect(result.receipt).toMatchObject({ operation: 'tab-create', version: 4 });
   });
-  it('renaming and deleting past the ceiling still apply (who is past keeps what it has)', async () => {
+  it('past the ceiling the oldest tab still renames and deletes', async () => {
     const harness = freeDiaryWith(7);
     const service = serviceWith(harness);
     await service.update(harness.requester, DOCUMENT_ID, GERAL_TAB_ID, {
@@ -331,5 +339,23 @@ describe("DocumentTabsService against the owner's plan", () => {
     const next = { actionId: randomUUID(), expectedVersion: 4 };
     await service.delete(harness.requester, DOCUMENT_ID, GERAL_TAB_ID, next);
     expect(harness.tabs.rows).toHaveLength(6);
+  });
+
+  it('past the ceiling a newer tab refuses a rename as readOnly, and still deletes', async () => {
+    const harness = freeDiaryWith(7);
+    const newest = harness.tabs.rows.find((row) => row.name === 'Aba 6')!;
+    const service = serviceWith(harness);
+    const rename = service.update(harness.requester, DOCUMENT_ID, newest.id, {
+      ...versioned,
+      name: 'Mundo',
+    });
+    await expect(rename).rejects.toMatchObject({
+      code: 'PLAN_LIMIT',
+      resource: 'documentTabs',
+      reason: 'readOnly',
+      limit: 3,
+    });
+    await service.delete(harness.requester, DOCUMENT_ID, newest.id, versioned);
+    expect(harness.tabs.rows.map((row) => row.name)).not.toContain('Aba 6');
   });
 });

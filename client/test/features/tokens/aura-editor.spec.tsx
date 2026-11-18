@@ -189,7 +189,7 @@ describe('AuraEditor', () => {
       expect(screen.getByRole('radio', { name: 'Cor' })).toBeEnabled();
       expect(screen.getByRole('radio', { name: 'Efeito' })).toBeDisabled();
       expect(screen.getByRole('radio', { name: 'Imagem' })).toBeDisabled();
-      expect(kindGroup()).toHaveAccessibleDescription('Efeito e Imagem: Disponível no Narrador');
+      expect(kindGroup()).toHaveAccessibleDescription('Efeito e Imagem: Disponível na Lenda');
     });
 
     it('an effect aura kept from a paid plan keeps Efeito; Imagem stays off', () => {
@@ -199,8 +199,17 @@ describe('AuraEditor', () => {
       expect(screen.getByRole('radio', { name: 'Imagem' })).toBeDisabled();
     });
 
-    it('a Narrador table offers every kind, with no hint', () => {
+    it('a Narrador table still offers only Cor: Efeito and Imagem are Lenda only', () => {
       render(onTablePlan(PLAN_LIMITS.narrador, <Harness />));
+
+      expect(screen.getByRole('radio', { name: 'Cor' })).toBeEnabled();
+      expect(screen.getByRole('radio', { name: 'Efeito' })).toBeDisabled();
+      expect(screen.getByRole('radio', { name: 'Imagem' })).toBeDisabled();
+      expect(kindGroup()).toHaveAccessibleDescription('Efeito e Imagem: Disponível na Lenda');
+    });
+
+    it('a Lenda table offers every kind, with no hint', () => {
+      render(onTablePlan(PLAN_LIMITS.lenda, <Harness />));
 
       expect(screen.getByRole('radio', { name: 'Imagem' })).toBeEnabled();
       expect(kindGroup()).not.toHaveAccessibleDescription();

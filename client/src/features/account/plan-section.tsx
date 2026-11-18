@@ -1,4 +1,4 @@
-import type { AccountPlanDto, ProfileDto } from '@lorkarium/contracts';
+import { higherPlanOf, type AccountPlanDto, type ProfileDto } from '@lorkarium/contracts';
 import { useId } from 'react';
 import { useRevalidator } from 'react-router';
 import { Alert } from '@/components/ui/alert';
@@ -7,6 +7,10 @@ import type { AccountLoadFailure, AccountResult } from '@/services/account-failu
 import { PlanGridTable } from './plan-grid-table';
 import { campaignsUsageLabel, storageUsageLabel } from './plan-grid';
 import { PlanCard } from './plan-card';
+import {
+  SubscriptionPanel,
+  type SubscriptionPanelProps,
+} from '@/features/billing/subscription-panel';
 import { SectionHeading } from './section-heading';
 
 /** What of the account, besides the plan, picks the seal and says why there is no plan limit. */
@@ -15,36 +19,53 @@ export type PlanSectionAccount = Pick<ProfileDto, 'admin' | 'lorkariumOwner'>;
 export type PlanSectionProps = Readonly<{
   plan: AccountResult<AccountPlanDto, AccountLoadFailure>;
   account: PlanSectionAccount;
+  billingApi: SubscriptionPanelProps['billingApi'];
+  now: Date;
 }>;
 
 /** "Seu plano": the plan, what the account already spends of it and the grid of every plan. A
  *  failed read stays inside the section, so the rest of "Minha conta" still works.
  *
- *  Example: `<PlanSection plan={loaderData.plan} account={loaderData.profile} />` */
-export function PlanSection({ plan, account }: PlanSectionProps): React.JSX.Element {
+ *  Example: `<PlanSection plan={loaderData.plan} account={loaderData.profile} billingApi={billingApi} now={now} />` */
+export function PlanSection({
+  plan,
+  account,
+  billingApi,
+  now,
+}: PlanSectionProps): React.JSX.Element {
   const titleId = useId();
+  // Inside the plan card: the date a paying account reads is the subscription's (the paid
+  // period), never `paidPlanUntil`, which carries the 7 days of grace and read as a second date.
+  const subscription = <SubscriptionPanel billingApi={billingApi} now={now} />;
   return (
     <section aria-labelledby={titleId} className="flex flex-col gap-6">
       <SectionHeading id={titleId} title="Seu plano">
         O que você pode criar como dono de mesa e quanto já usa.
       </SectionHeading>
       {plan.ok ? (
-        <PlanSummary plan={plan.value} account={account} />
+        <PlanSummary plan={plan.value} account={account} subscription={subscription} />
       ) : (
-        <PlanLoadAlert failure={plan.failure} />
+        <>
+          <PlanLoadAlert failure={plan.failure} />
+          {subscription}
+        </>
       )}
     </section>
   );
 }
 
-type PlanSummaryProps = Readonly<{ plan: AccountPlanDto; account: PlanSectionAccount }>;
+type PlanSummaryProps = Readonly<{
+  plan: AccountPlanDto;
+  account: PlanSectionAccount;
+  subscription: React.ReactNode;
+}>;
 
-function PlanSummary({ plan, account }: PlanSummaryProps): React.JSX.Element {
+function PlanSummary({ plan, account, subscription }: PlanSummaryProps): React.JSX.Element {
   const { admin, lorkariumOwner } = account;
-  const seal = { plan: plan.plan, admin, lorkariumOwner };
+  const seal = { plan: higherPlanOf(plan.plan, plan.paidPlan), admin, lorkariumOwner };
   return (
     <div className="flex flex-col gap-6">
-      <PlanCard holder={seal} />
+      <PlanCard holder={seal}>{subscription}</PlanCard>
       <p className="text-sm text-muted-foreground">{customizationNote(plan.customization)}</p>
       <PlanUsage plan={plan} />
       <PlanGridTable holder={seal} />

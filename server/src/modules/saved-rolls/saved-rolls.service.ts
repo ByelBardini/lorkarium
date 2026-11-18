@@ -1,17 +1,20 @@
 import type {
   CreateSavedRollRequestDto,
+  PlanLimits,
   SavedRollDto,
   SavedRollsResponseDto,
   UpdateSavedRollRequestDto,
 } from '@lorkarium/contracts';
 import { isUniqueViolation } from '../../lib/postgres-error';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
+import type { CampaignsDao } from '../campaigns/campaigns.dao';
 import { CampaignNotFoundError } from '../campaigns/campaigns.error';
 import { memberAccessOf } from '../campaigns/member-access';
 import { effectiveLimitsOf } from '../plans/plan-limits.bo';
 import { SavedRollRulesBo } from './saved-roll.bo';
 import type { SavedRollFoldersDao } from './saved-roll-folders.dao';
 import type { SavedRollsDao } from './saved-rolls.dao';
+import type { SavedRollPo } from './saved-rolls.po';
 import {
   SavedRollFolderNotFoundError,
   SavedRollNameTakenError,
@@ -27,7 +30,7 @@ import {
 const NAME_UNIQUE_INDEX = 'saved_rolls_member_name_unique';
 
 export type SavedRollWriteDaos = Readonly<{
-  rolls: Pick<SavedRollsDao, 'lockOwner' | 'countOf' | 'insert'>;
+  rolls: Pick<SavedRollsDao, 'lockOwner' | 'countOf' | 'insert' | 'rankOf' | 'update'>;
   folders: Pick<SavedRollFoldersDao, 'findOf' | 'countOf' | 'insert'>;
 }>;
 
@@ -37,8 +40,9 @@ export type SavedRollsTransactionRunner = <T>(
 
 export type SavedRollsServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership'>;
-  rolls: Pick<SavedRollsDao, 'listOf' | 'update' | 'remove'>;
-  folders: Pick<SavedRollFoldersDao, 'findOf'>;
+  /** The table owner's plan, read without a lock for the list's `planLocked`. */
+  tableOwners: Pick<CampaignsDao, 'findOwnerPlan'>;
+  rolls: Pick<SavedRollsDao, 'listOf' | 'remove'>;
   transaction: SavedRollsTransactionRunner;
   /** `SAVED_ROLLS_MAX`, passed in: the BO does not read the contract. */
   maxSaved: number;
@@ -58,8 +62,13 @@ export class SavedRollsService {
 
   async list(owner: SavedRollOwner): Promise<SavedRollsResponseDto> {
     await this.requireMember(owner);
+    const tableOwner = await this.deps.tableOwners.findOwnerPlan(owner.campaignId);
+    if (!tableOwner) throw notMember(owner);
+    const limits = effectiveLimitsOf(tableOwner);
     const rows = await this.deps.rolls.listOf(owner.campaignId, owner.userId);
-    return { savedRolls: rows.map(toSavedRollDto) };
+    // `listOf` is in creation order: the index is the rank.
+    const savedRolls = rows.map((row, rank) => this.dtoOf(row, rank, limits));
+    return { savedRolls };
   }
 
   /** Counts and inserts under the owner's lock, so two saves never pass the ceiling together; the
@@ -67,17 +76,16 @@ export class SavedRollsService {
   async create(owner: SavedRollOwner, input: CreateSavedRollRequestDto): Promise<SavedRollDto> {
     await this.requireMember(owner);
     this.rules.requireReadable(input.parts.map((part) => part.expression));
-    const row = await this.namedWrite(input.name, () =>
+    return this.namedWrite(input.name, () =>
       this.deps.transaction(async ({ rolls, folders }) => {
-        const tableOwner = await rolls.lockOwner(owner.campaignId, owner.userId);
-        if (!tableOwner) throw notMember(owner);
+        const limits = await lockedLimitsOf(rolls, owner);
         const kept = await rolls.countOf(owner.campaignId, owner.userId);
-        this.rules.requireRoomFor(kept, effectiveLimitsOf(tableOwner));
+        this.rules.requireRoomFor(kept, limits);
         await requireOwnFolder(folders, owner, input.folderId);
-        return rolls.insert(toNewSavedRollPo(owner, input));
+        const row = await rolls.insert(toNewSavedRollPo(owner, input));
+        return this.dtoOf(row, kept, limits);
       }),
     );
-    return toSavedRollDto(row);
   }
 
   async update(
@@ -87,13 +95,25 @@ export class SavedRollsService {
   ): Promise<SavedRollDto> {
     await this.requireMember(owner);
     if (changes.parts) this.rules.requireReadable(changes.parts.map((part) => part.expression));
-    await requireOwnFolder(this.deps.folders, owner, changes.folderId);
     const { campaignId, userId } = owner;
-    const write = () =>
-      this.deps.rolls.update(campaignId, userId, savedRollId, toSavedRollChangesPo(changes));
-    const row = await this.namedWrite(changes.name, write);
-    if (!row) throw new SavedRollNotFoundError(campaignId, userId, savedRollId);
-    return toSavedRollDto(row);
+    return this.namedWrite(changes.name, () =>
+      this.deps.transaction(async ({ rolls, folders }) => {
+        const limits = await lockedLimitsOf(rolls, owner);
+        const rank = await rolls.rankOf(campaignId, userId, savedRollId);
+        if (rank === undefined) throw new SavedRollNotFoundError(campaignId, userId, savedRollId);
+        if (changes.name !== undefined || changes.parts)
+          this.rules.requireConfigurable(rank, limits);
+        await requireOwnFolder(folders, owner, changes.folderId);
+        const row = await rolls.update(
+          campaignId,
+          userId,
+          savedRollId,
+          toSavedRollChangesPo(changes),
+        );
+        if (!row) throw new SavedRollNotFoundError(campaignId, userId, savedRollId);
+        return this.dtoOf(row, rank, limits);
+      }),
+    );
   }
 
   async remove(owner: SavedRollOwner, savedRollId: string): Promise<void> {
@@ -101,6 +121,10 @@ export class SavedRollsService {
     const { campaignId, userId } = owner;
     if (await this.deps.rolls.remove(campaignId, userId, savedRollId)) return;
     throw new SavedRollNotFoundError(campaignId, userId, savedRollId);
+  }
+
+  private dtoOf(row: SavedRollPo, rank: number, limits: PlanLimits): SavedRollDto {
+    return toSavedRollDto(row, this.rules.isPlanLocked(rank, limits));
   }
 
   private async requireMember(owner: SavedRollOwner): Promise<void> {
@@ -128,6 +152,17 @@ async function requireOwnFolder(
   const { campaignId, userId } = owner;
   if (await folders.findOf(campaignId, userId, folderId)) return;
   throw new SavedRollFolderNotFoundError(campaignId, userId, folderId);
+}
+
+// The membership's lock, so two writes of the same member go one after the other, and the table
+// plan read in it.
+async function lockedLimitsOf(
+  rolls: Pick<SavedRollsDao, 'lockOwner'>,
+  owner: SavedRollOwner,
+): Promise<PlanLimits> {
+  const tableOwner = await rolls.lockOwner(owner.campaignId, owner.userId);
+  if (!tableOwner) throw notMember(owner);
+  return effectiveLimitsOf(tableOwner);
 }
 
 function notMember(owner: SavedRollOwner): CampaignNotFoundError {
