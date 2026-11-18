@@ -1,7 +1,16 @@
-import { PLAN_LIMIT_CODE, type PlanLimitResource, type UserPlan } from '@lorkarium/contracts';
+import {
+  PLAN_LIMIT_CODE,
+  type PlanLimitReason,
+  type PlanLimitResource,
+  type UserPlan,
+} from '@lorkarium/contracts';
 
-/** What passed the plan: `stored + adding` against `limit` (0 for a feature the plan lacks). */
+/** What passed the plan: `stored + adding` against `limit` (0 for a feature the plan lacks).
+ *  `reason` says which rule refused: `room` (creating past the ceiling, or a missing feature) or
+ *  `readOnly` (editing an item kept past the ceiling; there `stored` is its 1-based position and
+ *  `adding` is 0). */
 export type PlanLimitRefusal = Readonly<{
+  reason: PlanLimitReason;
   resource: PlanLimitResource;
   stored: number;
   adding: number;
@@ -13,6 +22,7 @@ export type PlanLimitRefusal = Readonly<{
  *  ack) with `planLimit` through `plan-limit-response.ts`, so a service only throws it. */
 export class PlanLimitError extends Error {
   readonly code = PLAN_LIMIT_CODE;
+  readonly reason: PlanLimitReason;
   readonly resource: PlanLimitResource;
   readonly stored: number;
   readonly adding: number;
@@ -22,6 +32,7 @@ export class PlanLimitError extends Error {
   constructor(refusal: PlanLimitRefusal, message: string) {
     super(message);
     this.name = 'PlanLimitError';
+    this.reason = refusal.reason;
     this.resource = refusal.resource;
     this.stored = refusal.stored;
     this.adding = refusal.adding;

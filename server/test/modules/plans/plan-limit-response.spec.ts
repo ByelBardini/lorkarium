@@ -24,6 +24,15 @@ function refusalOfScenes(): PlanLimitError {
   throw new Error('expected requireRoom to refuse the 4th scene of free');
 }
 
+function readOnlyFourthScene(): PlanLimitError {
+  try {
+    PlanLimitsBo.requireEditable('scenes', 3, PLAN_LIMITS.free);
+  } catch (error) {
+    if (error instanceof PlanLimitError) return error;
+  }
+  throw new Error('expected requireEditable to lock the 4th scene of free');
+}
+
 async function appThrowing(error: Error): Promise<FastifyInstance> {
   const app = Fastify();
   app.setErrorHandler(withPlanLimitReply(replyAsTheModule));
@@ -40,7 +49,16 @@ describe('planLimitErrorBody', () => {
     expect(apiErrorDto.parse(body)).toEqual({
       code: 'PLAN_LIMIT',
       message: 'would have 4 scenes; plan free allows at most 3',
-      planLimit: { resource: 'scenes', limit: 3, plan: 'free' },
+      planLimit: { resource: 'scenes', limit: 3, plan: 'free', reason: 'room' },
+    });
+  });
+
+  it('an item kept past the ceiling carries the readOnly reason', () => {
+    const body = planLimitErrorBody(readOnlyFourthScene());
+    expect(apiErrorDto.parse(body)).toEqual({
+      code: 'PLAN_LIMIT',
+      message: 'scene 4 of plan free is read only (plan allows 3)',
+      planLimit: { resource: 'scenes', limit: 3, plan: 'free', reason: 'readOnly' },
     });
   });
 });
@@ -60,6 +78,7 @@ describe('withPlanLimitReply', () => {
       resource: 'scenes',
       limit: 3,
       plan: 'free',
+      reason: 'room',
     });
   });
 

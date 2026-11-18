@@ -68,6 +68,35 @@ export function customizationAllowed(account: PlanAccount): boolean {
   return effectivePlanOf(account) === 'apoiador' || effectiveLimitsOf(account).customColor;
 }
 
+/** The counted resources whose excess goes read only when the plan goes down (the NPC sheets,
+ *  the tables and the members only refuse the new one). */
+export type PlanEditableResource = Extract<
+  PlanCountResource,
+  | 'scenes'
+  | 'libraryMaps'
+  | 'sheetTemplates'
+  | 'documentTabs'
+  | 'savedRolls'
+  | 'lights'
+  | 'tokenBars'
+  | 'tokenForms'
+  | 'patrols'
+  | 'sightBlockers'
+>;
+
+const EDITABLE_ITEM_NAME: Readonly<Record<PlanEditableResource, string>> = {
+  scenes: 'scene',
+  libraryMaps: 'library map',
+  sheetTemplates: 'sheet template',
+  documentTabs: 'document tab',
+  savedRolls: 'saved roll',
+  lights: 'light',
+  tokenBars: 'token bar',
+  tokenForms: 'token form',
+  patrols: 'patrol',
+  sightBlockers: 'sight blocker',
+};
+
 /** The checks of the plan a service runs after its lock, before writing. */
 export class PlanLimitsBo {
   /** Throws `PLAN_LIMIT` when `stored + adding` passes the plan's ceiling of `resource`. Adding
@@ -85,8 +114,43 @@ export class PlanLimitsBo {
     const limit = limits[key];
     if (limit === null || adding <= 0 || stored + adding <= limit) return;
     if (isTechnicalCeiling(limit, PLAN_LIMITS.amigo_do_dono[key])) return;
-    const refusal = { resource, stored, adding, limit, plan: limits.plan };
+    const refusal = { reason: 'room', resource, stored, adding, limit, plan: limits.plan } as const;
     const message = `would have ${stored + adding} ${resource}; plan ${limits.plan} allows at most ${limit}`;
+    throw new PlanLimitError(refusal, message);
+  }
+
+  /** Whether the item at `rank` is kept read only by the plan: the `planLocked` of a list DTO,
+   *  by the same rule `requireEditable` refuses with.
+   *
+   *  Example: `PlanLimitsBo.isReadOnly('scenes', 3, PLAN_LIMITS.free) // true` */
+  static isReadOnly(resource: PlanEditableResource, rank: number, limits: PlanLimits): boolean {
+    const key = PLAN_COUNT_LIMIT_KEY[resource];
+    const limit = limits[key];
+    if (limit === null || rank < limit) return false;
+    return !isTechnicalCeiling(limit, PLAN_LIMITS.amigo_do_dono[key]);
+  }
+
+  /** Throws `PLAN_LIMIT` (`reason: 'readOnly'`) when the item is past the plan's ceiling of
+   *  `resource`: after the plan went down, the oldest ones keep their configuration and the rest
+   *  is read only. `rank` is how many items of the same group (table, document, scene, token or
+   *  member) were born before this one, by `(created_at, id)`, from 0. A rank under the ceiling
+   *  passes, and so do a null ceiling and one equal to the technical one (as in `requireRoom`).
+   *  Call it only on a change of configuration: play and deleting never pass through here.
+   *
+   *  Example: `PlanLimitsBo.requireEditable('scenes', 3, PLAN_LIMITS.free) // throws: scene 4 of plan free is read only (plan allows 3)` */
+  static requireEditable(resource: PlanEditableResource, rank: number, limits: PlanLimits): void {
+    if (!PlanLimitsBo.isReadOnly(resource, rank, limits)) return;
+    const limit = limits[PLAN_COUNT_LIMIT_KEY[resource]] as number;
+    const refusal = {
+      reason: 'readOnly',
+      resource,
+      stored: rank + 1,
+      adding: 0,
+      limit,
+      plan: limits.plan,
+    } as const;
+    const item = `${EDITABLE_ITEM_NAME[resource]} ${rank + 1}`;
+    const message = `${item} of plan ${limits.plan} is read only (plan allows ${limit})`;
     throw new PlanLimitError(refusal, message);
   }
 
@@ -97,7 +161,14 @@ export class PlanLimitsBo {
    *  Example: `PlanLimitsBo.requireFeature('sceneCopy', limits.sceneCopy, limits)` */
   static requireFeature(resource: PlanFeatureResource, allowed: boolean, limits: PlanLimits): void {
     if (allowed) return;
-    const refusal = { resource, stored: 0, adding: 1, limit: 0, plan: limits.plan };
+    const refusal = {
+      reason: 'room',
+      resource,
+      stored: 0,
+      adding: 1,
+      limit: 0,
+      plan: limits.plan,
+    } as const;
     throw new PlanLimitError(refusal, `plan ${limits.plan} does not include ${resource}`);
   }
 }

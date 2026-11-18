@@ -192,3 +192,82 @@ describe('effectivePlanOf', () => {
     );
   });
 });
+
+describe('PlanLimitsBo.requireEditable', () => {
+  it.each([0, 1, 2])('the scene of rank %i at a free table is still editable', (rank) => {
+    expect(() => PlanLimitsBo.requireEditable('scenes', rank, FREE)).not.toThrow();
+  });
+
+  it('the scene of rank 3 at a free table is read only, citing the item and the ceiling', () => {
+    const error = refusalOf(() => PlanLimitsBo.requireEditable('scenes', 3, FREE));
+    expect(error).toMatchObject({
+      code: 'PLAN_LIMIT',
+      reason: 'readOnly',
+      resource: 'scenes',
+      limit: 3,
+      plan: 'free',
+      message: 'scene 4 of plan free is read only (plan allows 3)',
+    });
+  });
+
+  it('the last one inside the ceiling (rank = limit - 1) is editable', () => {
+    expect(() => PlanLimitsBo.requireEditable('scenes', 14, PLAN_LIMITS.narrador)).not.toThrow();
+  });
+
+  it('a null ceiling leaves every rank editable', () => {
+    const unbounded = PLAN_LIMITS.amigo_do_dono;
+    expect(() => PlanLimitsBo.requireEditable('scenes', 10_000, unbounded)).not.toThrow();
+  });
+
+  it('at the technical ceiling the plan stays silent: the technical error of today answers', () => {
+    const lenda = PLAN_LIMITS.lenda;
+    expect(() => PlanLimitsBo.requireEditable('lights', 150, lenda)).not.toThrow();
+    expect(() => PlanLimitsBo.requireEditable('documentTabs', 250, lenda)).not.toThrow();
+  });
+
+  it('below the technical ceiling a paid plan locks the excess like the free one', () => {
+    const narrador = PLAN_LIMITS.narrador;
+    const error = refusalOf(() => PlanLimitsBo.requireEditable('lights', 30, narrador));
+    expect(error).toMatchObject({
+      reason: 'readOnly',
+      limit: 30,
+      plan: 'narrador',
+      message: 'light 31 of plan narrador is read only (plan allows 30)',
+    });
+  });
+
+  it('a ceiling of 0 locks the first one, named in the singular', () => {
+    const error = refusalOf(() => PlanLimitsBo.requireEditable('libraryMaps', 0, FREE));
+    expect(error.message).toBe('library map 1 of plan free is read only (plan allows 0)');
+  });
+});
+
+describe('PlanLimitsBo.isReadOnly', () => {
+  it.each([
+    [2, false],
+    [3, true],
+  ])('a scene of rank %i at a free table reads read only = %s', (rank, expected) => {
+    expect(PlanLimitsBo.isReadOnly('scenes', rank, PLAN_LIMITS.free)).toBe(expected);
+  });
+
+  it('a null ceiling and the technical ceiling never read as read only', () => {
+    expect(PlanLimitsBo.isReadOnly('scenes', 900, PLAN_LIMITS.amigo_do_dono)).toBe(false);
+    expect(PlanLimitsBo.isReadOnly('lights', 150, PLAN_LIMITS.lenda)).toBe(false);
+  });
+
+  it('a ceiling of 0 locks the first item', () => {
+    expect(PlanLimitsBo.isReadOnly('libraryMaps', 0, PLAN_LIMITS.free)).toBe(true);
+  });
+});
+
+describe('the reason of a PLAN_LIMIT', () => {
+  it('passing the ceiling on create is a room refusal', () => {
+    const error = refusalOf(() => PlanLimitsBo.requireRoom('scenes', 3, 1, FREE));
+    expect(error.reason).toBe('room');
+  });
+
+  it('a feature the plan lacks is a room refusal', () => {
+    const error = refusalOf(() => PlanLimitsBo.requireFeature('sceneCopy', false, FREE));
+    expect(error.reason).toBe('room');
+  });
+});

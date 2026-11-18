@@ -13,12 +13,13 @@ export type ApiErrorReply = (
 ) => Promise<FastifyReply>;
 
 /** The body (and ack error) of a `PLAN_LIMIT`. The message carries only the resource, the counts
- *  and the plan, no id, so it goes out as is; the client builds its sentence from `planLimit`.
+ *  and the plan, no id, so it goes out as is; the client builds its sentence from `planLimit`,
+ *  whose `reason` tells "allows up to N" (`room`) from "is read only" (`readOnly`).
  *
- *  Example: `planLimitErrorBody(error).planLimit // { resource: 'scenes', limit: 5, plan: 'free' }` */
+ *  Example: `planLimitErrorBody(error).planLimit // { resource: 'scenes', limit: 3, plan: 'free', reason: 'room' }` */
 export function planLimitErrorBody(error: PlanLimitError): ApiErrorDto {
-  const { code, message, resource, limit, plan } = error;
-  return { code, message, planLimit: { resource, limit, plan } };
+  const { code, message, resource, limit, plan, reason } = error;
+  return { code, message, planLimit: { resource, limit, plan, reason } };
 }
 
 /** Wraps a module's error handler so a `PlanLimitError` thrown anywhere under it answers 403 with
