@@ -29,7 +29,7 @@ import {
 } from './sheet-bridge-documents';
 import { SHEET_DOCUMENT_READ_RATE, type SheetHostPort } from './sheet-bridge-host';
 import { savedRollMissing, trayAddAnswerOf } from './sheet-bridge-tray';
-import { createConsoleIntake, type SheetConsoleSink } from './sheet-console';
+import { createConsoleIntake, hostConsoleNoticeOf, type SheetConsoleSink } from './sheet-console';
 import { permissionRefusalOf } from './sheet-permissions';
 
 export { SHEET_PREVIEW_BAR_ID, SHEET_PREVIEW_TOKEN_NAME } from '@/lib/sheet-preview-data';
@@ -82,6 +82,8 @@ export type SheetPreviewHostOptions = Readonly<{
   onDataChange?: (data: SheetPreviewData) => void;
   /** The real table's public documents for `documents.*`; without it they answer PREVIEW_ONLY. */
   documents?: SheetPreviewDocumentPorts;
+  /** A line the host writes to the console as the frame connects (the JS the plan does not run). */
+  notice?: string;
 }>;
 
 /** Speaks for the frame of the template editor's preview: a token named as the test data's
@@ -105,6 +107,7 @@ export function createSheetPreviewHost(
     ...{ disposed: false, documents: options.documents ?? null, documentReads: { stamps: [] } },
     ...{ now, tray: EMPTY_TRAY },
   };
+  if (options.notice) preview.console(hostConsoleNoticeOf(options.notice));
   const onMessage = (event: { data: unknown }): void => receive(preview, event.data);
   port.addEventListener('message', onMessage);
   port.start();

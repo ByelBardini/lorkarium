@@ -4,6 +4,7 @@ import {
   auraCell,
   campaignsUsageLabel,
   countCell,
+  PLAN_FEATURE_ROWS,
   PLAN_GRID_ROWS,
   storageUsageLabel,
 } from '@/features/account/plan-grid';
@@ -54,6 +55,23 @@ describe('plan grid texts', () => {
     expect(row?.cellOf(PLAN_LIMITS.apoiador)).toBe('sim');
     expect(row?.cellOf(PLAN_LIMITS.narrador)).toBe('sim');
   });
+
+  it.each([
+    ['Scripts na ficha', 'não', 'não', 'sim', 'sim'],
+    ['Arte animada da mesa', 'não', 'não', 'não', 'sim'],
+  ] as const)(
+    'the "%s" row reads %s / %s / %s / %s on Grátis, Apoiador, Narrador and Lenda',
+    (label, free, apoiador, narrador, lenda) => {
+      const row = PLAN_FEATURE_ROWS.find((line) => line.label === label);
+      const cells = [
+        PLAN_LIMITS.free,
+        PLAN_LIMITS.apoiador,
+        PLAN_LIMITS.narrador,
+        PLAN_LIMITS.lenda,
+      ];
+      expect(cells.map((limits) => row?.cellOf(limits))).toEqual([free, apoiador, narrador, lenda]);
+    },
+  );
 
   it('the marks come before the numbers', () => {
     const labels = PLAN_GRID_ROWS.map((row) => row.label);

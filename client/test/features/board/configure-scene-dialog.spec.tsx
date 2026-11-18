@@ -7,6 +7,8 @@ import { ConfigureSceneDialog } from '@/features/board/configure-scene-dialog';
 import { AssetsApiFake, VHARN_MAP } from '../../support/assets-api-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import { VHARN_SCENE, VHARN_GRID } from '../../support/table-session-fixtures';
+import { onTablePlan } from '../../support/table-plan';
+import { PLAN_LIMITS } from '@lorkarium/contracts';
 
 describe('ConfigureSceneDialog', () => {
   let commands: TableBoardCommandsFake;
@@ -293,5 +295,76 @@ describe('ConfigureSceneDialog vision', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
 
     expect(commands.sentAs('configureScene')[0]?.fields).toMatchObject({ vision: 'dark' });
+  });
+});
+
+describe('ConfigureSceneDialog on a grid past the plan', () => {
+  const READ_ONLY =
+    'Este grid passou do limite do plano Grátis (3) e está só leitura. Apague um grid mais antigo ou suba de plano.';
+  const SETUP_FIELDS = [
+    'Largura (casas)',
+    'Altura (casas)',
+    'Distância de uma casa',
+    'Unidade',
+    'Opacidade do grid (%)',
+    'Grid visível',
+  ];
+  let commands: TableBoardCommandsFake;
+
+  beforeEach(() => {
+    commands = new TableBoardCommandsFake();
+  });
+
+  function renderOn(planLocked: boolean): void {
+    render(
+      onTablePlan(
+        PLAN_LIMITS.free,
+        <ConfigureSceneDialog
+          scope={VHARN_GRID}
+          scene={{ ...VHARN_SCENE, planLocked }}
+          commands={commands}
+          assets={new AssetsApiFake()}
+          connected
+          onClose={() => undefined}
+        />,
+      ),
+    );
+  }
+
+  it.each(SETUP_FIELDS)('"%s" is disabled on a locked grid', (label) => {
+    renderOn(true);
+
+    expect(screen.getByLabelText(label)).toBeDisabled();
+  });
+
+  it('the background picker is disabled and the sentence shows under the lock', () => {
+    renderOn(true);
+
+    expect(screen.getByRole('button', { name: 'Escolher imagem' })).toBeDisabled();
+    expect(screen.getByRole('img', { name: 'Só leitura' })).toBeInTheDocument();
+    expect(screen.getByText(READ_ONLY)).toBeInTheDocument();
+  });
+
+  it('vision and Movimento livre stay and saving sends the grid as it was', async () => {
+    renderOn(true);
+
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Movimento livre' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Escuro' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    expect(commands.sent).toEqual([
+      {
+        name: 'configureScene',
+        ...VHARN_GRID,
+        fields: expect.objectContaining({ widthCells: 20, vision: 'dark', freeMovement: true }),
+      },
+    ]);
+  });
+
+  it.each(SETUP_FIELDS)('"%s" is enabled on a grid within the plan', (label) => {
+    renderOn(false);
+
+    expect(screen.getByLabelText(label)).toBeEnabled();
+    expect(screen.queryByRole('img', { name: 'Só leitura' })).not.toBeInTheDocument();
   });
 });

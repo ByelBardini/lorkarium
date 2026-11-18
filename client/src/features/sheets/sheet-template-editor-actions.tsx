@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { findInlineHandlers } from '@/lib/sheet-inline-handlers';
 import type { TemplateFile } from '@/lib/sheet-template-files';
+import { useSheetScriptsNotice } from './sheet-scripts-gate';
 import { inlineHandlerNotice, type FileInlineHandlers } from './sheet-template-messages';
 
 /** Where else the editor can go; each button shows only when its move is offered here. */
@@ -69,4 +70,28 @@ function handlersOfFiles(files: readonly TemplateFile[]): FileInlineHandlers[] {
   return files
     .filter(({ path }) => path.endsWith('.html'))
     .map(({ path, content }) => ({ path, handlers: findInlineHandlers(content) }));
+}
+
+/** The warning, before saving, of a draft with JS on a table whose plan has no `sheetScripts`:
+ *  the JS does not run there and the server refuses new or changed JS (the HTML and CSS still
+ *  save). Nothing when the JS runs or the draft has none.
+ *
+ *  Example: `<ScriptsPlanNotice files={model.draft.files} />` */
+export function ScriptsPlanNotice({
+  files,
+}: Readonly<{ files: readonly TemplateFile[] }>): React.JSX.Element | null {
+  const source = useMemo(() => ({ files }), [files]);
+  const notice = useSheetScriptsNotice(source);
+  if (notice === undefined) return null;
+  return (
+    <p
+      role="note"
+      aria-label="Scripts que não vão rodar"
+      className="flex flex-wrap items-center gap-x-2 border-b border-border px-4 py-2 text-sm text-primary"
+    >
+      <TriangleAlertIcon aria-hidden="true" className="size-4 shrink-0" />
+      <span>{notice}</span>
+      <span className="text-muted-foreground">JS novo ou alterado não é salvo.</span>
+    </p>
+  );
 }

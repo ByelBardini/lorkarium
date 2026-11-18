@@ -3,6 +3,7 @@ import { SHEET_BRIDGE_BOOTSTRAP } from '@/sheet-sandbox/sheet-bridge-bootstrap';
 import {
   authorScriptPositionOf,
   buildSheetSrcdoc,
+  hasAuthorScripts,
   sameSheetSource,
   SHEET_BASE_STYLE,
   sheetContentSecurityPolicy,
@@ -392,5 +393,55 @@ describe('a srcdoc with the assets of the template', () => {
       line: 1,
       column: 1,
     });
+  });
+});
+
+describe('a srcdoc built with the author scripts off (a table without sheetScripts)', () => {
+  const BOUND: SheetSource = {
+    files: [
+      { path: 'index.html', content: '<input data-lk="forca">' },
+      { path: 'a.js', content: 'window.authorRan = true;' },
+    ],
+  };
+
+  it('with scripts on, the author script and the SDK bootstrap are both in the page', () => {
+    const scripts = scriptTextsOf(buildSheetSrcdoc(BOUND, { scripts: true }));
+    expect(scripts).toEqual([SHEET_BRIDGE_BOOTSTRAP, '\nwindow.authorRan = true;']);
+  });
+
+  it('with scripts off, the bootstrap and the data-lk markup stay and the a.js text is gone', () => {
+    const srcdoc = buildSheetSrcdoc(BOUND, { scripts: false });
+    expect(scriptTextsOf(srcdoc)).toEqual([SHEET_BRIDGE_BOOTSTRAP]);
+    expect(srcdoc).toContain('<input data-lk="forca">');
+    expect(srcdoc).not.toContain('window.authorRan');
+  });
+
+  it('with scripts off, the policy lists the bootstrap hash alone', () => {
+    const srcdoc = buildSheetSrcdoc(BOUND, { scripts: false });
+    expect(scriptSrcOf(policyOf(srcdoc))).toBe(
+      `script-src 'sha256-${browserHashOf(SHEET_BRIDGE_BOOTSTRAP)}'`,
+    );
+  });
+
+  it('a template that is only js builds, with scripts off, a page with an empty body', () => {
+    const onlyJs: SheetSource = {
+      files: [
+        { path: 'index.html', content: '' },
+        { path: 'a.js', content: 'document.body.textContent = "tudo no js";' },
+      ],
+    };
+    const srcdoc = buildSheetSrcdoc(onlyJs, { scripts: false });
+    expect(srcdoc.endsWith('</head><body></body></html>')).toBe(true);
+  });
+});
+
+describe('hasAuthorScripts', () => {
+  it('a template with a js file has author scripts', () => {
+    expect(hasAuthorScripts(TORMENTA)).toBe(true);
+  });
+
+  it('a template of html and css only has none', () => {
+    const files = TORMENTA.files.filter(({ path }) => !path.endsWith('.js'));
+    expect(hasAuthorScripts({ files })).toBe(false);
   });
 });

@@ -35,6 +35,8 @@ export type SheetCodeTabsProps = Readonly<{
   onEdit: (changes: Partial<TemplateDraft>) => void;
   /** Sends the fonts and images the manifest declares; without it, the manifest only lists them. */
   assetPorts?: SheetTemplateAssetPorts;
+  /** The template is past the owner's plan: every code field shows without taking typing. */
+  readOnly?: boolean;
 }>;
 
 /** The files of a template (a list to pick, create, rename, remove and reorder, and the editor of
@@ -47,6 +49,7 @@ export function SheetCodeTabs({
   draft,
   onEdit,
   assetPorts,
+  readOnly = false,
 }: SheetCodeTabsProps): React.JSX.Element {
   return (
     <Tabs defaultValue="files" className="min-h-0 flex-1">
@@ -66,13 +69,18 @@ export function SheetCodeTabs({
         }
       >
         <TabsContent value="files" forceMount className="flex data-[state=inactive]:hidden">
-          <TemplateFilesPane files={draft.files} onFiles={(files) => onEdit({ files })} />
+          <TemplateFilesPane
+            files={draft.files}
+            readOnly={readOnly}
+            onFiles={(files) => onEdit({ files })}
+          />
         </TabsContent>
         <TabsContent value="manifest" forceMount className="data-[state=inactive]:hidden">
           <CodeEditor
             value={draft.manifest}
             language="javascript"
             label="Manifesto do modelo"
+            readOnly={readOnly}
             onChange={(manifest) => onEdit({ manifest })}
           />
           <ManifestProblem text={draft.manifest} />
@@ -89,12 +97,17 @@ export function SheetCodeTabs({
 
 type TemplateFilesPaneProps = Readonly<{
   files: readonly TemplateFile[];
+  readOnly: boolean;
   onFiles: (files: readonly TemplateFile[]) => void;
 }>;
 
 // The picked file falls back to the entry page when it is gone (renamed, removed, or another
 // version loaded).
-function TemplateFilesPane({ files, onFiles }: TemplateFilesPaneProps): React.JSX.Element {
+function TemplateFilesPane({
+  files,
+  readOnly,
+  onFiles,
+}: TemplateFilesPaneProps): React.JSX.Element {
   const [picked, setPicked] = useState(SHEET_TEMPLATE_ENTRY_PATH);
   const selected = files.some(({ path }) => path === picked) ? picked : SHEET_TEMPLATE_ENTRY_PATH;
   return (
@@ -109,6 +122,7 @@ function TemplateFilesPane({ files, onFiles }: TemplateFilesPaneProps): React.JS
                 value={file.content}
                 language={LANGUAGE_OF_KIND[kind]}
                 label={`Arquivo ${file.path}`}
+                readOnly={readOnly}
                 onChange={(text) => onFiles(editTemplateFile(files, file.path, text))}
                 completions={kind === 'js' ? SDK_COMPLETIONS : undefined}
               />

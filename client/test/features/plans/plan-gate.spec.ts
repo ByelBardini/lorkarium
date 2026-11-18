@@ -5,6 +5,7 @@ import {
   countGate,
   customizationGate,
   featureGate,
+  planLockGate,
 } from '@/features/plans/plan-gate';
 
 describe('countGate', () => {
@@ -68,8 +69,45 @@ describe('availableInText', () => {
     expect(availableInText((limits) => limits.maxPatrols >= 30)).toBe('Disponível na Lenda');
   });
 
+  it.each([
+    ['desktopWindows', 'Disponível na Lenda'],
+    ['animatedCampaignArt', 'Disponível na Lenda'],
+    ['sheetScripts', 'Disponível no Narrador'],
+  ] as const)('the %s feature reads "%s"', (feature, text) => {
+    expect(availableInText((limits) => limits[feature])).toBe(text);
+  });
+
   it('no plan on offer has it: the paid plans', () => {
     expect(availableInText(() => false)).toBe('Disponível nos planos pagos');
+  });
+});
+
+describe('planLockGate', () => {
+  it('a grid the server marks planLocked is closed with the read-only sentence', () => {
+    expect(planLockGate(PLAN_LIMITS.free, 'scenes', { planLocked: true })).toEqual({
+      open: false,
+      hint: 'Este grid passou do limite do plano Grátis (3) e está só leitura. Apague um grid mais antigo ou suba de plano.',
+    });
+  });
+
+  it('the sentence names the resource and the ceiling of the table plan', () => {
+    expect(planLockGate(PLAN_LIMITS.narrador, 'documentTabs', { planLocked: true }).hint).toMatch(
+      /^Esta aba passou do limite do plano Narrador \(10\)/,
+    );
+  });
+
+  it('an item without planLocked stays open', () => {
+    expect(planLockGate(PLAN_LIMITS.free, 'scenes', { planLocked: false })).toEqual({
+      open: true,
+      hint: null,
+    });
+  });
+
+  it('a locked item with no limits known still reads as read only, without a plan to name', () => {
+    expect(planLockGate(null, 'savedRolls', { planLocked: true })).toEqual({
+      open: false,
+      hint: 'Este item passou do limite do plano da mesa e está só leitura.',
+    });
   });
 });
 

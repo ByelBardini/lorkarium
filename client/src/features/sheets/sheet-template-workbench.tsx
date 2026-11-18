@@ -42,6 +42,8 @@ export type SheetTemplateWorkbenchProps = Readonly<{
   assetPorts?: SheetTemplateAssetPorts;
   /** Where the preview reads the table's public documents; without it they answer PREVIEW_ONLY. */
   documentPorts?: SheetPreviewDocumentPorts;
+  /** The template is past the owner's plan (`planLocked`): the code shows without taking typing. */
+  readOnly?: boolean;
 }>;
 
 /** The template editor's body: the code, the divider, and beside it the preview (docked, full
@@ -67,7 +69,12 @@ export function SheetTemplateWorkbench(props: SheetTemplateWorkbenchProps): Reac
     >
       {/* Hidden, never unmounted: the file editors keep their text and undo history. */}
       <div hidden={full} className="flex min-h-0 flex-col lg:w-(--code-share) lg:shrink-0">
-        <SheetCodeTabs draft={props.draft} onEdit={props.onEdit} assetPorts={props.assetPorts} />
+        <SheetCodeTabs
+          draft={props.draft}
+          onEdit={props.onEdit}
+          assetPorts={props.assetPorts}
+          readOnly={props.readOnly}
+        />
       </div>
       {!full && (
         <EditorSplitHandle

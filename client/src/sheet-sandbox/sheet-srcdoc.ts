@@ -121,6 +121,19 @@ function beforeScripts(
   ].join('');
 }
 
+/** How a sheet page is built. `scripts: false` (a table whose plan has no `sheetScripts`) leaves
+ *  the author's JS files out; the SDK bootstrap and the `data-lk` bindings stay. */
+export type SheetBuildOptions = Readonly<{ scripts: boolean }>;
+
+const RUN_AUTHOR_SCRIPTS: SheetBuildOptions = { scripts: true };
+
+/** Whether the template has any JS file of its own (what `scripts: false` leaves out).
+ *
+ *  Example: `hasAuthorScripts({ files: [{ path: 'a.js', content: '' }] }) // true` */
+export function hasAuthorScripts(source: SheetSource): boolean {
+  return filesOfKind(source, '.js').length > 0;
+}
+
 /** The `srcdoc` of a sheet frame: the policy, then the bridge bootstrap, then the base style and
  *  each CSS file in order, the entry page with its `<lk-include>` expanded, and each JS file in
  *  order in a script of its own, so the SDK exists before any author code and the markup before
@@ -128,9 +141,13 @@ function beforeScripts(
  *  else; every `asset:` url becomes a `data:` url. Throws `SheetBuildError` when the files do not
  *  make a page.
  *
- *  Example: `<iframe srcdoc={buildSheetSrcdoc({ files })} sandbox="allow-scripts" />` */
-export function buildSheetSrcdoc(source: SheetSource): string {
-  const scripts = filesOfKind(source, '.js').map(({ content }) => authorScriptText(content));
+ *  Example: `<iframe srcdoc={buildSheetSrcdoc({ files }, { scripts: limits.sheetScripts })} sandbox="allow-scripts" />` */
+export function buildSheetSrcdoc(
+  source: SheetSource,
+  options: SheetBuildOptions = RUN_AUTHOR_SCRIPTS,
+): string {
+  const authored = options.scripts ? filesOfKind(source, '.js') : [];
+  const scripts = authored.map(({ content }) => authorScriptText(content));
   const policy = sheetContentSecurityPolicy([BOOTSTRAP_HASH, ...scripts.map(sha256Base64)]);
   const page = beforeScripts(source, policy, source.assets ?? NO_ASSETS);
   return `${page}${scripts.map((text) => `<script>${text}</script>`).join('')}</body></html>`;

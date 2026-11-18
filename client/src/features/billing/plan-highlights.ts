@@ -8,8 +8,12 @@ export type OfferedPlan = 'free' | BillingPlan;
 const EXTRA_LINES: Readonly<Record<OfferedPlan, readonly string[]>> = {
   free: ['Jogar nas mesas dos outros é sempre de graça'],
   apoiador: [],
-  narrador: ['Auras com efeito, patrulhas e mesa privada', 'Tudo do Apoiador'],
-  lenda: ['Grids, mapas e fichas sem limite no uso normal', 'Tudo do Narrador'],
+  narrador: ['Mapas interativos, scripts na ficha e mesa privada', 'Tudo do Apoiador'],
+  lenda: [
+    'Janelas de Chat e Imagens, auras com efeito e arte animada',
+    'Grids, mapas e fichas sem limite no uso normal',
+    'Tudo do Narrador',
+  ],
 };
 
 const APOIADOR_LINES = [
@@ -21,7 +25,7 @@ const APOIADOR_LINES = [
 
 /** What an offer promises in a few lines.
  *
- *  Example: `planHighlightsOf('narrador')[0] // '5 mesas como dono e 2 GB de imagens'` */
+ *  Example: `planHighlightsOf('narrador')[0] // '3 mesas como dono e 1 GB de imagens'` */
 export function planHighlightsOf(plan: OfferedPlan): readonly string[] {
   if (plan === 'apoiador') return APOIADOR_LINES;
   const limits = PLAN_LIMITS[plan];

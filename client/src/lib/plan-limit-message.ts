@@ -6,6 +6,7 @@ import {
   type PlanCountResource,
   type PlanFeatureResource,
   type PlanLimitDto,
+  type PlanLimits,
   type PlanLimitResource,
   type UserPlan,
 } from '@lorkarium/contracts';
@@ -25,7 +26,12 @@ const PLAN_WITH_ARTICLE: Readonly<Record<UserPlan, string>> = {
 
 // Amigo do Dono is given, never bought, and the Apoiador keeps the tables on Grátis: the sentence
 // only points at the master plans one can move to.
-const PLANS_ON_OFFER: readonly UserPlan[] = ['narrador', 'lenda'];
+const PLANS_ON_OFFER = ['narrador', 'lenda'] as const satisfies readonly UserPlan[];
+
+const IN_PLAN: Readonly<Record<(typeof PLANS_ON_OFFER)[number], string>> = {
+  narrador: 'no Narrador',
+  lenda: 'na Lenda',
+};
 
 /** How a counted resource is named: one, many, and the whole sentence when the plan has none.
  *  `account` reads as the person's own plan (mesas como dono); the rest is the table owner's. */
@@ -69,7 +75,7 @@ export const PLAN_COUNT_LABEL: Readonly<Record<PlanCountResource, PlanCountLabel
   ),
 };
 
-/** The pt-BR name of every feature a plan may lack, as the subject of "está nos planos pagos". */
+/** The pt-BR name of every feature a plan may lack, as the subject of "está no Narrador". */
 export const PLAN_FEATURE_LABEL: Readonly<Record<PlanFeatureResource, string>> = {
   sceneCopy: 'Duplicar grid está',
   conditionImage: 'Condição com imagem própria está',
@@ -85,6 +91,101 @@ export const PLAN_FEATURE_LABEL: Readonly<Record<PlanFeatureResource, string>> =
   sheetScripts: 'Scripts no modelo de ficha estão',
 };
 
+// The table features, by what frees them in the grid. The account customizations (texture, animated
+// photo, banner; custom color, also of the account) are freed by the Apoiador, outside this grid.
+const FEATURE_IN_GRID: Readonly<
+  Partial<Record<PlanFeatureResource, (limits: PlanLimits) => boolean>>
+> = {
+  sceneCopy: (limits) => limits.sceneCopy,
+  conditionImage: (limits) => limits.conditionImage,
+  auraKind: (limits) => limits.auraKinds.includes('effect'),
+  desktopWindows: (limits) => limits.desktopWindows,
+  campaignArt: (limits) => limits.campaignArt,
+  animatedCampaignArt: (limits) => limits.animatedCampaignArt,
+  privateCampaign: (limits) => limits.privateCampaign,
+  sheetScripts: (limits) => limits.sheetScripts,
+};
+
+/** How an item kept past the ceiling is named: `item` opens the sentence, `free` says what stays
+ *  free on it (none: only deleting), `release` how to unlock it. */
+type ReadOnlyLabel = Readonly<{ item: string; free: string | null; release: string }>;
+
+/** What the server locks as read only past the ceiling (`requireEditable`); the members, the
+ *  storage, the folders of rolls and the NPC sheets only stop the creation. */
+export type PlanReadOnlyResource = Extract<
+  PlanCountResource,
+  | 'scenes'
+  | 'libraryMaps'
+  | 'sheetTemplates'
+  | 'documentTabs'
+  | 'savedRolls'
+  | 'tokenBars'
+  | 'tokenForms'
+  | 'lights'
+  | 'patrols'
+  | 'sightBlockers'
+>;
+
+const READ_ONLY_LABEL: Readonly<Record<PlanReadOnlyResource, ReadOnlyLabel>> = {
+  scenes: readOnlyLabel('Este grid', null, 'Apague um grid mais antigo'),
+  libraryMaps: readOnlyLabel(
+    'Este mapa interativo',
+    'mostrar, Principal e apagar seguem livres',
+    'Apague um mapa mais antigo',
+  ),
+  sheetTemplates: readOnlyLabel(
+    'Este modelo de ficha',
+    'criar fichas com ele segue livre',
+    'Apague um modelo mais antigo',
+  ),
+  documentTabs: readOnlyLabel(
+    'Esta aba',
+    'ocultar, reordenar e excluir seguem livres',
+    'Apague uma aba mais antiga deste documento',
+  ),
+  savedRolls: readOnlyLabel(
+    'Esta rolagem salva',
+    'rolar, mover para pasta e excluir seguem livres',
+    'Apague uma rolagem mais antiga',
+  ),
+  // Bars and forms rank by their place on the token, not by age.
+  tokenBars: readOnlyLabel(
+    'Esta barra',
+    'o valor muda; nome, máximo e cor não',
+    'Apague uma barra acima dela',
+  ),
+  tokenForms: readOnlyLabel(
+    'Esta forma',
+    'trocar para ela segue livre; nome e imagem não',
+    'Apague uma forma antes dela',
+  ),
+  // "Apagar" is turning a light off: removing one is "excluir".
+  lights: readOnlyLabel('Esta luz', 'acender e apagar seguem livres', 'Exclua uma luz mais antiga'),
+  patrols: readOnlyLabel(
+    'Esta patrulha',
+    'pause a patrulha para mudar a rota',
+    'Pause uma patrulha mais antiga',
+  ),
+  sightBlockers: readOnlyLabel(
+    'Este token que bloqueia a visão',
+    'desligar o bloqueio segue livre',
+    'Desligue um bloqueio mais antigo',
+  ),
+};
+
+function readOnlyLabel(item: string, free: string | null, release: string): ReadOnlyLabel {
+  return { item, free, release };
+}
+
+/** Where a table feature is, for the end of a sentence: "no Narrador", "na Lenda", or "nos planos
+ *  pagos" when no plan on offer has it.
+ *
+ *  Example: `inPlanText((limits) => limits.desktopWindows) // 'na Lenda'` */
+export function inPlanText(has: (limits: PlanLimits) => boolean): string {
+  const plan = PLANS_ON_OFFER.find((offer) => has(PLAN_LIMITS[offer]));
+  return plan === undefined ? 'nos planos pagos' : IN_PLAN[plan];
+}
+
 function countLabel(
   one: string,
   many: string,
@@ -95,12 +196,16 @@ function countLabel(
 }
 
 /** The pt-BR sentence of a refusal for passing the plan: the ceiling and the plan that frees
- *  more; a feature (or a ceiling of 0) the plan lacks; Lenda's fair use, with no plan above.
+ *  more; a feature (the cheapest plan that has it) or a ceiling of 0 the plan lacks; Lenda's fair
+ *  use, with no plan above; an item kept past the ceiling (`reason: 'readOnly'`) is read only.
  *
  *  Example: `planLimitMessage({ resource: 'scenes', limit: 3, plan: 'free' }) // 'Esta mesa usa o plano Grátis, que permite até 3 grids. O Narrador libera 15.'` */
 export function planLimitMessage(planLimit: PlanLimitDto): string {
   const { resource, limit, plan } = planLimit;
-  if (!isCountResource(resource)) return `${PLAN_FEATURE_LABEL[resource]} nos planos pagos.`;
+  if (!isCountResource(resource)) return featureRefusalText(resource);
+  if (planLimit.reason === 'readOnly' && isReadOnlyResource(resource)) {
+    return readOnlyText(READ_ONLY_LABEL[resource], limit, plan);
+  }
   if (limit === 0) return PLAN_COUNT_LABEL[resource].absent;
   if (PLAN_FAIR_USE_RESOURCES[plan].includes(resource)) {
     return `Esta mesa chegou ao limite de uso justo (${amountText(resource, limit)}).`;
@@ -117,6 +222,25 @@ export function amountText(resource: PlanCountResource, amount: number): string 
   if (resource === 'storage') return `${byteSizeText(amount)} de arquivos`;
   const label = PLAN_COUNT_LABEL[resource];
   return `${amount} ${amount === 1 ? label.one : label.many}`;
+}
+
+/** The refusal of a feature the plan lacks: "Duplicar grid está no Narrador.", "Banner de perfil
+ *  está nos planos pagos." (an account customization).
+ *
+ *  Example: `featureRefusalText('desktopWindows') // 'As janelas de Chat e Imagens estão na Lenda.'` */
+export function featureRefusalText(resource: PlanFeatureResource): string {
+  const has = FEATURE_IN_GRID[resource];
+  const where = has === undefined ? 'nos planos pagos' : inPlanText(has);
+  return `${PLAN_FEATURE_LABEL[resource]} ${where}.`;
+}
+
+function readOnlyText(label: ReadOnlyLabel, limit: number, plan: UserPlan): string {
+  const state = label.free === null ? 'está só leitura' : `está só leitura: ${label.free}`;
+  return `${label.item} passou do limite do plano ${PLAN_NAMES[plan]} (${limit}) e ${state}. ${label.release} ou suba de plano.`;
+}
+
+function isReadOnlyResource(resource: PlanCountResource): resource is PlanReadOnlyResource {
+  return Object.hasOwn(READ_ONLY_LABEL, resource);
 }
 
 function isCountResource(resource: PlanLimitResource): resource is PlanCountResource {

@@ -15,6 +15,10 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PlanGateHint } from '@/features/plans/plan-gate-hint';
+import { planHintIdOf, type PlanGate } from '@/features/plans/plan-gate';
+import { PlanLockSeal } from '@/features/plans/plan-lock-seal';
+import { usePlanLock } from '@/features/plans/use-plan-limits';
 import { decimalText, digitsOnly } from '@/lib/numeric-text';
 import { cellsForImage, heightForWidth, isProportional } from '@/lib/scene-proportion';
 import type { AssetsApi } from '@/services/assets-api';
@@ -53,12 +57,15 @@ export type ConfigureSceneDialogProps = Readonly<{
 
 /** "Configurar cena" (master): the background image, then size, cell distance and unit,
  *  visibility and opacity of the grid, and the vision of the tokens. Mounted only while open, so every opening starts from the scene as it
- *  is now.
+ *  is now. A grid past the owner's plan (`scene.planLocked`) keeps the background and the grid
+ *  fields off, under the lock and its sentence; vision and Movimento livre are play and stay.
  *
  *  Example: `{sceneDialog && <ConfigureSceneDialog scope={scope} scene={scene} commands={commands} assets={assets} connected={live} onClose={close} />}` */
 export function ConfigureSceneDialog(props: ConfigureSceneDialogProps): React.JSX.Element {
   const { scope, scene, commands, assets, connected, onClose } = props;
   const look = useSceneLook(scene);
+  const lock = usePlanLock('scenes', scene);
+  const lockHintId = useId();
   const [errors, setErrors] = useState<GridFormErrors>({});
   const [failure, setFailure] = useState<BoardCommandFailure | null>(null);
   const [saving, setSaving] = useState(false);
@@ -94,15 +101,27 @@ export function ConfigureSceneDialog(props: ConfigureSceneDialogProps): React.JS
             void save();
           }}
         >
-          <SceneBackgroundField
-            campaignId={scope.campaignId}
-            assets={assets}
-            background={look.background}
-            locked={look.locked}
-            onBackground={look.chooseBackground}
-            onLocked={look.setLocked}
+          <SetupLockNotice id={lockHintId} lock={lock} />
+          <fieldset
+            disabled={!lock.open}
+            aria-describedby={planHintIdOf(lock, lockHintId)}
+            className="flex flex-col gap-4"
+          >
+            <SceneBackgroundField
+              campaignId={scope.campaignId}
+              assets={assets}
+              background={look.background}
+              locked={look.locked}
+              disabled={!lock.open}
+              onBackground={look.chooseBackground}
+              onLocked={look.setLocked}
+            />
+            <GridFields form={look.form} errors={errors} onChange={look.changeForm} />
+          </fieldset>
+          <FreeMovementField
+            checked={look.form.freeMovement}
+            onChange={(freeMovement) => look.changeForm({ ...look.form, freeMovement })}
           />
-          <GridFields form={look.form} errors={errors} onChange={look.changeForm} />
           <ChoiceField
             legend="Visão dos tokens"
             value={look.vision}
@@ -217,11 +236,20 @@ function GridFields({ form, errors, onChange }: GridFieldsProps): React.JSX.Elem
           Grid visível
         </Label>
       </div>
-      <FreeMovementField
-        checked={form.freeMovement}
-        onChange={(freeMovement) => onChange({ ...form, freeMovement })}
-      />
     </>
+  );
+}
+
+type SetupLockNoticeProps = Readonly<{ id: string; lock: PlanGate }>;
+
+// The lock and the readOnly sentence over the fields it keeps off; nothing within the plan.
+function SetupLockNotice({ id, lock }: SetupLockNoticeProps): React.JSX.Element | null {
+  if (lock.open) return null;
+  return (
+    <div className="flex items-start gap-2">
+      <PlanLockSeal gate={lock} className="pt-0.5 [&_svg]:size-3.5" />
+      <PlanGateHint id={id} gate={lock} />
+    </div>
   );
 }
 

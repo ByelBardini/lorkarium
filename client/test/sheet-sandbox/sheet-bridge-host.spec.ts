@@ -425,7 +425,7 @@ describe('sheet bridge host for a sheet with no token', () => {
 describe('sheet bridge host: the console', () => {
   const line = { type: 'console', level: 'warn', message: 'cuidado', at: [] };
 
-  async function bridgeWith(onConsole?: (message: unknown) => void) {
+  async function bridgeWith(onConsole?: (message: unknown) => void, notice?: string) {
     const port = new SheetHostPortFake();
     const api = new SheetsApiFake();
     const clock = new InteractionClockFake();
@@ -440,9 +440,19 @@ describe('sheet bridge host: the console', () => {
       ...{ diceAspect: () => 1, characters: new CharacterCommandsFake() },
       assets: new AssetsApiFake(),
       documents: noDocuments(),
+      notice,
     });
     return port;
   }
+
+  it('a notice is written to the console as the frame connects, before any line of it', async () => {
+    const lines: unknown[] = [];
+    const port = await bridgeWith((message) => lines.push(message), 'Os scripts não rodam.');
+    port.fromFrame(line);
+    await settled();
+    const notice = { type: 'console', level: 'warn', message: 'Os scripts não rodam.', at: [] };
+    expect({ lines, sent: port.sent }).toEqual({ lines: [notice, line], sent: [] });
+  });
 
   it('a console line goes to onConsole with no answer to the frame', async () => {
     const lines: unknown[] = [];

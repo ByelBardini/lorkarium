@@ -23,6 +23,22 @@ describe('planHighlightsOf', () => {
     ]);
   });
 
+  it('the Lenda offer names the extras only it has', () => {
+    expect(planHighlightsOf('lenda')).toContain(
+      'Janelas de Chat e Imagens, auras com efeito e arte animada',
+    );
+  });
+
+  it('the Narrador offer names what it opens over Grátis: maps, sheet scripts, private table', () => {
+    expect(planHighlightsOf('narrador')).toContain(
+      'Mapas interativos, scripts na ficha e mesa privada',
+    );
+  });
+
+  it('the Narrador offer promises none of the extras that are only on Lenda', () => {
+    expect(planHighlightsOf('narrador').join(' | ')).not.toMatch(/aura|janela|animad/i);
+  });
+
   it('each paid plan above Apoiador includes the one before', () => {
     expect(planHighlightsOf('narrador').at(-1)).toBe('Tudo do Apoiador');
     expect(planHighlightsOf('lenda').at(-1)).toBe('Tudo do Narrador');

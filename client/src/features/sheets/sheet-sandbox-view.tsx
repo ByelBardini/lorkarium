@@ -23,6 +23,8 @@ export type SheetSandboxViewProps = Readonly<{
   clock: InteractionClock;
   /** Speaks for the frame on its port; `onReady` is the frame's `ready`. */
   connect: (port: MessagePort, onReady: () => void) => SheetBridgeHost;
+  /** `false` on a table whose plan has no `sheetScripts`: the frame is built without the JS. */
+  scripts?: boolean;
   createChannel?: () => SheetChannel;
 }>;
 
@@ -33,7 +35,9 @@ export type SheetSandboxViewProps = Readonly<{
  *  Example: `<SheetSandboxView code={template} title="Ficha · Lyra" clock={clock} connect={bridgeOf} />` */
 export function SheetSandboxView(props: SheetSandboxViewProps): React.JSX.Element {
   const [generation, setGeneration] = useState(0);
-  const frameKey = `${props.code.version}:${generation}`;
+  const scripts = props.scripts ?? true;
+  // The plan going up or down mid-session builds the frame again, with or without the JS.
+  const frameKey = `${props.code.version}:${generation}:${scripts}`;
   const { health, onReady, onReloaded } = useFrameHealth(props.clock, frameKey);
   const { files } = props.code;
   const { assets } = props;
@@ -60,6 +64,7 @@ export function SheetSandboxView(props: SheetSandboxViewProps): React.JSX.Elemen
       <SheetSourceFrame
         key={frameKey}
         source={source}
+        scripts={scripts}
         title={props.title}
         onConnect={bridge.attach}
         onReloaded={onReloaded}
