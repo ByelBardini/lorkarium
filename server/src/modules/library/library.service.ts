@@ -53,7 +53,7 @@ type LibraryOfTable = SceneLibraryBo<SceneFolderPo, LibrarySceneRow>;
 type TableOfLibrary = Pick<CampaignPo, 'id' | 'activeSceneId'>;
 
 export type LibraryReadDaos = Readonly<{
-  campaigns: Pick<CampaignsDao, 'findById' | 'findOwnerPlan'>;
+  campaigns: Pick<CampaignsDao, 'findWithOwner'>;
   folders: Pick<SceneFoldersDao, 'listOfCampaign'>;
   scenes: Pick<ScenesDao, 'listOfCampaign'>;
 }>;
@@ -146,14 +146,13 @@ export class LibraryService {
     const { userId, campaignId } = requester;
     const access = await viewerAccessOf(this.deps.members, campaignId, userId);
     const { read } = this.deps;
-    const campaign = await read.campaigns.findById(campaignId);
-    const owner = await read.campaigns.findOwnerPlan(campaignId);
-    if (!campaign || !owner) throw new CampaignNotFoundError({ campaignId, userId });
+    const campaign = await read.campaigns.findWithOwner(campaignId);
+    if (!campaign) throw new CampaignNotFoundError({ campaignId, userId });
     const scenes = await read.scenes.listOfCampaign(campaignId);
     const folders = await read.folders.listOfCampaign(campaignId);
     const library = this.libraryFrom(folders, campaign, scenes);
     const visible = library.visibleTo(new SceneAccessBo(access, campaign.activeSceneId));
-    const placeOf = planRanksOf(scenes, effectiveLimitsOf(owner));
+    const placeOf = planRanksOf(scenes, effectiveLimitsOf(campaign.owner));
     return toLibraryDto(campaign.activeSceneId, visible, access.isMaster(), placeOf);
   }
 

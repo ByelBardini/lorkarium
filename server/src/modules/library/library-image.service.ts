@@ -47,7 +47,7 @@ export type LibraryImageDaos = Readonly<{
   sheetTemplates?: Pick<SheetTemplatesDao, 'listOfCampaign'>;
   sheets?: Pick<SheetsDao, 'listOfCampaign' | 'holdersOf'>;
   documents?: Pick<DocumentsDao, 'listOfCampaign' | 'ownersOfCampaign'>;
-  campaigns: Pick<CampaignsDao, 'lockById' | 'findById' | 'findOwnerPlan'>;
+  campaigns: Pick<CampaignsDao, 'lockById' | 'findWithOwner'>;
   members: Pick<CampaignMembersDao, 'findMembership'>;
   assets: Pick<AssetsDao, 'findInCampaign'>;
   images: Pick<
@@ -81,10 +81,9 @@ export class LibraryImageService {
   async list(requester: LibraryRequester): Promise<CampaignLibraryDto> {
     return this.deps.snapshot(async (daos) => {
       const access = await viewerAccessOf(daos.members, requester.campaignId, requester.userId);
-      const campaign = await daos.campaigns.findById(requester.campaignId);
-      const owner = await daos.campaigns.findOwnerPlan(requester.campaignId);
-      if (!campaign || !owner) throw new CampaignNotFoundError(requester);
-      const limits = effectiveLimitsOf(owner);
+      const campaign = await daos.campaigns.findWithOwner(requester.campaignId);
+      if (!campaign) throw new CampaignNotFoundError(requester);
+      const limits = effectiveLimitsOf(campaign.owner);
       const folders = await daos.folders.listOfCampaign(requester.campaignId);
       const scenes = await daos.scenes.listOfCampaign(requester.campaignId);
       const privacy = new FolderPrivacyBo(folders);

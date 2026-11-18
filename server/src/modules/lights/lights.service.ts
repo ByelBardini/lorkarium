@@ -23,7 +23,7 @@ import {
   type SceneTransaction,
 } from '../scenes/locked-scene';
 import { CustomColorPlanBo } from '../plans/custom-color-plan.bo';
-import { effectiveLimitsOf } from '../plans/plan-limits.bo';
+import { PlanLimitsBo, effectiveLimitsOf } from '../plans/plan-limits.bo';
 import type { AddressedSceneRow } from '../scenes/scenes.dao';
 import { LightRulesBo } from './light-rules.bo';
 import type { LightsDao, RankedLightPo } from './lights.dao';
@@ -109,7 +109,7 @@ export class LightsService {
       { campaignId, sceneId: command.sceneId, access },
       async (locked) => {
         const rules = this.rulesFor(locked.scene);
-        rules.requireSceneConfigurable(await locked.daos.lights.sceneRankOf(locked.scene.id));
+        rules.requireSceneConfigurable(await sceneRankFor(locked, rules));
         for (const placement of command.lights) {
           rules.place(sceneLightOfPlacement(placement));
           CustomColorPlanBo.requirePaletteUnlessAllowed(placement.color, rules.plan);
@@ -253,7 +253,7 @@ export class LightsService {
       const ids = changes.map(({ lightId }) => lightId);
       const rows = await rankedLightsIn(locked, campaignId, ids);
       const rules = this.rulesFor(locked.scene);
-      const sceneRank = await locked.daos.lights.sceneRankOf(locked.scene.id);
+      const sceneRank = await sceneRankFor(locked, rules);
       rows.forEach((row, index) => {
         const change = changes[index];
         rules.requireConfigurable(sceneRank, row.rank);
@@ -311,4 +311,17 @@ function inIdOrder<Row extends LightPo>(
     if (!row) throw new LightNotFoundError(campaignId, lightId);
     return row;
   });
+}
+
+// A plan that locks no grid (null or technical ceiling) needs no rank: 0 keeps every grid open
+// without the count.
+async function sceneRankFor(
+  locked: Readonly<{
+    daos: Readonly<{ lights: Pick<LightsDao, 'sceneRankOf'> }>;
+    scene: AddressedSceneRow;
+  }>,
+  rules: LightRulesBo,
+): Promise<number> {
+  if (!PlanLimitsBo.mayLock('scenes', rules.plan)) return 0;
+  return locked.daos.lights.sceneRankOf(locked.scene.id);
 }

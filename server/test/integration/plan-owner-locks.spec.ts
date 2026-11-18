@@ -70,6 +70,20 @@ describe('the plan read under the lock: CampaignsDao.lockWithOwner and UsersDao.
     expect(row).toBeUndefined();
   });
 
+  it('findWithOwner reads the campaign row and its own owner plan, without a transaction', async () => {
+    const tables = new CampaignsDao(connection.db);
+    const [bia, caio] = [
+      await tables.findWithOwner(biaTableId),
+      await tables.findWithOwner(caioTableId),
+    ];
+    expect(bia).toMatchObject({ id: biaTableId, ownerId: biaId, owner: { plan: 'free' } });
+    expect(caio).toMatchObject({ id: caioTableId, ownerId: caioId, owner: { plan: 'lenda' } });
+  });
+
+  it('findWithOwner of an unknown campaign is undefined', async () => {
+    expect(await new CampaignsDao(connection.db).findWithOwner(randomUUID())).toBeUndefined();
+  });
+
   it('lockWithOwner holds the campaign row but leaves the owner row free', async () => {
     await runInTransaction(connection.db, async (tx) => {
       await new CampaignsDao(tx).lockWithOwner(biaTableId);

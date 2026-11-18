@@ -124,9 +124,19 @@ export class PlanLimitsBo {
    *
    *  Example: `PlanLimitsBo.isReadOnly('scenes', 3, PLAN_LIMITS.free) // true` */
   static isReadOnly(resource: PlanEditableResource, rank: number, limits: PlanLimits): boolean {
+    if (rank < (limits[PLAN_COUNT_LIMIT_KEY[resource]] ?? Infinity)) return false;
+    return PlanLimitsBo.mayLock(resource, limits);
+  }
+
+  /** Whether the plan keeps any item of `resource` read only at all: a finite ceiling below the
+   *  technical one. When it does not, the caller skips reading the rank (no query on a table
+   *  above the plans).
+   *
+   *  Example: `PlanLimitsBo.mayLock('scenes', PLAN_LIMITS.amigo_do_dono) // false` */
+  static mayLock(resource: PlanEditableResource, limits: PlanLimits): boolean {
     const key = PLAN_COUNT_LIMIT_KEY[resource];
     const limit = limits[key];
-    if (limit === null || rank < limit) return false;
+    if (limit === null) return false;
     return !isTechnicalCeiling(limit, PLAN_LIMITS.amigo_do_dono[key]);
   }
 
