@@ -17,7 +17,7 @@ import type { Clipboard } from '@/services/clipboard';
 import { adminFailureMessage, planChangedNotice } from './admin-messages';
 import { InviteSheet } from './invite-sheet';
 import { InvitationRowMenu, UserRowMenu, type UserRowCommand } from './row-menus';
-import { UsersDialog, type OpenDialog } from './users-dialog';
+import { UsersDialog, type OpenDialog, type UsersDialogProps } from './users-dialog';
 import { UsersTable } from './users-table';
 import { UsersToolbar } from './users-toolbar';
 import { useOnUsersSettled, usersFailureOf, useUsersFetcher } from './use-users-fetcher';
@@ -30,6 +30,9 @@ export type UsersPageProps = Readonly<{
   clipboard: Clipboard;
   /** The catalog and the grants of "Insígnias…" in each row's menu. */
   badgesApi: BadgesAdminApi;
+  billingApi: UsersDialogProps['billingApi'];
+  /** The signed-in admin's own 2FA (the refund needs it). */
+  twoFactorOn: boolean;
 }>;
 
 /** "Usuários": who has access and how they came in. Search and filters live in the URL; commands
@@ -42,6 +45,8 @@ export function UsersPage({
   selfId,
   clipboard,
   badgesApi,
+  billingApi,
+  twoFactorOn,
 }: UsersPageProps): React.JSX.Element {
   const [params, setParams] = useSearchParams();
   // The typed text answers each key at once; the URL follows it (a navigation per key is async).
@@ -148,6 +153,8 @@ export function UsersPage({
           dialog={dialog}
           clipboard={clipboard}
           badgesApi={badgesApi}
+          billingApi={billingApi}
+          twoFactorOn={twoFactorOn}
           onDone={(message) => {
             setNotice(message);
             setDialog(null);

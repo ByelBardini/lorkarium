@@ -26,7 +26,10 @@ import { ReportsPage } from './reports-page';
 import { AdminForbiddenError, dropAdminRole, usersAction } from './users-action';
 import { UsersPage } from './users-page';
 
-export type UsersLoaderData = Readonly<{ directory: AdminDirectoryResponseDto }>;
+export type UsersLoaderData = Readonly<{
+  directory: AdminDirectoryResponseDto;
+  twoFactorOn: boolean;
+}>;
 
 /** The backoffice frame (`/admin`), loaded lazily so players never download it; the server still
  *  guards every admin route with `requireRole('admin')`.
@@ -55,7 +58,7 @@ export function usersRoute(
     shouldRevalidate: skipSearchOnlyRevalidation,
     action: usersAction(deps),
     Component: function UsersRoute(): React.JSX.Element {
-      const { directory } = useLoaderData<UsersLoaderData>();
+      const { directory, twoFactorOn } = useLoaderData<UsersLoaderData>();
       // Fixed once per visit: the "há N" labels do not tick while the page is open.
       const [now] = useState(deps.now);
       const session = useSession(deps.sessionStore);
@@ -67,6 +70,8 @@ export function usersRoute(
           selfId={selfId}
           clipboard={deps.clipboard}
           badgesApi={deps.badgesAdminApi}
+          billingApi={deps.billingApi}
+          twoFactorOn={twoFactorOn}
         />
       );
     },
@@ -193,8 +198,13 @@ function reportsQueryOf(url: URL): ReturnType<typeof listUserReportsQueryDto.par
 
 function usersLoader(deps: AppDependencies): LoaderFunction {
   return async ({ request }): Promise<UsersLoaderData> => {
-    const result = await deps.userAdminApi.directory();
-    if (result.ok) return { directory: result.value };
+    const [result, security] = await Promise.all([
+      deps.userAdminApi.directory(),
+      deps.accountSecurityApi.security(),
+    ]);
+    // Unread, the button stays on: the billing service refuses without 2FA anyway.
+    const twoFactorOn = !security.ok || security.value.twoFactor.enabled;
+    if (result.ok) return { directory: result.value, twoFactorOn };
     return refusedLoad(deps, result.failure.kind, request);
   };
 }
