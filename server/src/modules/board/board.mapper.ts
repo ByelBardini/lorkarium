@@ -17,6 +17,8 @@ export type BoardSnapshotParts = Readonly<{
   campaignId: string;
   viewer: BoardViewerDto;
   scene: SceneRow;
+  /** The grid is past the owner's plan (`gridPlanLockOf`). */
+  planLocked: boolean;
   /** Already redacted for the viewer. */
   tokens: readonly TokenDto[];
   drawings: readonly DrawingDto[];
@@ -39,7 +41,7 @@ export function toBoardStateDto(parts: BoardSnapshotParts): BoardStateDto {
     version: parts.scene.version,
     at: parts.at.toISOString(),
     viewer: parts.viewer,
-    scene: toSceneDto(parts.scene),
+    scene: toSceneDto(parts.scene, parts.planLocked),
     tokens: [...parts.tokens],
     drawings: [...parts.drawings],
     effectAreas: [...parts.effectAreas],

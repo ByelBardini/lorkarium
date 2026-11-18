@@ -20,7 +20,7 @@ import {
   sceneFolderPo,
 } from '../../support/library-factories';
 import {
-  LibraryCampaignsDaoFake,
+  OwnerPlanCampaignsDaoFake,
   LibraryPublisherFake,
   LibraryScenesDaoFake,
   LibraryTransactionRunnerFake,
@@ -43,7 +43,7 @@ describe('LibraryService', () => {
   let publisher: LibraryPublisherFake;
   let audience: SceneAudienceFake;
   let grids: BoardPublisherFake;
-  let campaigns: LibraryCampaignsDaoFake;
+  let campaigns: OwnerPlanCampaignsDaoFake;
   let service: LibraryService;
 
   beforeEach(() => {
@@ -52,7 +52,7 @@ describe('LibraryService', () => {
       campaignMemberPo({ campaignId: VHARN_ID, userId: ANA_ID, role: 'master' }),
       campaignMemberPo({ campaignId: VHARN_ID, userId: BIA_ID, role: 'player' }),
     ]);
-    campaigns = new LibraryCampaignsDaoFake(journal, [
+    campaigns = new OwnerPlanCampaignsDaoFake(journal, [
       campaignPo({ id: VHARN_ID, activeSceneId: VHARN_SCENE_ID }),
     ]);
     folders = new SceneFoldersDaoFake(journal, [

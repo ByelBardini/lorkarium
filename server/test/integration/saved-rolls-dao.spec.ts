@@ -248,4 +248,26 @@ describe('SavedRollsDao on Postgres', () => {
 
     expect(order).toEqual(['first locked', 'first done', 'second locked']);
   });
+
+  it('rankOf counts the older rolls of the same member at the same table, by (created_at, id)', async () => {
+    const born = new Date('2026-11-01T10:00:00.000Z');
+    const later = new Date('2026-11-01T10:00:01.000Z');
+    const at = (name: string, id: string, createdAt: Date, userId = biaId, campaignId = vharnId) =>
+      rolls.insert({ ...rollOf(userId, name, campaignId), id, createdAt });
+    await at('Do Caio', '0d0d0d0d-0d0d-4d0d-8d0d-0d0d0d0d0d0d', born, caioId);
+    await at('Na Quelm', '0e0e0e0e-0e0e-4e0e-8e0e-0e0e0e0e0e0e', born, biaId, quelmId);
+    const late = await at('Tarde', '0c0c0c0c-0c0c-4c0c-8c0c-0c0c0c0c0c0c', later);
+    const second = await at('Segunda', '0b0b0b0b-0b0b-4b0b-8b0b-0b0b0b0b0b0b', born);
+    const first = await at('Primeira', '0a0a0a0a-0a0a-4a0a-8a0a-0a0a0a0a0a0a', born);
+
+    const ranks = [late, second, first].map(({ id }) => rolls.rankOf(vharnId, biaId, id));
+
+    expect(await Promise.all(ranks)).toEqual([2, 1, 0]);
+    expect((await rolls.listOf(vharnId, biaId)).map(({ id }) => id)).toEqual([
+      first.id,
+      second.id,
+      late.id,
+    ]);
+    expect(await rolls.rankOf(vharnId, caioId, first.id)).toBeUndefined();
+  });
 });

@@ -69,6 +69,7 @@ const STATE = {
     background: null,
     vision: 'off',
     freeMovement: false,
+    planLocked: false,
   },
   tokens: [],
   drawings: [],

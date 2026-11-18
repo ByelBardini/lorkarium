@@ -1,4 +1,5 @@
 import { and, count, eq, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { tokenSheets } from './sheets.po';
 import {
@@ -8,6 +9,9 @@ import {
   type SheetTemplatePo,
   type SheetTemplateSummaryPo,
 } from './sheet-templates.po';
+
+// The template being ranked, joined to the templates of its table born before it.
+const rankedTemplate = alias(sheetTemplates, 'ranked_template');
 
 /** The sheet templates of a table; every query filters by the campaign (§2.6). */
 export class SheetTemplatesDao {
@@ -49,6 +53,30 @@ export class SheetTemplatesDao {
       .select({ total: count() })
       .from(sheetTemplates)
       .where(eq(sheetTemplates.campaignId, campaignId));
+    return row?.total ?? 0;
+  }
+
+  /** How many templates of the table were born before this one, by `(created_at, id)`: what the
+   *  owner's plan ranks it by (`PlanLimitsBo.requireEditable`). Call it on the `tx` DAO after the
+   *  lock of the write; a template of another table or a missing one counts 0.
+   *
+   *  Example: `await dao.rankOf(campaignId, templateId) // 1: the 2nd template` */
+  async rankOf(campaignId: string, templateId: string): Promise<number> {
+    const t = sheetTemplates;
+    const ranked = and(
+      eq(rankedTemplate.campaignId, campaignId),
+      eq(rankedTemplate.id, templateId),
+    );
+    const [row] = await this.db
+      .select({ total: count() })
+      .from(t)
+      .innerJoin(rankedTemplate, ranked)
+      .where(
+        and(
+          eq(t.campaignId, campaignId),
+          sql`(${t.createdAt}, ${t.id}) < (${rankedTemplate.createdAt}, ${rankedTemplate.id})`,
+        ),
+      );
     return row?.total ?? 0;
   }
 

@@ -19,13 +19,48 @@ function planOf(user: SignedInUser, plan: UserPlan): Promise<void> {
   return setAccountPlan(live.connection.db, user.id, plan);
 }
 
-function postTemplate(user: SignedInUser = live.ana, table: Table = live.vharn) {
+const INDEX = { path: 'index.html', content: '<p id="pv"></p>' };
+const SCRIPT = { path: 'scripts/a.js', content: 'lorkarium.ready();' };
+const SCRIPTED = { files: [INDEX, SCRIPT] };
+
+function postTemplate(
+  user: SignedInUser = live.ana,
+  table: Table = live.vharn,
+  payload: object = CODE,
+) {
   const url = `/api/campaigns/${table.id}/sheet-templates`;
-  return live.http(user, { method: 'POST', url, payload: CODE });
+  return live.http(user, { method: 'POST', url, payload });
 }
 
-async function templateOf(user: SignedInUser = live.ana, table: Table = live.vharn) {
-  const response = await postTemplate(user, table);
+function patchFiles(templateId: string, files: readonly object[]) {
+  const url = `/api/campaigns/${live.vharn.id}/sheet-templates/${templateId}`;
+  return live.http(live.ana, { method: 'PATCH', url, payload: { expectedVersion: 0, files } });
+}
+
+// `user` enters `table` by its code and its master makes them a co-master.
+async function coMasterOf(user: SignedInUser, table: Table): Promise<void> {
+  const payload = { code: table.joinCode };
+  await live.http(user, { method: 'POST', url: '/api/campaigns/join', payload });
+  const url = `/api/campaigns/${table.id}/members/${user.id}`;
+  const promoted = await live.http(table.master, {
+    method: 'PATCH',
+    url,
+    payload: { role: 'master' },
+  });
+  if (promoted.statusCode !== 200) throw new Error(`co-master answered ${promoted.body}`);
+}
+
+const scriptsLimit = {
+  code: 'PLAN_LIMIT',
+  planLimit: { resource: 'sheetScripts', limit: 0, plan: 'free' },
+};
+
+async function templateOf(
+  user: SignedInUser = live.ana,
+  table: Table = live.vharn,
+  payload: object = CODE,
+) {
+  const response = await postTemplate(user, table, payload);
   if (response.statusCode !== 201) throw new Error(`create template answered ${response.body}`);
   return sheetTemplateResponseDto.parse(response.json()).template.id;
 }
@@ -87,6 +122,47 @@ describe("sheet templates and NPC sheets follow the owner's plan", () => {
     await templateOf();
 
     expect((await postTemplate()).statusCode).toBe(201);
+  });
+
+  it('a free table refuses a template with scripts/a.js (an imported .lksheet too) with 403 PLAN_LIMIT sheetScripts', async () => {
+    await planOf(live.ana, 'free');
+
+    const response = await postTemplate(live.ana, live.vharn, SCRIPTED);
+
+    expect(response.statusCode, response.body).toBe(403);
+    expect(response.json()).toMatchObject(scriptsLimit);
+  });
+
+  it('a narrador table creates the template with scripts/a.js', async () => {
+    await planOf(live.ana, 'narrador');
+
+    expect((await postTemplate(live.ana, live.vharn, SCRIPTED)).statusCode).toBe(201);
+  });
+
+  it('a table fallen to free saves a new HTML with its stored a.js, and refuses a changed a.js', async () => {
+    await planOf(live.ana, 'narrador');
+    const templateId = await templateOf(live.ana, live.vharn, SCRIPTED);
+    await planOf(live.ana, 'free');
+
+    const changed = await patchFiles(templateId, [INDEX, { ...SCRIPT, content: 'go();' }]);
+    const kept = await patchFiles(templateId, [{ ...INDEX, content: '<h1>Nova</h1>' }, SCRIPT]);
+
+    expect(changed.statusCode, changed.body).toBe(403);
+    expect(changed.json()).toMatchObject(scriptsLimit);
+    expect(kept.statusCode, kept.body).toBe(200);
+  });
+
+  it("Ana's scripts at Quelm, a lenda table she co-masters, do not free them at her free Vharn", async () => {
+    await planOf(live.ana, 'free');
+    await planOf(live.caio, 'lenda');
+    await coMasterOf(live.ana, live.quelm);
+    const atQuelm = await postTemplate(live.ana, live.quelm, SCRIPTED);
+
+    const atVharn = await postTemplate(live.ana, live.vharn, SCRIPTED);
+
+    expect(atQuelm.statusCode, atQuelm.body).toBe(201);
+    expect(atVharn.statusCode, atVharn.body).toBe(403);
+    expect(atVharn.json()).toMatchObject(scriptsLimit);
   });
 
   it('a free table with 5 token sheets refuses the 6th with 403 PLAN_LIMIT npcSheets', async () => {

@@ -15,6 +15,7 @@ const template = {
   folderId: null,
   name: 'Ficha Tormenta',
   version: 0,
+  planLocked: false,
   updatedAt: '2026-10-31T00:00:00.000Z',
 };
 describe('campaign library aggregate', () => {

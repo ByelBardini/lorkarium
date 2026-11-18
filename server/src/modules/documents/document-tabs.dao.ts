@@ -1,4 +1,5 @@
 import { and, asc, count, eq, sql, type SQL } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { updateManySql } from '../../database/update-many';
 import {
@@ -11,7 +12,10 @@ import {
 export type DocumentTabChangesPo = Partial<Pick<DocumentTabPo, 'name' | 'visibility'>> &
   Readonly<{ updatedAt: Date }>;
 export type DocumentTabPositionPo = Readonly<{ id: string; position: number }>;
+/** A listed tab with its `rank`: how many tabs of the document were born before it, from 0. */
+export type DocumentTabRankedPo = DocumentTabSummaryPo & Readonly<{ rank: number }>;
 const t = libraryDocumentTabs;
+const older = alias(libraryDocumentTabs, 'older');
 const summaryColumns = {
   campaignId: t.campaignId,
   documentId: t.documentId,
@@ -33,9 +37,11 @@ function tabIn(campaignId: string, documentId: string, tabId: string): SQL | und
  *  Example: `await new DocumentTabsDao(tx).listOfDocument(campaignId, documentId)` */
 export class DocumentTabsDao {
   constructor(private readonly db: DatabaseExecutor) {}
-  async listOfDocument(campaignId: string, documentId: string): Promise<DocumentTabSummaryPo[]> {
+  /** The summaries by position, each with its rank by `(created_at, id)` in the document. */
+  async listOfDocument(campaignId: string, documentId: string): Promise<DocumentTabRankedPo[]> {
+    const rank = sql<number>`(row_number() over (order by ${t.createdAt}, ${t.id}) - 1)::int`;
     return this.db
-      .select(summaryColumns)
+      .select({ ...summaryColumns, rank })
       .from(t)
       .where(ofDocument(campaignId, documentId))
       .orderBy(asc(t.position));
@@ -64,6 +70,25 @@ export class DocumentTabsDao {
       .where(tabIn(campaignId, documentId, tabId))
       .for('no key update');
     return rows.length > 0;
+  }
+  /** How many tabs of the document were born before `tabId`, by `(created_at, id)`; `undefined`
+   *  when the tab is not in that document. Call it in the write's transaction, after its lock.
+   *
+   *  Example: `await new DocumentTabsDao(tx).rankOf(campaignId, documentId, tabId) // 3` */
+  async rankOf(campaignId: string, documentId: string, tabId: string): Promise<number | undefined> {
+    const bornBefore = sql`(${older.createdAt}, ${older.id}) < (${t.createdAt}, ${t.id})`;
+    const sameDocument = and(
+      eq(older.campaignId, t.campaignId),
+      eq(older.documentId, t.documentId),
+      bornBefore,
+    );
+    const [row] = await this.db
+      .select({ rank: count(older.id) })
+      .from(t)
+      .leftJoin(older, sameDocument)
+      .where(tabIn(campaignId, documentId, tabId))
+      .groupBy(t.campaignId, t.id);
+    return row?.rank;
   }
   async countOfDocument(campaignId: string, documentId: string): Promise<number> {
     const [row] = await this.db

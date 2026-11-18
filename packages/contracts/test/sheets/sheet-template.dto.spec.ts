@@ -101,10 +101,30 @@ describe('sheet template summary', () => {
         folderId: null,
         name: 'Ficha Tormenta',
         version: 0,
+        planLocked: false,
         updatedAt: '2026-10-31T12:00:00.000Z',
         js: 'x',
       }).success,
     ).toBe(false));
+});
+
+describe('sheet template summary and planLocked', () => {
+  const listed = {
+    id,
+    folderId: null,
+    name: 'Ficha Tormenta',
+    version: 0,
+    updatedAt: '2026-10-31T12:00:00.000Z',
+  };
+
+  it('a template marked read only by the plan is accepted', () => {
+    const parsed = sheetTemplateSummaryDto.parse({ ...listed, planLocked: true });
+    expect(parsed.planLocked).toBe(true);
+  });
+
+  it('a template without planLocked is refused', () => {
+    expect(sheetTemplateSummaryDto.safeParse(listed).success).toBe(false);
+  });
 });
 
 describe('sheet template with code', () => {
@@ -113,6 +133,7 @@ describe('sheet template with code', () => {
     folderId: null,
     name: 'Ficha Tormenta',
     version: 3,
+    planLocked: false,
     updatedAt: '2026-10-31T12:00:00.000Z',
   };
   it('the editor read carries the manifest and refuses one without it', () => {

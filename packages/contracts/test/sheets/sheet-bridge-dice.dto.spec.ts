@@ -72,6 +72,7 @@ describe('the results of the tray and the saved list', () => {
     name: 'Acerto',
     folderId: null,
     parts: [{ label: null, expression: '1d20+5' }],
+    planLocked: false,
   };
 
   it('saved.list answers the rolls without owner or dates', () => {

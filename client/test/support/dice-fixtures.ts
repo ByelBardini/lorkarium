@@ -88,6 +88,7 @@ export const ACERTO: SavedRollDto = {
   name: 'Acerto',
   folderId: null,
   parts: [{ label: null, expression: '1d20+5' }],
+  planLocked: false,
 };
 
 /** Bia's saved "Bênção" (`1d4`). */
@@ -96,4 +97,5 @@ export const BENCAO: SavedRollDto = {
   name: 'Bênção',
   folderId: null,
   parts: [{ label: null, expression: '1d4' }],
+  planLocked: false,
 };

@@ -130,6 +130,7 @@ describe("saved rolls and folders hold to the table owner's plan", () => {
       resource: 'savedRollFolders',
       limit: 0,
       plan: 'free',
+      reason: 'room',
     });
   });
 

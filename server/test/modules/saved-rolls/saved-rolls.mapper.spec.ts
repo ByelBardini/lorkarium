@@ -11,12 +11,17 @@ const BLESS = [{ label: 'Bênção', expression: '1d4' }];
 
 describe('toSavedRollDto', () => {
   it('keeps id, name and pieces and leaves out the table, owner, key and dates', () => {
-    expect(toSavedRollDto(savedRollPo())).toEqual({
+    expect(toSavedRollDto(savedRollPo(), false)).toEqual({
       id: ACERTO_ID,
       name: 'Acerto',
       folderId: null,
       parts: [{ label: null, expression: '1d20+5' }],
+      planLocked: false,
     });
+  });
+
+  it('a roll past the table plan carries planLocked', () => {
+    expect(toSavedRollDto(savedRollPo(), true).planLocked).toBe(true);
   });
 });
 

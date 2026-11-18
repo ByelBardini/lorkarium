@@ -34,7 +34,8 @@ export const sceneBackgroundDto = z.strictObject({
 
 export type SceneBackgroundDto = z.infer<typeof sceneBackgroundDto>;
 
-/** The active scene of a campaign.
+/** The active scene of a campaign. `planLocked`: the owner's plan went down and this grid is past
+ *  its ceiling of grids, so its setup (size, ruler, background, walls) is read only; play goes on.
  *
  *  Example: `sceneDto.parse(state.scene).widthCells // 20` */
 export const sceneDto = z.strictObject({
@@ -44,6 +45,7 @@ export const sceneDto = z.strictObject({
   background: sceneBackgroundDto.nullable(),
   vision: sceneVisionDto,
   freeMovement: z.boolean(),
+  planLocked: z.boolean(),
 });
 
 export type SceneDto = z.infer<typeof sceneDto>;

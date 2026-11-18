@@ -4,6 +4,8 @@ import { CampaignAccessBo } from '../../../src/modules/campaigns/campaign-access
 import { DocumentAccessBo } from '../../../src/modules/documents/document-access.bo';
 import {
   DocumentTabsBo,
+  isTabPlanLocked,
+  requireTabConfigurable,
   type DocumentTabState,
 } from '../../../src/modules/documents/document-tabs.bo';
 import { ANA_ID } from '../../support/auth-factories';
@@ -155,5 +157,32 @@ describe('DocumentTabsBo', () => {
     expect(() => tabsFor('bia').mergedOrder([B, A, C])).toThrow(
       expect.objectContaining({ code: 'DOCUMENT_TAB_NOT_FOUND' }),
     );
+  });
+});
+
+describe('the plan over a tab name and body', () => {
+  it('on a free table the 3rd tab born (rank 2) is configurable and not planLocked', () => {
+    expect(() => requireTabConfigurable(2, PLAN_LIMITS.free)).not.toThrow();
+    expect(isTabPlanLocked(2, PLAN_LIMITS.free)).toBe(false);
+  });
+  it('on a free table the 4th tab born (rank 3) is PLAN_LIMIT readOnly and planLocked', () => {
+    expect(() => requireTabConfigurable(3, PLAN_LIMITS.free)).toThrow(
+      expect.objectContaining({
+        code: 'PLAN_LIMIT',
+        reason: 'readOnly',
+        resource: 'documentTabs',
+        stored: 4,
+        limit: 3,
+        plan: 'free',
+      }),
+    );
+    expect(isTabPlanLocked(3, PLAN_LIMITS.free)).toBe(true);
+  });
+  it('the narrador keeps 10 tabs editable and the technical ceiling of 200 never locks', () => {
+    expect([9, 10].map((rank) => isTabPlanLocked(rank, PLAN_LIMITS.narrador))).toEqual([
+      false,
+      true,
+    ]);
+    expect(isTabPlanLocked(250, PLAN_LIMITS.lenda)).toBe(false);
   });
 });

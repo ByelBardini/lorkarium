@@ -21,6 +21,7 @@ import {
   SOMBRA_ID,
 } from '../../support/tokens-factories';
 import { WallsDaoFake } from '../../support/walls-fakes';
+import { planAccount } from '../../support/plan-account-fakes';
 
 const NOW = new Date('2026-10-24T21:00:00Z');
 const TORCH = { x: 4, y: 5, bright: 4, dim: 4, color: 'torch', facing: 0, angle: 360 };
@@ -95,5 +96,45 @@ describe('BoardService.snapshotFor with hidden tokens', () => {
     expect(state.tokens.filter(({ hidden }) => hidden)).toHaveLength(2);
     expect(state.veiledLights).toEqual([]);
     expect(state.combat?.combatants).toHaveLength(2);
+  });
+});
+
+describe('BoardService.snapshotFor and the plan of the owner', () => {
+  const GRID_IDS = [VHARN_SCENE_ID, 'grid-2', 'grid-3', 'grid-4'];
+
+  function serviceOn(plan: 'free' | 'amigo_do_dono'): BoardService {
+    const members = new CampaignMembersDaoFake(new CampaignsDaoFake(), {}, [
+      campaignMemberPo({ campaignId: VHARN_ID, userId: ANA_ID, role: 'master' }),
+    ]);
+    const scenes = new ScenesDaoFake(GRID_IDS.map((id) => scenePo({ id })));
+    scenes.activeOf.set(VHARN_ID, VHARN_SCENE_ID);
+    scenes.owners.set(VHARN_ID, planAccount({ plan }));
+    const journal: string[] = [];
+    const daos: BoardReadDaos = {
+      scenes,
+      tokens: new TokensDaoFake(journal, []),
+      conditions: new ConditionsDaoFake(),
+      combat: new CombatDaoFake(journal),
+      drawings: new DrawingsDaoFake(journal),
+      effectAreas: new EffectAreasDaoFake(journal),
+      walls: new WallsDaoFake(journal),
+      lights: new LightsDaoFake(journal),
+    };
+    return new BoardService({ members, snapshot: (work) => work(daos), clock: new ClockFake(NOW) });
+  }
+
+  it.each([
+    ['grid-4', true],
+    ['grid-3', false],
+  ])('on a free table of 4 grids, the snapshot of %s has planLocked %s', async (id, locked) => {
+    const state = await serviceOn('free').snapshotFor(ANA_ID, VHARN_ID, id);
+
+    expect(state.scene).toMatchObject({ id, planLocked: locked });
+  });
+
+  it('above the plan (amigo_do_dono) the 4th grid is not planLocked', async () => {
+    const state = await serviceOn('amigo_do_dono').snapshotFor(ANA_ID, VHARN_ID, 'grid-4');
+
+    expect(state.scene.planLocked).toBe(false);
   });
 });

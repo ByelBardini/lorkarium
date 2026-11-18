@@ -16,6 +16,7 @@ import { CampaignNotFoundError } from '../campaigns/campaigns.error';
 import { memberAccessOf, viewerAccessOf } from '../campaigns/member-access';
 import type { SceneFoldersDao } from '../library/scene-folders.dao';
 import type { LibraryPublisherPort } from '../library/library-publisher.port';
+import type { PlanRank } from '../library/library.mapper';
 import type { LibraryRequester } from '../library/library.service';
 import { effectiveLimitsOf, PlanLimitsBo } from '../plans/plan-limits.bo';
 import { SheetTemplateAssetBo } from './sheet-template-asset.bo';
@@ -31,11 +32,11 @@ export type TemplateUseCounter = Readonly<{
 }>;
 
 export type SheetTemplateDaos = Readonly<{
-  campaigns: Pick<CampaignsDao, 'lockWithOwner'>;
+  campaigns: Pick<CampaignsDao, 'lockWithOwner' | 'findOwnerPlan'>;
   folders: Pick<SceneFoldersDao, 'listOfCampaign'>;
   templates: Pick<
     SheetTemplatesDao,
-    'findInCampaign' | 'countOfCampaign' | 'insert' | 'update' | 'delete'
+    'findInCampaign' | 'countOfCampaign' | 'rankOf' | 'insert' | 'update' | 'delete'
   >;
   uses: TemplateUseCounter;
   assets: Pick<AssetsDao, 'findManyInCampaign'>;
@@ -43,7 +44,7 @@ export type SheetTemplateDaos = Readonly<{
 
 export type SheetTemplatesServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership'>;
-  read: Pick<SheetTemplateDaos, 'templates'>;
+  read: Pick<SheetTemplateDaos, 'templates' | 'campaigns'>;
   transaction: <T>(work: (daos: SheetTemplateDaos) => Promise<T>) => Promise<T>;
   clock: ClockPort;
   publisher: Pick<LibraryPublisherPort, 'libraryChanged'>;
@@ -59,7 +60,9 @@ type TemplateEdit = Readonly<{
 
 /** The sheet templates of the library: only masters read or write them. Every write locks the
  *  table (like the library), commits, and only then tells it `library:changed`. Creating one (the
- *  import of a `.lksheet` too) counts against the owner's plan (`sheetTemplates`).
+ *  import of a `.lksheet` and a copy too) counts against the owner's plan (`sheetTemplates`), a
+ *  template past that ceiling is read only (`readOnly`; deleting it still passes), and a table
+ *  without `sheetScripts` writes no new nor changed `.js` (the stored ones stay).
  *
  *  Example: `await templates.create({ userId, campaignId }, { name: 'Ficha Tormenta', files })` */
 export class SheetTemplatesService {
@@ -68,7 +71,11 @@ export class SheetTemplatesService {
   async get(requester: LibraryRequester, templateId: string): Promise<SheetTemplateDto> {
     const access = await viewerAccessOf(this.deps.members, requester.campaignId, requester.userId);
     new SheetTemplateBo(access).requireAuthor(`read sheet template ${templateId}`);
-    return toSheetTemplateDto(await this.templateOf(this.deps.read, requester, templateId));
+    const { read } = this.deps;
+    const found = await this.templateOf(read, requester, templateId);
+    const owner = await read.campaigns.findOwnerPlan(requester.campaignId);
+    if (!owner) throw new CampaignNotFoundError(requester);
+    return toSheetTemplateDto(found, await placeOf(read, found, effectiveLimitsOf(owner)));
   }
 
   async create(
@@ -78,28 +85,35 @@ export class SheetTemplatesService {
     return this.edit(requester, 'create a sheet template', async ({ daos, rules, limits }) => {
       const stored = await daos.templates.countOfCampaign(requester.campaignId);
       PlanLimitsBo.requireRoom('sheetTemplates', stored, 1, limits);
+      const { files } = input;
+      rules.requireScriptsAllowed([], files, limits);
       const folderId = input.folderId ?? null;
       await this.requireFolder(daos, rules, requester, folderId);
-      const { files } = input;
       if (input.manifest) await requireManifestAssets(daos, requester, input.manifest);
       const name = input.name ?? UNNAMED_SHEET_TEMPLATE_NAME;
       const manifest = input.manifest ?? emptySheetTemplateManifest();
       const { campaignId, userId } = requester;
       const row = { campaignId, folderId, name, files, manifest, createdBy: userId };
-      return toSheetTemplateDto(await daos.templates.insert(row));
+      const created = await daos.templates.insert(row);
+      return toSheetTemplateDto(created, await placeOf(daos, created, limits));
     });
   }
 
   /** Renames, moves or replaces the files or the manifest; refused when another master saved after the version
-   *  read (SHEET_TEMPLATE_VERSION_CONFLICT). Every save bumps the version. */
+   *  read (SHEET_TEMPLATE_VERSION_CONFLICT) and on a template past the owner's plan (PLAN_LIMIT
+   *  `readOnly`). Every save bumps the version. */
   async update(
     requester: LibraryRequester,
     templateId: string,
     input: UpdateSheetTemplateRequestDto,
   ): Promise<SheetTemplateDto> {
-    return this.edit(requester, `edit sheet template ${templateId}`, async ({ daos, rules }) => {
+    const action = `edit sheet template ${templateId}`;
+    return this.edit(requester, action, async ({ daos, rules, limits }) => {
       const found = await this.templateOf(daos, requester, templateId);
+      const place = await placeOf(daos, found, limits);
+      PlanLimitsBo.requireEditable('sheetTemplates', place.rank, limits);
       rules.requireVersion(found, input.expectedVersion);
+      if (input.files) rules.requireScriptsAllowed(found.files, input.files, limits);
       if (input.folderId !== undefined)
         await this.requireFolder(daos, rules, requester, input.folderId);
       if (input.manifest) await requireManifestAssets(daos, requester, input.manifest);
@@ -109,7 +123,7 @@ export class SheetTemplatesService {
         version: found.version + 1,
         updatedAt: this.deps.clock.now(),
       });
-      return toSheetTemplateDto(saved);
+      return toSheetTemplateDto(saved, place);
     });
   }
 
@@ -162,6 +176,15 @@ export class SheetTemplatesService {
       folderId,
     );
   }
+}
+
+// Where the template stands among its table's templates, with the limits of the owner's plan.
+async function placeOf(
+  daos: Pick<SheetTemplateDaos, 'templates'>,
+  template: Pick<SheetTemplatePo, 'campaignId' | 'id'>,
+  limits: PlanLimits,
+): Promise<PlanRank> {
+  return { rank: await daos.templates.rankOf(template.campaignId, template.id), limits };
 }
 
 // Under the table's lock with the rest of the save: an asset of another table, of another purpose

@@ -35,7 +35,7 @@ import { ANA_ID } from './auth-factories';
 import { CampaignMembersDaoFake, CampaignsDaoFake } from './campaigns-fakes';
 import { DocumentsDaoFake } from './documents-fakes';
 import { BIA_ID, VHARN_ID, campaignMemberPo, campaignPo } from './campaigns-factories';
-import { LibraryCampaignsDaoFake, SceneFoldersDaoFake } from './library-fakes';
+import { OwnerPlanCampaignsDaoFake, SceneFoldersDaoFake } from './library-fakes';
 import { MAP_ART_ID, libraryMapRow, mapRegionPo } from './library-maps-factories';
 
 type MapDao = LibraryMapDaos['maps'];
@@ -172,6 +172,15 @@ export class LibraryMapsDaoFake implements MapDao {
     return this.rows.find((row) => row.map.campaignId === campaignId && row.map.id === mapId);
   }
 
+  /** The place of the map among its table's, as stored (the oldest first); a missing one, 0. */
+  async rankOf(campaignId: string, mapId: string): Promise<number> {
+    const maps = this.rows.filter((row) => row.map.campaignId === campaignId);
+    return Math.max(
+      0,
+      maps.findIndex((row) => row.map.id === mapId),
+    );
+  }
+
   async findMainOfCampaign(campaignId: string): Promise<LibraryMapRow | undefined> {
     return this.rows.find((row) => row.map.campaignId === campaignId && row.map.isMain);
   }
@@ -235,7 +244,7 @@ export class LibraryMapsHarness {
   readonly regions = new LibraryMapRegionsDaoFake(this.journal);
   readonly linkTargets = new MapLinkTargetsDaoFake();
   readonly documents = new DocumentsDaoFake(this.journal);
-  readonly campaigns = new LibraryCampaignsDaoFake(this.journal, [campaignPo({ id: VHARN_ID })]);
+  readonly campaigns = new OwnerPlanCampaignsDaoFake(this.journal, [campaignPo({ id: VHARN_ID })]);
   readonly folders = new SceneFoldersDaoFake(this.journal);
   readonly events: LibraryChangedDto[] = [];
   readonly mapChanges: LibraryMapChangedDto[] = [];

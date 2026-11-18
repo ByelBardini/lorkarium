@@ -279,6 +279,7 @@ function summaryOf(tab: DocumentTabDto): DocumentTabSummaryDto {
     visibility: tab.visibility,
     version: tab.version,
     updatedAt: tab.updatedAt,
+    planLocked: false,
   };
 }
 function administrationOf(input: UpdateDocumentRequestDto): Partial<DocumentDto> {

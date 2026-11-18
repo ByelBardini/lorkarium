@@ -115,3 +115,32 @@ describe('requireFolderRoom', () => {
     );
   });
 });
+
+describe('SavedRollRulesBo over the name and parts of a kept roll', () => {
+  it('at a free table the 3rd roll born (rank 2) is configurable and not planLocked', () => {
+    expect(() => rules.requireConfigurable(2, PLAN_LIMITS.free)).not.toThrow();
+    expect(rules.isPlanLocked(2, PLAN_LIMITS.free)).toBe(false);
+  });
+
+  it('at a free table the 4th roll born (rank 3) is PLAN_LIMIT readOnly and planLocked', () => {
+    expect(() => rules.requireConfigurable(3, PLAN_LIMITS.free)).toThrow(
+      expect.objectContaining({
+        code: 'PLAN_LIMIT',
+        reason: 'readOnly',
+        resource: 'savedRolls',
+        stored: 4,
+        limit: 3,
+        plan: 'free',
+      }),
+    );
+    expect(rules.isPlanLocked(3, PLAN_LIMITS.free)).toBe(true);
+  });
+
+  it('the narrador keeps 15 editable and the table without plan limit never locks', () => {
+    expect([14, 15].map((rank) => rules.isPlanLocked(rank, PLAN_LIMITS.narrador))).toEqual([
+      false,
+      true,
+    ]);
+    expect(rules.isPlanLocked(49, OPEN)).toBe(false);
+  });
+});

@@ -25,12 +25,14 @@ import type { BoardPublisherPort } from '../scenes/board-publisher.port';
 import {
   gridEventBase,
   inLockedGrid,
+  requireEditableGrid,
   type CreatedInScene,
   type LockedGrid,
   type SavedInScene,
   type GridLockDaos,
   type SceneTransaction,
 } from '../scenes/locked-scene';
+import type { ScenesDao } from '../scenes/scenes.dao';
 import type { ScenePo } from '../scenes/scenes.po';
 import type { TokenRow, TokensDao } from '../tokens/tokens.dao';
 import { tokenBlockerOf, tokenEyeOf, tokenLightOf } from '../tokens/tokens.mapper';
@@ -68,6 +70,8 @@ export type EraseWallArea = Omit<EraseWallAreaCommandDto, Envelope>;
 /** The DAOs a transaction hands out, bound to the open `tx`. */
 export type WallWriteDaos = GridLockDaos &
   Readonly<{
+    /** Ranks the grid against the owner's plan before a wall is changed (not to open a door). */
+    scenes: Pick<ScenesDao, 'rankOf'>;
     walls: Pick<
       WallsDao,
       | 'insertMany'
@@ -103,7 +107,8 @@ type Locked = LockedGrid<WallWriteDaos>;
 
 /** The wall use cases, master only (a player only opens a door), on the grid the command names,
  *  each all or nothing in one version: lock that grid, decide, save, bump and, only after the
- *  commit, publish to who has it open.
+ *  commit, publish to who has it open. On a grid past the owner's plan the walls are read only
+ *  (PLAN_LIMIT `readOnly`); opening and closing a door is play and still passes.
  *
  *  Example: `const created = await wallsService.createMany(user.id, campaignId, { walls })` */
 export class WallsService {
@@ -115,7 +120,7 @@ export class WallsService {
     command: CreateWalls,
   ): Promise<CreatedInScene> {
     const access = await this.requireMaster(userId, campaignId, 'create walls');
-    const saved = await this.inGrid(access, command.sceneId, async ({ daos, scene }) => {
+    const saved = await this.inEditableGrid(access, command.sceneId, async ({ daos, scene }) => {
       const rules = this.rulesFor(scene);
       const adding = command.walls.map((shape) => rules.place(wallOfShape(shape)));
       rules.admit((await daos.walls.listOfScene(scene.id)).map(wallOfRow), adding);
@@ -132,7 +137,7 @@ export class WallsService {
   async moveMany(userId: string, campaignId: string, command: MoveWalls): Promise<number> {
     const access = await this.requireMaster(userId, campaignId, 'move walls');
     const ids = command.moves.map(({ wallId }) => wallId);
-    const saved = await this.inGrid(access, command.sceneId, async (locked) => {
+    const saved = await this.inEditableGrid(access, command.sceneId, async (locked) => {
       const rows = await wallsIn(locked, campaignId, ids);
       const rules = this.rulesFor(locked.scene);
       rows.forEach((row, index) => {
@@ -155,7 +160,7 @@ export class WallsService {
   async deleteMany(userId: string, campaignId: string, command: DeleteWalls): Promise<number> {
     const access = await this.requireMaster(userId, campaignId, 'delete walls');
     const { wallIds } = command;
-    const saved = await this.inGrid(access, command.sceneId, async (locked) => {
+    const saved = await this.inEditableGrid(access, command.sceneId, async (locked) => {
       const rules = this.rulesFor(locked.scene);
       for (const row of await wallsIn(locked, campaignId, wallIds)) {
         const expected = command.expect?.find(({ wallId }) => wallId === row.id);
@@ -170,7 +175,7 @@ export class WallsService {
 
   async setKindMany(userId: string, campaignId: string, command: SetWallKinds): Promise<number> {
     const access = await this.requireMaster(userId, campaignId, 'change wall kinds');
-    const saved = await this.inGrid(access, command.sceneId, async (locked) => {
+    const saved = await this.inEditableGrid(access, command.sceneId, async (locked) => {
       const rules = this.rulesFor(locked.scene);
       const rows = await wallsIn(locked, campaignId, command.wallIds);
       const changes: WallKindPo[] = rows.map((row) => {
@@ -221,7 +226,7 @@ export class WallsService {
     command: EraseWallSegment,
   ): Promise<CreatedInScene> {
     const access = await this.requireMaster(userId, campaignId, 'erase a piece of a wall');
-    const saved = await this.inGrid(access, command.sceneId, async (locked) => {
+    const saved = await this.inEditableGrid(access, command.sceneId, async (locked) => {
       const [row] = await wallsIn(locked, campaignId, [command.wallId]);
       if (!row) throw new WallNotFoundError(campaignId, command.wallId);
       const rules = this.rulesFor(locked.scene);
@@ -248,7 +253,7 @@ export class WallsService {
     command: EraseWallArea,
   ): Promise<CreatedInScene> {
     const access = await this.requireMaster(userId, campaignId, 'erase an area of walls');
-    const saved = await this.inGrid(access, command.sceneId, async (locked) => {
+    const saved = await this.inEditableGrid(access, command.sceneId, async (locked) => {
       const placed = (await locked.daos.walls.listOfScene(locked.scene.id)).map(placedWallOf);
       const rules = this.rulesFor(locked.scene);
       const { wallIds, rest } = rules.eraseArea(placed, command.box);
@@ -266,6 +271,18 @@ export class WallsService {
       walls,
     });
     return { version: saved.version, createdIds: walls.map(({ id }) => id) };
+  }
+
+  // A change of walls ranks the grid first: past the owner's plan nothing is read or written.
+  private async inEditableGrid<T>(
+    access: CampaignAccessBo,
+    commandSceneId: string | undefined,
+    work: (locked: Locked) => Promise<T>,
+  ): Promise<SavedInScene<T>> {
+    return this.inGrid(access, commandSceneId, async (locked) => {
+      await requireEditableGrid(locked.daos.scenes, locked.scene);
+      return work(locked);
+    });
   }
 
   // Every wall command locks its grid here: the remembered walls are forgotten right after the

@@ -1,3 +1,4 @@
+import { PLAN_LIMITS } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import { toDocumentDto, toDocumentSummary } from '../../../src/modules/documents/documents.mapper';
 import { CampaignAccessBo } from '../../../src/modules/campaigns/campaign-access.bo';
@@ -9,12 +10,12 @@ import {
 } from '../../support/documents-fakes';
 import { ANA_ID } from '../../support/auth-factories';
 import { BIA_ID, VHARN_ID } from '../../support/campaigns-factories';
-const SECRET = documentTabPo({
-  id: SEGREDOS_TAB_ID,
-  name: 'Segredos',
-  position: 1,
-  visibility: 'masters',
-});
+const GERAL = { ...documentTabPo(), rank: 0 };
+const SECRET = {
+  ...documentTabPo({ id: SEGREDOS_TAB_ID, name: 'Segredos', position: 1, visibility: 'masters' }),
+  rank: 1,
+};
+const MASTER = new CampaignAccessBo({ campaignId: VHARN_ID, userId: ANA_ID, role: 'master' });
 describe('document mappers', () => {
   it('summary carries the library preview under its own names, not the columns', () => {
     const summary = toDocumentSummary(
@@ -43,8 +44,9 @@ describe('document mappers', () => {
     const detail = toDocumentDto(
       documentPo(),
       [BIA_ID],
-      new CampaignAccessBo({ campaignId: VHARN_ID, userId: ANA_ID, role: 'master' }),
-      [documentTabPo(), SECRET],
+      MASTER,
+      [GERAL, SECRET],
+      PLAN_LIMITS.amigo_do_dono,
     );
     expect(detail).toMatchObject({ ownerIds: [BIA_ID], schemaVersion: 2 });
     expect(detail.tabs.map((tab) => tab.id)).toEqual([GERAL_TAB_ID, SEGREDOS_TAB_ID]);
@@ -56,7 +58,8 @@ describe('document mappers', () => {
       documentPo(),
       [BIA_ID],
       new CampaignAccessBo({ campaignId: VHARN_ID, userId: BIA_ID, role: 'player' }),
-      [SECRET, documentTabPo()],
+      [SECRET, GERAL],
+      PLAN_LIMITS.amigo_do_dono,
     );
     expect(detail.tabs).toEqual([
       {
@@ -65,7 +68,23 @@ describe('document mappers', () => {
         visibility: 'document',
         version: 0,
         updatedAt: '2026-10-29T15:00:00.000Z',
+        planLocked: false,
       },
+    ]);
+  });
+  it('on a free table each tab is planLocked by its rank, not by its position', () => {
+    const born = (id: string, position: number, rank: number) => ({
+      ...documentTabPo({ id, name: `Aba ${rank + 1}`, position }),
+      rank,
+    });
+    // The 4th born (rank 3) sits first in the strip after a reorder.
+    const tabs = [born(SEGREDOS_TAB_ID, 0, 3), born(GERAL_TAB_ID, 1, 2)];
+
+    const detail = toDocumentDto(documentPo(), [], MASTER, tabs, PLAN_LIMITS.free);
+
+    expect(detail.tabs.map(({ id, planLocked }) => [id, planLocked])).toEqual([
+      [SEGREDOS_TAB_ID, true],
+      [GERAL_TAB_ID, false],
     ]);
   });
 });
