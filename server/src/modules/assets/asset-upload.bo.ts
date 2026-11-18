@@ -46,8 +46,10 @@ export function frameFor(
 export type AnimationLimits = Readonly<{ maxFrames: number; maxDecodedPixels: number }>;
 
 // The aura moves on the board and a sheet image in its frame, on any plan; the three images of
-// the table move only on an owner whose plan has `campaignArt` (on Grátis and Apoiador their GIF
-// keeps the first frame, never refused). A token, a background or a condition stays still.
+// the table move only on an owner whose plan has `animatedCampaignArt`, a Lenda exclusive (on
+// Grátis, Apoiador and Narrador their GIF keeps the first frame, never refused; the still cover
+// and banner stay on Narrador through `campaignArt`). A token, a background or a condition stays
+// still.
 const ANIMATED_PURPOSES: ReadonlySet<AssetPurpose> = new Set(['aura', 'sheet_image']);
 const PAID_ANIMATED_PURPOSES: ReadonlySet<AssetPurpose> = new Set([
   'campaign_photo',
@@ -55,18 +57,18 @@ const PAID_ANIMATED_PURPOSES: ReadonlySet<AssetPurpose> = new Set([
   'campaign_banner',
 ]);
 
-/** How much an image sent for `purpose` may keep animating, `ownerHasCampaignArt` being the
- *  `campaignArt` of the table owner's limits; `null` = it must be still (a GIF or an animated
- *  WebP comes out with its first frame).
+/** How much an image sent for `purpose` may keep animating, `ownerHasAnimatedArt` being the
+ *  `animatedCampaignArt` of the table owner's limits; `null` = it must be still (a GIF or an
+ *  animated WebP comes out with its first frame).
  *
  *  Example: `animationFor('cover', AURA_ANIMATION_LIMITS, true) // { maxFrames: 120, maxDecodedPixels: 16_000_000 }` */
 export function animationFor(
   purpose: AssetPurpose,
   limits: AnimationLimits,
-  ownerHasCampaignArt: boolean,
+  ownerHasAnimatedArt: boolean,
 ): AnimationLimits | null {
   if (ANIMATED_PURPOSES.has(purpose)) return limits;
-  return ownerHasCampaignArt && PAID_ANIMATED_PURPOSES.has(purpose) ? limits : null;
+  return ownerHasAnimatedArt && PAID_ANIMATED_PURPOSES.has(purpose) ? limits : null;
 }
 
 // The photo stays on every plan: without `campaignArt` the cover and the banner come from it.

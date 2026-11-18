@@ -512,7 +512,7 @@ describe('AssetsService', () => {
   });
 
   it('a cover follows the plan of the table owner, not of a free player who sends it', async () => {
-    tableOwners.set(VHARN_ID, planAccount({ plan: 'narrador' }));
+    tableOwners.set(VHARN_ID, planAccount({ plan: 'lenda' }));
 
     await service.upload(BIA_ID, VHARN_ID, { bytes: PNG, purpose: 'cover' });
 
@@ -520,6 +520,18 @@ describe('AssetsService', () => {
       animation: { maxFrames: 120, maxDecodedPixels: 16_000_000 },
     });
   });
+
+  it.each(['campaign_photo', 'cover', 'campaign_banner'] as const)(
+    'a %s on a Narrador table is kept still: campaignArt without animatedCampaignArt',
+    async (purpose) => {
+      tableOwners.set(VHARN_ID, planAccount({ plan: 'narrador' }));
+
+      await service.upload(ANA_ID, VHARN_ID, { bytes: PNG, purpose });
+
+      expect(processor.resizes).toHaveLength(1);
+      expect(processor.resizes[0]).not.toHaveProperty('animation');
+    },
+  );
 
   it('a campaign photo link is cut 1:1 at the centre, with no rectangle', async () => {
     const link = { url: 'https://x.com/lork.png', purpose: 'campaign_photo' } as const;

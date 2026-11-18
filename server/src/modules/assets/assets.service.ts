@@ -319,7 +319,7 @@ export class AssetsService {
     if (!owner) throw new CampaignNotFoundError(table);
     const limits = effectiveLimitsOf(owner);
     const sides = planSidesOf(ASSET_MAX_SIDE, limits);
-    return { sides, animates: limits.campaignArt, limits };
+    return { sides, animates: limits.animatedCampaignArt, limits };
   }
 
   // After normalizing (the kept bytes count) and before the object goes out. The owner's lock
