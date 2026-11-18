@@ -293,7 +293,12 @@ describe('SheetTemplatesService', () => {
   });
 
   describe("the owner's plan", () => {
-    const FREE = { role: 'user', plan: 'free', lorkariumOwner: false } as const;
+    const FREE = {
+      role: 'user',
+      plan: 'free',
+      activePaidPlan: null,
+      lorkariumOwner: false,
+    } as const;
 
     it('a free table with one template refuses the 2nd with PLAN_LIMIT sheetTemplates, writing nothing', async () => {
       const harness = withTormenta();

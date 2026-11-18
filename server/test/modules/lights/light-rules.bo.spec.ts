@@ -44,13 +44,13 @@ describe('LightRulesBo', () => {
       );
     });
 
-    it('on a free table the 16th light is PLAN_LIMIT lights, limit 15; the 15th passes', () => {
-      expect(() => rules(PLAN_LIMITS.free).admit(14, 1)).not.toThrow();
-      expect(() => rules(PLAN_LIMITS.free).admit(15, 1)).toThrow(
+    it('on a free table the 11th light is PLAN_LIMIT lights, limit 10; the 10th passes', () => {
+      expect(() => rules(PLAN_LIMITS.free).admit(9, 1)).not.toThrow();
+      expect(() => rules(PLAN_LIMITS.free).admit(10, 1)).toThrow(
         expect.objectContaining({
           code: 'PLAN_LIMIT',
           resource: 'lights',
-          limit: 15,
+          limit: 10,
           plan: 'free',
         }),
       );

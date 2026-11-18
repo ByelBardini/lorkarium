@@ -10,6 +10,7 @@ import {
 import { defaultCoverOf } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
 import {
+  accountSealFieldsOf,
   coverOf,
   membersOfRecord,
   orderedMembers,
@@ -434,11 +435,11 @@ describe('the campaign settings in the mapper', () => {
 
 describe("the plan in the mapper: the members' seals and the owner's limits", () => {
   const LENDA_ANA = campaignMemberRow({
-    account: { role: 'user', plan: 'lenda', lorkariumOwner: false },
+    account: { role: 'user', plan: 'lenda', activePaidPlan: null, lorkariumOwner: false },
   });
   const ADMIN_BIA = campaignMemberRow({
     ...{ userId: BIA_ID, name: 'Bia', role: 'player' },
-    account: { role: 'admin', plan: 'free', lorkariumOwner: false },
+    account: { role: 'admin', plan: 'free', activePaidPlan: null, lorkariumOwner: false },
   });
 
   it('each participant carries the stored plan and whether they are admin', () => {
@@ -455,13 +456,13 @@ describe("the plan in the mapper: the members' seals and the owner's limits", ()
     expect(toCampaignInfoDto(detail).limits).toEqual(PLAN_LIMITS.lenda);
   });
 
-  it("a free owner's table has 5 grids at most", () => {
-    expect(detailFor('player').limits.maxScenes).toBe(5);
+  it("a free owner's table has 3 grids at most", () => {
+    expect(detailFor('player').limits.maxScenes).toBe(3);
   });
 
   it('a table whose owner is an admin gets the limits of amigo_do_dono', () => {
     const adminAna = campaignMemberRow({
-      account: { role: 'admin', plan: 'free', lorkariumOwner: false },
+      account: { role: 'admin', plan: 'free', activePaidPlan: null, lorkariumOwner: false },
     });
     const detail = toCampaignDetailDto(detailView({ members: [adminAna] }));
     expect(detail.limits).toEqual(PLAN_LIMITS.amigo_do_dono);
@@ -469,7 +470,7 @@ describe("the plan in the mapper: the members' seals and the owner's limits", ()
 
   it("a listing row's summary carries its owner's limits", () => {
     const row = campaignListingRow({
-      owner: { role: 'user', plan: 'narrador', lorkariumOwner: false },
+      owner: { role: 'user', plan: 'narrador', activePaidPlan: null, lorkariumOwner: false },
     });
     expect(toCampaignSummaryDto(row).limits).toEqual(PLAN_LIMITS.narrador);
   });
@@ -574,5 +575,39 @@ describe('the role change in the mapper', () => {
     expect(() => toMemberRoleBo({ ...lookup, target: undefined }).decide('player')).toThrow(
       expect.objectContaining({ code: 'MEMBER_NOT_FOUND' }),
     );
+  });
+});
+
+describe('the seal with a paid plan', () => {
+  it('a free member paying the Lenda carries the Lenda for the seal', () => {
+    const payer = campaignMemberRow({
+      account: { role: 'user', plan: 'free', activePaidPlan: 'lenda', lorkariumOwner: false },
+    });
+    const detail = toCampaignDetailDto(detailView({ members: [payer] }));
+    expect(detail.members[0]).toMatchObject({ plan: 'lenda', admin: false });
+  });
+
+  it('an admin paying the Apoiador still carries admin, so the seal stays Admin', () => {
+    const admin = {
+      role: 'admin',
+      plan: 'free',
+      activePaidPlan: 'apoiador',
+      lorkariumOwner: false,
+    } as const;
+    expect(accountSealFieldsOf(admin)).toEqual({
+      plan: 'apoiador',
+      admin: true,
+      lorkariumOwner: false,
+    });
+  });
+
+  it('a Lenda of the admin paying the Narrador keeps the Lenda', () => {
+    const account = {
+      role: 'user',
+      plan: 'lenda',
+      activePaidPlan: 'narrador',
+      lorkariumOwner: false,
+    } as const;
+    expect(accountSealFieldsOf(account).plan).toBe('lenda');
   });
 });

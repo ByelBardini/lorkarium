@@ -177,6 +177,7 @@ describe('MemberRoleService.change', () => {
       campaigns.ownerPlans.set(ANA_ID, {
         role: 'user',
         plan: 'free',
+        activePaidPlan: null,
         lorkariumOwner: false,
       });
     }
@@ -191,12 +192,12 @@ describe('MemberRoleService.change', () => {
     const promoteDuda = (role: 'master' | 'player') =>
       service.change(ANA_ID, { campaignId: VHARN_ID, targetId: DUDA_ID, role });
 
-    it('promoting to player at six players of a free table is PLAN_LIMIT players and writes nothing', async () => {
+    it('promoting to player at five players of a free table is PLAN_LIMIT players and writes nothing', async () => {
       freeOwner();
-      seated('player', 5);
+      seated('player', 4);
       await expect(promoteDuda('player')).rejects.toMatchObject({
         code: 'PLAN_LIMIT',
-        ...{ resource: 'players', stored: 6, adding: 1, limit: 6, plan: 'free' },
+        ...{ resource: 'players', stored: 5, adding: 1, limit: 5, plan: 'free' },
       });
       expect(members.writes).toEqual([]);
     });

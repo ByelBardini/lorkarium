@@ -38,6 +38,7 @@ export class LibraryCampaignsDaoFake implements Pick<
   owner: UserPlanPo = {
     role: 'user',
     plan: 'amigo_do_dono',
+    activePaidPlan: null,
     lorkariumOwner: false,
   };
 

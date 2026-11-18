@@ -1,6 +1,11 @@
 import type { AuthUserDto } from '@lorkarium/contracts';
 import { memberColorOf } from '@lorkarium/game-core';
-import { customizationAllowed, effectiveLimitsOf, isLorkariumOwner } from '../plans/plan-limits.bo';
+import {
+  activePaidPlanOf,
+  customizationAllowed,
+  effectiveLimitsOf,
+  isLorkariumOwner,
+} from '../plans/plan-limits.bo';
 import { AdminSeedBo } from './admin-seed.bo';
 import { AuthSessionBo } from './auth-session.bo';
 import type { AuthSessionPo } from './auth-sessions.po';
@@ -15,15 +20,17 @@ import type { SealedEmail, UserPo } from './users.po';
 /** PO → DTO: what the client sees of the signed-in account (never the password hash); the e-mail
  *  is opened with the id as context, the color is the effective one (chosen or drawn), and the
  *  limits are the effective ones of the plan (the admin's and the Dono do Lorkarium's, those of
- *  `amigo_do_dono`); `ownerUsername` is the server's OWNER_USERNAME.
+ *  `amigo_do_dono`); `ownerUsername` is the server's OWNER_USERNAME and `now` decides whether the
+ *  paid plan still holds.
  *
- *  Example: `toAuthUserDto(row, cipher, env.ownerUsername).limits.maxCampaigns // 1 on free` */
+ *  Example: `toAuthUserDto(row, cipher, env.ownerUsername, clock.now()).limits.maxCampaigns // 1 on free` */
 export function toAuthUserDto(
   row: UserPo,
   cipher: DataCipherPort,
   ownerUsername: string | null,
+  now: Date,
 ): AuthUserDto {
-  const account = { ...row, lorkariumOwner: isLorkariumOwner(row.username, ownerUsername) };
+  const account = planAccountOfRow(row, ownerUsername, now);
   return {
     id: row.id,
     username: row.username,
@@ -33,9 +40,22 @@ export function toAuthUserDto(
     color: memberColorOf(row.id, row.color),
     avatarId: row.avatarId,
     plan: row.plan,
+    paidPlan: account.activePaidPlan,
+    paidPlanUntil:
+      account.activePaidPlan === null ? null : (row.paidPlanUntil?.toISOString() ?? null),
     lorkariumOwner: account.lorkariumOwner,
     limits: effectiveLimitsOf(account),
     customization: customizationAllowed(account),
+  };
+}
+
+// Built field by field, never by spreading the row: its raw `paidPlan` may have ended.
+function planAccountOfRow(row: UserPo, ownerUsername: string | null, now: Date) {
+  return {
+    role: row.role,
+    plan: row.plan,
+    activePaidPlan: activePaidPlanOf(row, now),
+    lorkariumOwner: isLorkariumOwner(row.username, ownerUsername),
   };
 }
 

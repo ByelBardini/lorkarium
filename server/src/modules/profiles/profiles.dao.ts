@@ -1,6 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
 import { lorkariumOwnerSql } from '../../database/lorkarium-owner-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
+import { activePaidPlanSql } from '../auth/users.dao';
 import { users, type UserPo } from '../auth/users.po';
 
 /** The columns of an account the profile shows (never the e-mail nor the password hash); the plan,
@@ -61,6 +62,7 @@ const profileColumns = {
   createdAt: users.createdAt,
   role: users.role,
   plan: users.plan,
+  activePaidPlan: activePaidPlanSql(),
   lorkariumOwner: lorkariumOwnerSql(users.username),
 };
 

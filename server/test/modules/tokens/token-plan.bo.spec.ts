@@ -21,16 +21,16 @@ function refusalOf(act: () => void): PlanLimitDto {
 }
 
 describe('TokenPlanBo.requireNew', () => {
-  it('a token born with 3 bars on a free table is tokenBars, limit 2', () => {
-    expect(refusalOf(() => free.requireNew({ bars: 3 }))).toEqual({
+  it('a token born with 2 bars on a free table is tokenBars, limit 1', () => {
+    expect(refusalOf(() => free.requireNew({ bars: 2 }))).toEqual({
       resource: 'tokenBars',
-      limit: 2,
+      limit: 1,
       plan: 'free',
     });
   });
 
-  it('2 bars and 2 forms fit the free table', () => {
-    expect(() => free.requireNew({ bars: 2, forms: 2 })).not.toThrow();
+  it('1 bar and 2 forms fit the free table', () => {
+    expect(() => free.requireNew({ bars: 1, forms: 2 })).not.toThrow();
   });
 
   it('3 forms on a free table is tokenForms', () => {
@@ -139,9 +139,9 @@ describe('TokenPlanBo.requireBlockers', () => {
     });
   });
 
-  it('the 11th on narrador is refused; the 10th passes', () => {
-    expect(() => narrator.requireBlockers(9, 1)).not.toThrow();
-    expect(refusalOf(() => narrator.requireBlockers(10, 1)).limit).toBe(10);
+  it('the 6th on narrador is refused; the 5th passes', () => {
+    expect(() => narrator.requireBlockers(4, 1)).not.toThrow();
+    expect(refusalOf(() => narrator.requireBlockers(5, 1)).limit).toBe(5);
   });
 
   it('amigo_do_dono leaves the 51st to the technical ceiling (no plan error)', () => {

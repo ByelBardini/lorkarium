@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, or, sql, type SQL } from 'drizzle-orm';
 import { lorkariumOwnerSql } from '../../database/lorkarium-owner-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
+import { activePaidPlanSql } from '../auth/users.dao';
 import { users, type UserPo } from '../auth/users.po';
 import { friendships } from './friendships.po';
 
@@ -28,6 +29,7 @@ export const RELATED_ACCOUNT_COLUMNS = {
   avatarId: users.avatarId,
   plan: users.plan,
   role: users.role,
+  activePaidPlan: activePaidPlanSql(),
   lorkariumOwner: lorkariumOwnerSql(users.username),
 };
 

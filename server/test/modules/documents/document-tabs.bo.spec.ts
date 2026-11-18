@@ -94,11 +94,11 @@ describe('DocumentTabsBo', () => {
       }),
     );
   });
-  it('on a free table the 5th tab passes and the 6th is PLAN_LIMIT documentTabs', () => {
+  it('on a free table the 3rd tab passes and the 4th is PLAN_LIMIT documentTabs', () => {
     const tabs = (count: number) => Array.from({ length: count }, (_, i) => tab(`${i}`, i));
-    expect(tabsFor('bia', tabs(4)).requireCreate(PLAN_LIMITS.free)).toBe(4);
-    expect(() => tabsFor('bia', tabs(5)).requireCreate(PLAN_LIMITS.free)).toThrow(
-      expect.objectContaining({ code: 'PLAN_LIMIT', resource: 'documentTabs', limit: 5 }),
+    expect(tabsFor('bia', tabs(2)).requireCreate(PLAN_LIMITS.free)).toBe(2);
+    expect(() => tabsFor('bia', tabs(3)).requireCreate(PLAN_LIMITS.free)).toThrow(
+      expect.objectContaining({ code: 'PLAN_LIMIT', resource: 'documentTabs', limit: 3 }),
     );
   });
   it('past the technical 200 the lenda table still gets DOCUMENT_TAB_LIMIT, not the plan', () => {

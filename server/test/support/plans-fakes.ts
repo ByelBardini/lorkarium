@@ -1,17 +1,17 @@
 import type { CampaignsDao } from '../../src/modules/campaigns/campaigns.dao';
-import type { PlansDao } from '../../src/modules/plans/plans.dao';
+import type { AccountPlanPo, PlansDao } from '../../src/modules/plans/plans.dao';
 import type { UserPlanPo } from '../../src/modules/auth/users.po';
 
 /** The plan columns of each account in memory, read without a lock; an account not set is gone. */
 export class AccountPlansFake implements Pick<PlansDao, 'accountOf'> {
-  private readonly accounts = new Map<string, UserPlanPo>();
+  private readonly accounts = new Map<string, AccountPlanPo>();
 
-  set(userId: string, account: UserPlanPo): this {
-    this.accounts.set(userId, account);
+  set(userId: string, account: UserPlanPo & Partial<AccountPlanPo>): this {
+    this.accounts.set(userId, { activePaidPlanUntil: null, ...account });
     return this;
   }
 
-  async accountOf(userId: string): Promise<UserPlanPo | undefined> {
+  async accountOf(userId: string): Promise<AccountPlanPo | undefined> {
     return this.accounts.get(userId);
   }
 }

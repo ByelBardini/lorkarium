@@ -100,8 +100,8 @@ describe('SavedRollsService.create', () => {
     expect(journal).toEqual(['lock', 'count']);
   });
 
-  it('at a free table, Bia with 5 kept: the 6th is PLAN_LIMIT savedRolls and nothing is inserted', async () => {
-    const { service, journal, rolls } = setup(rollsOfBia(5));
+  it('at a free table, Bia with 3 kept: the 4th is PLAN_LIMIT savedRolls and nothing is inserted', async () => {
+    const { service, journal, rolls } = setup(rollsOfBia(3));
     rolls.tablePlans.set(VHARN_ID, planAccount({ plan: 'free' }));
 
     const saving = service.create(BIA, { name: 'Mais uma', parts: ATTACK });
@@ -109,19 +109,19 @@ describe('SavedRollsService.create', () => {
     await expect(saving).rejects.toMatchObject({
       code: 'PLAN_LIMIT',
       resource: 'savedRolls',
-      limit: 5,
+      limit: 3,
       plan: 'free',
     });
     expect(journal).toEqual(['lock', 'count']);
   });
 
-  it('at a free table, Bia with 4 kept saves the 5th', async () => {
-    const { service, journal, rolls } = setup(rollsOfBia(4));
+  it('at a free table, Bia with 2 kept saves the 3rd', async () => {
+    const { service, journal, rolls } = setup(rollsOfBia(2));
     rolls.tablePlans.set(VHARN_ID, planAccount({ plan: 'free' }));
 
-    await service.create(BIA, { name: 'Quinta', parts: ATTACK });
+    await service.create(BIA, { name: 'Terceira', parts: ATTACK });
 
-    expect(journal).toEqual(['lock', 'count', 'insert:Quinta', 'commit']);
+    expect(journal).toEqual(['lock', 'count', 'insert:Terceira', 'commit']);
   });
 
   it('the free table of an admin keeps the technical ceiling: the 6th is saved', async () => {

@@ -6,7 +6,7 @@ import {
   type BoardStateDto,
   type ConditionUsageAckDto,
 } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { setAccountPlan } from '../support/account-plans';
 import { gridAck, newGrid } from '../support/grids';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
@@ -15,6 +15,11 @@ import type { Table } from '../support/tables';
 import { tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+beforeEach(async () => {
+  await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+  await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+});
 
 type Emit = (event: string, payload: object) => Promise<unknown>;
 

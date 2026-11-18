@@ -152,39 +152,40 @@ describe('CampaignJoinService', () => {
       campaigns.ownerPlans.set(BIA_ID, {
         role: 'user',
         plan: 'free',
+        activePaidPlan: null,
         lorkariumOwner: false,
       });
     }
 
-    it('a third spectator of a free table is refused with PLAN_LIMIT spectators and writes no row', async () => {
+    it('a second spectator of a free table is refused with PLAN_LIMIT spectators and writes no row', async () => {
       biasCampaign();
       freeOwner();
-      spectators('vharn', 2);
+      spectators('vharn', 1);
       await expect(service.join(ANA_ID, { code: 'VHRN7K2Q' })).rejects.toMatchObject({
         code: 'PLAN_LIMIT',
-        ...{ resource: 'spectators', stored: 2, adding: 1, limit: 2, plan: 'free' },
+        ...{ resource: 'spectators', stored: 1, adding: 1, limit: 1, plan: 'free' },
       });
-      expect(members.rows).toHaveLength(3);
+      expect(members.rows).toHaveLength(2);
     });
 
     it('the same ceiling holds for the entry from "Explorar mesas"', async () => {
       campaigns.rows.push(campaignPo({ id: 'vharn', ownerId: BIA_ID, visibility: 'public' }));
       members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: BIA_ID, role: 'master' }));
       freeOwner();
-      spectators('vharn', 2);
+      spectators('vharn', 1);
       await expect(service.joinPublic(ANA, 'vharn', {})).rejects.toMatchObject({
         code: 'PLAN_LIMIT',
         resource: 'spectators',
       });
     });
 
-    it('with one spectator, the second takes the last seat of a free table', async () => {
+    it('with no spectator, the first takes the only seat of a free table', async () => {
       biasCampaign();
       freeOwner();
-      spectators('vharn', 1);
+      spectators('vharn', 0);
       const summary = await service.join(ANA_ID, { code: 'VHRN7K2Q' });
       expect(summary.myRole).toBe('spectator');
-      expect(members.rows).toHaveLength(3);
+      expect(members.rows).toHaveLength(2);
     });
 
     it('the count runs under the lock of the table, in the transaction of the seat', async () => {

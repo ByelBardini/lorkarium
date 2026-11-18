@@ -10,7 +10,8 @@ import {
   type SessionJoinAckDto,
   type TokenDto,
 } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { activateGrid, gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { pngOf } from '../support/images';
 import { envelope, eventPayload, send, synced } from '../support/live-table';
@@ -20,6 +21,11 @@ import type { Table } from '../support/tables';
 import { tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+beforeEach(async () => {
+  await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+  await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+});
 
 const DOOR = {
   kind: 'door',

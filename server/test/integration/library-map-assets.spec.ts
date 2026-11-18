@@ -149,7 +149,7 @@ describe('the image of a library map', () => {
   it('cannot become the art of a token, the background of a grid or a cover', async () => {
     const asset = await mapImageOf(live.ana, live.vharn);
     const master = await live.atTable(live.ana, live.vharn);
-    const token = tokenCommandFor(live.vharn, live.ana.id, { imageAssetId: asset.id });
+    const token = tokenCommandFor(live.vharn, live.ana.id, { bars: [], imageAssetId: asset.id });
     const background = {
       ...envelope(live.vharn.id),
       widthCells: 30,

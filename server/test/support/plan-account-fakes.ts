@@ -10,6 +10,7 @@ export function planAccount(overrides: Partial<UserPlanPo> = {}): UserPlanPo {
   return {
     role: 'user',
     plan: 'amigo_do_dono',
+    activePaidPlan: null,
     lorkariumOwner: false,
     ...overrides,
   };

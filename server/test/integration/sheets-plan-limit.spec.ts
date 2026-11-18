@@ -34,7 +34,7 @@ async function templateOf(user: SignedInUser = live.ana, table: Table = live.vha
 async function looseToken(user: SignedInUser, table: Table): Promise<string> {
   const socket = await live.atTable(user, table);
   const events = recordEventsOf(socket);
-  await send(socket, 'token:create', tokenCommandFor(table, user.id, { name: 'Goblin' }));
+  await send(socket, 'token:create', tokenCommandFor(table, user.id, { name: 'Goblin', bars: [] }));
   return (await createdTokenOf(events)).id;
 }
 
@@ -65,7 +65,7 @@ function give(sheetId: string, holder: object | null) {
 
 const npcLimit = {
   code: 'PLAN_LIMIT',
-  planLimit: { resource: 'npcSheets', limit: 10, plan: 'free' },
+  planLimit: { resource: 'npcSheets', limit: 5, plan: 'free' },
 };
 
 describe("sheet templates and NPC sheets follow the owner's plan", () => {
@@ -89,11 +89,11 @@ describe("sheet templates and NPC sheets follow the owner's plan", () => {
     expect((await postTemplate()).statusCode).toBe(201);
   });
 
-  it('a free table with 10 token sheets refuses the 11th with 403 PLAN_LIMIT npcSheets', async () => {
+  it('a free table with 5 token sheets refuses the 6th with 403 PLAN_LIMIT npcSheets', async () => {
     await planOf(live.ana, 'free');
     const templateId = await templateOf();
     const goblin = await looseToken(live.ana, live.vharn);
-    await npcSheets(live.vharn, templateId, goblin, 10);
+    await npcSheets(live.vharn, templateId, goblin, 5);
 
     const response = await createSheet(templateId, { tokenId: goblin });
 
@@ -101,11 +101,11 @@ describe("sheet templates and NPC sheets follow the owner's plan", () => {
     expect(response.json()).toMatchObject(npcLimit);
   });
 
-  it("giving a sheet to a token as the 11th is PLAN_LIMIT; a player's sheet and one nobody holds still pass", async () => {
+  it("giving a sheet to a token as the 6th is PLAN_LIMIT; a player's sheet and one nobody holds still pass", async () => {
     await planOf(live.ana, 'free');
     const templateId = await templateOf();
     const goblin = await looseToken(live.ana, live.vharn);
-    await npcSheets(live.vharn, templateId, goblin, 10);
+    await npcSheets(live.vharn, templateId, goblin, 5);
 
     const bias = await createSheet(templateId, { memberId: live.bia.id });
     const nobodys = await createSheet(templateId);
@@ -129,11 +129,11 @@ describe("sheet templates and NPC sheets follow the owner's plan", () => {
     expect((await createSheet(templateId, { tokenId: goblin })).statusCode).toBe(201);
   });
 
-  it('an amigo_do_dono table gives the 11th sheet to a token', async () => {
+  it('an amigo_do_dono table gives the 6th sheet to a token', async () => {
     await planOf(live.ana, 'amigo_do_dono');
     const templateId = await templateOf();
     const goblin = await looseToken(live.ana, live.vharn);
-    await npcSheets(live.vharn, templateId, goblin, 10);
+    await npcSheets(live.vharn, templateId, goblin, 5);
 
     expect((await createSheet(templateId, { tokenId: goblin })).statusCode).toBe(201);
   });
