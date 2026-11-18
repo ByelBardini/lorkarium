@@ -13,8 +13,16 @@ export type HttpResponse = Readonly<{
 /** The only door from the client to the HTTP API; services depend on this, tests on a fake.
  *
  *  Example: `await transport.request('POST', '/auth/login', credentials)` */
+/** Extra headers of one request (an idempotency key); never the cookie, which the browser sends. */
+export type RequestHeaders = Readonly<Record<string, string>>;
+
 export interface HttpTransport {
-  request(method: HttpMethod, path: string, body?: unknown): Promise<HttpResponse>;
+  request(
+    method: HttpMethod,
+    path: string,
+    body?: unknown,
+    headers?: RequestHeaders,
+  ): Promise<HttpResponse>;
   /** Sends `file` as the raw body with its own `Content-Type` (an image upload); `POST` by default. */
   upload(path: string, file: Blob, method?: UploadMethod): Promise<HttpResponse>;
 }
@@ -38,8 +46,13 @@ const API_BASE = '/api';
 export class FetchHttpTransport implements HttpTransport {
   constructor(private readonly fetchImpl: typeof fetch = (...args) => fetch(...args)) {}
 
-  async request(method: HttpMethod, path: string, body?: unknown): Promise<HttpResponse> {
-    return responseOf(await this.send(path, requestInit(method, body)));
+  async request(
+    method: HttpMethod,
+    path: string,
+    body?: unknown,
+    headers: RequestHeaders = {},
+  ): Promise<HttpResponse> {
+    return responseOf(await this.send(path, requestInit(method, body, headers)));
   }
 
   async upload(path: string, file: Blob, method: UploadMethod = 'POST'): Promise<HttpResponse> {
@@ -69,16 +82,16 @@ async function responseOf(response: Response): Promise<HttpResponse> {
   };
 }
 
-function requestInit(method: HttpMethod, body: unknown): RequestInit {
+function requestInit(method: HttpMethod, body: unknown, extra: RequestHeaders): RequestInit {
   const init: RequestInit = {
     method,
     credentials: 'same-origin',
-    headers: { accept: 'application/json' },
+    headers: { ...extra, accept: 'application/json' },
   };
   if (body === undefined) return init;
   return {
     ...init,
-    headers: { accept: 'application/json', 'content-type': 'application/json' },
+    headers: { ...extra, accept: 'application/json', 'content-type': 'application/json' },
     body: JSON.stringify(body),
   };
 }

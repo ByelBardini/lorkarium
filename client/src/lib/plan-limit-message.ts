@@ -80,7 +80,9 @@ export const PLAN_FEATURE_LABEL: Readonly<Record<PlanFeatureResource, string>> =
   animatedAvatar: 'Foto de perfil animada está',
   profileBanner: 'Banner de perfil está',
   campaignArt: 'Capa e banner próprios da mesa estão',
+  animatedCampaignArt: 'Imagens animadas da mesa estão',
   privateCampaign: 'Mesa privada está',
+  sheetScripts: 'Scripts no modelo de ficha estão',
 };
 
 function countLabel(
@@ -95,7 +97,7 @@ function countLabel(
 /** The pt-BR sentence of a refusal for passing the plan: the ceiling and the plan that frees
  *  more; a feature (or a ceiling of 0) the plan lacks; Lenda's fair use, with no plan above.
  *
- *  Example: `planLimitMessage({ resource: 'scenes', limit: 5, plan: 'free' }) // 'Esta mesa usa o plano Grátis, que permite até 5 grids. O Narrador libera 20.'` */
+ *  Example: `planLimitMessage({ resource: 'scenes', limit: 3, plan: 'free' }) // 'Esta mesa usa o plano Grátis, que permite até 3 grids. O Narrador libera 15.'` */
 export function planLimitMessage(planLimit: PlanLimitDto): string {
   const { resource, limit, plan } = planLimit;
   if (!isCountResource(resource)) return `${PLAN_FEATURE_LABEL[resource]} nos planos pagos.`;

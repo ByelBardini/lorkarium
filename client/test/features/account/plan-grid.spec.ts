@@ -30,12 +30,13 @@ describe('plan grid texts', () => {
     expect(countCell('players', PLAN_LIMITS.lenda)).toBe('20');
     expect(countCell('scenes', PLAN_LIMITS.amigo_do_dono)).toBe('sem limite');
     expect(countCell('storage', PLAN_LIMITS.free)).toBe('100 MB');
-    expect(countCell('npcSheets', PLAN_LIMITS.narrador)).toBe('50');
+    expect(countCell('npcSheets', PLAN_LIMITS.narrador)).toBe('30');
   });
 
   it('auraCell names the kinds of each plan', () => {
     expect(auraCell(PLAN_LIMITS.free)).toBe('só cor');
-    expect(auraCell(PLAN_LIMITS.narrador)).toBe('cor, efeito e imagem');
+    expect(auraCell(PLAN_LIMITS.narrador)).toBe('só cor');
+    expect(auraCell(PLAN_LIMITS.lenda)).toBe('cor, efeito e imagem');
   });
 
   it('the grid has one row per counted resource plus the features, with unique labels', () => {

@@ -1,9 +1,11 @@
+import { PLAN_LIMITS } from '@lorkarium/contracts';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildRoutes } from '@/app/router';
 import { accountPlanOf } from '../../support/account-plan-api-fake';
+import { subscriptionOf } from '../../support/billing-api-fake';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
 
@@ -49,12 +51,12 @@ describe('"Seu plano" in Minha conta', () => {
     const current = within(table).getByRole('columnheader', { current: true });
     expect(current).toHaveTextContent('Narrador');
     expect(current).toHaveTextContent('Seu plano');
-    expect(cellOf(table, 'Grids por mesa', 'Grátis')).toHaveTextContent('5');
-    expect(cellOf(table, 'Grids por mesa', 'Narrador')).toHaveTextContent('20×4');
+    expect(cellOf(table, 'Grids por mesa', 'Grátis')).toHaveTextContent('3');
+    expect(cellOf(table, 'Grids por mesa', 'Narrador')).toHaveTextContent('15×5');
     expect(within(table).queryByRole('columnheader', { name: /Amigo do Dono/ })).toBeNull();
-    expect(cellOf(table, 'Armazenamento', 'Lenda')).toHaveTextContent('10 GB');
+    expect(cellOf(table, 'Armazenamento', 'Lenda')).toHaveTextContent('5 GB');
     expect(cellOf(table, 'Duplicar grid', 'Grátis')).toHaveTextContent('não');
-    expect(within(section).getByText('2 de 5 mesas')).toBeVisible();
+    expect(within(section).getByText('2 de 3 mesas')).toBeVisible();
   });
 
   it('a Lenda account sees "ilimitado" on the fair-use items, the real number elsewhere', async () => {
@@ -67,7 +69,7 @@ describe('"Seu plano" in Minha conta', () => {
     for (const row of ['Grids por mesa', 'Mapas interativos', 'Modelos de ficha', 'Fichas de NPC'])
       expect(cellOf(table, row, 'Lenda')).toHaveTextContent('ilimitado');
     expect(cellOf(table, 'Jogadores por mesa', 'Lenda')).toHaveTextContent('20');
-    expect(cellOf(table, 'Grids por mesa', 'Narrador')).toHaveTextContent('20');
+    expect(cellOf(table, 'Grids por mesa', 'Narrador')).toHaveTextContent('15');
   });
 
   it('an Amigo do Dono account has no plan limit: the usage has no ceiling', async () => {
@@ -180,5 +182,122 @@ describe('"Seu plano" in Minha conta', () => {
     await userEvent.click(within(section).getByRole('button', { name: 'Tentar de novo' }));
 
     expect(await within(section).findByRole('table', { name: 'Limites por plano' })).toBeVisible();
+  });
+});
+
+describe('"Seu plano" with a paid plan', () => {
+  let deps: TestDependencies;
+
+  beforeEach(() => {
+    deps = testDependencies();
+    deps.authApi.answerMeWith({ ...ANA, plan: 'free', limits: PLAN_LIMITS.lenda });
+  });
+
+  it('a free account paying the Lenda shows the Lenda and until when it holds', async () => {
+    deps.accountPlanApi.plan = accountPlanOf('free', {
+      limitsOf: 'lenda',
+      paid: { plan: 'lenda', until: '2026-12-16T15:00:00.000Z' },
+    });
+    const router = createMemoryRouter(buildRoutes(deps), {
+      initialEntries: ['/account?aba=plano'],
+    });
+    render(<RouterProvider router={router} />);
+    const section = await screen.findByRole('region', { name: 'Seu plano' });
+
+    expect(within(section).getByRole('heading', { name: 'Lenda', level: 3 })).toBeVisible();
+  });
+
+  // The grace end (paidPlanUntil) beside the paid period end read as two different dates.
+  it('the subscription lives inside the plan card and the grace end never shows', async () => {
+    deps.accountPlanApi.plan = accountPlanOf('free', {
+      limitsOf: 'lenda',
+      paid: { plan: 'lenda', until: '2026-12-23T15:00:00.000Z' },
+    });
+    deps.billingApi.status_ = {
+      paidPlan: 'lenda',
+      paidPlanUntil: '2026-12-23T15:00:00.000Z',
+      periodEnd: '2026-12-16T15:00:00.000Z',
+      subscription: subscriptionOf('lenda_monthly', { renews: false }),
+    };
+    const router = createMemoryRouter(buildRoutes(deps), {
+      initialEntries: ['/account?aba=plano'],
+    });
+    render(<RouterProvider router={router} />);
+    const section = await screen.findByRole('region', { name: 'Seu plano' });
+    const card = within(section).getByRole('group', { name: 'Lenda' });
+
+    const block = within(card).getByRole('region', { name: 'Assinatura' });
+    expect(
+      await within(block).findByText('Renovação cancelada: o Lenda vale até 16/12/2026.'),
+    ).toBeVisible();
+    expect(within(section).queryByText(/23\/12\/2026/)).toBeNull();
+  });
+});
+
+describe('the subscription in "Seu plano"', () => {
+  let deps: TestDependencies;
+
+  beforeEach(() => {
+    deps = testDependencies();
+    deps.authApi.answerMeWith({ ...ANA, plan: 'free', limits: PLAN_LIMITS.narrador });
+    deps.accountPlanApi.plan = accountPlanOf('free', {
+      limitsOf: 'narrador',
+      paid: { plan: 'narrador', until: '2026-12-23T15:00:00.000Z' },
+    });
+  });
+
+  async function openPlan(): Promise<HTMLElement> {
+    const router = createMemoryRouter(buildRoutes(deps), {
+      initialEntries: ['/account?aba=plano'],
+    });
+    render(<RouterProvider router={router} />);
+    return screen.findByRole('region', { name: 'Assinatura' });
+  }
+
+  it('a card subscription that renews says when, and cancelling asks first and then says until when', async () => {
+    deps.billingApi.status_ = {
+      paidPlan: 'narrador',
+      paidPlanUntil: '2026-12-23T15:00:00.000Z',
+      periodEnd: '2026-12-16T15:00:00.000Z',
+      subscription: subscriptionOf('narrador_monthly'),
+    };
+    const block = await openPlan();
+    expect(
+      await within(block).findByText('Narrador mensal no cartão, renova em 16/12/2026'),
+    ).toBeVisible();
+
+    await userEvent.click(within(block).getByRole('button', { name: 'Cancelar renovação' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(deps.billingApi.answers.callsOf('cancel')).toEqual([]);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancelar renovação' }));
+
+    expect(
+      await within(block).findByText('Renovação cancelada: o Narrador vale até 16/12/2026.'),
+    ).toBeVisible();
+    expect(deps.billingApi.answers.callsOf('cancel')).toHaveLength(1);
+  });
+
+  it('past the paid period and inside the grace, says the payment is pending', async () => {
+    deps.billingApi.status_ = {
+      paidPlan: 'narrador',
+      paidPlanUntil: '2026-10-17T15:00:00.000Z',
+      periodEnd: '2026-10-10T15:00:00.000Z',
+      subscription: subscriptionOf('narrador_monthly', {
+        currentPeriodEnd: '2026-10-10T15:00:00.000Z',
+      }),
+    };
+    const block = await openPlan();
+
+    expect(await within(block).findByRole('alert')).toHaveTextContent(
+      'Pagamento pendente: o Narrador vale até 17/10/2026',
+    );
+  });
+
+  it('without a subscription points to the plans page', async () => {
+    const block = await openPlan();
+    expect(await within(block).findByRole('link', { name: 'Ver planos e preços' })).toHaveAttribute(
+      'href',
+      '/planos',
+    );
   });
 });

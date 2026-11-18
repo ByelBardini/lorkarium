@@ -1,4 +1,4 @@
-import type { UserPlan, UserRoleDto } from '@lorkarium/contracts';
+import { higherPlanOf, type UserPlan, type UserRoleDto } from '@lorkarium/contracts';
 import type { MemberColor } from '@lorkarium/game-core';
 
 /** What a seal stands for: the Dono do Lorkarium, the global admin, or a plan above Grátis. */
@@ -72,16 +72,36 @@ export function planSealOf(holder: PlanSealHolder): PlanSealLook | null {
   return kind === null ? null : PLAN_SEAL_LOOKS[kind];
 }
 
-/** An account as `/me` and the backoffice carry it (the global `role`) → what its seal is picked from.
+/** An account as `/me` and the backoffice carry it (the global `role`, the admin's plan and the
+ *  paid one in force) → what its seal is picked from: the higher of the two plans.
  *
  *  Example: `sealHolderOfAccount(session.user).admin // true for an admin` */
 export function sealHolderOfAccount(
   account: Readonly<{
     role: UserRoleDto;
     plan: UserPlan;
+    paidPlan?: UserPlan | null;
     lorkariumOwner: boolean;
   }>,
 ): PlanSealHolder {
-  const { plan, lorkariumOwner } = account;
-  return { plan, admin: account.role === 'admin', lorkariumOwner };
+  const plan = higherPlanOf(account.plan, account.paidPlan ?? null);
+  return { plan, admin: account.role === 'admin', lorkariumOwner: account.lorkariumOwner };
+}
+
+/** How a plan is named to its holder: the Dono do Lorkarium and the admin by who they are (the
+ *  stored plan gives them nothing), everyone else by the plan.
+ *
+ *  Example: `planTitleOf({ plan: 'free', admin: true, lorkariumOwner: false }) // 'Administrador'` */
+export function planTitleOf(holder: PlanSealHolder): string {
+  if (holder.lorkariumOwner) return 'Dono do Lorkarium';
+  if (holder.admin) return 'Administrador';
+  return PLAN_NAMES[holder.plan];
+}
+
+/** Whether the account is above every plan on sale (no plan limit): the admin, the Dono do
+ *  Lorkarium and the Amigo do Dono.
+ *
+ *  Example: `isAbovePlans({ plan: 'free', admin: true, lorkariumOwner: false }) // true` */
+export function isAbovePlans(holder: PlanSealHolder): boolean {
+  return holder.admin || holder.lorkariumOwner || holder.plan === 'amigo_do_dono';
 }

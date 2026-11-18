@@ -8,17 +8,15 @@ import { libraryMapSummary } from '../../support/library-map-fixtures';
 import { openTreeMenu, startHeaderNewItem, treeItem } from '../../support/library-tree';
 import { tormentaSummary } from '../../support/sheet-template-fixtures';
 
-const FIFTH_GRID = libraryScene({
-  id: '5e5e5e5e-1a1a-4b2b-8c3c-d4d4d4d4d4d4',
-  name: 'Cripta',
-  widthCells: 10,
-  heightCells: 10,
-});
-
+// 3 grids and 1 template (the Grátis ceilings) and a map kept from a plan that came down.
 const AT_FREE_CEILING: CampaignLibraryDto = masterLibrary({
-  scenes: [...masterLibrary().scenes, FIFTH_GRID],
+  scenes: masterLibrary().scenes.slice(0, 3),
   maps: [libraryMapSummary()],
   sheetTemplates: [tormentaSummary()],
+});
+
+const BELOW_FREE_CEILING: CampaignLibraryDto = masterLibrary({
+  scenes: masterLibrary().scenes.slice(0, 2),
 });
 
 function card(dialog: HTMLElement, kind: string): HTMLElement {
@@ -34,15 +32,15 @@ describe('the library under the table plan', () => {
     deps = testDependencies();
   });
 
-  it('a free table with 5 grids, 1 map and 1 template turns those cards off, with the hint', async () => {
+  it('a free table with 3 grids and 1 template turns those cards off, with the hint', async () => {
     deps.libraryApi.answer('list', { ok: true, value: AT_FREE_CEILING });
     await openLibrary(deps, { limits: PLAN_LIMITS.free });
     const dialog = await startHeaderNewItem('Pasta');
     expect(card(dialog, 'Grid')).toBeDisabled();
     expect(card(dialog, 'Grid')).toHaveAccessibleDescription(
-      'Esta mesa usa o plano Grátis, que permite até 5 grids. O Narrador libera 20.',
+      'Esta mesa usa o plano Grátis, que permite até 3 grids. O Narrador libera 15.',
     );
-    expect(card(dialog, 'Mapa')).toHaveAccessibleDescription(/permite até 1 mapa interativo\./);
+    expect(card(dialog, 'Mapa')).toHaveAccessibleDescription('Disponível no Narrador');
     expect(card(dialog, 'Modelo de ficha')).toHaveAccessibleDescription(
       /permite até 1 modelo de ficha\./,
     );
@@ -51,11 +49,13 @@ describe('the library under the table plan', () => {
     expect(card(dialog, 'Documento')).toBeEnabled();
   });
 
-  it('a free table below its ceilings keeps every card', async () => {
+  it('a free table below its ceilings keeps Grid and Modelo, and never offers Mapa', async () => {
+    deps.libraryApi.answer('list', { ok: true, value: BELOW_FREE_CEILING });
     await openLibrary(deps, { limits: PLAN_LIMITS.free });
     const dialog = await startHeaderNewItem('Pasta');
-    for (const kind of ['Grid', 'Mapa', 'Modelo de ficha'])
-      expect(card(dialog, kind)).toBeEnabled();
+    for (const kind of ['Grid', 'Modelo de ficha']) expect(card(dialog, kind)).toBeEnabled();
+    expect(card(dialog, 'Mapa')).toBeDisabled();
+    expect(card(dialog, 'Mapa')).toHaveAccessibleDescription('Disponível no Narrador');
   });
 
   it('a free table has no "Duplicar": off in the menu, with "Disponível no Narrador"', async () => {
@@ -66,8 +66,8 @@ describe('the library under the table plan', () => {
     expect(duplicate).toHaveAccessibleDescription('Disponível no Narrador');
   });
 
-  it('a Narrador table at 20 grids cannot duplicate either: no room for the copy', async () => {
-    const scenes = Array.from({ length: 20 }, (_, index) =>
+  it('a Narrador table at 15 grids cannot duplicate either: no room for the copy', async () => {
+    const scenes = Array.from({ length: 15 }, (_, index) =>
       libraryScene({
         id: `5e5e5e5e-1a1a-4b2b-8c3c-${String(index).padStart(12, '0')}`,
         name: `Grid ${index}`,
@@ -82,7 +82,7 @@ describe('the library under the table plan', () => {
     await openLibrary(deps, { limits: PLAN_LIMITS.narrador });
     const menu = await openTreeMenu(treeItem('Grid 3'));
     expect(within(menu).getByRole('menuitem', { name: 'Duplicar' })).toHaveAccessibleDescription(
-      /permite até 20 grids\. A Lenda libera 500\./,
+      /permite até 15 grids\. A Lenda libera 500\./,
     );
   });
 

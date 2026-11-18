@@ -3,10 +3,16 @@ import {
   type HttpMethod,
   type HttpResponse,
   type HttpTransport,
+  type RequestHeaders,
   type UploadMethod,
 } from '@/services/http-transport';
 
-export type RecordedRequest = Readonly<{ method: HttpMethod; path: string; body: unknown }>;
+export type RecordedRequest = Readonly<{
+  method: HttpMethod;
+  path: string;
+  body: unknown;
+  headers?: RequestHeaders;
+}>;
 
 /** Answers each request with the next queued response; `requests` keeps what was sent. */
 export class HttpTransportFake implements HttpTransport {
@@ -27,8 +33,15 @@ export class HttpTransportFake implements HttpTransport {
     return this.request(method, path, file);
   }
 
-  async request(method: HttpMethod, path: string, body?: unknown): Promise<HttpResponse> {
-    this.requests.push({ method, path, body });
+  async request(
+    method: HttpMethod,
+    path: string,
+    body?: unknown,
+    headers?: RequestHeaders,
+  ): Promise<HttpResponse> {
+    this.requests.push(
+      headers === undefined ? { method, path, body } : { method, path, body, headers },
+    );
     const next = this.queue.shift();
     if (next === undefined) throw new Error(`no response queued for ${method} ${path}`);
     if (next === 'network-down')

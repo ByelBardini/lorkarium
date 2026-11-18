@@ -80,6 +80,12 @@ describe('AppShell', () => {
     );
   });
 
+  it('"Planos" sits in the "Principal" nav, pointing at /planos', async () => {
+    renderShellAt('/');
+    const nav = await screen.findByRole('navigation', { name: 'Principal' });
+    expect(within(nav).getByRole('link', { name: 'Planos' })).toHaveAttribute('href', '/planos');
+  });
+
   it('on another page "Mesas" is not marked as current', async () => {
     renderShellAt('/outra');
     const nav = await screen.findByRole('navigation', { name: 'Principal' });

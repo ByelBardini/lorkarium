@@ -22,7 +22,6 @@ import {
   ITEMS_TAB_ID,
   documentFixture,
   documentTabFixture,
-  tabSummaryFixture,
   documentText,
   threeTabs,
 } from '../../support/documents-fixtures';
@@ -208,23 +207,17 @@ describe('document tab strip', () => {
   });
 
   describe('the table plan', () => {
-    const fiveTabs = () => [
-      ...threeTabs(),
-      tabSummaryFixture({ id: '4d4d4d4d-1e1e-4f2f-8a3a-b4b4b4b4b4b4', name: 'Quarta' }),
-      tabSummaryFixture({ id: '5d5d5d5d-1e1e-4f2f-8a3a-b4b4b4b4b4b4', name: 'Quinta' }),
-    ];
-
-    it('a free table at 5 tabs turns "Nova aba" off, with the plan sentence', async () => {
-      await strip('master', fiveTabs(), PLAN_LIMITS.free);
+    it('a free table at 3 tabs turns "Nova aba" off, with the plan sentence', async () => {
+      await strip('master', threeTabs(), PLAN_LIMITS.free);
       const create = screen.getByRole('button', { name: 'Nova aba' });
       expect(create).toBeDisabled();
       expect(create).toHaveAccessibleDescription(
-        'Esta mesa usa o plano Grátis, que permite até 5 abas por documento. O Narrador libera 30.',
+        'Esta mesa usa o plano Grátis, que permite até 3 abas por documento. O Narrador libera 10.',
       );
     });
 
-    it('a free table below 5 tabs still creates', async () => {
-      await strip('master', threeTabs(), PLAN_LIMITS.free);
+    it('a free table below 3 tabs still creates', async () => {
+      await strip('master', threeTabs().slice(0, 2), PLAN_LIMITS.free);
       expect(screen.getByRole('button', { name: 'Nova aba' })).toBeEnabled();
     });
   });

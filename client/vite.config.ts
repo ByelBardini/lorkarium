@@ -15,10 +15,18 @@ export default defineConfig({
   build: { manifest: true, ssrManifest: true },
   server: {
     port: 5173,
+    // The dev tunnel of the billing service (cloudflared quick tunnel): the Mercado Pago only
+    // returns to an HTTPS address and only reaches the webhook from the internet.
+    allowedHosts: ['.trycloudflare.com'],
     // Same origin as production: the session cookie stays first-party and no CORS is needed.
     // `ws` carries the Socket.IO upgrade; the Host stays as is (no changeOrigin), since the
     // server only accepts a handshake whose Origin matches it.
-    proxy: { '/api': { target: 'http://localhost:3333', ws: true } },
+    // `/api/billing` first: the billing service (another repository, port 3340) answers it, as
+    // the production proxy routes it before the game server.
+    proxy: {
+      '/api/billing': { target: 'http://localhost:3340' },
+      '/api': { target: 'http://localhost:3333', ws: true },
+    },
   },
   test: {
     name: '@lorkarium/client',

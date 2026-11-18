@@ -8,15 +8,15 @@ import {
 } from '@/features/plans/plan-gate';
 
 describe('countGate', () => {
-  it('a free table with 5 grids has no room for a 6th: the refusal sentence is the hint', () => {
-    expect(countGate(PLAN_LIMITS.free, 'scenes', 5)).toEqual({
+  it('a free table with 3 grids has no room for a 4th: the refusal sentence is the hint', () => {
+    expect(countGate(PLAN_LIMITS.free, 'scenes', 3)).toEqual({
       open: false,
-      hint: 'Esta mesa usa o plano Grátis, que permite até 5 grids. O Narrador libera 20.',
+      hint: 'Esta mesa usa o plano Grátis, que permite até 3 grids. O Narrador libera 15.',
     });
   });
 
   it('below the ceiling it stays open', () => {
-    expect(countGate(PLAN_LIMITS.free, 'scenes', 4).open).toBe(true);
+    expect(countGate(PLAN_LIMITS.free, 'scenes', 2).open).toBe(true);
   });
 
   it('above the ceiling (a plan that came down) it stays closed', () => {

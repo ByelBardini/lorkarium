@@ -53,9 +53,9 @@ describe('boardCommandFailureMessage', () => {
   });
 
   it('a plan refusal reads the sentence of the plan, not a generic one', () => {
-    const planLimit = { resource: 'tokenBars', limit: 2, plan: 'free' } as const;
+    const planLimit = { resource: 'tokenBars', limit: 1, plan: 'free' } as const;
     expect(boardCommandFailureMessage({ kind: 'plan_limit', planLimit })).toBe(
-      'Esta mesa usa o plano Grátis, que permite até 2 barras por token. O Narrador libera 8.',
+      'Esta mesa usa o plano Grátis, que permite até 1 barra por token. O Narrador libera 4.',
     );
   });
 });
