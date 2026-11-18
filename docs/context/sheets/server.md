@@ -14,10 +14,7 @@ Hub: [`../sheets.md`](../sheets.md). Módulo `server/src/modules/sheets/`. Contr
 
 ## Modelos
 
-- `SheetTemplateBo(access)`: `requireAuthor` (só mestre, co-mestre incluso; espectador e jogador → `FORBIDDEN`), `requireVersion` (→ `SHEET_TEMPLATE_VERSION_CONFLICT` "version N; expected M"), `requireUnused(template, n)` (→ `SHEET_TEMPLATE_IN_USE` "is used by N sheets; expected none"; conta **todas** as fichas, com ou sem dono), `requireFolder` (→ `FOLDER_NOT_FOUND`).
-- Manifesto: o create grava o que veio ou `emptySheetTemplateManifest()`; o update troca o manifesto inteiro (só ele já soma a versão); o mapper relê a coluna pelo `sheetTemplateManifestDto` (`toSheetTemplateManifestDto`), então uma lista que o manifesto guardado não tinha volta vazia. Sai no `sheetTemplateDto` e no `sheetTemplateCodeDto` da leitura da ficha.
-- `SheetTemplatesService` (`get`, `create`, `update`, `delete`): `memberAccessOf` → `requireAuthor` **antes** de qualquer trava → transação com `CampaignsDao.lockWithOwner` → trabalho → commit → `library:changed`. O `create` (e a importação `.lksheet`, o mesmo `POST`) conta `SheetTemplatesDao.countOfCampaign` contra o plano do dono (`sheetTemplates`, 403 `PLAN_LIMIT`). Recusa não publica. Toda gravação soma a versão; `delete` conta as fichas (`SheetsDao.countOfTemplate`) dentro da trava.
-- Biblioteca: `LibraryService.deleteFolder` chama `SheetTemplatesDao.moveFromFolder` **e** `SheetsDao.moveFromFolder` (sobem ao pai na mesma transação, **sem** somar a versão). O agregado `GET /campaigns/:id/library` (`LibraryImageService.list`) leva `sheetTemplates` (resumo, sem código) **só ao mestre** e `sheets` (resumos, ver abaixo).
+BO, manifesto, service, plano (cota, JS e excedente só leitura, `planLocked`) e a biblioteca: [`modelos.md`](modelos.md).
 
 ## Fichas na biblioteca
 
