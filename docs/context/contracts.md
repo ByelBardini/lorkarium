@@ -17,7 +17,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 - `src/documents/` — documentos da biblioteca: conteúdo rico fechado, comandos versionados, resumos, a prévia da biblioteca (`document-preview.dto.ts`) e imagens; [contratos](documents/contratos.md).
 - `src/dice/` — rolagem de dados (Socket.IO): comando, ack e eventos com o trajeto 3D; rolagens salvas (REST)
 - `src/chat/` — chat da mesa (Socket.IO): `chat:send`, ack e `chat:sent`, sem versão
-- `src/plans/` — planos da conta: `USER_PLANS`, recursos do `PLAN_LIMIT`, a grade `PLAN_LIMITS` e `planLimitsDto`; [contratos](contracts/planos.md)
+- `src/plans/` — planos da conta: `USER_PLANS`, recursos do `PLAN_LIMIT`, a grade `PLAN_LIMITS` e `planLimitsDto`; [contratos](contracts/planos.md), com os DTOs que levam `planLocked` (o item só leitura pelo plano)
 - `src/plans/paid-plan.dto.ts` — `higherPlanOf(plan, paidPlan)` (o maior na ordem de `USER_PLANS`, server e client), `paidPlanFields` e `checkPaidPlanPair` (o pago e a data vêm juntos)
 - `src/billing/` — rotas `/api/billing/*` do serviço de cobrança: catálogo, checkout, status, cancelamento, reembolso; [contratos](contracts/cobranca.md)
 - `src/sheets/` — fichas personalizadas: modelo (código do mestre), ficha na biblioteca (nome, pasta, dono opcional: token ou jogador), valores com orçamento, `sheet:changed`, `sheet:adjustBar` e a ponte frame ↔ host; [contratos](sheets/contratos.md). `src/utf8-length.ts` conta bytes UTF-8 sem `TextEncoder`
@@ -79,7 +79,7 @@ Imagem, agregado e apresentação versionada: [contracts/biblioteca.md](contract
 `library.dto.ts` — os grids e as pastas da mesa por REST (detalhe e rotas em [`library.md`](library.md)).
 
 - Limites e textos: `SCENE_NAME_MAX_LENGTH` (60), `SCENE_FOLDER_NAME_MAX_LENGTH` (40), `SCENE_FOLDER_DEPTH_MAX` (5), `UNNAMED_SCENE_NAME` (`'Grid sem nome'`), `SCENE_COPY_SUFFIX` (`' (cópia)'`).
-- `sceneVisibilityDto` (`private` | `public`), `sceneFolderDto` `{ id, name, parentId | null, visibility }`, `librarySceneDto` `{ id, name, folderId | null, visibility, widthCells, heightCells, background | null, tokenCount (null para o jogador), updatedAt (ISO) }` e `libraryDto` `{ activeSceneId | null, folders, scenes }` (resposta do `GET …/scenes`).
+- `sceneVisibilityDto` (`private` | `public`), `sceneFolderDto` `{ id, name, parentId | null, visibility }`, `librarySceneDto` `{ id, name, folderId | null, visibility, widthCells, heightCells, background | null, tokenCount (null para o jogador), planLocked, updatedAt (ISO) }` e `libraryDto` `{ activeSceneId | null, folders, scenes }` (resposta do `GET …/scenes`).
 - Corpos: `createLibrarySceneRequestDto` `{ name?, folderId? }`, `updateLibrarySceneRequestDto` `{ name?, folderId? (null = raiz), visibility? }` (ao menos uma chave), `createSceneFolderRequestDto` `{ name, parentId?, visibility? }` e `updateSceneFolderRequestDto` `{ name?, parentId? (null = raiz) }` (ao menos uma chave). Nomes aparados, de 1 ao limite; estritos (um `campaignId` no corpo é recusado: a mesa vem da URL).
 - Params: `librarySceneParamsDto` `{ campaignId, sceneId }` e `sceneFolderParamsDto` `{ campaignId, folderId }` (a borda usa o `shape` de cada campo).
 - Evento `libraryChangedDto` `{ campaignId, at }` (`library:changed`, sem dado de grid) e o mapa `LibraryServerEvents`, que entra no `TableServerEvents` (junta `LibraryMapServerEvents` e `DocumentServerEvents`).

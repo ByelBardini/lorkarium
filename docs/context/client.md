@@ -51,6 +51,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Ping no mapa: cor por pessoa, segurar/Alt+clique, pulso do anel, seta na borda                        | [`pings.md`](client/pings.md)                                   |
 | Minha conta em abas (`?aba=`): perfil, banner, preferências, dados, segurança, 2FA, Seu plano         | [`account.md`](client/account.md)                               |
 | Banner do perfil em Minha conta: bloqueio pelo plano, recorte 3:1 no navegador, envio                 | [`account-banner.md`](client/account-banner.md)                 |
+| Seu plano em Minha conta: cartão do plano, uso, a grade dos planos (`plan-grid.ts`)                   | [`account-plan.md`](client/account-plan.md)                     |
 | Planos e cobrança: `/planos`, volta do checkout, "Assinatura" em Seu plano, "Cobrança…" no backoffice | [`billing.md`](billing.md)                                      |
 | Backoffice: moldura, Usuários, busca/filtros na URL, convidar, menus e diálogos das contas            | [`backoffice.md`](client/backoffice.md)                         |
 | Backoffice · Insígnias: catálogo, gaveta com recorte 1:1, ordem, exclusão, concessão por conta        | [`backoffice-badges.md`](client/backoffice-badges.md)           |

@@ -31,6 +31,7 @@ Códigos: `SAVED_ROLL_FOLDER_NOT_FOUND` (404), `SAVED_ROLL_FOLDER_NAME_TAKEN` (4
 
 - `listOf(campaignId, userId)` → `SavedRollPo[]` na ordem de criação (`created_at`, `id`)
 - `countOf(campaignId, userId)` → número
+- `rankOf(campaignId, userId, id)` → quantas salvas do mesmo membro na mesma mesa nasceram antes, por `(created_at, id)` (a ordem do `listOf`), num `LEFT JOIN` com o alias `older`; `undefined` se a salva não é do dono. Chamado na transação, depois do `lockOwner`.
 - `lockOwner(campaignId, userId)` → `UserPlanPo | undefined`: `SELECT` do `role`/`plan`/`lorkariumOwner` do **dono da mesa** (`campaign_members` → `campaigns` → `users`) `FOR NO KEY UPDATE OF campaign_members` na linha do membro (no `tx`); `undefined` se ele saiu. Por quê: duas criações simultâneas do mesmo membro contam uma depois da outra e nunca passam do teto juntas, e o teto é o plano do dono lido na mesma consulta. `NO KEY UPDATE` não bloqueia o `KEY SHARE` das FKs que apontam para o membro (ficha, salvas), e a mesa e o dono ficam livres (provado em `saved-rolls-dao.spec.ts`).
 - `insert(row)` → a linha; `update(campaignId, userId, id, changes)` → a linha ou `undefined` (não é do dono), soma `updated_at`; `remove(campaignId, userId, id)` → `boolean`
 
@@ -39,24 +40,27 @@ Códigos: `SAVED_ROLL_FOLDER_NOT_FOUND` (404), `SAVED_ROLL_FOLDER_NAME_TAKEN` (4
 `SavedRollRulesBo(maxSaved)` (o `SAVED_ROLLS_MAX`, teto técnico, entra pelo plugin):
 
 - `requireReadable(expressions)` delega ao `requireReadableDice` de `server/src/modules/dice/dice-roll.bo.ts` (a mesma leitura da rolagem; o erro é o `InvalidDiceExpressionError` de `dice/dice.error.ts`, e as rotas o traduzem em 400 antes do `SavedRollsError`): cada peça pelo `parseDiceExpression` do game-core (o motivo é o do game-core, sem o prefixo 0-based dele) e a composição pelo `parseDiceParts` (1 a 10 peças, até 1000 dados somados). Peça ilegível → `INVALID_DICE_EXPRESSION` com `part` contado **a partir de 1** e a expressão: `part 2 ("2d") cannot be read: Expected the number of sides at position 2; got the end of the expression.`; composição recusada → `part: null`, `the roll cannot be read: Dice roll has 11 parts: …`.
-- `requireRoomFor(guardadas, limits)`: primeiro o plano do dono (`PlanLimitsBo.requireRoom('savedRolls', guardadas, 1, limits)`: Grátis 5, Narrador 20 → `PLAN_LIMIT` 403 com `planLimit`), depois o técnico: a 51ª → `SAVED_ROLLS_LIMIT` "saving would keep 51 of 50 saved rolls …" (Lenda, Amigo do Dono e admin). `requireFolderRoom(guardadas, maxFolders, limits)` faz o mesmo com `savedRollFolders` (Grátis 0: nenhuma pasta; os outros 50 = técnico). Só a criação conta: renomear, mover e apagar passam com o membro acima do teto (quem desceu de plano mantém o que tem).
+- `requireRoomFor(guardadas, limits)`: primeiro o plano do dono (`PlanLimitsBo.requireRoom('savedRolls', guardadas, 1, limits)`: Grátis 3, Narrador 15 → `PLAN_LIMIT` 403 com `planLimit`), depois o técnico: a 51ª → `SAVED_ROLLS_LIMIT` "saving would keep 51 of 50 saved rolls …" (Lenda, Amigo do Dono e admin). `requireFolderRoom(guardadas, maxFolders, limits)` faz o mesmo com `savedRollFolders` (Grátis 0: nenhuma pasta; Narrador 5; Lenda 50 = técnico). A criação conta pelo `requireRoomFor`; o que passou do teto fica **só leitura** ([regra](../plans/excedente-so-leitura.md)):
+- `requireConfigurable(rank, limits)` → `PlanLimitsBo.requireEditable('savedRolls', …)`: a salva com `rank` ≥ teto (Grátis 3, Narrador 15) não muda nome nem peças → 403 `PLAN_LIMIT` `reason: 'readOnly'` ("saved roll 4 of plan free is read only (plan allows 3)"). Mover para pasta e apagar passam; apagar uma mais antiga destrava a seguinte. O grupo é o **membro** na mesa.
+- `isPlanLocked(rank, limits)`: o mesmo sem lançar, o `planLocked` do DTO.
 
 ## Service (`saved-rolls.service.ts`)
 
-`SavedRollsService({ members, rolls, transaction, maxSaved })`; o dono (`SavedRollOwner { campaignId, userId }`) vem sempre da sessão + rota.
+`SavedRollsService({ members, tableOwners, rolls, transaction, maxSaved })` (`tableOwners` = `CampaignsDao.findOwnerPlan`, o plano da lista sem trava); o dono (`SavedRollOwner { campaignId, userId }`) vem sempre da sessão + rota.
 
 - Todo método começa por `memberAccessOf` (espectador → `FORBIDDEN` antes de qualquer leitura das salvas; fora da mesa → `CAMPAIGN_NOT_FOUND`). O espectador assiste e não rola, então nem lista (a lista fechada de leituras de espectador em [`../campaigns/papeis.md`](../campaigns/papeis.md) não ganhou linha).
 - `create`: BO das peças **antes** da transação → `transaction(lockOwner → countOf → requireRoomFor → insert)` → commit. Membro que saiu entre a checagem e a trava → `CAMPAIGN_NOT_FOUND`.
-- `update`: BO das peças (se vierem) → `rolls.update` (sem transação: um comando só); `undefined` → `SAVED_ROLL_NOT_FOUND`.
+- `list`: o plano do dono sem trava → `listOf` (em ordem de criação, então o índice é o rank) → `planLocked` de cada uma.
+- `update`: BO das peças (se vierem) → `transaction(lockOwner → rankOf (undefined → SAVED_ROLL_NOT_FOUND) → requireConfigurable se vier nome ou peças → pasta do dono → update)` → commit. A resposta leva o `planLocked` pelo rank (mover uma travada responde `planLocked: true`).
 - `remove`: `false` → `SAVED_ROLL_NOT_FOUND`.
 - Nome repetido: o `23505` do `saved_rolls_member_name_unique` (inclusive duas criações ao mesmo tempo) vira `SAVED_ROLL_NAME_TAKEN` citando o nome recebido.
-- `saved-rolls.mapper.ts`: `toSavedRollDto` (sem mesa, dono, chave nem datas), `toNewSavedRollPo` e `toSavedRollChangesPo` (o nome viaja sempre com o `nameKey`).
+- `saved-rolls.mapper.ts`: `toSavedRollDto(row, planLocked)` (sem mesa, dono, chave nem datas), `toNewSavedRollPo` e `toSavedRollChangesPo` (o nome viaja sempre com o `nameKey`).
 
 ## Contrato (`packages/contracts/src/dice/saved-roll.dto.ts`)
 
 - `SAVED_ROLL_NAME_MAX_LENGTH` (= `DICE_ROLL_LABEL_MAX_LENGTH`, 40: o nome vira o rótulo da rolagem), `SAVED_ROLLS_MAX` (50), `savedRollNameKey(nome)`.
 - `savedRollNameDto` (aparado, 1 a 40), `savedRollPartsDto` (1 a 10 `diceRollPartDto` do `dice.dto.ts`: rótulo aparado ou `null`, expressão aparada de 1 a 200).
-- `savedRollDto { id, name, parts }`, `savedRollsResponseDto { savedRolls }`, `createSavedRollRequestDto { name, parts }`, `updateSavedRollRequestDto { name?, parts? }` (estrito; `{}` → "changes is empty; expected at least one of name, parts"), `savedRollParamsDto { campaignId, savedRollId }`.
+- `savedRollDto { id, name, folderId, parts, planLocked }`, `savedRollsResponseDto { savedRolls }`, `createSavedRollRequestDto { name, parts }`, `updateSavedRollRequestDto { name?, parts? }` (estrito; `{}` → "changes is empty; expected at least one of name, parts"), `savedRollParamsDto { campaignId, savedRollId }`.
 
 ## Rotas (`saved-rolls.routes.ts`, sob `/api`, todas com sessão)
 
@@ -88,6 +92,7 @@ Códigos: `SAVED_ROLL_FOLDER_NOT_FOUND` (404), `SAVED_ROLL_FOLDER_NAME_TAKEN` (4
 ## Testes
 
 - Contracts `packages/contracts/test/dice/saved-roll.dto.spec.ts`: chave sem caixa/acento, aparar, 40/41 caracteres, 10/11 peças, `campaignId` no corpo recusado, `{}` no `PATCH`.
-- Unit `server/test/modules/saved-rolls/{saved-roll.bo,saved-rolls.mapper,saved-rolls.service}.spec.ts` (diário `lock → count → insert:<nome> → commit`; nome repetido, 51ª e espectador param antes do insert; peça ilegível antes da transação).
+- Unit `server/test/modules/saved-rolls/{saved-roll.bo,saved-rolls.mapper,saved-rolls.service}.spec.ts` (diário `lock → count → insert:<nome> → commit` e `lock → rank → update:<id> → commit`; nome repetido, 51ª e espectador param antes do insert; peça ilegível antes da transação; no Grátis a 4ª não renomeia, a 5ª não troca peças mas muda de pasta, a lista marca `planLocked` da 4ª em diante).
+- Excedente só leitura na integração: `saved-rolls-plan-limit.spec.ts` (5 salvas da Bia nascidas no `amigo_do_dono`, a Ana descida ao Grátis: a 3ª renomeia, a 4ª 403 `readOnly` sem gravar; peças novas na 5ª recusadas e mover para pasta passa; lista `[f, f, f, t, t]`; apagar a 2ª → 204 e a antiga 4ª renomeia; rank por membro (o Caio); Ermo, outra mesa da Ana, não conta a Vharn) e o `rankOf` em `saved-rolls-dao.spec.ts`. Mutações desfeitas: rank sem `user_id`, sem `requireEditable` e `<` trocado por `>` deixaram cada cenário certo vermelho.
 - Fakes `server/test/support/saved-rolls-fakes.ts`: `savedRollPo()` ("Acerto" da Bia na Vharn, `ACERTO_ID`), `SavedRollsDaoFake(journal, rows)` (o índice único por `nameKey` do dono; `owners` responde o `lockOwner`), `SavedRollsTransactionRunnerFake`, `SavedRollNameViolationFake`.
 - Integração `server/test/integration/saved-rolls-dao.spec.ts` (ordem, update/remove, isolamento por dono e por mesa, `countOf`, índice único, `CHECK`, FK, cascata ao sair e ao apagar a mesa, `lockOwner` serializa) e `saved-rolls.spec.ts` (`useTokenTable()`: cada linha das tabelas acima; a 51ª semeada pelo DAO porque 50 `POST` passariam do limite; a 31ª escrita misturando as três rotas).

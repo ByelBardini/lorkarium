@@ -10,6 +10,7 @@ A regra efetiva (admin, Dono, Apoiador) e onde cada limite é checado: [`../plan
 - `PLAN_LIMIT_RESOURCES` = as duas listas; `planLimitResourceDto` / `PlanLimitResource`.
 - `planLimitDto` / `PlanLimitDto` — `{ resource, limit (inteiro ≥ 0; 0 = recurso ausente), plan, reason? }`; `reason` de `PLAN_LIMIT_REASONS` = `room` (criar passa do teto; ausente vale `room`) ou `readOnly` (editar um item mantido além do teto depois da queda de plano); `PLAN_LIMIT_CODE = 'PLAN_LIMIT'`.
 - `apiErrorDto.planLimit?` (`http/api-error.dto.ts`) é esse `planLimitDto`: chega no corpo HTTP (403) e no ack do Socket.IO.
+- `planLocked: boolean` (obrigatório): o item passou do teto do plano do dono pela ordem de criação no grupo e a configuração dele está só leitura (o `reason: 'readOnly'` antecipado; regra em [`../plans/excedente-so-leitura.md`](../plans/excedente-so-leitura.md)). Vai no `librarySceneDto` e no `sceneDto` da sala (grid), no `libraryMapSummaryDto` e no `libraryMapDetailDto` (mapa), no `sheetTemplateSummaryDto` e no `sheetTemplateDto` (modelo), no `documentTabSummaryDto` e no `documentTabDto` (aba) e no `savedRollDto` (rolagem salva, também no `sheetFrameSavedRollsDto`). Barras, formas, luzes, patrulhas e bloqueadores não têm: só a recusa diz.
 
 ## A grade (`plan-limits.ts`)
 
