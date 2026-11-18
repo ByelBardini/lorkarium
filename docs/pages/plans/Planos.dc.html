@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Lorkarium · Planos</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#0B0C0F}
+a{color:#C5A46D;text-decoration:none}
+button:focus-visible,a:focus-visible{outline:2px solid #C5A46D;outline-offset:2px}
+.p-seg{height:38px;padding:0 14px;border:0;border-radius:8px;background:transparent;color:#8C8F98;font:inherit;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.p-seg:hover{color:#EAE5DA}
+.p-seg.is-on{background:#262A31;color:#EAE5DA}
+.p-off{height:20px;padding:0 7px;border-radius:5px;background:rgba(143,179,154,.16);color:#A9D1B4;font-size:11px;font-weight:700;display:inline-flex;align-items:center}
+.p-card{position:relative;display:flex;flex-direction:column;border-radius:14px;background:#121418;border:1px solid #23272E;overflow:hidden}
+.p-card.is-hi{border-color:#C5A46D;background:linear-gradient(180deg,rgba(197,164,109,.09),rgba(197,164,109,0) 46%),#121418;box-shadow:0 24px 60px -30px rgba(197,164,109,.45)}
+.p-card.is-lenda{background:radial-gradient(120% 60% at 100% 0%,rgba(143,163,191,.12),transparent 60%),#121418}
+.p-btn{height:42px;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #3A404A;border-radius:9px;background:transparent;color:#EAE5DA;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.p-btn:hover{border-color:#C5A46D;color:#E2C793}
+.p-btn.is-gold{background:#C5A46D;border-color:#C5A46D;color:#15130F}
+.p-btn.is-gold:hover{background:#D4B57E;color:#15130F}
+.p-btn:disabled{opacity:.55;cursor:default;border-color:#2A2F38;color:#8C8F98;background:transparent}
+.p-feat{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.45;color:#C9C3B6}
+.p-tr{display:grid;grid-template-columns:minmax(0,1.5fr) repeat(4,minmax(0,1fr));align-items:center;min-height:46px;border-top:1px solid #1C1F25}
+.p-tr > span{padding:0 16px;font-size:13px}
+.p-tr > span + span{text-align:center;color:#C9C3B6;height:100%;display:flex;align-items:center;justify-content:center}
+.p-faq{border-top:1px solid #1F2329}
+.p-faqq{width:100%;display:flex;align-items:center;gap:12px;padding:16px 0;border:0;background:transparent;color:#EAE5DA;font:inherit;font-size:15px;font-weight:600;text-align:left;cursor:pointer}
+.p-faqq:hover{color:#E2C793}
+.p-x{width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:8px;background:transparent;color:#8C8F98;cursor:pointer}
+.p-x:hover{background:#1F232A;color:#EAE5DA}
+.p-small{height:34px;padding:0 12px;border:1px solid #2A2F38;border-radius:8px;background:transparent;color:#D5D0C4;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.p-small:hover{border-color:#4A505B;color:#EAE5DA}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #0B0C0F; color: #EAE5DA; font-family: 'Hanken Grotesk', system-ui, sans-serif; position: relative">
+
+<header style="height: 56px; box-sizing: border-box; padding: 0 24px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #1C1F25; background: #0C0E11">
+<a href="Conta.dc.html" style="display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px 0 6px; border-radius: 8px; color: #A9A497; font-size: 13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>Minha conta</a>
+<span style="flex: 1"></span>
+<span style="font-size: 13px; color: #8C8F98">Seu plano: <strong style="color: #EAE5DA; font-weight: 600">{{currentName}}</strong></span>
+</header>
+
+<div style="max-width: 1240px; margin: 0 auto; padding: 48px 40px 72px; box-sizing: border-box">
+
+<div style="display: flex; align-items: flex-end; gap: 32px; flex-wrap: wrap; margin-bottom: 32px">
+<div style="flex: 1 1 520px">
+<svg width="42" height="42" viewBox="0 0 120 120" aria-hidden="true" style="display: block; margin-bottom: 14px"><path d="M60 9 L78 42 L60 99 L42 42 Z" fill="none" stroke="#C5A46D" stroke-width="3.5" stroke-linejoin="round"></path><path d="M26 47 L41 57.5 L48.5 85 L29.5 66.5 Z" fill="none" stroke="#C5A46D" stroke-width="3.5" stroke-linejoin="round" opacity=".6"></path><path d="M94 47 L79 57.5 L71.5 85 L90.5 66.5 Z" fill="none" stroke="#C5A46D" stroke-width="3.5" stroke-linejoin="round" opacity=".6"></path></svg>
+<h1 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-size: 52px; font-weight: 600; line-height: 1">Planos</h1>
+<p style="margin: 12px 0 0; max-width: 560px; font-size: 16px; line-height: 1.55; color: #A9A497">Jogar é de graça, sempre. Os planos são pra quem mestra muito ou quer dar uma força pra manter a casa de pé.</p>
+</div>
+<div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #6F7480" id="p-per">Período</span>
+<div role="radiogroup" aria-labelledby="p-per" style="display: flex; gap: 2px; padding: 3px; border-radius: 11px; border: 1px solid #2A2F38; background: #0F1114">
+<sc-for list="{{periods}}" as="p" hint-placeholder-count="3">
+<button type="button" role="radio" class="{{p.cls}}" aria-checked="{{p.on}}" onClick="{{p.pick}}">{{p.label}}<sc-if value="{{p.hasOff}}" hint-placeholder-val="{{ true }}"><span class="p-off">{{p.off}}</span></sc-if></button>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #6F7480" id="p-pay">Pagamento</span>
+<div role="radiogroup" aria-labelledby="p-pay" style="display: flex; gap: 2px; padding: 3px; border-radius: 11px; border: 1px solid #2A2F38; background: #0F1114">
+<sc-for list="{{pays}}" as="p" hint-placeholder-count="2">
+<button type="button" role="radio" class="{{p.cls}}" aria-checked="{{p.on}}" onClick="{{p.pick}}">{{p.label}}</button>
+</sc-for>
+</div>
+</div>
+</div>
+</div>
+
+<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding: 11px 14px; border-radius: 10px; background: #111317; border: 1px solid #1C1F25; font-size: 13px; color: #A9A497">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C5A46D" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6M12 7.5v.01"></path></svg>
+<span>{{payNote}}</span>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: stretch">
+<sc-for list="{{plans}}" as="c" hint-placeholder-count="4">
+<article class="{{c.cls}}">
+<sc-if value="{{c.hasTag}}" hint-placeholder-val="{{ false }}"><span style="position: absolute; top: 0; right: 18px; height: 24px; padding: 0 10px; border-radius: 0 0 7px 7px; background: #C5A46D; color: #15130F; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; display: inline-flex; align-items: center">{{c.tag}}</span></sc-if>
+<div style="padding: 24px 22px 20px; display: flex; flex-direction: column; gap: 14px; flex: 1">
+<div style="display: flex; align-items: center; gap: 12px">
+<svg width="34" height="34" viewBox="0 0 120 120" aria-hidden="true"><path d="M26 47 L41 57.5 L48.5 85 L29.5 66.5 Z" fill="{{c.f2}}" stroke="{{c.s2}}" stroke-width="4" stroke-linejoin="round"></path><path d="M94 47 L79 57.5 L71.5 85 L90.5 66.5 Z" fill="{{c.f3}}" stroke="{{c.s3}}" stroke-width="4" stroke-linejoin="round"></path><path d="M60 9 L78 42 L60 99 L42 42 Z" fill="{{c.f1}}" stroke="{{c.s1}}" stroke-width="4" stroke-linejoin="round"></path></svg>
+<h2 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 600; line-height: 1">{{c.name}}</h2>
+</div>
+<p style="margin: 0; min-height: 60px; font-size: 13px; line-height: 1.55; color: #A9A497">{{c.desc}}</p>
+<div style="display: flex; flex-direction: column; gap: 4px; padding-top: 4px">
+<div style="display: flex; align-items: baseline; gap: 6px; min-height: 18px">
+<sc-if value="{{c.hasWas}}" hint-placeholder-val="{{ false }}"><span style="font-size: 13px; color: #6F7480; text-decoration: line-through">{{c.was}}</span></sc-if>
+</div>
+<div style="display: flex; align-items: baseline; gap: 2px">
+<span style="font-size: 16px; font-weight: 600; color: #A9A497; margin-right: 4px">R$</span>
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 54px; font-weight: 600; line-height: .9; color: {{c.priceColor}}">{{c.int}}</span>
+<span style="font-size: 18px; font-weight: 700; color: {{c.priceColor}}">{{c.dec}}</span>
+<span style="font-size: 14px; color: #8C8F98; margin-left: 4px">{{c.per}}</span>
+</div>
+<span style="font-size: 12px; line-height: 1.45; color: #8C8F98; min-height: 34px">{{c.billed}}<sc-if value="{{c.hasSave}}" hint-placeholder-val="{{ false }}"><span style="color: #A9D1B4"> · economiza {{c.save}}</span></sc-if></span>
+</div>
+<button type="button" class="{{c.btnCls}}" onClick="{{c.buy}}" disabled="{{c.isCurrent}}">{{c.cta}}</button>
+<div style="height: 1px; background: #1F2329; margin: 4px 0"></div>
+<div style="display: flex; flex-direction: column; gap: 9px">
+<sc-for list="{{c.feats}}" as="f" hint-placeholder-count="4">
+<span class="p-feat"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{c.check}}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 2px"><path d="M5 12l5 5L20 7"></path></svg><span style="color: {{f.color}}; font-weight: {{f.weight}}">{{f.t}}</span></span>
+</sc-for>
+</div>
+</div>
+</article>
+</sc-for>
+</div>
+
+<section aria-labelledby="p-cmp" style="margin-top: 64px">
+<div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px">
+<h2 id="p-cmp" style="margin: 0; font-family: 'Cormorant Garamond', serif; font-size: 32px; font-weight: 600">Tudo lado a lado</h2>
+<span style="font-size: 13px; color: #6F7480">O que muda de um plano pro outro.</span>
+</div>
+<div style="border-radius: 14px; border: 1px solid #1F2329; background: #0F1114; overflow: hidden">
+<div class="p-tr" style="border-top: 0; min-height: 64px; position: sticky; top: 0; background: #0F1114; z-index: 1">
+<span style="font-size: 12px; color: #6F7480">Preços {{periodWord}}, no {{payWord}}</span>
+<sc-for list="{{plans}}" as="c" hint-placeholder-count="4">
+<span style="flex-direction: column; gap: 2px; background: {{c.colBg}}"><strong style="font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600; color: #EAE5DA">{{c.name}}</strong><span style="font-size: 12px; color: #8C8F98">{{c.short}}</span></span>
+</sc-for>
+</div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="14">
+<sc-if value="{{r.isGroup}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 18px 16px 8px; border-top: 1px solid #1C1F25; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #C5A46D">{{r.label}}</div>
+</sc-if>
+<sc-if value="{{r.isRow}}" hint-placeholder-val="{{ true }}">
+<div class="p-tr">
+<span style="color: #D5D0C4">{{r.label}}</span>
+<sc-for list="{{r.cells}}" as="x" hint-placeholder-count="4">
+<span style="background: {{x.bg}}">
+<sc-if value="{{x.yes}}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C5A46D" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-label="Sim"><path d="M5 12l5 5L20 7"></path></svg></sc-if>
+<sc-if value="{{x.no}}" hint-placeholder-val="{{ false }}"><span aria-label="Não" style="width: 10px; height: 1.5px; background: #3A404A"></span></sc-if>
+<sc-if value="{{x.isText}}" hint-placeholder-val="{{ true }}"><span style="font-weight: {{x.weight}}; color: {{x.color}}">{{x.t}}</span></sc-if>
+</span>
+</sc-for>
+</div>
+</sc-if>
+</sc-for>
+<div class="p-tr" style="min-height: 72px">
+<span></span>
+<sc-for list="{{plans}}" as="c" hint-placeholder-count="4">
+<span style="background: {{c.colBg}}; padding: 0 12px"><button type="button" class="{{c.btnCls}}" onClick="{{c.buy}}" disabled="{{c.isCurrent}}" style="height: 36px; font-size: 13px">{{c.ctaShort}}</button></span>
+</sc-for>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="p-faq" style="margin-top: 64px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 40px">
+<div>
+<h2 id="p-faq" style="margin: 0; font-family: 'Cormorant Garamond', serif; font-size: 32px; font-weight: 600">Perguntas comuns</h2>
+<p style="margin: 10px 0 0; font-size: 14px; line-height: 1.55; color: #8C8F98">Ficou alguma dúvida? Chama a gente pelo <a href="#">suporte</a>. Quem responde joga também.</p>
+</div>
+<div style="border-bottom: 1px solid #1F2329">
+<sc-for list="{{faq}}" as="q" hint-placeholder-count="5">
+<div class="p-faq">
+<button type="button" class="p-faqq" aria-expanded="{{q.exp}}" onClick="{{q.toggle}}"><span style="flex: 1">{{q.q}}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C8F98" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="transform: rotate({{q.rot}}); transition: transform .15s"><path d="M12 5v14M5 12h14"></path></svg></button>
+<sc-if value="{{q.open}}" hint-placeholder-val="{{ false }}"><p style="margin: 0 0 18px; max-width: 640px; font-size: 14px; line-height: 1.6; color: #A9A497">{{q.a}}</p></sc-if>
+</div>
+</sc-for>
+</div>
+</section>
+</div>
+
+<sc-if value="{{hasCheckout}}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; z-index: 20; background: rgba(6,7,9,.72); display: flex; align-items: center; justify-content: center; padding: 24px" onClick="{{closeBg}}">
+<div role="dialog" aria-modal="true" aria-labelledby="p-co" style="width: 460px; max-width: 100%; border-radius: 16px; background: #14161A; border: 1px solid #2A2F38; box-shadow: 0 30px 80px -20px rgba(0,0,0,.7); overflow: hidden" onClick="{{stop}}">
+<div style="padding: 18px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #1F2329">
+<svg width="26" height="26" viewBox="0 0 120 120" aria-hidden="true"><path d="M26 47 L41 57.5 L48.5 85 L29.5 66.5 Z" fill="{{co.f2}}" stroke="{{co.s2}}" stroke-width="4" stroke-linejoin="round"></path><path d="M94 47 L79 57.5 L71.5 85 L90.5 66.5 Z" fill="{{co.f3}}" stroke="{{co.s3}}" stroke-width="4" stroke-linejoin="round"></path><path d="M60 9 L78 42 L60 99 L42 42 Z" fill="{{co.f1}}" stroke="{{co.s1}}" stroke-width="4" stroke-linejoin="round"></path></svg>
+<h2 id="p-co" style="flex: 1; margin: 0; font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 600">{{co.title}}</h2>
+<button type="button" class="p-x" onClick="{{close}}" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+<div style="padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; font-size: 14px">
+<div style="display: flex; justify-content: space-between"><span style="color: #8C8F98">Período</span><span>{{co.period}}</span></div>
+<div style="display: flex; justify-content: space-between"><span style="color: #8C8F98">Pagamento</span><span>{{co.pay}}</span></div>
+<sc-if value="{{co.hasSave}}" hint-placeholder-val="{{ true }}"><div style="display: flex; justify-content: space-between"><span style="color: #8C8F98">Desconto</span><span style="color: #A9D1B4">- {{co.save}}</span></div></sc-if>
+<div style="height: 1px; background: #1F2329; margin: 4px 0"></div>
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-weight: 600">Total hoje</span><span style="font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 600; color: #E2C793">{{co.total}}</span></div>
+<span style="font-size: 12px; line-height: 1.5; color: #8C8F98">{{co.terms}}</span>
+</div>
+
+<sc-if value="{{co.isPix}}" hint-placeholder-val="{{ false }}">
+<div style="margin: 0 20px 20px; padding: 16px; border-radius: 12px; background: #0F1114; border: 1px solid #1F2329; display: flex; gap: 16px; align-items: center">
+<sc-if value="{{co.pixReady}}" hint-placeholder-val="{{ false }}">
+<svg width="132" height="132" viewBox="0 0 29 29" shape-rendering="crispEdges" role="img" aria-label="QR code do Pix" style="flex-shrink: 0; border-radius: 8px; background: #EAE5DA; padding: 6px; box-sizing: content-box"><path d="{{qr}}" fill="#101216"></path></svg>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; line-height: 1.5; color: #A9A497">Abre o app do banco e lê o QR, ou copia o código.</span>
+<button type="button" class="p-small" onClick="{{copyPix}}">{{copyLabel}}</button>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #D9B86A"><span style="width: 6px; height: 6px; border-radius: 50%; background: currentColor"></span>Esperando o pagamento · expira em 30 min</span>
+</div>
+</sc-if>
+<sc-if value="{{co.pixNotReady}}" hint-placeholder-val="{{ true }}">
+<span style="flex: 1; font-size: 13px; line-height: 1.5; color: #A9A497">O QR code aparece aqui. Quando o pagamento cair, o plano liga sozinho.</span>
+</sc-if>
+</div>
+</sc-if>
+
+<div style="padding: 0 20px 20px; display: flex; gap: 8px">
+<button type="button" class="p-btn" onClick="{{close}}" style="flex: 0 0 auto; width: auto; padding: 0 16px">Voltar</button>
+<sc-if value="{{co.showMain}}" hint-placeholder-val="{{ true }}"><button type="button" class="p-btn is-gold" onClick="{{confirm}}" style="flex: 1">{{co.btn}}</button></sc-if>
+</div>
+<div style="padding: 12px 20px; border-top: 1px solid #1F2329; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6F7480">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+Pagamento processado fora do app, em ambiente seguro.
+</div>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1900}}'>
+var P_PERIODS = [
+  { k: 'm', label: 'Mensal', n: 1, word: 'Mensal', unit: 'mês' },
+  { k: 's', label: 'Semestral', n: 6, word: 'Semestral', unit: '6 meses' },
+  { k: 'a', label: 'Anual', n: 12, word: 'Anual', unit: 'ano' }
+];
+var P_PLANS = [
+  { k: 'gratis', name: 'Grátis', desc: 'Pra jogar e mestrar com a galera. Sem prazo e sem cartão.', price: { m: 0, s: 0, a: 0 }, gems: 0,
+    feats: ['2 mesas criadas', 'Até 8 jogadores por mesa', '500 MB pra mapas e tokens', 'Entra em quantas mesas quiser'] },
+  { k: 'apoiador', name: 'Apoiador', desc: 'Apoia a casa e libera as personalizações da sua conta. As mesas seguem o Grátis.', price: { m: 490, s: 2690, a: 4690 }, gems: 1,
+    feats: ['Tudo do Grátis', 'Moldura de avatar e cor do nome', 'Banner e GIF animado no perfil', 'Selo de Apoiador'] },
+  { k: 'narrador', name: 'Narrador', desc: 'Mais mesas, mais espaço e os efeitos pra contar histórias maiores.', price: { m: 1490, s: 7990, a: 14290 }, gems: 2, tag: 'Pra quem mestra',
+    feats: ['Tudo do Apoiador', '8 mesas criadas', 'Até 12 jogadores por mesa', '10 GB de espaço', 'Clima, luz e névoa no grid'] },
+  { k: 'lenda', name: 'Lenda', desc: 'Tudo o que o Lorkarium oferece, em escala épica.', price: { m: 2490, s: 13390, a: 23890 }, gems: 3,
+    feats: ['Tudo do Narrador', 'Mesas ilimitadas', 'Até 30 jogadores por mesa', '50 GB de espaço', 'Novidades antes de todo mundo'] }
+];
+var P_ROWS = [
+  { g: 'Mesas' },
+  { l: 'Mesas que você cria', v: ['2', '2', '8', 'Ilimitadas'] },
+  { l: 'Jogadores por mesa', v: ['8', '8', '12', '30'] },
+  { l: 'Grids preparados por mesa', v: ['5', '5', '25', 'Ilimitados'] },
+  { l: 'Espaço pra mapas e tokens', v: ['500 MB', '500 MB', '10 GB', '50 GB'] },
+  { l: 'Histórico do chat', v: ['30 dias', '30 dias', '1 ano', 'Sempre'] },
+  { g: 'Na mesa' },
+  { l: 'Fichas livres e modelos em HTML', v: [true, true, true, true] },
+  { l: 'Clima, luz e névoa no grid', v: [false, false, true, true] },
+  { l: 'Tokens com GIF animado', v: [false, false, true, true] },
+  { g: 'Sua conta' },
+  { l: 'Moldura de avatar e cor do nome', v: [false, true, true, true] },
+  { l: 'Banner e GIF animado no perfil', v: [false, true, true, true] },
+  { l: 'Selo no perfil', v: [false, 'Apoiador', 'Narrador', 'Lenda'] },
+  { l: 'Novidades antes de todo mundo', v: [false, false, false, true] }
+];
+var P_FAQ = [
+  { q: 'Cartão ou Pix, qual a diferença?', a: 'No cartão a assinatura renova sozinha no fim de cada período, e você cancela quando quiser em Minha conta. No Pix você paga o período inteiro de uma vez. Ele não renova sozinho: a gente avisa uns dias antes de acabar.' },
+  { q: 'Os jogadores da minha mesa precisam assinar?', a: 'Não. Quem joga entra de graça. Os limites de mesa (jogadores, grids, espaço) vêm do plano de quem criou a mesa.' },
+  { q: 'Posso trocar de plano depois?', a: 'Pode. Subindo de plano, você paga só a diferença do que falta no período. Descendo, a troca vale quando o período atual terminar.' },
+  { q: 'E se eu voltar pro Grátis?', a: 'Nada é apagado. Mesas acima do limite ficam só pra leitura até você arquivar alguma ou voltar a assinar.' },
+  { q: 'Dá pra cancelar e pedir o dinheiro de volta?', a: 'Nos primeiros 7 dias de uma assinatura nova, sim, devolvemos tudo. Depois disso o cancelamento só impede a próxima renovação.' }
+];
+var GOLD = '#C5A46D';
+function pBrl(c) { var s = (c / 100).toFixed(2).split('.'); return 'R$ ' + s[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + s[1]; }
+function pParts(c) { var s = (c / 100).toFixed(2).split('.'); return { int: s[0], dec: ',' + s[1] }; }
+function pGems(n) {
+  var on = 'rgba(197,164,109,.85)', off = 'transparent';
+  return { f1: n >= 1 ? on : off, s1: n >= 1 ? GOLD : '#4A505B', f2: n >= 2 ? 'rgba(197,164,109,.5)' : off, s2: n >= 2 ? GOLD : '#3A404A', f3: n >= 3 ? 'rgba(197,164,109,.5)' : off, s3: n >= 3 ? GOLD : '#3A404A' };
+}
+function pQr(seed) {
+  var N = 29, d = '', r = seed;
+  function rnd() { r = (r * 1103515245 + 12345) & 0x7fffffff; return r / 0x7fffffff; }
+  function finder(x, y) { return 'M' + x + ' ' + y + 'h7v7h-7zM' + (x + 1) + ' ' + (y + 1) + 'v5h5v-5zM' + (x + 2) + ' ' + (y + 2) + 'h3v3h-3z'; }
+  function inFinder(x, y) { return (x < 8 && y < 8) || (x > N - 9 && y < 8) || (x < 8 && y > N - 9); }
+  for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) { if (inFinder(x, y)) continue; if (rnd() > 0.52) d += 'M' + x + ' ' + y + 'h1v1h-1z'; }
+  return d + finder(0, 0) + finder(N - 7, 0) + finder(0, N - 7);
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { period: 'a', pay: 'cartao', current: 'gratis', checkout: null, pixReady: false, copied: false, faq: 0 };
+  }
+  renderVals() {
+    var self = this, s = this.state;
+    var per = P_PERIODS.filter(function (p) { return p.k === s.period; })[0];
+    var isPix = s.pay === 'pix';
+    function calc(pl) {
+      var total = pl.price[per.k], full = pl.price.m * per.n, monthly = Math.round(total / per.n);
+      return { total: total, full: full, monthly: monthly, save: full - total };
+    }
+    function offFor(k) {
+      var n = P_PERIODS.filter(function (p) { return p.k === k; })[0].n, best = 0;
+      P_PLANS.forEach(function (pl) { if (!pl.price.m) return; var pct = 100 * (1 - pl.price[k] / (pl.price.m * n)); if (pct > best) best = pct; });
+      return Math.floor(best);
+    }
+
+    var plans = P_PLANS.map(function (pl, i) {
+      var c = calc(pl), free = !pl.price.m, cur = s.current === pl.k, hi = pl.k === 'narrador';
+      var parts = free ? { int: '0', dec: '' } : pParts(c.monthly);
+      var billed;
+      if (free) billed = 'Pra sempre, sem cartão.';
+      else if (per.k === 'm') billed = isPix ? 'Pago de uma vez, vale 1 mês.' : 'Cobrado todo mês no cartão.';
+      else billed = pBrl(c.total) + (isPix ? ' de uma vez, vale ' + per.unit : (per.k === 's' ? ' a cada 6 meses' : ' por ano'));
+      return Object.assign({
+        name: pl.name, desc: pl.desc, tag: pl.tag || '', hasTag: !!pl.tag,
+        cls: 'p-card' + (hi ? ' is-hi' : '') + (pl.k === 'lenda' ? ' is-lenda' : ''),
+        int: parts.int, dec: parts.dec, per: '/mês', priceColor: free ? '#A9A497' : '#EAE5DA',
+        hasWas: !free && per.k !== 'm', was: pBrl(pl.price.m) + '/mês',
+        billed: billed, hasSave: !free && c.save > 0, save: pBrl(c.save),
+        isCurrent: cur, cta: cur ? 'Seu plano atual' : (free ? 'Ficar no Grátis' : 'Assinar ' + pl.name), ctaShort: cur ? 'Atual' : (free ? 'Grátis' : 'Assinar'),
+        btnCls: 'p-btn' + (hi && !cur ? ' is-gold' : ''),
+        buy: function () { if (!free) self.setState({ checkout: pl.k, pixReady: false, copied: false }); },
+        check: free ? '#6F7480' : GOLD,
+        feats: pl.feats.map(function (f, j) { var lead = j === 0 && i > 0; return { t: f, color: lead ? '#8C8F98' : '#D5D0C4', weight: lead ? '500' : '500' }; }),
+        colBg: hi ? 'rgba(197,164,109,.06)' : 'transparent',
+        short: free ? 'R$ 0' : pBrl(c.monthly) + '/mês'
+      }, pGems(pl.gems));
+    });
+
+    var rows = P_ROWS.map(function (r) {
+      if (r.g) return { isGroup: true, isRow: false, label: r.g, cells: [] };
+      return { isGroup: false, isRow: true, label: r.l, cells: r.v.map(function (v, i) {
+        var bg = i === 2 ? 'rgba(197,164,109,.06)' : 'transparent';
+        if (v === true) return { yes: true, no: false, isText: false, t: '', bg: bg, weight: '500', color: '#C9C3B6' };
+        if (v === false) return { yes: false, no: true, isText: false, t: '', bg: bg, weight: '500', color: '#C9C3B6' };
+        return { yes: false, no: false, isText: true, t: v, bg: bg, weight: i === 3 ? '700' : '500', color: i === 3 ? '#E2C793' : '#C9C3B6' };
+      }) };
+    });
+
+    var co = { title: '', period: '', pay: '', total: '', terms: '', hasSave: false, save: '', isPix: false, pixReady: false, pixNotReady: true, showMain: true, btn: '', f1: '', f2: '', f3: '', s1: '', s2: '', s3: '' };
+    if (s.checkout) {
+      var pl = P_PLANS.filter(function (p) { return p.k === s.checkout; })[0], c = calc(pl);
+      var end = new Date(); end.setMonth(end.getMonth() + per.n);
+      var endTxt = end.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+      co = Object.assign({
+        title: 'Assinar ' + pl.name, period: per.word + (per.k === 'm' ? '' : ' · ' + pBrl(c.monthly) + '/mês'),
+        pay: isPix ? 'Pix' : 'Cartão de crédito', total: pBrl(c.total), hasSave: c.save > 0, save: pBrl(c.save),
+        terms: isPix ? 'Vale até ' + endTxt + '. Não renova sozinho: a gente te avisa uns dias antes.' : 'Renova em ' + endTxt + ' por ' + pBrl(c.total) + '. Cancela quando quiser em Minha conta.',
+        isPix: isPix, pixReady: isPix && s.pixReady, pixNotReady: isPix && !s.pixReady, showMain: !(isPix && s.pixReady),
+        btn: isPix ? 'Gerar Pix de ' + pBrl(c.total) : 'Ir pro pagamento'
+      }, pGems(pl.gems));
+    }
+
+    return {
+      currentName: P_PLANS.filter(function (p) { return p.k === s.current; })[0].name,
+      periods: P_PERIODS.map(function (p) { var on = s.period === p.k, off = offFor(p.k); return { label: p.label, on: on ? 'true' : 'false', cls: 'p-seg' + (on ? ' is-on' : ''), hasOff: off > 0, off: (p.k === 's' ? 'até ' : '') + off + '% off', pick: function () { self.setState({ period: p.k }); } }; }),
+      pays: [['cartao', 'Cartão'], ['pix', 'Pix']].map(function (p) { var on = s.pay === p[0]; return { label: p[1], on: on ? 'true' : 'false', cls: 'p-seg' + (on ? ' is-on' : ''), pick: function () { self.setState({ pay: p[0] }); } }; }),
+      payNote: isPix ? 'No Pix você paga o período inteiro de uma vez. Não renova sozinho: a gente avisa antes de acabar.' : 'No cartão a assinatura renova sozinha. Cancela quando quiser, sem multa.',
+      periodWord: per.k === 'm' ? 'mensais' : (per.k === 's' ? 'no semestral' : 'no anual'), payWord: isPix ? 'Pix' : 'cartão',
+      plans: plans, rows: rows,
+      faq: P_FAQ.map(function (f, i) { var open = s.faq === i; return { q: f.q, a: f.a, open: open, exp: open ? 'true' : 'false', rot: open ? '45deg' : '0deg', toggle: function () { self.setState({ faq: open ? -1 : i }); } }; }),
+      hasCheckout: !!s.checkout, co: co, qr: pQr(s.checkout ? s.checkout.length * 7919 + s.period.charCodeAt(0) : 1),
+      copyLabel: s.copied ? 'Código copiado' : 'Copiar código Pix',
+      copyPix: function () { self.setState({ copied: true }); setTimeout(function () { self.setState({ copied: false }); }, 1600); },
+      close: function () { self.setState({ checkout: null }); },
+      closeBg: function (e) { if (e.target === e.currentTarget) self.setState({ checkout: null }); },
+      stop: function () {},
+      confirm: function () { if (isPix) self.setState({ pixReady: true }); else self.setState({ checkout: null }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

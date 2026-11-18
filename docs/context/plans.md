@@ -4,8 +4,9 @@ Cada conta tem **um plano só** (`users.plan`: `free`, `apoiador`, `narrador`, `
 
 ## Regra efetiva (`server/src/modules/plans/plan-limits.bo.ts`)
 
-- `effectiveLimitsOf({ role, plan, lorkariumOwner })` → `PlanLimits`: o admin global (`role = 'admin'`) e o Dono do Lorkarium recebem `PLAN_LIMITS.amigo_do_dono` qualquer que seja o plano; os outros, `PLAN_LIMITS[plan]`. O `plan` do resultado é o da grade aplicada (o deles sai `amigo_do_dono`).
-- `customizationAllowed({ role, plan, lorkariumOwner })` → `boolean`: cor personalizada no perfil, no dado e nas cores salvas, textura do dado e foto em GIF. Verdadeiro para todo plano acima do Grátis (o `apoiador` incluído, mesmo com `customColor: false` na grade da mesa), o admin e o Dono; falso só para `free`.
+- O plano vem de `users.plan` (o do admin) e do plano pago (`users.paid_plan` até `paid_plan_until`, só o serviço de cobrança grava): `effectivePlanOf({ plan, paidPlan })` → o maior dos dois na ordem de `USER_PLANS`. Colunas, `CHECK`s, carência e `activePaidPlanSql` em [`plans/plano-pago.md`](plans/plano-pago.md).
+- `effectiveLimitsOf({ role, plan, paidPlan?, lorkariumOwner })` → `PlanLimits`: o admin global (`role = 'admin'`) e o Dono do Lorkarium recebem `PLAN_LIMITS.amigo_do_dono` qualquer que seja o plano; os outros, `PLAN_LIMITS[effectivePlanOf(conta)]`. O `plan` do resultado é o da grade aplicada (o deles sai `amigo_do_dono`).
+- `customizationAllowed({ role, plan, paidPlan?, lorkariumOwner })` → `boolean`: cor personalizada no perfil, no dado e nas cores salvas, textura do dado e foto em GIF. Verdadeiro para todo plano efetivo acima do Grátis (o `apoiador` incluído, pago ou do admin, mesmo com `customColor: false` na grade da mesa), o admin e o Dono; falso só para `free`.
 - `PlanLimitsBo.requireRoom(resource, stored, adding, limits)` (estático; `resource` é um `PlanCountResource`): lança `PlanLimitError` quando `stored + adding` passa `limits[PLAN_COUNT_LIMIT_KEY[resource]]`. Passa sempre com:
   - limite `null` (sem teto de plano);
   - `adding <= 0`: quem já passou do limite mantém o que tem e segue editando (grandfathering; desligar luz ou bloqueador de quem desceu de plano abriria a névoa);
@@ -29,7 +30,7 @@ O plano é lido do banco na transação da escrita, nunca do `socket.data.user` 
 
 - `new CampaignsDao(tx).lockWithOwner(campaignId)` → `CampaignWithOwnerPo | undefined` (`CampaignPo & { owner: UserPlanPo }`): o `lockById` (`FOR NO KEY UPDATE`) com `innerJoin(users)` na mesma consulta. Trava **só** a linha da mesa (`of: campaigns`), nunca a do dono. Uso: `effectiveLimitsOf(row.owner)`.
 - `new UsersDao(tx).lockForPlan(userId)` → `UserPlanPo | undefined` em `FOR NO KEY UPDATE`: serializa duas escritas contadas contra o plano da mesma conta (criar mesa).
-- `UserPlanPo` (`users.po.ts`) = `Pick<UserPo, 'role' | 'plan'>` + `lorkariumOwner` (não é coluna: `lorkariumOwnerSql`), o que `effectiveLimitsOf` e `customizationAllowed` aceitam. Toda leitura dele seleciona `PLAN_ACCOUNT_COLUMNS` (`users.dao.ts`); onde se lê `{ role, plan }` abaixo, é esse objeto.
+- `UserPlanPo` (`users.po.ts`) = `Pick<UserPo, 'role' | 'plan' | 'paidPlan'>` (o `paidPlan` já é o vigente, por `activePaidPlanSql`) + `lorkariumOwner` (não é coluna: `lorkariumOwnerSql`), o que `effectiveLimitsOf` e `customizationAllowed` aceitam. Toda leitura dele seleciona `PLAN_ACCOUNT_COLUMNS` (`users.dao.ts`); onde se lê `{ role, plan }` abaixo, é esse objeto.
 - Provado em `server/test/integration/plan-owner-locks.spec.ts` (inclusive que a trava da mesa deixa a linha do dono livre); a regra em `server/test/modules/plans/plan-limits.bo.spec.ts`; o 403 em `plan-limit-response.spec.ts`; o ack em `board/board-command-edge.spec.ts`.
 
 ## Membros da mesa
@@ -137,3 +138,7 @@ Personalizações da conta (plano **da pessoa**, não do dono da mesa): o `Profi
 
 - `e2e/test/plans.spec.ts`, grupo `plans` (~50 s com o boot: `--project=plans --workers=1`): o admin põe a Bia no Grátis pelo backoffice e a home dela desabilita "Nova mesa" com "Seu plano Grátis permite até 1 mesa como dono. …"; o admin a põe na Lenda e o selo da linha dela na aba "Na mesa" do Caio troca de nome acessível, "Amigo do Dono" por "Plano Lenda", sem recarregar (o card de perfil é lido ao abrir: reaberto, já mostra a Lenda); na mesa Grátis com 5 grids o card "Grid" do "Novo item" fica desabilitado com a frase do plano e o `POST …/scenes` dá 403 `PLAN_LIMIT` (`scenes`, 5, `free`); o Caio (`amigo_do_dono`) cria a 2ª mesa; a Bia cria uma mesa, desce ao Grátis e nas configurações a mesa segue privada (grandfathering) com o seletor da Capa travado em "A mesa usa a foto. Disponível no Narrador". Cada teste devolve a Bia ao `amigo_do_dono` no `afterEach`.
 - Bia e Caio nascem `amigo_do_dono` no seed (`DevPlayersSeedService`, também o do banco `_e2e`) e o admin do e2e não tem limite: os outros specs não sentem o plano. Spec que precise de outro plano usa `setPlanOf(admin, 'bia', 'free')` (`e2e/test/support/plans.ts`, `PATCH /api/admin/users/:id/plan` com o cookie do admin) e devolve o plano no fim.
+
+## Armadilhas
+
+- **A conta de teste nasce `free`.** Spec de integração que não é sobre plano dá `amigo_do_dono` aos donos das mesas (`setAccountPlan`, `server/test/support/account-plans.ts`), num `beforeEach` logo depois do `useTokenTable()`. Sem isso, o spec só passa enquanto o arranjo couber no Grátis: com a grade de 2026-11-17 (1 barra, 0 mapas, 1 espectador) 38 arquivos quebraram por `PLAN_LIMIT` sem relação com o que provavam. A fábrica `tokenCommandFor` cria 2 barras: numa mesa Grátis ela é recusada por `tokenBars`. Spec de plano que precisa de um token comum passa `bars: []`.
