@@ -93,6 +93,7 @@ import type { TokenHoverRequest } from './use-token-hover';
 import { RoomHeader } from './room-header';
 import { RoomSidePanel } from './room-panel';
 import { useInteractionFollowsTable } from './use-interaction-follows-table';
+import { useGridSetupLock } from './use-grid-setup-lock';
 import { usePlayerIdsOf } from './table-players';
 import { useRoomSightOutlines } from './table-sight-outlines';
 import { RoomContexts } from './room-contexts';
@@ -243,6 +244,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   });
   useConditionToolFollow(table ? { board: table.board, interaction, conditionTool } : null);
   const tool = useBoardInteraction(interaction, (state) => state.tool);
+  const setupLock = useGridSetupLock(table?.board ?? null, interaction);
   const drawMode = useBoardInteraction(interaction, (state) => state.drawMode);
   const ping = useBoardPings({
     renderer,
@@ -473,6 +475,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
                 renderer={renderer}
                 role={role}
                 auraMotion={props.auraMotion}
+                setupLock={setupLock}
                 onConfigure={() => setSceneDialog(true)}
                 onNewToken={() => setTokenDialog({ tokenId: null })}
               />

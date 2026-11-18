@@ -32,6 +32,7 @@ export function tabSummaryFixture(
     visibility: 'document',
     version: 0,
     updatedAt: '2026-10-29T12:00:00.000Z',
+    planLocked: false,
     ...changes,
   };
 }

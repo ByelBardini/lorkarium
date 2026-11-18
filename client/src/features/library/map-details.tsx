@@ -1,8 +1,12 @@
 import { MAP_NAME_MAX_LENGTH, type LibraryMapSummaryDto } from '@lorkarium/contracts';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { SegmentField } from '@/components/segment-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { planHintIdOf } from '@/features/plans/plan-gate';
+import { PlanGateHint } from '@/features/plans/plan-gate-hint';
+import { PlanLockSeal } from '@/features/plans/plan-lock-seal';
+import { usePlanLock } from '@/features/plans/use-plan-limits';
 import { useDraftField } from '@/lib/use-draft-field';
 import { assetUrlOf } from '@/services/assets-api';
 import { DeleteMapDialog } from './library-map-menu';
@@ -19,7 +23,8 @@ export type MapDetailsProps = Readonly<{
 }>;
 
 /** The map picked in the library: its image, the master's name, who sees it, the main mark and
- *  delete, and "Abrir" (the room's map tab) for everyone.
+ *  delete, and "Abrir" (the room's map tab) for everyone. A map past the plan's ceiling keeps
+ *  its name and who sees it off (the main mark, opening and deleting stay).
  *
  *  Example: `<MapDetails map={map} isMaster live mainPending={false} submit={submit} onOpen={open} />` */
 export function MapDetails(props: MapDetailsProps): React.JSX.Element {
@@ -57,6 +62,9 @@ export function MapDetails(props: MapDetailsProps): React.JSX.Element {
 }
 
 function MapMasterFields({ map, live, mainPending, submit }: MapDetailsProps): React.JSX.Element {
+  const lock = usePlanLock('libraryMaps', map);
+  const lockHintId = useId();
+  const editable = live && lock.open;
   const binding = useDraftField({
     confirmed: map.name,
     save: async (draft) => {
@@ -68,17 +76,24 @@ function MapMasterFields({ map, live, mainPending, submit }: MapDetailsProps): R
   });
   return (
     <>
+      <PlanLockSeal gate={lock} className="-mb-4 self-end [&_svg]:size-3.5" />
       <label>
         Nome do mapa
-        <Input {...binding} disabled={!live} maxLength={MAP_NAME_MAX_LENGTH} />
+        <Input
+          {...binding}
+          disabled={!editable}
+          aria-describedby={planHintIdOf(lock, lockHintId)}
+          maxLength={MAP_NAME_MAX_LENGTH}
+        />
       </label>
+      <PlanGateHint id={lockHintId} gate={lock} />
       <SegmentField
         legend="Quem vê na biblioteca"
         fill
         value={map.visibility}
         options={[
-          { value: 'private', label: 'Privado', disabled: !live },
-          { value: 'public', label: 'Público', disabled: !live },
+          { value: 'private', label: 'Privado', disabled: !editable },
+          { value: 'public', label: 'Público', disabled: !editable },
         ]}
         onChange={(visibility) =>
           void submit({ intent: 'updateMap', mapId: map.id, changes: { visibility } })

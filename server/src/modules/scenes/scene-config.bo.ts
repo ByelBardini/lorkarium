@@ -21,3 +21,28 @@ export class SceneConfigBo {
     return grid;
   }
 }
+
+/** What a grid past its owner's plan keeps: the grid in numbers and its background. */
+export type SceneSetup = SceneGrid & Readonly<{ backgroundAssetId: string | null }>;
+
+const SETUP_KEYS = [
+  'widthCells',
+  'heightCells',
+  'cellDistance',
+  'cellUnit',
+  'gridVisible',
+  'gridOpacity',
+] as const satisfies readonly (keyof SceneGrid)[];
+
+/** Whether a configure changes the grid's setup: its size, ruler, lines or background (`undefined`
+ *  keeps the background). The vision mode and the free movement are play, never setup.
+ *
+ *  Example: `changesGridSetup(stored, { ...grid, cellDistance: 3 }, undefined) // true` */
+export function changesGridSetup(
+  stored: SceneSetup,
+  grid: SceneGrid,
+  background: string | null | undefined,
+): boolean {
+  if (background !== undefined && background !== stored.backgroundAssetId) return true;
+  return SETUP_KEYS.some((key) => stored[key] !== grid[key]);
+}

@@ -22,6 +22,7 @@ import type { SheetStoreState } from '@/stores/sheet-store';
 import { SheetConsoleButton } from './sheet-console-button';
 import { SheetFrameChrome } from './sheet-frame-chrome';
 import { SheetSandboxView } from './sheet-sandbox-view';
+import { useSheetScriptsNotice } from './sheet-scripts-gate';
 import { useSheetAssetData, type SheetAssetLoad } from './use-sheet-asset-data';
 import { useSheetConsole, type SheetConsoleModel } from './use-sheet-console';
 
@@ -79,7 +80,8 @@ export function SheetPanel(props: SheetPanelProps): React.JSX.Element {
   useReadAgainOnControlLoss(store, props.tokens);
   const sheetConsole = useTemplateConsole(template);
   const onConsole = useConsoleSink(canManage ? template : null, sheetConsole, props.services.now);
-  const connect = useBridgeOf(props, holder === NOBODY, onConsole);
+  const scriptsOff = useSheetScriptsNotice(template);
+  const connect = useBridgeOf(props, holder === NOBODY, onConsole, scriptsOff);
   const assetLoad = useSheetAssetData(
     props.services.templateAssets,
     template?.manifest.assets ?? NO_DECLARED_ASSETS,
@@ -104,6 +106,7 @@ export function SheetPanel(props: SheetPanelProps): React.JSX.Element {
           title={props.title}
           clock={props.services.clock}
           connect={connect}
+          scripts={scriptsOff === undefined}
           createChannel={props.createChannel}
         />
       ) : status === 'ready' && template ? (
@@ -177,6 +180,7 @@ function useBridgeOf(
   props: SheetPanelProps,
   holderless: boolean,
   onConsole: SheetConsoleSink | undefined,
+  notice: string | undefined,
 ) {
   const { campaignId, store, tokens, services, diceTray } = props;
   return useCallback(
@@ -197,8 +201,9 @@ function useBridgeOf(
         diceTray,
         onReady,
         onConsole,
+        notice,
       }),
-    [campaignId, store, tokens, services, diceTray, holderless, onConsole],
+    [campaignId, store, tokens, services, diceTray, holderless, onConsole, notice],
   );
 }
 

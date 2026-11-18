@@ -1,6 +1,7 @@
 import { tokenUpdatedDto } from '@lorkarium/contracts';
 import { eq } from 'drizzle-orm';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { CharactersDao } from '../../src/modules/characters/characters.dao';
 import { toSeatedCharacterRow } from '../../src/modules/characters/characters.mapper';
 import { activeConditions } from '../../src/modules/conditions/conditions.po';
@@ -20,6 +21,11 @@ import { charactersSynced, lyraBarsOnBia, poisonCharacter } from '../support/tab
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+beforeEach(async () => {
+  await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+  await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+});
 
 const labelsOf = (bars: readonly { label: string }[]): string[] => bars.map(({ label }) => label);
 

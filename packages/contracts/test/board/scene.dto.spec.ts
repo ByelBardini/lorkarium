@@ -104,6 +104,7 @@ describe('freeMovement', () => {
     ...GRID,
     background: null,
     vision: 'off',
+    planLocked: false,
   };
 
   it.each([true, false])('the scene carries freeMovement %s as sent', (freeMovement) => {
@@ -142,5 +143,26 @@ describe('configureSceneCommandDto vision', () => {
 
   it('a command without vision is accepted (the scene keeps its mode)', () => {
     expect(issuePathsOf(COMMAND)).toEqual([]);
+  });
+});
+
+describe('planLocked', () => {
+  const SCENE = {
+    id: ACTION_ID,
+    name: 'Cripta',
+    ...GRID,
+    background: null,
+    vision: 'off',
+    freeMovement: false,
+  };
+
+  it('a scene without planLocked is refused on planLocked (the room always knows)', () => {
+    expect(sceneDto.safeParse(SCENE).error?.issues.map(({ path }) => path)).toEqual([
+      ['planLocked'],
+    ]);
+  });
+
+  it('a grid past the plan arrives with planLocked true', () => {
+    expect(sceneDto.parse({ ...SCENE, planLocked: true }).planLocked).toBe(true);
   });
 });

@@ -6,7 +6,8 @@ import {
   type CampaignLibraryDto,
   type SheetTemplateDto,
 } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { silence } from '../support/live-table';
 import { recordEventsOf } from '../support/realtime-client';
 import type { SignedInUser } from '../support/sign-in';
@@ -14,6 +15,11 @@ import type { Table } from '../support/tables';
 import { useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Not about plans: the owners of Vharn and Quelm, born free, keep the .js of their templates.
+beforeEach(async () => {
+  await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+  await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+});
 const INDEX = { path: 'index.html', content: '<p id="pv"></p>' };
 const CODE = { files: [INDEX, { path: 'style.css', content: 'p { color: red; }' }] };
 const FIVE_FILES = [

@@ -22,6 +22,8 @@ export const ANA: AuthUserDto = {
   color: 'teal',
   avatarId: null,
   plan: 'amigo_do_dono',
+  paidPlan: null,
+  paidPlanUntil: null,
   lorkariumOwner: false,
   limits: PLAN_LIMITS.amigo_do_dono,
   customization: true,
@@ -37,6 +39,8 @@ export const ROOT_ADMIN: AuthUserDto = {
   avatarId: null,
   // The admin keeps the stored plan (free) and gets the limits of amigo_do_dono.
   plan: 'free',
+  paidPlan: null,
+  paidPlanUntil: null,
   lorkariumOwner: false,
   limits: PLAN_LIMITS.amigo_do_dono,
   customization: true,

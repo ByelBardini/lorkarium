@@ -39,6 +39,7 @@ export function tormentaTemplate(overrides: Partial<SheetTemplateDto> = {}): She
     folderId: null,
     name: 'Ficha Tormenta',
     version: 3,
+    planLocked: false,
     updatedAt: EDITED_AT,
     files: tormentaFiles(),
     manifest: { permissions: [], bars: [], assets: [] },
@@ -50,6 +51,6 @@ export function tormentaTemplate(overrides: Partial<SheetTemplateDto> = {}): She
 export function tormentaSummary(
   overrides: Partial<SheetTemplateSummaryDto> = {},
 ): SheetTemplateSummaryDto {
-  const { id, folderId, name, version, updatedAt } = tormentaTemplate();
-  return { id, folderId, name, version, updatedAt, ...overrides };
+  const { id, folderId, name, version, planLocked, updatedAt } = tormentaTemplate();
+  return { id, folderId, name, version, planLocked, updatedAt, ...overrides };
 }

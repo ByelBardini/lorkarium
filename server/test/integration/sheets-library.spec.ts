@@ -17,8 +17,12 @@ import type { Table } from '../support/tables';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+beforeEach(async () => {
+  await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+  await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+});
 // These tables create several templates: Ana's plan sets no limit here.
-beforeEach(() => setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono'));
 const CODE = { files: [{ path: 'index.html', content: '<p></p>' }] };
 
 function sheetsUrl(table: Table = live.vharn): string {

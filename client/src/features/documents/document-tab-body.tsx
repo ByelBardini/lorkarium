@@ -6,6 +6,8 @@ import type { StoreApi } from 'zustand/vanilla';
 import { assetUrlOf } from '@/services/assets-api';
 import type { Clipboard } from '@/services/clipboard';
 import type { DocumentsApi } from '@/services/documents-api';
+import { PlanLockSeal } from '@/features/plans/plan-lock-seal';
+import { usePlanLock } from '@/features/plans/use-plan-limits';
 import type { MixedLibrary } from '@/lib/library-entries';
 import type { DocumentTabEditorState } from '@/stores/document-editor-store';
 import { DocumentImagePicker } from './document-image-picker';
@@ -42,7 +44,8 @@ function shownTabStateOf({
   return { confirmed, draft, status, dirty };
 }
 
-/** One tab's body: its own draft, saved against the tab's version, with the image pickers.
+/** One tab's body: its own draft, saved against the tab's version, with the image pickers. A tab
+ *  past the plan's ceiling (`planLocked`) opens read only, with the lock and its sentence.
  *
  *  Example: `<DocumentTabBody key={tabKey} editor={tabEditor} canEdit {...context} />` */
 export function DocumentTabBody(props: DocumentTabBodyProps): React.JSX.Element {
@@ -50,6 +53,7 @@ export function DocumentTabBody(props: DocumentTabBodyProps): React.JSX.Element 
   const actions = props.editor.getState();
   const [imageAnswer, setImageAnswer] = useState<((image: AssetDto | null) => void) | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const lock = usePlanLock('documentTabs', state.confirmed);
   const { api, campaignId, documentId, tabId } = props;
   const imageOf = async (
     request: Promise<Awaited<ReturnType<DocumentsApi['uploadImage']>>>,
@@ -69,9 +73,15 @@ export function DocumentTabBody(props: DocumentTabBodyProps): React.JSX.Element 
       ),
     );
   if (!state.confirmed || !state.draft) return <p className="p-6 text-sm">Carregando aba…</p>;
-  const editable = props.canEdit && !READ_ONLY_STATUSES.includes(state.status);
+  const editable = props.canEdit && lock.open && !READ_ONLY_STATUSES.includes(state.status);
   return (
     <>
+      {!lock.open && (
+        <p className="flex items-center gap-2 px-4 pt-3 text-xs text-muted-foreground sm:px-8">
+          <PlanLockSeal gate={lock} className="[&_svg]:size-3.5" />
+          {lock.hint}
+        </p>
+      )}
       <DraftProblemActions
         status={state.status}
         dirty={state.dirty}

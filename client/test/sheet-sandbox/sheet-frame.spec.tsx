@@ -114,11 +114,12 @@ describe('SheetSourceFrame', () => {
     ],
   };
 
-  function renderSource(key: number, source: SheetSource = LYRA) {
+  function renderSource(key: number, source: SheetSource = LYRA, scripts?: boolean) {
     return (
       <SheetSourceFrame
         key={key}
         source={source}
+        scripts={scripts}
         title="Ficha · Lyra"
         onConnect={(port) => connected.push(port)}
         onReloaded={() => (reloads += 1)}
@@ -126,6 +127,13 @@ describe('SheetSourceFrame', () => {
       />
     );
   }
+
+  it('with scripts off (a table without sheetScripts) the frame has the markup but not the js', () => {
+    render(renderSource(1, LYRA, false));
+    const srcdoc = sheetFrame().getAttribute('srcdoc') ?? '';
+    expect(srcdoc).toContain('<p id="lyra">Lyra</p>');
+    expect(srcdoc).not.toContain('lorkarium.ready();');
+  });
 
   it('frames the srcdoc built from the author files, scripts listed by hash', () => {
     render(renderSource(1));

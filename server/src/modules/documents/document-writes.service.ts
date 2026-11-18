@@ -43,6 +43,7 @@ export type DocumentDaos = Readonly<{
   tabs: Pick<
     DocumentTabsDao,
     | 'listOfDocument'
+    | 'rankOf'
     | 'findInDocument'
     | 'lockById'
     | 'insert'
@@ -52,7 +53,7 @@ export type DocumentDaos = Readonly<{
     | 'delete'
   >;
   assets: Pick<DocumentAssetsDao, 'ofDocument' | 'ofAsset' | 'prepare' | 'confirmTab'>;
-  campaigns: Pick<CampaignsDao, 'lockWithOwner'>;
+  campaigns: Pick<CampaignsDao, 'lockWithOwner' | 'findOwnerPlan'>;
   members: Pick<CampaignMembersDao, 'findMembership'>;
   folders: Pick<SceneFoldersDao, 'listOfCampaign'>;
   images: Pick<LibraryImagesDao, 'findInCampaign'>;
@@ -100,6 +101,15 @@ export class DocumentWriteSteps {
       limits: effectiveLimitsOf(table.owner),
     };
   }
+  /** The limits of the owner's plan without the table's lock: what a read, and a tab body (which
+   *  never waits on the table), knows of the plan.
+   *
+   *  Example: `const limits = await steps.ownerLimits(daos, requester)` */
+  async ownerLimits(daos: DocumentDaos, requester: LibraryRequester): Promise<PlanLimits> {
+    const owner = await daos.campaigns.findOwnerPlan(requester.campaignId);
+    if (!owner) throw new CampaignNotFoundError(requester);
+    return effectiveLimitsOf(owner);
+  }
   /** Like `lockedAccess`, for a tab body: locks only that tab's row (an unknown tab locks nothing
    *  and is refused by the scope), so the body never waits on the table.
    *
@@ -145,7 +155,9 @@ export class DocumentWriteSteps {
   async view(daos: DocumentDaos, access: CampaignAccessBo, row: DocumentPo): Promise<DocumentDto> {
     const owners = await daos.documents.owners(row.campaignId, row.id);
     const tabs = await daos.tabs.listOfDocument(row.campaignId, row.id);
-    return toDocumentDto(row, owners, access, tabs);
+    const requester = { campaignId: row.campaignId, userId: access.userIdOf() };
+    const limits = await this.ownerLimits(daos, requester);
+    return toDocumentDto(row, owners, access, tabs, limits);
   }
   /** The receipt of an action already applied with the same command, or null for a new one. */
   async previous(

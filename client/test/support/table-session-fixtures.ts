@@ -238,6 +238,7 @@ export const VHARN_SCENE: SceneDto = {
   background: null,
   vision: 'off',
   freeMovement: false,
+  planLocked: false,
 };
 
 /** The scope of VHARN's group grid (`VHARN_SCENE`): where the room's commands go by default. */

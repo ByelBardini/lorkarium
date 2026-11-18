@@ -94,7 +94,12 @@ describe('CampaignSettingsService', () => {
 
   function onFreePlan(): void {
     const owner = campaigns.rows[0]!.ownerId;
-    campaigns.ownerPlans.set(owner, { role: 'user', plan: 'free', lorkariumOwner: false });
+    campaigns.ownerPlans.set(owner, {
+      role: 'user',
+      plan: 'free',
+      activePaidPlan: null,
+      lorkariumOwner: false,
+    });
   }
 
   function masterAwayFromTable(): void {

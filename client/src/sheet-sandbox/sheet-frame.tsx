@@ -80,15 +80,23 @@ export function SheetFrame({
 }
 
 export type SheetSourceFrameProps = Omit<SheetFrameProps, 'srcdoc'> &
-  Readonly<{ source: SheetSource }>;
+  Readonly<{
+    source: SheetSource;
+    /** `false` on a table whose plan has no `sheetScripts`: the author's JS is left out. */
+    scripts?: boolean;
+  }>;
 
 /** A `SheetFrame` built once per mount from the author's files (a new `key` builds a new frame).
  *  Files that do not make a page (a missing include, a cycle, an undeclared asset) show why
  *  instead of a frame.
  *
  *  Example: `<SheetSourceFrame key={run} source={{ files }} title="Prévia da ficha" onConnect={attach} onReloaded={showReloaded} />` */
-export function SheetSourceFrame({ source, ...frame }: SheetSourceFrameProps): React.JSX.Element {
-  const [built] = useState(() => srcdocOrProblem(source));
+export function SheetSourceFrame({
+  source,
+  scripts = true,
+  ...frame
+}: SheetSourceFrameProps): React.JSX.Element {
+  const [built] = useState(() => srcdocOrProblem(source, scripts));
   if (typeof built !== 'string')
     return (
       <p role="alert" className="p-4 text-sm text-destructive">
@@ -98,9 +106,9 @@ export function SheetSourceFrame({ source, ...frame }: SheetSourceFrameProps): R
   return <SheetFrame srcdoc={built} {...frame} />;
 }
 
-function srcdocOrProblem(source: SheetSource): string | SheetBuildError {
+function srcdocOrProblem(source: SheetSource, scripts: boolean): string | SheetBuildError {
   try {
-    return buildSheetSrcdoc(source);
+    return buildSheetSrcdoc(source, { scripts });
   } catch (error) {
     if (error instanceof SheetBuildError) return error;
     throw error;

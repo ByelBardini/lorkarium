@@ -9,6 +9,7 @@ import {
 } from '@lorkarium/contracts';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { buildApp } from '../../src/app/build-app';
 import { readEnv, type Env } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
@@ -278,6 +279,8 @@ describe('the command queue of each table, with a pool of 2 connections', () => 
     name: string,
   ): Promise<{ client: RealtimeClient; table: Table; userId: string }> {
     const user = await signUpAndLogin(app, connection.db, name);
+    // Not about plans: the owner, born free, keeps no ceiling of plan.
+    await setAccountPlan(connection.db, user.id, 'amigo_do_dono');
     const table = await createTable(app, user, `Mesa de ${name}`);
     const client = await connectRealtime(baseUrl, { token: user.token });
     clients.push(client);

@@ -1,6 +1,7 @@
 import type { AuthUserDto } from '@lorkarium/contracts';
 import {
   CompassIcon,
+  GemIcon,
   LayoutListIcon,
   UsersRoundIcon,
   PanelLeftCloseIcon,
@@ -119,6 +120,14 @@ export function RailNav({
           expanded={expanded}
           onNavigate={onNavigate}
           badge={friendsBadge}
+          end={false}
+        />
+        <RailLink
+          to="/planos"
+          label="Planos"
+          icon={GemIcon}
+          expanded={expanded}
+          onNavigate={onNavigate}
           end={false}
         />
       </nav>

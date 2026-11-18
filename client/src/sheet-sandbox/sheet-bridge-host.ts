@@ -51,7 +51,7 @@ import {
   type SheetCharacterCommands,
   type SheetCharacterTarget,
 } from './sheet-bridge-character';
-import { createConsoleIntake, type SheetConsoleSink } from './sheet-console';
+import { createConsoleIntake, hostConsoleNoticeOf, type SheetConsoleSink } from './sheet-console';
 import { permissionRefusalOf } from './sheet-permissions';
 import type { SheetTokenSource, SheetTokenView } from './sheet-token-source';
 
@@ -93,6 +93,8 @@ export type SheetBridgeHostOptions = Readonly<{
   onReady?: () => void;
   /** The frame's console lines, past the host's own rate limit; absent = dropped (a player). */
   onConsole?: SheetConsoleSink;
+  /** A line the host writes to the console as the frame connects (the JS the plan does not run). */
+  notice?: string;
 }>;
 
 export type SheetBridgeHost = Readonly<{ dispose: () => void }>;
@@ -155,6 +157,7 @@ export function createSheetBridgeHost(options: SheetBridgeHostOptions): SheetBri
     image: NO_IMAGE,
     sent: null,
   };
+  if (options.notice) bridge.console(hostConsoleNoticeOf(options.notice));
   const onMessage = (event: { data: unknown }): void => void receive(bridge, event.data);
   const push = (): void => pushState(bridge);
   const unsubscribers = [options.sheet.subscribe(push), options.token?.subscribe(push) ?? noop];

@@ -30,6 +30,22 @@ export class SavedRollRulesBo {
     if (wanted <= this.maxSaved) return;
     throw new SavedRollsLimitError(wanted, this.maxSaved);
   }
+
+  /** Throws `PLAN_LIMIT` (`readOnly`) when the roll at `rank` (born after `rank` others of the
+   *  member at the table) is past the table plan: its name and parts are read only; moving it to a
+   *  folder and deleting it never come here.
+   *
+   *  Example: `rules.requireConfigurable(3, PLAN_LIMITS.free)` → throws "saved roll 4 of plan free is read only …" */
+  requireConfigurable(rank: number, limits: PlanLimits): void {
+    PlanLimitsBo.requireEditable('savedRolls', rank, limits);
+  }
+
+  /** Whether the roll at `rank` is past the table plan, the `planLocked` of its DTO.
+   *
+   *  Example: `rules.isPlanLocked(3, PLAN_LIMITS.free) // true` */
+  isPlanLocked(rank: number, limits: PlanLimits): boolean {
+    return PlanLimitsBo.isReadOnly('savedRolls', rank, limits);
+  }
 }
 
 /** Throws `PLAN_LIMIT` (`savedRollFolders`) when one more folder would pass the table plan (free

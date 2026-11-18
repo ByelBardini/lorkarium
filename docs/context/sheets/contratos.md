@@ -5,7 +5,7 @@ Fontes: `packages/contracts/src/sheets/`, exportadas por `@lorkarium/contracts`.
 ## Modelo (`sheet-template.dto.ts`)
 
 - O código é `files` (lista ordenada de `{ path, content }`, até 512 KiB somados): contrato e mensagens em [`arquivos.md`](arquivos.md). `SHEET_TEMPLATE_NAME_MAX_LENGTH` (60; nome aparado, 1–60) e `UNNAMED_SHEET_TEMPLATE_NAME` ("Modelo sem nome").
-- `sheetTemplateSummaryDto`: `id`, `folderId` (nulo = raiz), `name`, `version`, `updatedAt`, **sem código**. É a linha do agregado da biblioteca do mestre (o `campaignLibraryDto` ainda não o leva).
+- `sheetTemplateSummaryDto`: `id`, `folderId` (nulo = raiz), `name`, `version`, `planLocked` (o modelo passou do teto de modelos do dono e está só leitura; ver [`modelos.md`](modelos.md)), `updatedAt`, **sem código**. É a linha do agregado da biblioteca do mestre (o `campaignLibraryDto` ainda não o leva).
 - `sheetTemplateDto`: o resumo mais `files` e `manifest` (obrigatório). É o que o editor do mestre lê.
 - `sheetTemplateCodeDto`: `name`, `version`, `files` e `manifest`. É o código que a ficha roda e vai junto da leitura da ficha. O `name` monta o rótulo do dado ("Ficha Tormenta · Ataque").
 - `createSheetTemplateRequestDto`: `name?`, `folderId?` (nullable), `files` obrigatório, `manifest?` (ausente = um que não declara nada). Sem `actionId`, como os grids e pastas da biblioteca.

@@ -86,11 +86,11 @@ describe('the plan at the table: the seals of the roster and the limits of the o
     ]);
   });
 
-  it("the detail of Bia's table carries the free limits (5 grids) and the plan of each member", async () => {
+  it("the detail of Bia's table carries the free limits (3 grids) and the plan of each member", async () => {
     const detail = await detailOf(caio, tavern.id);
 
     expect(detail.limits).toEqual(PLAN_LIMITS.free);
-    expect(detail.limits.maxScenes).toBe(5);
+    expect(detail.limits.maxScenes).toBe(3);
     expect(detail.members).toMatchObject([
       { userId: bia.id, plan: 'free' },
       { userId: caio.id, plan: 'lenda' },

@@ -335,31 +335,49 @@ describe('LibraryMapsService.detail regions', () => {
 });
 
 describe("LibraryMapsService.create and the owner's plan", () => {
-  const free = { role: 'user', plan: 'free', lorkariumOwner: false } as const;
+  const free = { role: 'user', plan: 'free', activePaidPlan: null, lorkariumOwner: false } as const;
+  const narrador = { ...free, plan: 'narrador' } as const;
+  const mapsOf = (count: number, campaignId = VHARN_ID) =>
+    Array.from({ length: count }, (_, index) =>
+      masmorra({ id: `7c7c7c7c-7c7c-4c7c-8c7c-${String(index).padStart(12, '0')}`, campaignId }),
+    );
 
-  it('a free table with 1 map refuses the 2nd as PLAN_LIMIT libraryMaps, saving nothing', async () => {
-    const { h, service } = harnessWith(masmorra());
+  it('a free table refuses even its first map as PLAN_LIMIT libraryMaps, limit 0, saving nothing', async () => {
+    const { h, service } = harnessWith();
     h.campaigns.owner = free;
     await expect(service.create(ana, NEW_MAP)).rejects.toMatchObject({
       code: 'PLAN_LIMIT',
       resource: 'libraryMaps',
-      stored: 1,
-      limit: 1,
+      stored: 0,
+      limit: 0,
       plan: 'free',
     });
     expect(h.journal).toEqual(['lock']);
   });
 
-  it('a free table creates its first map', async () => {
-    const { h, service } = harnessWith();
-    h.campaigns.owner = free;
+  it('a narrador table with 3 maps refuses the 4th as PLAN_LIMIT libraryMaps, saving nothing', async () => {
+    const { h, service } = harnessWith(...mapsOf(3));
+    h.campaigns.owner = narrador;
+    await expect(service.create(ana, NEW_MAP)).rejects.toMatchObject({
+      code: 'PLAN_LIMIT',
+      resource: 'libraryMaps',
+      stored: 3,
+      limit: 3,
+      plan: 'narrador',
+    });
+    expect(h.journal).toEqual(['lock']);
+  });
+
+  it('a narrador table with 2 maps creates the 3rd', async () => {
+    const { h, service } = harnessWith(...mapsOf(2));
+    h.campaigns.owner = narrador;
     await expect(service.create(ana, NEW_MAP)).resolves.toMatchObject({ name: 'Mundo' });
   });
 
   it('the maps of another table do not count for Vharn', async () => {
     const other = '8b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e';
-    const { h, service } = harnessWith(masmorra({ campaignId: other }));
-    h.campaigns.owner = free;
+    const { h, service } = harnessWith(...mapsOf(3, other));
+    h.campaigns.owner = narrador;
     await expect(service.create(ana, NEW_MAP)).resolves.toMatchObject({ name: 'Mundo' });
   });
 });

@@ -44,6 +44,8 @@ Hooks: `use-saved-rolls.ts` (`useSavedRolls(campaignId, api)` → `{ rolls | nul
 
 **Mensagens** `dice-messages.ts` — `notationMessageOf` (erro do game-core/server traduzido por categoria de regex, ordem importa; desconhecido → "Não deu para ler a rolagem. Use algo como 1d20+5."), `rollFailureMessage` (`rate_limited` → "Muitas rolagens seguidas. Espere 1 s.", `forbidden` → "Quem assiste à mesa não rola dados."), `savedRollFailureMessage` (`limit` → "Você já tem 50 rolagens salvas…", `rate_limited` → "Muitas ações seguidas. Espere N s."), `advantageHintOf`, `modeHintOf`, `secretRollText`, `revealAnnouncement`, `UNKNOWN_ROLLER` ("Alguém").
 
+Rolagem salva além do teto do plano (`planLocked`): o cadeado "Só leitura" na etiqueta, com a frase no `title`; rolar, "+", mover e apagar seguem ([`../plans/client-controles.md`](../plans/client-controles.md)).
+
 ## Histórico
 
 - **Conta pura** `src/lib/dice-breakdown.ts` — `breakdownOf({ parts, total })` → `{ summary, parts }` (`summary` só com 2+ peças: "Acerto 17 + Bênção 3 + 2 = 22"); `PartBreakdown { label, expression, total, dice, hiddenDice, successes, modifier }` com até `SHOWN_DICE_MAX` (50) `DieMark { value, sides, status, extreme, success }`. `modifier` = soma dos números da expressão (`parseDiceExpression`, não total − dados), `null` se zero, ilegível ou peça de sucessos. `naturalOf(rolagem)` → `'twenty'` | `'one'` | `null`: só d20 `kept`/`exploded` de qualquer peça (o descartado da vantagem não conta), 20 vence 1; o selo diz "natural", nunca "crítico" (independente de sistema). `rollModeOf(expressões)` lê só o **primeiro** termo de dado de todas as peças: com `keep` de `quantidade − 1` (o que o `withAdvantage` escreve) → `advantage`/`disadvantage`; senão `null`, sem procurar nos termos seguintes.

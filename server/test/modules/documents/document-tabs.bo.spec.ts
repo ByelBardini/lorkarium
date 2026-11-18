@@ -4,6 +4,8 @@ import { CampaignAccessBo } from '../../../src/modules/campaigns/campaign-access
 import { DocumentAccessBo } from '../../../src/modules/documents/document-access.bo';
 import {
   DocumentTabsBo,
+  isTabPlanLocked,
+  requireTabConfigurable,
   type DocumentTabState,
 } from '../../../src/modules/documents/document-tabs.bo';
 import { ANA_ID } from '../../support/auth-factories';
@@ -94,11 +96,11 @@ describe('DocumentTabsBo', () => {
       }),
     );
   });
-  it('on a free table the 5th tab passes and the 6th is PLAN_LIMIT documentTabs', () => {
+  it('on a free table the 3rd tab passes and the 4th is PLAN_LIMIT documentTabs', () => {
     const tabs = (count: number) => Array.from({ length: count }, (_, i) => tab(`${i}`, i));
-    expect(tabsFor('bia', tabs(4)).requireCreate(PLAN_LIMITS.free)).toBe(4);
-    expect(() => tabsFor('bia', tabs(5)).requireCreate(PLAN_LIMITS.free)).toThrow(
-      expect.objectContaining({ code: 'PLAN_LIMIT', resource: 'documentTabs', limit: 5 }),
+    expect(tabsFor('bia', tabs(2)).requireCreate(PLAN_LIMITS.free)).toBe(2);
+    expect(() => tabsFor('bia', tabs(3)).requireCreate(PLAN_LIMITS.free)).toThrow(
+      expect.objectContaining({ code: 'PLAN_LIMIT', resource: 'documentTabs', limit: 3 }),
     );
   });
   it('past the technical 200 the lenda table still gets DOCUMENT_TAB_LIMIT, not the plan', () => {
@@ -155,5 +157,32 @@ describe('DocumentTabsBo', () => {
     expect(() => tabsFor('bia').mergedOrder([B, A, C])).toThrow(
       expect.objectContaining({ code: 'DOCUMENT_TAB_NOT_FOUND' }),
     );
+  });
+});
+
+describe('the plan over a tab name and body', () => {
+  it('on a free table the 3rd tab born (rank 2) is configurable and not planLocked', () => {
+    expect(() => requireTabConfigurable(2, PLAN_LIMITS.free)).not.toThrow();
+    expect(isTabPlanLocked(2, PLAN_LIMITS.free)).toBe(false);
+  });
+  it('on a free table the 4th tab born (rank 3) is PLAN_LIMIT readOnly and planLocked', () => {
+    expect(() => requireTabConfigurable(3, PLAN_LIMITS.free)).toThrow(
+      expect.objectContaining({
+        code: 'PLAN_LIMIT',
+        reason: 'readOnly',
+        resource: 'documentTabs',
+        stored: 4,
+        limit: 3,
+        plan: 'free',
+      }),
+    );
+    expect(isTabPlanLocked(3, PLAN_LIMITS.free)).toBe(true);
+  });
+  it('the narrador keeps 10 tabs editable and the technical ceiling of 200 never locks', () => {
+    expect([9, 10].map((rank) => isTabPlanLocked(rank, PLAN_LIMITS.narrador))).toEqual([
+      false,
+      true,
+    ]);
+    expect(isTabPlanLocked(250, PLAN_LIMITS.lenda)).toBe(false);
   });
 });

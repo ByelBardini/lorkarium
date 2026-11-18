@@ -1,5 +1,6 @@
 import { tokenUpdatedDto, type TokenDto } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
 import { TokensDao } from '../../src/modules/tokens/tokens.dao';
 import { envelope, eventPayload, send, synced } from '../support/live-table';
@@ -12,6 +13,11 @@ type Settings = Readonly<{ playersCreateTokens?: boolean; playersDeleteTokens?: 
 
 describe('a player creates, edits and deletes their own tokens by the table settings', () => {
   const live = useTokenTable();
+  // Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+  beforeEach(async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+    await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+  });
 
   async function turn(settings: Settings, table: Table = live.vharn): Promise<void> {
     const url = `/api/campaigns/${table.id}`;

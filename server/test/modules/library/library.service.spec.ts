@@ -20,7 +20,7 @@ import {
   sceneFolderPo,
 } from '../../support/library-factories';
 import {
-  LibraryCampaignsDaoFake,
+  OwnerPlanCampaignsDaoFake,
   LibraryPublisherFake,
   LibraryScenesDaoFake,
   LibraryTransactionRunnerFake,
@@ -43,7 +43,7 @@ describe('LibraryService', () => {
   let publisher: LibraryPublisherFake;
   let audience: SceneAudienceFake;
   let grids: BoardPublisherFake;
-  let campaigns: LibraryCampaignsDaoFake;
+  let campaigns: OwnerPlanCampaignsDaoFake;
   let service: LibraryService;
 
   beforeEach(() => {
@@ -52,7 +52,7 @@ describe('LibraryService', () => {
       campaignMemberPo({ campaignId: VHARN_ID, userId: ANA_ID, role: 'master' }),
       campaignMemberPo({ campaignId: VHARN_ID, userId: BIA_ID, role: 'player' }),
     ]);
-    campaigns = new LibraryCampaignsDaoFake(journal, [
+    campaigns = new OwnerPlanCampaignsDaoFake(journal, [
       campaignPo({ id: VHARN_ID, activeSceneId: VHARN_SCENE_ID }),
     ]);
     folders = new SceneFoldersDaoFake(journal, [
@@ -317,7 +317,7 @@ describe('LibraryService', () => {
 
   describe("the owner's plan", () => {
     const owner = (plan: 'free' | 'narrador') =>
-      ({ role: 'user', plan, lorkariumOwner: false }) as const;
+      ({ role: 'user', plan, activePaidPlan: null, lorkariumOwner: false }) as const;
     const moreGrids = (total: number, campaignId = VHARN_ID) =>
       Array.from({ length: total - scenes.rows.length }, (_, index) =>
         librarySceneRow({
@@ -326,23 +326,23 @@ describe('LibraryService', () => {
         }),
       );
 
-    it('a free table with 5 grids refuses the 6th as PLAN_LIMIT scenes, saving nothing', async () => {
+    it('a free table with 3 grids refuses the 4th as PLAN_LIMIT scenes, saving nothing', async () => {
       campaigns.owner = owner('free');
-      scenes.rows.push(...moreGrids(5));
+      scenes.rows.push(...moreGrids(3));
 
       await expect(service.createScene(ANA, {})).rejects.toMatchObject({
         code: 'PLAN_LIMIT',
         resource: 'scenes',
-        stored: 5,
-        limit: 5,
+        stored: 3,
+        limit: 3,
         plan: 'free',
       });
       expect(journal).toEqual(['lock']);
     });
 
-    it('a free table with 4 grids creates the 5th', async () => {
+    it('a free table with 2 grids creates the 3rd', async () => {
       campaigns.owner = owner('free');
-      scenes.rows.push(...moreGrids(4));
+      scenes.rows.push(...moreGrids(2));
 
       await expect(service.createScene(ANA, {})).resolves.toMatchObject({ name: 'Grid sem nome' });
     });
@@ -366,15 +366,15 @@ describe('LibraryService', () => {
       expect(journal).toEqual(['lock']);
     });
 
-    it('a narrador table with 20 grids duplicating is PLAN_LIMIT scenes', async () => {
+    it('a narrador table with 15 grids duplicating is PLAN_LIMIT scenes', async () => {
       campaigns.owner = owner('narrador');
-      scenes.rows.push(...moreGrids(20));
+      scenes.rows.push(...moreGrids(15));
 
       await expect(service.duplicate(ANA, TORRE_ID)).rejects.toMatchObject({
         code: 'PLAN_LIMIT',
         resource: 'scenes',
-        stored: 20,
-        limit: 20,
+        stored: 15,
+        limit: 15,
         plan: 'narrador',
       });
     });

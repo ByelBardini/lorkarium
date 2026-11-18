@@ -130,7 +130,10 @@ describe('SavedColorsDao on Postgres', () => {
       return [await dao.lockOwner(biaId), await dao.lockOwner(UNKNOWN_ACCOUNT)];
     });
 
-    expect(answers).toEqual([{ role: 'user', plan: 'free', lorkariumOwner: false }, undefined]);
+    expect(answers).toEqual([
+      { role: 'user', plan: 'free', activePaidPlan: null, lorkariumOwner: false },
+      undefined,
+    ]);
   });
 
   it('lockOwner does not stop a row of another table from pointing at the account', async () => {

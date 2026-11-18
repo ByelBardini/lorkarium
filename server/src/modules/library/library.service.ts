@@ -24,6 +24,7 @@ import type { TokensDao } from '../tokens/tokens.dao';
 import type { WallsDao } from '../walls/walls.dao';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import type { CampaignsDao } from '../campaigns/campaigns.dao';
+import type { CampaignPo } from '../campaigns/campaigns.po';
 import { CampaignNotFoundError } from '../campaigns/campaigns.error';
 import { memberAccessOf, viewerAccessOf } from '../campaigns/member-access';
 import { PlanLimitsBo, effectiveLimitsOf } from '../plans/plan-limits.bo';
@@ -35,15 +36,24 @@ import { SceneNotFoundError } from '../scenes/scenes.error';
 import { toSceneDto } from '../scenes/scenes.mapper';
 import type { LibraryPublisherPort } from './library-publisher.port';
 import { FolderNotFoundError } from './library.error';
-import { toLibraryDto, toLibrarySceneDto, toSceneCopyPo, toSceneFolderDto } from './library.mapper';
-import { SceneLibraryBo, sceneCopyName } from './scene-library.bo';
+import {
+  planLockedOf,
+  planRanksOf,
+  toLibraryDto,
+  toLibrarySceneDto,
+  toSceneCopyPo,
+  toSceneFolderDto,
+  type PlanRank,
+} from './library.mapper';
+import { SceneLibraryBo, editsGridSetup, sceneCopyName } from './scene-library.bo';
 import type { SceneFoldersDao } from './scene-folders.dao';
 import type { SceneFolderPo } from './scene-folders.po';
 
 type LibraryOfTable = SceneLibraryBo<SceneFolderPo, LibrarySceneRow>;
+type TableOfLibrary = Pick<CampaignPo, 'id' | 'activeSceneId'>;
 
 export type LibraryReadDaos = Readonly<{
-  campaigns: Pick<CampaignsDao, 'findById'>;
+  campaigns: Pick<CampaignsDao, 'findWithOwner'>;
   folders: Pick<SceneFoldersDao, 'listOfCampaign'>;
   scenes: Pick<ScenesDao, 'listOfCampaign'>;
 }>;
@@ -65,6 +75,7 @@ export type LibraryWriteDaos = Readonly<{
     | 'insert'
     | 'findInCampaign'
     | 'findLibraryRow'
+    | 'rankOf'
     | 'updateLibrary'
     | 'bumpVersion'
     | 'moveScenes'
@@ -114,8 +125,13 @@ type LibraryEdit = Readonly<{
 // Who loses a grid by an edit, taken out of its rooms once the edit is committed.
 type Eviction = Omit<GridEviction, 'campaignId' | 'at'>;
 type EvictingResult<T> = Readonly<{ value: T; evictions: readonly Eviction[] }>;
-// A grid edited, with the version a new name bumped it to (`null` when the name stayed).
-type SceneEdit = Readonly<{ row: LibrarySceneRow; renamedVersion: number | null }>;
+// A grid edited, with its place in the plan and the version a new name bumped it to (`null` when
+// the name stayed).
+type SceneEdit = Readonly<{
+  row: LibrarySceneRow;
+  place: PlanRank;
+  renamedVersion: number | null;
+}>;
 
 /** The library use cases. Every edit is the master's, runs with the campaign locked (two edits
  *  never decide on the same tree), commits, and only then tells the table `library:changed`.
@@ -129,11 +145,15 @@ export class LibraryService {
   async list(requester: LibraryRequester): Promise<LibraryDto> {
     const { userId, campaignId } = requester;
     const access = await viewerAccessOf(this.deps.members, campaignId, userId);
-    const campaign = await this.deps.read.campaigns.findById(campaignId);
+    const { read } = this.deps;
+    const campaign = await read.campaigns.findWithOwner(campaignId);
     if (!campaign) throw new CampaignNotFoundError({ campaignId, userId });
-    const library = await this.libraryOf(this.deps.read, campaignId, campaign.activeSceneId);
+    const scenes = await read.scenes.listOfCampaign(campaignId);
+    const folders = await read.folders.listOfCampaign(campaignId);
+    const library = this.libraryFrom(folders, campaign, scenes);
     const visible = library.visibleTo(new SceneAccessBo(access, campaign.activeSceneId));
-    return toLibraryDto(campaign.activeSceneId, visible, access.isMaster());
+    const placeOf = planRanksOf(scenes, effectiveLimitsOf(campaign.owner));
+    return toLibraryDto(campaign.activeSceneId, visible, access.isMaster(), placeOf);
   }
 
   /** A new private 20×12 grid, named `UNNAMED_SCENE_NAME` when no name comes. */
@@ -148,33 +168,38 @@ export class LibraryService {
       const { campaignId } = requester;
       const name = input.name ?? UNNAMED_SCENE_NAME;
       const created = await daos.scenes.insert({ campaignId, name, folderId });
-      return this.libraryRowOf(daos, requester, created.id);
+      return this.libraryRowOf(daos, requester, created.id, limits);
     });
   }
 
   /** Renames, moves or publishes/hides a grid; an absent key stays. Hiding a grid that is not
    *  the group's takes its players out of it (`scene:closed`, reason `private`); a new name bumps
-   *  the grid's version and reaches its rooms as `scene:updated` (the tabs and the board say it). */
+   *  the grid's version and reaches its rooms as `scene:updated` (the tabs and the board say it).
+   *  A grid past the owner's plan keeps its name and folder (PLAN_LIMIT `readOnly`); publishing or
+   *  hiding it still passes. */
   async updateScene(
     requester: LibraryRequester,
     sceneId: string,
     changes: UpdateLibrarySceneRequestDto,
   ): Promise<LibrarySceneDto> {
     const action = `edit grid ${sceneId}`;
-    const { row, renamedVersion } = await this.editAndEvict(requester, action, (edit) =>
+    const { row, place, renamedVersion } = await this.editAndEvict(requester, action, (edit) =>
       this.savedSceneEdit(edit, requester, sceneId, changes),
     );
-    if (renamedVersion !== null) this.publishRename(requester.campaignId, renamedVersion, row);
-    return toLibrarySceneDto(row, true);
+    if (renamedVersion !== null)
+      this.publishRename(requester.campaignId, renamedVersion, row, place);
+    return toLibrarySceneDto(row, true, place);
   }
 
   private async savedSceneEdit(
-    { daos, library, groupSceneId }: LibraryEdit,
+    { daos, library, groupSceneId, limits }: LibraryEdit,
     requester: LibraryRequester,
     sceneId: string,
     changes: UpdateLibrarySceneRequestDto,
   ): Promise<EvictingResult<SceneEdit>> {
     if (changes.folderId !== undefined) library.requireKnown(changes.folderId);
+    const place = { rank: await daos.scenes.rankOf(requester.campaignId, sceneId), limits };
+    if (editsGridSetup(changes)) PlanLimitsBo.requireEditable('scenes', place.rank, limits);
     const saved = await daos.scenes.updateLibrary(requester.campaignId, sceneId, changes);
     if (!saved) throw this.sceneNotFound(requester, sceneId);
     const renamedVersion =
@@ -183,12 +208,18 @@ export class LibraryService {
     const movedIntoPrivate = changes.folderId !== undefined && row.hiddenByFolder;
     const hidden =
       (changes.visibility === 'private' || movedIntoPrivate) && sceneId !== groupSceneId;
-    return { value: { row, renamedVersion }, evictions: hidden ? [playersOut(sceneId)] : [] };
+    const evictions = hidden ? [playersOut(sceneId)] : [];
+    return { value: { row, place, renamedVersion }, evictions };
   }
 
-  private publishRename(campaignId: string, version: number, row: LibrarySceneRow): void {
+  private publishRename(
+    campaignId: string,
+    version: number,
+    row: LibrarySceneRow,
+    place: PlanRank,
+  ): void {
     const at = this.deps.clock.now().toISOString();
-    const scene = toSceneDto(row);
+    const scene = toSceneDto(row, planLockedOf('scenes', place));
     this.deps.grids.sceneUpdated({ campaignId, sceneId: row.id, version, at, scene });
   }
 
@@ -211,12 +242,15 @@ export class LibraryService {
     return this.edit(requester, `duplicate grid ${sceneId}`, async ({ daos, library, limits }) => {
       const source = await daos.scenes.findInCampaign(requester.campaignId, sceneId);
       if (!source) throw this.sceneNotFound(requester, sceneId);
+      // A grid past the plan is not copied either: the copy is a change of its setup.
+      const rank = await daos.scenes.rankOf(requester.campaignId, sceneId);
+      PlanLimitsBo.requireEditable('scenes', rank, limits);
       PlanLimitsBo.requireFeature('sceneCopy', limits.sceneCopy, limits);
       PlanLimitsBo.requireRoom('scenes', library.gridCount, 1, limits);
       const name = sceneCopyName(source.name, SCENE_COPY_SUFFIX, SCENE_NAME_MAX_LENGTH);
       const copy = await daos.scenes.insert(toSceneCopyPo(source, name));
       await copySceneContent(daos, source.id, copy.id);
-      return this.libraryRowOf(daos, requester, copy.id);
+      return this.libraryRowOf(daos, requester, copy.id, limits);
     });
   }
 
@@ -299,7 +333,7 @@ export class LibraryService {
       const campaign = await daos.campaigns.lockWithOwner(campaignId);
       if (!campaign) throw new CampaignNotFoundError({ campaignId, userId });
       const groupSceneId = campaign.activeSceneId;
-      const library = await this.libraryOf(daos, campaignId, groupSceneId);
+      const library = await this.libraryOf(daos, campaign);
       return work({ daos, library, groupSceneId, limits: effectiveLimitsOf(campaign.owner) });
     });
     const at = this.deps.clock.now().toISOString();
@@ -311,11 +345,17 @@ export class LibraryService {
 
   private async libraryOf(
     daos: Pick<LibraryReadDaos, 'folders' | 'scenes'>,
-    campaignId: string,
-    activeSceneId: string | null,
+    campaign: TableOfLibrary,
   ): Promise<LibraryOfTable> {
-    const folders = await daos.folders.listOfCampaign(campaignId);
-    const scenes = await daos.scenes.listOfCampaign(campaignId);
+    const folders = await daos.folders.listOfCampaign(campaign.id);
+    return this.libraryFrom(folders, campaign, await daos.scenes.listOfCampaign(campaign.id));
+  }
+
+  private libraryFrom(
+    folders: readonly SceneFolderPo[],
+    { id: campaignId, activeSceneId }: TableOfLibrary,
+    scenes: readonly LibrarySceneRow[],
+  ): LibraryOfTable {
     const { maxFolderDepth } = this.deps;
     return new SceneLibraryBo({ campaignId, activeSceneId, maxFolderDepth, folders, scenes });
   }
@@ -324,8 +364,11 @@ export class LibraryService {
     daos: LibraryWriteDaos,
     requester: LibraryRequester,
     sceneId: string,
+    limits: PlanLimits,
   ): Promise<LibrarySceneDto> {
-    return toLibrarySceneDto(await this.sceneRowOf(daos, requester, sceneId), true);
+    const row = await this.sceneRowOf(daos, requester, sceneId);
+    const rank = await daos.scenes.rankOf(requester.campaignId, sceneId);
+    return toLibrarySceneDto(row, true, { rank, limits });
   }
 
   private async sceneRowOf(

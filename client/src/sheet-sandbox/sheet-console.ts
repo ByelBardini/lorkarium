@@ -66,6 +66,13 @@ export function appendConsoleEntry(
   return { entries: kept, errors, nextId: log.nextId + 1 };
 }
 
+/** A line the host itself writes to the frame's console (a warning about the frame, not from it).
+ *
+ *  Example: `onConsole(hostConsoleNoticeOf('Os scripts deste modelo não rodam no plano Grátis.'))` */
+export function hostConsoleNoticeOf(text: string): SheetConsoleMessageDto {
+  return { type: 'console', level: 'warn', message: text, at: [] };
+}
+
 /** Where a host hands the console messages it admitted. */
 export type SheetConsoleSink = (message: SheetConsoleMessageDto) => void;
 

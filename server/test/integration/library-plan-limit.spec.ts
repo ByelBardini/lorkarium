@@ -50,15 +50,15 @@ function planLimit(resource: string, limit: number, plan: UserPlan) {
 }
 
 describe("grids, copies and maps follow the owner's plan", () => {
-  it('a free table with 5 grids refuses the 6th with 403 PLAN_LIMIT scenes', async () => {
+  it('a free table with 3 grids refuses the 4th with 403 PLAN_LIMIT scenes', async () => {
     await anaOn('free');
-    await fillGrids(5);
+    await fillGrids(3);
 
     const response = await createGrid();
 
     expect(response.statusCode, response.body).toBe(403);
-    expect(response.json()).toMatchObject(planLimit('scenes', 5, 'free'));
-    expect(await gridCount()).toBe(5);
+    expect(response.json()).toMatchObject(planLimit('scenes', 3, 'free'));
+    expect(await gridCount()).toBe(3);
   });
 
   it('a free table duplicating its only grid is 403 PLAN_LIMIT sceneCopy', async () => {
@@ -72,24 +72,33 @@ describe("grids, copies and maps follow the owner's plan", () => {
     expect(await gridCount()).toBe(1);
   });
 
-  it('a narrador table with 20 grids duplicating is 403 PLAN_LIMIT scenes', async () => {
+  it('a narrador table with 15 grids duplicating is 403 PLAN_LIMIT scenes', async () => {
     await anaOn('narrador');
-    const sceneId = await fillGrids(20);
+    const sceneId = await fillGrids(15);
 
     const response = await duplicate(sceneId);
 
     expect(response.statusCode, response.body).toBe(403);
-    expect(response.json()).toMatchObject(planLimit('scenes', 20, 'narrador'));
+    expect(response.json()).toMatchObject(planLimit('scenes', 15, 'narrador'));
   });
 
-  it('a free table with 1 map refuses the 2nd with 403 PLAN_LIMIT libraryMaps', async () => {
+  it('a free table refuses even its first map with 403 PLAN_LIMIT libraryMaps, limit 0', async () => {
     await anaOn('free');
-    expect((await createMap()).statusCode).toBe(201);
 
     const response = await createMap();
 
     expect(response.statusCode, response.body).toBe(403);
-    expect(response.json()).toMatchObject(planLimit('libraryMaps', 1, 'free'));
+    expect(response.json()).toMatchObject(planLimit('libraryMaps', 0, 'free'));
+  });
+
+  it('a narrador table with 3 maps refuses the 4th with 403 PLAN_LIMIT libraryMaps', async () => {
+    await anaOn('narrador');
+    for (let made = 0; made < 3; made += 1) expect((await createMap()).statusCode).toBe(201);
+
+    const response = await createMap();
+
+    expect(response.statusCode, response.body).toBe(403);
+    expect(response.json()).toMatchObject(planLimit('libraryMaps', 3, 'narrador'));
   });
 
   it('an amigo_do_dono table with 40 grids creates the 41st and duplicates', async () => {
@@ -103,7 +112,7 @@ describe("grids, copies and maps follow the owner's plan", () => {
 
   it('the grids of Quelm do not count for Vharn', async () => {
     await anaOn('free');
-    await fillGrids(4);
+    await fillGrids(2);
     await fillGrids(10, live.quelm);
 
     const response = await createGrid();

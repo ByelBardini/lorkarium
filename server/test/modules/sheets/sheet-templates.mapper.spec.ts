@@ -1,3 +1,4 @@
+import { PLAN_LIMITS } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   toSheetTemplateChangesPo,
@@ -7,15 +8,25 @@ import {
 } from '../../../src/modules/sheets/sheet-templates.mapper';
 import { TORMENTA_ID, sheetTemplatePo } from '../../support/sheet-templates-fakes';
 
+const FIRST = { rank: 0, limits: PLAN_LIMITS.free };
+
 describe('sheet templates mapper', () => {
   it('the library row carries no code and the time as ISO', () => {
-    expect(toSheetTemplateSummaryDto(sheetTemplatePo({ version: 4 }))).toEqual({
+    expect(toSheetTemplateSummaryDto(sheetTemplatePo({ version: 4 }), FIRST)).toEqual({
       id: TORMENTA_ID,
       folderId: null,
       name: 'Ficha Tormenta',
       version: 4,
+      planLocked: false,
       updatedAt: '2026-10-31T12:00:00.000Z',
     });
+  });
+
+  it('the 2nd template of a free table (1 template) has planLocked, in the row and in the editor', () => {
+    const place = { rank: 1, limits: PLAN_LIMITS.free };
+
+    expect(toSheetTemplateSummaryDto(sheetTemplatePo(), place).planLocked).toBe(true);
+    expect(toSheetTemplateDto(sheetTemplatePo(), place).planLocked).toBe(true);
   });
 
   it('the code a sheet runs is the name, the version, the files in order and the manifest', () => {
@@ -35,7 +46,7 @@ describe('sheet templates mapper', () => {
 
   it('the files read are a copy: changing them leaves the row alone', () => {
     const row = sheetTemplatePo();
-    const read = toSheetTemplateDto(row);
+    const read = toSheetTemplateDto(row, FIRST);
     read.files[0] = { path: 'index.html', content: 'mudou' };
     expect(row.files[0]?.content).toBe('<p id="pv"></p>');
   });
@@ -45,7 +56,7 @@ describe('sheet templates mapper', () => {
       permissions: string[];
       bars: [];
     };
-    expect(toSheetTemplateDto(sheetTemplatePo({ manifest: stored })).manifest).toEqual({
+    expect(toSheetTemplateDto(sheetTemplatePo({ manifest: stored }), FIRST).manifest).toEqual({
       permissions: ['sheet:images'],
       bars: [],
       assets: [],

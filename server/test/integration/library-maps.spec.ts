@@ -18,8 +18,12 @@ import { setAccountPlan } from '../support/account-plans';
 import { useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+beforeEach(async () => {
+  await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+  await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+});
 // Vharn as it was before the plans: its owner has no plan limit.
-beforeEach(() => setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono'));
 
 const mapsUrl = (table: Table = live.vharn): string => `/api/campaigns/${table.id}/library-maps`;
 const mapUrl = (mapId: string, table: Table = live.vharn): string => `${mapsUrl(table)}/${mapId}`;

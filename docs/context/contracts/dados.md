@@ -47,7 +47,7 @@ Rotas e erros em [`dice/salvas.md`](../dice/salvas.md).
 - `savedRollNameKey(nome)` — apara, tira acento (NFD) e caixa: a identidade do nome (o índice único do server e a checagem do client usam a mesma).
 - `savedRollNameDto` (aparado, 1 a 40) e `savedRollPartsDto` (1 a 10 `diceRollPartDto`).
 - `savedRollFolderDto` `{ id, name }`, `savedRollFoldersResponseDto` `{ folders }`, `savedRollFolderRequestDto` `{ name }` (criar e renomear), `savedRollFolderParamsDto`, `SAVED_ROLL_FOLDERS_MAX` (50). `folderId` (uuid ou `null`) entra opcional no `create` e no `update`; `null` tira a rolagem da pasta.
-- `savedRollDto` `{ id, name, folderId, parts }` e `savedRollsResponseDto` `{ savedRolls }` (resposta do `GET`). A resposta é **frouxa**: `name` e as peças são strings soltas (sem 1..10 peças, sem 40/200, sem aparar); os limites só valem na entrada.
+- `savedRollDto` `{ id, name, folderId, parts, planLocked }` (`planLocked` obrigatório: a salva passou do teto `savedRolls` do plano do dono da mesa, pela ordem de criação entre as do membro, e nome e peças estão só leitura; também viaja no `sheetFrameSavedRollsDto` do `dice.saved.list` da ponte da ficha) e `savedRollsResponseDto` `{ savedRolls }` (resposta do `GET`). A resposta é **frouxa**: `name` e as peças são strings soltas (sem 1..10 peças, sem 40/200, sem aparar); os limites só valem na entrada.
 - `createSavedRollRequestDto` `{ name, parts }` e `updateSavedRollRequestDto` `{ name?, parts? }` (ao menos uma chave: "changes is empty; expected at least one of name, parts"), estritos (`campaignId` no corpo é recusado: a mesa vem da URL).
 - `savedRollParamsDto` `{ campaignId, savedRollId }`.
 

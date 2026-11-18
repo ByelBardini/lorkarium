@@ -6,7 +6,7 @@ import { ImageSourceButtons } from '@/components/image-source-buttons';
 import { PlanSeal } from '@/components/plan-seal';
 import type { ImageSender } from '@/components/use-image-sender';
 import { AVATAR_ACCEPT } from '@/lib/avatar-file';
-import { PLAN_FEATURE_LABEL } from '@/lib/plan-limit-message';
+import { featureRefusalText } from '@/lib/plan-limit-message';
 import { bannerUrlOf } from '@/lib/banner-url';
 import { memberColorCss } from '@/lib/member-color';
 import type { ProfileApi } from '@/services/profile-api';
@@ -56,7 +56,7 @@ function BannerLocked({ hint }: Readonly<{ hint: string }>): React.JSX.Element {
     <div className="flex items-center gap-3 border border-divider px-4 py-3">
       <PlanSeal holder={REQUIRED_SEAL} className="text-2xl" />
       <div className="flex flex-col gap-0.5 text-sm">
-        <p className="text-label">{PLAN_FEATURE_LABEL.profileBanner} nos planos pagos.</p>
+        <p className="text-label">{featureRefusalText('profileBanner')}</p>
         <p className="text-muted-foreground">{hint}</p>
       </div>
     </div>

@@ -35,7 +35,7 @@ Orçamento: 512 KiB JSON UTF-8, 100000 caracteres de texto, 10000 nós, profundi
 Fonte: `document-tab.dto.ts`. Teto `DOCUMENT_TABS_MAX` = 200 abas por documento; nome aparado 1–40 (`DOCUMENT_TAB_NAME_MAX_LENGTH`), padrão `UNNAMED_DOCUMENT_TAB_NAME` ("Nova aba").
 
 - `documentTabVisibilityDto`: `document` (segue o documento) ou `masters` (só mestres).
-- `documentTabSummaryDto`: id, name, visibility, version (da aba), updatedAt. `documentTabDto` acrescenta `schemaVersion: 1` e `content`; leitura de aba é `documentTabResponseDto` `{ tab }`.
+- `documentTabSummaryDto`: id, name, visibility, version (da aba), updatedAt, `planLocked` (obrigatório: a aba passou do teto `documentTabs` do plano do dono pela ordem de criação no documento, e o nome e o corpo estão só leitura; ver [abas.md](abas.md)). `documentTabDto` acrescenta `schemaVersion: 1` e `content`; leitura de aba é `documentTabResponseDto` `{ tab }`.
 - `documentTabParamsDto`: `campaignId`, `documentId`, `tabId` UUID.
 - Comandos com `versionedActionShape` (versão **do documento**): `createDocumentTabRequestDto` (`name?`), `updateDocumentTabRequestDto` (`name?`, `visibility?`; ao menos um), `reorderDocumentTabsRequestDto` (`tabIds` 1–200, sem repetição: "Expected unique document tab IDs"), `deleteDocumentTabRequestDto`.
 - `updateDocumentTabContentRequestDto`: `actionId`, `expectedVersion` **da aba** e `content` obrigatório; editar uma aba não conflita com outra.

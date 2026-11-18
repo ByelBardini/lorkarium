@@ -106,6 +106,7 @@ function accountScreen(deps: AppDependencies): () => React.JSX.Element {
         clipboard={deps.clipboard}
         dicePreferences={deps.dicePreferences}
         chatPreferences={deps.chatPreferences}
+        billingApi={deps.billingApi}
       />
     );
   };

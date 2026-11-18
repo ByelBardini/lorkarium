@@ -36,7 +36,9 @@ import { sceneIdOf, sceneKey } from './library-view';
 import { MoveFolderDialog } from './move-folder-dialog';
 import type { LibrarySubmit } from './use-library-submit';
 import { planHintIdOf } from '@/features/plans/plan-gate';
+import { usePlanLock } from '@/features/plans/use-plan-limits';
 import { useLibraryPlanGates } from './library-plan-gates';
+import { MenuPlanHint } from './menu-plan-hint';
 
 /** What the master can do in the tree; a player's tree has none of it. */
 export type TreeMaster = Readonly<{
@@ -196,28 +198,31 @@ function FolderItems(props: MenuActions & Readonly<{ folder: SceneFolderDto }>) 
 function SceneItems(props: MenuActions & Readonly<{ scene: LibrarySceneDto }>) {
   const { master, scene } = props;
   const reasonId = useId();
-  const copyHintId = useId();
+  const hintId = useId();
   const gates = useLibraryPlanGates();
+  const lock = usePlanLock('scenes', scene);
+  // A locked grid is read only first: its sentence wins over the plan's copy and count.
+  const copy = lock.open ? gates.duplicate : lock;
   const isGroup = scene.id === master.library.activeSceneId;
   const off = !master.live;
   const duplicate = (): void => void master.submit({ intent: 'duplicateScene', sceneId: scene.id });
   return (
     <>
-      <ContextMenuItem disabled={off} onSelect={() => props.startRename(sceneKey(scene.id))}>
+      <ContextMenuItem
+        disabled={off || !lock.open}
+        aria-describedby={planHintIdOf(lock, hintId)}
+        onSelect={() => props.startRename(sceneKey(scene.id))}
+      >
         Renomear
       </ContextMenuItem>
       <ContextMenuItem
-        disabled={off || !gates.duplicate.open}
-        aria-describedby={planHintIdOf(gates.duplicate, copyHintId)}
+        disabled={off || !copy.open}
+        aria-describedby={planHintIdOf(copy, hintId)}
         onSelect={duplicate}
       >
         Duplicar
       </ContextMenuItem>
-      {!gates.duplicate.open && (
-        <ContextMenuLabel id={copyHintId} className="max-w-56 text-xs font-normal">
-          {gates.duplicate.hint}
-        </ContextMenuLabel>
-      )}
+      <MenuPlanHint id={hintId} gate={copy} />
       <ContextMenuSeparator />
       <ContextMenuItem
         variant="destructive"

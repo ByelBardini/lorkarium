@@ -2,13 +2,22 @@ import type { PlanLimits, TokenAuraKindDto } from '@lorkarium/contracts';
 import { CustomColorPlanBo, type SentColor } from '../plans/custom-color-plan.bo';
 import { PlanLimitsBo } from '../plans/plan-limits.bo';
 
+/** The settings of a bar that go read only past the plan (its value is play and stays free). */
+export type TokenBarSetting = Readonly<{ label: string; max: number; color: string }>;
+
+/** The settings of a form that go read only past the plan; switching to it stays free. */
+export type TokenFormSetting = Readonly<{ id: string; name: string; imageAssetId: string | null }>;
+
 /** What a token holds that its table's plan counts: its bars, its forms, its aura's kind and the
- *  colors it wears (bars, aura, light), whose custom ones it keeps on any plan. */
+ *  colors it wears (bars, aura, light), whose custom ones it keeps on any plan. The settings of
+ *  its bars and forms, in position order, say which ones are read only past the plan. */
 export type TokenPlanHold = Readonly<{
   bars: number;
   forms: number;
   auraKind: TokenAuraKindDto | null;
   colors?: readonly SentColor[];
+  barSettings?: readonly TokenBarSetting[];
+  formSettings?: readonly TokenFormSetting[];
 }>;
 
 /** What a command sends of those; an absent one keeps what the token holds. `colors` are the
@@ -18,14 +27,17 @@ export type TokenPlanSent = Readonly<{
   forms?: number | undefined;
   aura?: Readonly<{ kind: TokenAuraKindDto; color?: SentColor }> | null | undefined;
   colors?: readonly SentColor[];
+  barSettings?: readonly TokenBarSetting[] | undefined;
+  formSettings?: readonly TokenFormSetting[] | undefined;
 }>;
 
 const NOTHING_HELD: TokenPlanHold = { bars: 0, forms: 0, auraKind: null, colors: [] };
 
 /** The plan of the table's owner on its tokens: bars and forms per token, the kinds of aura and
- *  the sight-blocking tokens per scene. Only growth is refused: a token that already holds more
- *  (from before a lower plan) keeps it and keeps being edited. `limits` are the table's effective
- *  ones, for the other checks a token command runs (the custom color, say).
+ *  the sight-blocking tokens per scene. Growth is refused; a token that already holds more (from
+ *  before a lower plan) keeps it, and the bars and forms past the ceiling keep their settings
+ *  (read only) while their values, the switch of form and the rest of the token stay free.
+ *  `limits` are the table's effective ones, for the other checks a token command runs.
  *
  *  Example: `new TokenPlanBo(effectiveLimitsOf(scene.owner)).requireNew({ bars: 3 }) // PLAN_LIMIT` */
 export class TokenPlanBo {
@@ -36,13 +48,16 @@ export class TokenPlanBo {
     this.requireChange(NOTHING_HELD, sent);
   }
 
-  /** An edit of a token that holds `held`: more bars or forms than it has must fit the plan, and
-   *  an aura of another kind must be one the plan has.
+  /** An edit of a token that holds `held`: more bars or forms than it has must fit the plan, an
+   *  aura of another kind must be one the plan has, and the bars and forms past the plan keep
+   *  their settings (read only; deleting them passes).
    *
    *  Example: `plan.requireChange({ bars: 5, forms: 0, auraKind: null }, { bars: 5 }) // passes` */
   requireChange(held: TokenPlanHold, sent: TokenPlanSent): void {
     if (sent.bars !== undefined) this.requireRoom('tokenBars', held.bars, sent.bars);
-    if (sent.forms !== undefined) this.requireRoom('tokenForms', held.forms, sent.forms);
+    if (sent.forms !== undefined) this.requireFormRoom(held, sent.formSettings, sent.forms);
+    this.requireBarsKept(held.barSettings ?? [], sent.barSettings);
+    this.requireFormsKept(held.formSettings ?? [], sent.formSettings);
     this.requireAura(held.auraKind, sent.aura);
     this.requireColors(held.colors ?? [], [...(sent.colors ?? []), sent.aura?.color]);
   }
@@ -75,6 +90,50 @@ export class TokenPlanBo {
     PlanLimitsBo.requireRoom('sightBlockers', stored, adding, this.limits);
   }
 
+  // Bars have no id: their rank is their position. Past the ceiling, the sent bars must be the
+  // held ones past it, in order, with their settings (some may be gone); a deletion before them
+  // moves the first one under the ceiling, where it is free.
+  private requireBarsKept(
+    held: readonly TokenBarSetting[],
+    sent: readonly TokenBarSetting[] | undefined,
+  ): void {
+    const ceiling = this.limits.maxBarsPerToken;
+    const locked = held.slice(ceiling);
+    if (!sent || locked.length === 0) return;
+    let next = 0;
+    sent.slice(ceiling).forEach((bar, index) => {
+      const found = locked.findIndex((kept, at) => at >= next && sameBarSetting(kept, bar));
+      if (found === -1) PlanLimitsBo.requireEditable('tokenBars', ceiling + index, this.limits);
+      else next = found + 1;
+    });
+  }
+
+  // Forms keep their id: each held one past the ceiling (by position) keeps its name and image.
+  private requireFormsKept(
+    held: readonly TokenFormSetting[],
+    sent: readonly TokenFormSetting[] | undefined,
+  ): void {
+    const heldById = new Map(held.map((form, rank) => [form.id, { form, rank }]));
+    for (const form of sent ?? []) {
+      const kept = heldById.get(form.id);
+      if (!kept || sameFormSetting(kept.form, form)) continue;
+      PlanLimitsBo.requireEditable('tokenForms', kept.rank, this.limits);
+    }
+  }
+
+  // Forms with an id the token does not hold are new: they need room next to the ones it keeps,
+  // so a form past the plan is not swapped for a "new" one with its settings changed.
+  private requireFormRoom(
+    held: TokenPlanHold,
+    sent: readonly TokenFormSetting[] | undefined,
+    count: number,
+  ): void {
+    if (!held.formSettings || !sent) return this.requireRoom('tokenForms', held.forms, count);
+    const heldIds = new Set(held.formSettings.map(({ id }) => id));
+    const kept = sent.filter(({ id }) => heldIds.has(id)).length;
+    PlanLimitsBo.requireRoom('tokenForms', kept, sent.length - kept, this.limits);
+  }
+
   private requireRoom(resource: 'tokenBars' | 'tokenForms', held: number, sent: number): void {
     PlanLimitsBo.requireRoom(resource, held, sent - held, this.limits);
   }
@@ -84,4 +143,12 @@ export class TokenPlanBo {
     if (!aura || aura.kind === held) return;
     PlanLimitsBo.requireFeature('auraKind', this.limits.auraKinds.includes(aura.kind), this.limits);
   }
+}
+
+function sameBarSetting(left: TokenBarSetting, right: TokenBarSetting): boolean {
+  return left.label === right.label && left.max === right.max && left.color === right.color;
+}
+
+function sameFormSetting(left: TokenFormSetting, right: TokenFormSetting): boolean {
+  return left.name === right.name && left.imageAssetId === right.imageAssetId;
 }

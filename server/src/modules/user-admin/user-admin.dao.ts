@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, getTableColumns, inArray, ne, sql } from 'drizzle-orm';
 import { lorkariumOwnerSql } from '../../database/lorkarium-owner-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
+import { activePaidPlanSql, activePaidPlanUntilSql } from '../auth/users.dao';
 import { users, type UserPo } from '../auth/users.po';
 import { campaignMembers } from '../campaigns/campaign-members.po';
 import { campaigns } from '../campaigns/campaigns.po';
@@ -8,7 +9,13 @@ import { campaigns } from '../campaigns/campaigns.po';
 /** An account row with how many tables it is a member of and whether it is the Dono do
  *  Lorkarium (`lorkariumOwnerSql`). */
 export type AccountListingRow = UserPo &
-  Readonly<{ campaignCount: number; lorkariumOwner: boolean }>;
+  Readonly<{
+    campaignCount: number;
+    lorkariumOwner: boolean;
+    // The paid plan only while in force (the raw `paidPlan` of the row may have ended).
+    activePaidPlan: UserPo['paidPlan'];
+    activePaidPlanUntil: Date | null;
+  }>;
 
 /** A table the account owns, with how many other people are members of it. */
 export type OwnedCampaignRow = Readonly<{ id: string; name: string; otherMembers: number }>;
@@ -17,6 +24,8 @@ const listingColumns = {
   ...getTableColumns(users),
   campaignCount: sql<number>`count(${campaignMembers.campaignId})::int`,
   lorkariumOwner: lorkariumOwnerSql(users.username),
+  activePaidPlan: activePaidPlanSql(),
+  activePaidPlanUntil: activePaidPlanUntilSql(),
 };
 
 /** The backoffice's reads and writes over `users` (the auth table) and the tables an account owns. */

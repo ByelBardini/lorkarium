@@ -2,6 +2,7 @@ import type { LibraryMapDetailDto, MapRegionDto } from '@lorkarium/contracts';
 import type { KeyboardEvent } from 'react';
 import type { AppDependencies } from '@/app/router';
 import { Button } from '@/components/ui/button';
+import { planHintIdOf } from '@/features/plans/plan-gate';
 import type { MapWorkspaceEntry } from '@/stores/document-workspace-store';
 import { useMapDrawingFlow } from '@/stores/map-drawing-flow';
 import { MapEditorToolbar } from './map-editor-toolbar';
@@ -67,14 +68,22 @@ function keepEscapeInTheForm(event: KeyboardEvent): void {
   if (event.key === 'Escape') event.stopPropagation();
 }
 
-/** "Editar lugar", on the card of a place: opens the editor with that place chosen.
+/** "Editar lugar", on the card of a place: opens the editor with that place chosen. On a map past
+ *  the plan it is off, described by the sentence under "Editar mapa".
  *
  *  Example: `<MapRegionEditButton editor={editor} />` */
 export function MapRegionEditButton({
   editor,
 }: Readonly<{ editor: MapEditor }>): React.JSX.Element {
+  const { lock, lockHintId } = editor;
   return (
-    <Button size="sm" variant="outline" disabled={!editor.live} onClick={editor.open}>
+    <Button
+      size="sm"
+      variant="outline"
+      disabled={!editor.live || !lock.open}
+      aria-describedby={planHintIdOf(lock, lockHintId)}
+      onClick={editor.open}
+    >
       Editar lugar
     </Button>
   );

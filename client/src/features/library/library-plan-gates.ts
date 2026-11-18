@@ -29,7 +29,7 @@ type CountedLibrary = Readonly<{
 /** The gates of a library under `limits` (`null` = not known: all open). Duplicating needs the
  *  copy in the plan and room for one more grid.
  *
- *  Example: `libraryPlanGatesOf(PLAN_LIMITS.free, library).grid.open // false with 5 grids` */
+ *  Example: `libraryPlanGatesOf(PLAN_LIMITS.free, library).grid.open // false with 3 grids` */
 export function libraryPlanGatesOf(
   limits: PlanLimits | null,
   library: CountedLibrary,

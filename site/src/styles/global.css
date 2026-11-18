@@ -23,6 +23,10 @@
   --color-ember: var(--brand-ember);
   --color-ember-light: var(--brand-ember-light);
   --color-moss-light: var(--brand-moss-light);
+  /* The seals of the paid plans, in the colors the app gives them (its member palette). */
+  --color-seal-apoiador: #b39ddb;
+  --color-seal-narrador: #6fa8dc;
+  --color-seal-lenda: #e0b25c;
 
   --font-sans: var(--brand-font-sans);
   --font-display: var(--brand-font-display);

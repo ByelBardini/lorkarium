@@ -15,22 +15,27 @@ const ITENS = documentTabPo({
 });
 describe('document tab mappers', () => {
   it('the summary carries the tab version and no body or database-only columns', () => {
-    expect(toDocumentTabSummaryDto(ITENS)).toEqual({
+    expect(toDocumentTabSummaryDto(ITENS, false)).toEqual({
       id: ITENS_TAB_ID,
       name: 'Itens',
       visibility: 'document',
       version: 3,
       updatedAt: '2026-10-31T10:00:00.000Z',
+      planLocked: false,
     });
   });
+  it('a tab past the plan carries planLocked in the summary and in the opened tab', () => {
+    expect(toDocumentTabSummaryDto(ITENS, true).planLocked).toBe(true);
+    expect(toDocumentTabDto(ITENS, true).planLocked).toBe(true);
+  });
   it('the opened tab carries schema version 1 and its canonical content', () => {
-    expect(toDocumentTabDto(ITENS)).toMatchObject({
+    expect(toDocumentTabDto(ITENS, false)).toMatchObject({
       id: ITENS_TAB_ID,
       schemaVersion: 1,
       content: documentText('Corda de 15 m'),
     });
   });
   it('a stored body outside the contract is refused instead of being served', () => {
-    expect(() => toDocumentTabDto(documentTabPo({ content: { type: 'script' } }))).toThrow();
+    expect(() => toDocumentTabDto(documentTabPo({ content: { type: 'script' } }), false)).toThrow();
   });
 });

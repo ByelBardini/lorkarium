@@ -1,13 +1,14 @@
 import type { ConfigureSceneCommandDto, SceneBackgroundDto, SceneDto } from '@lorkarium/contracts';
-import type { SceneGrid } from './scene-config.bo';
+import type { SceneGrid, SceneSetup } from './scene-config.bo';
 import type { SceneRow } from './scenes.dao';
-import type { SceneGridPo } from './scenes.po';
+import type { SceneGridPo, ScenePo } from './scenes.po';
 
 /** Scene row → the scene clients see; Postgres numeric "1.50" becomes 1.5, and the background
- *  carries the pixels of its image.
+ *  carries the pixels of its image. `planLocked` comes from the grid's rank under the owner's
+ *  plan (`gridPlanLockOf`).
  *
- *  Example: `toSceneDto(await scenesDao.findActiveOf(campaignId)).cellDistance // 1.5` */
-export function toSceneDto(scene: SceneRow): SceneDto {
+ *  Example: `toSceneDto(await scenesDao.findActiveOf(campaignId), false).cellDistance // 1.5` */
+export function toSceneDto(scene: SceneRow, planLocked: boolean): SceneDto {
   return {
     id: scene.id,
     name: scene.name,
@@ -20,6 +21,7 @@ export function toSceneDto(scene: SceneRow): SceneDto {
     background: backgroundOfScene(scene),
     vision: scene.visionMode,
     freeMovement: scene.freeMovement,
+    planLocked,
   };
 }
 
@@ -45,4 +47,21 @@ export function toSceneGridPo(grid: SceneGrid): SceneGridPo {
 export function toSceneGrid(command: ConfigureSceneCommandDto): SceneGrid {
   const { widthCells, heightCells, cellDistance, cellUnit, gridVisible, gridOpacity } = command;
   return { widthCells, heightCells, cellDistance, cellUnit, gridVisible, gridOpacity };
+}
+
+/** A stored scene → its setup for the rule, numeric "1.50" as 1.5.
+ *
+ *  Example: `changesGridSetup(toSceneSetup(scene), grid, request.backgroundAssetId)` */
+export function toSceneSetup(scene: ScenePo): SceneSetup {
+  const { widthCells, heightCells, cellUnit, gridVisible, gridOpacity, backgroundAssetId } = scene;
+  const cellDistance = Number(scene.cellDistance);
+  return {
+    widthCells,
+    heightCells,
+    cellDistance,
+    cellUnit,
+    gridVisible,
+    gridOpacity,
+    backgroundAssetId,
+  };
 }

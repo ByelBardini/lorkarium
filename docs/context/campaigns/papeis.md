@@ -91,7 +91,7 @@ O que fica: a linha em `campaign_members` (F5, queda e reinício não derrubam o
 
 ## Tetos do plano (espectadores, jogadores, co-mestres)
 
-Seguem o plano do **dono** ([`../plans.md`](../plans.md)): o Grátis aceita 2 espectadores, 6 jogadores e 1 co-mestre. O dono e o juggernaut não ocupam assento (`CampaignMembersDao.countByRole` os deixa de fora). Recusa = 403 `PLAN_LIMIT` com `planLimit.resource` `spectators` | `players` | `masters`; nada é gravado nem avisado.
+Seguem o plano do **dono** ([`../plans.md`](../plans.md)): o Grátis aceita 1 espectador, 5 jogadores e 1 co-mestre (a grade inteira em [`../contracts/planos.md`](../contracts/planos.md)). O dono e o juggernaut não ocupam assento (`CampaignMembersDao.countByRole` os deixa de fora). Recusa = 403 `PLAN_LIMIT` com `planLimit.resource` `spectators` | `players` | `masters`; nada é gravado nem avisado.
 
 - **Entrada** (código e Explorar): toda entrada é como espectador, então "mesa cheia" é o teto de espectadores. O `CampaignJoinService` conta e insere na transação do assento, com a mesa travada por `lockWithOwner` (duas entradas ao mesmo tempo não passam as duas). Quem já é membro entra de novo sem contar nem travar. A mesa sumida antes da trava → `CAMPAIGN_NOT_FOUND`.
 - **Troca de papel**: o `MemberRoleService.write` trava a mesa (`lockWithOwner`) no começo da transação do papel e conta o papel de **destino** (`player` → `players`, `master` → `masters`). Ir para espectador não conta: a pessoa já estava na mesa.

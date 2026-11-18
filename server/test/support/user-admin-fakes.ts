@@ -25,7 +25,13 @@ export class UserAdminDaoFake implements Pick<
   private readonly rows: AccountListingRow[];
 
   constructor(rows: ReadonlyArray<UserPo & { campaignCount?: number; lorkariumOwner?: boolean }>) {
-    this.rows = rows.map((row) => ({ campaignCount: 0, lorkariumOwner: false, ...row }));
+    this.rows = rows.map((row) => ({
+      campaignCount: 0,
+      lorkariumOwner: false,
+      activePaidPlan: null,
+      activePaidPlanUntil: null,
+      ...row,
+    }));
   }
 
   async listAccounts(): Promise<AccountListingRow[]> {

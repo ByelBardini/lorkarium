@@ -19,9 +19,9 @@ describe('document failure explanations', () => {
   );
 
   it('explains a plan refusal with the ceiling of the table owner plan', () => {
-    const planLimit = { resource: 'documentTabs', limit: 5, plan: 'free' } as const;
+    const planLimit = { resource: 'documentTabs', limit: 3, plan: 'free' } as const;
     expect(documentFailureMessage({ kind: 'plan_limit', planLimit })).toBe(
-      'Esta mesa usa o plano Grátis, que permite até 5 abas por documento. O Narrador libera 30.',
+      'Esta mesa usa o plano Grátis, que permite até 3 abas por documento. O Narrador libera 10.',
     );
   });
 });

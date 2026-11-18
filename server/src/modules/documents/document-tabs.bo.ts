@@ -27,6 +27,22 @@ export function visibleTabsOf<T extends DocumentTabState>(
   return sorted.filter((tab) => tab.visibility === 'document');
 }
 
+/** Throws `PLAN_LIMIT` (`readOnly`) when the tab at `rank` (born after `rank` others of its
+ *  document) is past the owner's plan: its name and body are read only; hiding, reordering and
+ *  deleting never come here.
+ *
+ *  Example: `requireTabConfigurable(3, PLAN_LIMITS.free) // throws: document tab 4 of plan free is read only` */
+export function requireTabConfigurable(rank: number, limits: PlanLimits): void {
+  PlanLimitsBo.requireEditable('documentTabs', rank, limits);
+}
+
+/** Whether the tab at `rank` is past the owner's plan, the `planLocked` of its DTO.
+ *
+ *  Example: `isTabPlanLocked(3, PLAN_LIMITS.free) // true` */
+export function isTabPlanLocked(rank: number, limits: PlanLimits): boolean {
+  return PlanLimitsBo.isReadOnly('documentTabs', rank, limits);
+}
+
 function byPosition<T extends DocumentTabState>(tabs: readonly T[]): T[] {
   return [...tabs].sort((left, right) => left.position - right.position);
 }

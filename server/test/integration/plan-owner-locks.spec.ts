@@ -47,7 +47,7 @@ describe('the plan read under the lock: CampaignsDao.lockWithOwner and UsersDao.
     expect(row).toMatchObject({
       id: biaTableId,
       ownerId: biaId,
-      owner: { role: 'user', plan: 'free', lorkariumOwner: false },
+      owner: { role: 'user', plan: 'free', activePaidPlan: null, lorkariumOwner: false },
     });
   });
 
@@ -58,6 +58,7 @@ describe('the plan read under the lock: CampaignsDao.lockWithOwner and UsersDao.
     expect(row?.owner).toEqual({
       role: 'user',
       plan: 'lenda',
+      activePaidPlan: null,
       lorkariumOwner: false,
     });
   });
@@ -67,6 +68,20 @@ describe('the plan read under the lock: CampaignsDao.lockWithOwner and UsersDao.
       new CampaignsDao(tx).lockWithOwner(randomUUID()),
     );
     expect(row).toBeUndefined();
+  });
+
+  it('findWithOwner reads the campaign row and its own owner plan, without a transaction', async () => {
+    const tables = new CampaignsDao(connection.db);
+    const [bia, caio] = [
+      await tables.findWithOwner(biaTableId),
+      await tables.findWithOwner(caioTableId),
+    ];
+    expect(bia).toMatchObject({ id: biaTableId, ownerId: biaId, owner: { plan: 'free' } });
+    expect(caio).toMatchObject({ id: caioTableId, ownerId: caioId, owner: { plan: 'lenda' } });
+  });
+
+  it('findWithOwner of an unknown campaign is undefined', async () => {
+    expect(await new CampaignsDao(connection.db).findWithOwner(randomUUID())).toBeUndefined();
   });
 
   it('lockWithOwner holds the campaign row but leaves the owner row free', async () => {
@@ -83,6 +98,7 @@ describe('the plan read under the lock: CampaignsDao.lockWithOwner and UsersDao.
       await expect(owner).resolves.toEqual({
         role: 'user',
         plan: 'free',
+        activePaidPlan: null,
         lorkariumOwner: false,
       });
       await expect(table).rejects.toMatchObject({ cause: { code: '55P03' } });
@@ -94,6 +110,7 @@ describe('the plan read under the lock: CampaignsDao.lockWithOwner and UsersDao.
       expect(await new UsersDao(tx).lockForPlan(caioId)).toEqual({
         role: 'user',
         plan: 'lenda',
+        activePaidPlan: null,
         lorkariumOwner: false,
       });
       const second = runInTransaction(connection.db, async (other) => {

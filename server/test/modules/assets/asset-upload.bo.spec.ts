@@ -1,4 +1,4 @@
-import { PLAN_LIMITS } from '@lorkarium/contracts';
+import { PLAN_LIMITS, USER_PLANS } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import { PlanLimitError } from '../../../src/modules/plans/plans.error';
 import {
@@ -126,16 +126,37 @@ describe('animationFor', () => {
   );
 
   it.each(['campaign_photo', 'cover', 'campaign_banner'] as const)(
-    'a %s animates within the same budget when the owner has campaignArt',
+    'a %s animates within the same budget on a Lenda owner (animatedCampaignArt)',
     (purpose) => {
-      expect(animationFor(purpose, ANIMATION, true)).toEqual(ANIMATION);
+      const animates = PLAN_LIMITS.lenda.animatedCampaignArt;
+
+      expect(animationFor(purpose, ANIMATION, animates)).toEqual(ANIMATION);
     },
   );
 
   it.each(['campaign_photo', 'cover', 'campaign_banner'] as const)(
-    'a %s stays still (no budget) on an owner without campaignArt',
+    'a %s stays still (no budget) on an owner without animatedCampaignArt',
     (purpose) => {
       expect(animationFor(purpose, ANIMATION, false)).toBeNull();
+    },
+  );
+
+  it.each(['cover', 'campaign_banner'] as const)(
+    'a %s on a Narrador owner is accepted but kept still: campaignArt without animation',
+    (purpose) => {
+      const narrador = PLAN_LIMITS.narrador;
+
+      expect(() => requireCampaignArtFor(purpose, narrador)).not.toThrow();
+      expect(animationFor(purpose, ANIMATION, narrador.animatedCampaignArt)).toBeNull();
+    },
+  );
+
+  it.each(USER_PLANS.flatMap((plan) => [['aura', plan] as const, ['sheet_image', plan] as const]))(
+    'a %s animates on a %s owner',
+    (purpose, plan) => {
+      const animates = PLAN_LIMITS[plan].animatedCampaignArt;
+
+      expect(animationFor(purpose, ANIMATION, animates)).toEqual(ANIMATION);
     },
   );
 

@@ -6,8 +6,8 @@ import {
   type FramedAssetPurposeDto,
 } from '@lorkarium/contracts';
 
-// A GIF goes where it can play (the aura; the table photo, cover and banner, which move on a paid
-// owner and keep their first frame on Grátis); elsewhere the picker refuses it before sending.
+// A GIF goes where it can play (the aura; the table photo, cover and banner, which move only on a
+// Lenda owner and keep their first frame below it); elsewhere the picker refuses it before sending.
 const ANIMATED_TYPES: readonly string[] = ASSET_MIME_TYPES;
 const STILL_TYPES: readonly string[] = ASSET_MIME_TYPES.filter((type) => type !== 'image/gif');
 

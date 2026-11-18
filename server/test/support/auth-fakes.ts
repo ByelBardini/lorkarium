@@ -60,6 +60,8 @@ export class UsersDaoFake implements UsersDaoSlice {
       id: `user-${this.rows.length + 1}`,
       role: 'user',
       plan: 'free',
+      paidPlan: null,
+      paidPlanUntil: null,
       color: null,
       bio: null,
       avatarId: null,

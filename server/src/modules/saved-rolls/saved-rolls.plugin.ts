@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Database } from '../../database/database';
 import { runInTransaction } from '../../database/transaction';
 import { CampaignMembersDao } from '../campaigns/campaign-members.dao';
+import { CampaignsDao } from '../campaigns/campaigns.dao';
 import { SavedRollFoldersDao } from './saved-roll-folders.dao';
 import { SavedRollFoldersService } from './saved-roll-folders.service';
 import { SavedRollsDao } from './saved-rolls.dao';
@@ -26,8 +27,8 @@ export function createSavedRollsModule(options: SavedRollsModuleOptions): SavedR
   const folders = new SavedRollFoldersDao(db);
   const service = new SavedRollsService({
     members,
+    tableOwners: new CampaignsDao(db),
     rolls: new SavedRollsDao(db),
-    folders,
     transaction,
     maxSaved: SAVED_ROLLS_MAX,
   });

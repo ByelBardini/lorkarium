@@ -47,6 +47,8 @@ export function userPo(overrides: UserOverrides<UserPo> = {}): UserPo {
     passwordHash: '$argon2id$fake',
     role: 'user',
     plan: 'free',
+    paidPlan: null,
+    paidPlanUntil: null,
     color: null,
     bio: null,
     avatarId: null,
@@ -102,18 +104,28 @@ export function authSessionPo(overrides: Partial<AuthSessionPo> = {}): AuthSessi
   };
 }
 
+/** The end every fake paid plan of `authPlanFieldsOf` holds until. */
+export const PAID_PLAN_UNTIL = new Date('2026-12-23T12:00:00Z');
+
 /** The plan fields of the client view of an account (`AuthUserDto`), resolved as `/me` does.
  *
  *  Example: `{ id, username, name, email, role, color, avatarId, ...authPlanFieldsOf(row) }` */
 export function authPlanFieldsOf(
-  row: Omit<UserPlanPo, 'lorkariumOwner'> & Partial<Pick<UserPlanPo, 'lorkariumOwner'>> = {
+  row: Omit<UserPlanPo, 'lorkariumOwner' | 'activePaidPlan'> &
+    Partial<Pick<UserPlanPo, 'lorkariumOwner' | 'activePaidPlan'>> = {
     role: 'user',
     plan: 'free',
   },
 ) {
-  const account = { ...row, lorkariumOwner: row.lorkariumOwner ?? false };
+  const account = {
+    ...row,
+    lorkariumOwner: row.lorkariumOwner ?? false,
+    activePaidPlan: row.activePaidPlan ?? null,
+  };
   return {
     plan: account.plan,
+    paidPlan: account.activePaidPlan,
+    paidPlanUntil: account.activePaidPlan === null ? null : PAID_PLAN_UNTIL.toISOString(),
     lorkariumOwner: account.lorkariumOwner,
     limits: effectiveLimitsOf(account),
     customization: customizationAllowed(account),

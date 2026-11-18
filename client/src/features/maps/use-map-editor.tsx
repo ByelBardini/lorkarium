@@ -1,9 +1,11 @@
 import type { CampaignRoleDto, LibraryMapDetailDto, MapRegionDto } from '@lorkarium/contracts';
 import type { MapPoint } from '@lorkarium/game-core';
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState, useSyncExternalStore } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { AppDependencies } from '@/app/router';
 import { useLibraryTable } from '@/features/library/use-library-table';
+import type { PlanGate } from '@/features/plans/plan-gate';
+import { usePlanLock } from '@/features/plans/use-plan-limits';
 import { sameMapSpot } from '@/lib/map-viewport';
 import type { LibraryApi } from '@/services/library-api';
 import type { MapWorkspaceEntry } from '@/stores/document-workspace-store';
@@ -35,6 +37,10 @@ export type MapEditor = LinkableLibraryRead &
     master: boolean;
     live: boolean;
     editing: boolean;
+    /** Closed when the map is past the owner's plan (`planLocked`): no way into the editor. */
+    lock: PlanGate;
+    /** The id of the sentence the ways into the editor point at while `lock` is closed. */
+    lockHintId: string;
     flow: StoreApi<MapDrawingFlow>;
     /** The map to draw: the confirmed one, with the shape in hand ahead of it. */
     shownMap: LibraryMapDetailDto;
@@ -52,7 +58,8 @@ const NOTHING_READ: LinkableLibraryRead = {
 };
 
 /** The master's editor over a map: whether it may open, the drawing, and the library the link of a
- *  place picks from. Opened on one map: following a link away closes it.
+ *  place picks from. Opened on one map: following a link away closes it. A map past the owner's
+ *  plan (`planLocked`) does not open it, and one that turns locked closes it; exploring stays.
  *
  *  Example: `const editor = useMapEditor({ deps, entry, map })` */
 export function useMapEditor({ deps, entry, map }: MapEditorOptions): MapEditor {
@@ -61,7 +68,9 @@ export function useMapEditor({ deps, entry, map }: MapEditorOptions): MapEditor 
   const reader = useMapEditorReader(deps, entry, table);
   const [openedOn, setOpenedOn] = useState<string | null>(null);
   const master = reader.role === 'master';
-  const editing = master && openedOn === map.id;
+  const lock = usePlanLock('libraryMaps', map);
+  const lockHintId = useId();
+  const editing = master && lock.open && openedOn === map.id;
   const flow = useMapDrawing({
     api: deps.libraryMapsApi,
     view,
@@ -77,6 +86,8 @@ export function useMapEditor({ deps, entry, map }: MapEditorOptions): MapEditor 
     master,
     live,
     editing,
+    lock,
+    lockHintId,
     flow,
     shownMap,
     canvas,

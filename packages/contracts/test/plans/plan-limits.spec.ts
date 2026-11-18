@@ -25,7 +25,8 @@ const NUMERIC_KEYS = Object.keys(PLAN_LIMITS.free).filter(
   (key) => typeof PLAN_LIMITS.free[key as keyof PlanLimits] === 'number',
 ) as NumericKey[];
 
-const PAID_ORDER = ['free', 'narrador', 'lenda'] as const;
+const MEBIBYTE = 1024 * 1024;
+const GIBIBYTE = 1024 * MEBIBYTE;
 
 describe('userPlanDto', () => {
   it('accepts a plan of the list', () => {
@@ -52,16 +53,88 @@ describe('PLAN_LIMITS', () => {
     }
   });
 
-  it('every numeric ceiling grows or stays from Grátis to Narrador to Lenda', () => {
-    for (const key of NUMERIC_KEYS) {
-      const [free, narrador, lenda] = PAID_ORDER.map((plan) => PLAN_LIMITS[plan][key] as number);
-      expect({ key, ordered: free! <= narrador! && narrador! <= lenda! }).toEqual({
-        key,
-        ordered: true,
-      });
-    }
-    expect(PAID_ORDER.map((plan) => PLAN_LIMITS[plan].maxBarsPerToken)).toEqual([2, 8, 8]);
-    expect(PAID_ORDER.map((plan) => PLAN_LIMITS[plan].maxCampaigns)).toEqual([1, 5, 10]);
+  it('every numeric ceiling grows strictly from Grátis to Narrador', () => {
+    const flat = NUMERIC_KEYS.filter(
+      (key) => (PLAN_LIMITS.free[key] as number) >= (PLAN_LIMITS.narrador[key] as number),
+    );
+    expect(flat).toEqual([]);
+  });
+
+  it('every numeric ceiling grows strictly from Narrador to Lenda, except the image sides', () => {
+    const flat = NUMERIC_KEYS.filter(
+      (key) => (PLAN_LIMITS.narrador[key] as number) >= (PLAN_LIMITS.lenda[key] as number),
+    );
+    expect(flat).toEqual(['maxMapSide', 'maxBackgroundSide']);
+  });
+
+  it('Grátis is cut on scale: 3 grids, no interactive map, 1 bar, 5 seats', () => {
+    expect(PLAN_LIMITS.free).toMatchObject({
+      maxCampaigns: 1,
+      maxStorageBytes: 100 * MEBIBYTE,
+      maxPlayers: 5,
+      maxMasters: 1,
+      maxSpectators: 1,
+      maxScenes: 3,
+      maxLibraryMaps: 0,
+      maxSheetTemplates: 1,
+      maxNpcSheets: 5,
+      maxDocumentTabs: 3,
+      maxLights: 10,
+      maxBarsPerToken: 1,
+      maxFormsPerToken: 2,
+      maxSavedRolls: 3,
+      maxDiceModelsPerRoll: 8,
+    });
+  });
+
+  it('Narrador is the middle step: 3 tables, 1 GiB, 10 tabs, 4 bars', () => {
+    expect(PLAN_LIMITS.narrador).toMatchObject({
+      maxCampaigns: 3,
+      maxStorageBytes: GIBIBYTE,
+      maxPlayers: 8,
+      maxMasters: 2,
+      maxSpectators: 5,
+      maxScenes: 15,
+      maxLibraryMaps: 3,
+      maxSheetTemplates: 3,
+      maxNpcSheets: 30,
+      maxDocumentTabs: 10,
+      maxLights: 30,
+      maxBarsPerToken: 4,
+      maxFormsPerToken: 4,
+      maxPatrols: 3,
+      maxSightBlockers: 5,
+      maxSavedRolls: 15,
+      maxSavedRollFolders: 5,
+      maxDiceModelsPerRoll: 15,
+    });
+  });
+
+  it('Lenda keeps 10 tables on 5 GiB', () => {
+    expect(PLAN_LIMITS.lenda).toMatchObject({ maxCampaigns: 10, maxStorageBytes: 5 * GIBIBYTE });
+  });
+
+  it('desktop windows, effect and image auras and animated table art are Lenda only', () => {
+    const lendaUp = ['lenda', 'amigo_do_dono'];
+    expect(USER_PLANS.filter((plan) => PLAN_LIMITS[plan].desktopWindows)).toEqual(lendaUp);
+    expect(USER_PLANS.filter((plan) => PLAN_LIMITS[plan].animatedCampaignArt)).toEqual(lendaUp);
+    expect(USER_PLANS.filter((plan) => PLAN_LIMITS[plan].auraKinds.includes('image'))).toEqual(
+      lendaUp,
+    );
+    expect(PLAN_LIMITS.narrador.auraKinds).toEqual(['color']);
+  });
+
+  it('the scripts of a sheet template open from Narrador up', () => {
+    const open = USER_PLANS.filter((plan) => PLAN_LIMITS[plan].sheetScripts);
+    expect(open).toEqual(['narrador', 'lenda', 'amigo_do_dono']);
+  });
+
+  it('refuses a grid without sheetScripts, naming the key', () => {
+    const withoutScripts = Object.fromEntries(
+      Object.entries(PLAN_LIMITS.narrador).filter(([key]) => key !== 'sheetScripts'),
+    );
+    const result = planLimitsDto.safeParse(withoutScripts);
+    expect(result.error?.issues[0]?.path).toEqual(['sheetScripts']);
   });
 
   it('in amigo_do_dono every technical ceiling is today constant and every count is null', () => {
@@ -93,7 +166,9 @@ describe('PLAN_LIMITS', () => {
       desktopWindows: true,
       customColor: true,
       campaignArt: true,
+      animatedCampaignArt: true,
       privateCampaign: true,
+      sheetScripts: true,
     } satisfies PlanLimits);
   });
 
@@ -115,11 +190,13 @@ describe('PLAN_LIMITS', () => {
       desktopWindows: false,
       customColor: false,
       campaignArt: false,
+      animatedCampaignArt: false,
       privateCampaign: false,
+      sheetScripts: false,
     });
   });
 
-  it('cover, banner, animated images and the private table open from Narrador up', () => {
+  it('own cover and banner and the private table open from Narrador up', () => {
     const open = USER_PLANS.filter((plan) => PLAN_LIMITS[plan].campaignArt);
     const privateOpen = USER_PLANS.filter((plan) => PLAN_LIMITS[plan].privateCampaign);
     expect(open).toEqual(['narrador', 'lenda', 'amigo_do_dono']);
@@ -144,6 +221,16 @@ describe('apiErrorDto planLimit', () => {
   it('accepts the resource, the limit and the plan of the refusal', () => {
     const planLimit = { resource: 'campaigns', limit: 1, plan: 'free' };
     expect(apiErrorDto.parse({ ...REFUSAL, planLimit }).planLimit).toEqual(planLimit);
+  });
+
+  it('accepts a refusal for an item kept read only past the plan', () => {
+    const planLimit = { resource: 'scenes', limit: 3, plan: 'free', reason: 'readOnly' };
+    expect(apiErrorDto.parse({ ...REFUSAL, planLimit }).planLimit?.reason).toBe('readOnly');
+  });
+
+  it('refuses a reason out of room and readOnly', () => {
+    const planLimit = { resource: 'scenes', limit: 3, plan: 'free', reason: 'other' };
+    expect(apiErrorDto.safeParse({ ...REFUSAL, planLimit }).success).toBe(false);
   });
 
   it('refuses a resource out of the list', () => {

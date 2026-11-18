@@ -1,0 +1,6 @@
+# Planos — armadilhas
+
+Índice: [`../plans.md`](../plans.md).
+
+- **A conta de teste nasce `free`.** Spec de integração que não é sobre plano dá `amigo_do_dono` aos donos das mesas (`setAccountPlan`, `server/test/support/account-plans.ts`), num `beforeEach` logo depois do `useTokenTable()`. Sem isso, o spec só passa enquanto o arranjo couber no Grátis: com a grade atual (1 barra, 0 mapas, 1 espectador) dezenas de arquivos quebraram por `PLAN_LIMIT` sem relação com o que provavam. A fábrica `tokenCommandFor` cria 2 barras: numa mesa Grátis ela é recusada por `tokenBars`. Spec de plano que precisa de um token comum passa `bars: []`.
+- **O excedente conta os mais antigos.** Um item criado por quem está acima do plano (admin, `amigo_do_dono`) fica travado se o dono descer e ele ficar além do teto; um spec de excedente cria os itens com o dono em `amigo_do_dono` e só então o desce (`setAccountPlan`). Barras e formas não têm `created_at`: o rank delas é a posição no token, e o client precisa devolver as barras e formas além do teto exatamente como vieram (outra ordem, nome ou cor é `readOnly`). Detalhe em [`excedente-so-leitura.md`](excedente-so-leitura.md) e [`../tokens/plano.md`](../tokens/plano.md).

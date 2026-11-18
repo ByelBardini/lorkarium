@@ -112,7 +112,7 @@ describe('onCommand with a plan refusal', () => {
     );
     const schema = z.strictObject({ campaignId: z.uuid() });
     const listener = onCommand({ deps: edge.deps, rate, socket: edge.socket }, schema, async () => {
-      PlanLimitsBo.requireRoom('tokenBars', 2, 1, PLAN_LIMITS.free);
+      PlanLimitsBo.requireRoom('tokenBars', 1, 1, PLAN_LIMITS.free);
       return { ok: true as const };
     });
     const answer = await new Promise((resolve) =>
@@ -123,8 +123,8 @@ describe('onCommand with a plan refusal', () => {
       ok: false,
       error: {
         code: 'PLAN_LIMIT',
-        message: 'would have 3 tokenBars; plan free allows at most 2',
-        planLimit: { resource: 'tokenBars', limit: 2, plan: 'free' },
+        message: 'would have 2 tokenBars; plan free allows at most 1',
+        planLimit: { resource: 'tokenBars', limit: 1, plan: 'free', reason: 'room' },
       },
     });
   });

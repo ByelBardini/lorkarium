@@ -1,5 +1,6 @@
 import { tokensCreatedDto, tokenUpdatedDto } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { recordEventsOf } from '../support/realtime-client';
 import { envelope, eventPayload, send, synced } from '../support/live-table';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
@@ -12,6 +13,11 @@ function without(command: object, keys: readonly string[]): Record<string, unkno
 
 describe('token sight over Socket.IO', () => {
   const live = useTokenTable();
+  // Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+  beforeEach(async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+    await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+  });
 
   it('Ana creating Lyra with bright 12 and dim 4 reaches Bia and Caio with the same sight', async () => {
     const bia = recordEventsOf(await live.atTable(live.bia, live.vharn));

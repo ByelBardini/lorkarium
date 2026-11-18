@@ -105,6 +105,23 @@ describe('sheet preview host', () => {
     expect({ lines, sent: port.sent.slice(answered) }).toEqual({ lines: [line], sent: [] });
   });
 
+  it('a notice is written to the console as the frame connects, unanswered', () => {
+    const port = new SheetHostPortFake();
+    const lines: unknown[] = [];
+    const notice = 'Os scripts deste modelo não rodam no plano Grátis. Disponível no Narrador';
+    createSheetPreviewHost(port, { onConsole: (line) => lines.push(line), notice });
+    expect({ lines, sent: port.sent }).toEqual({
+      lines: [{ type: 'console', level: 'warn', message: notice, at: [] }],
+      sent: [],
+    });
+  });
+
+  it('without a notice the console starts empty', () => {
+    const lines: unknown[] = [];
+    createSheetPreviewHost(new SheetHostPortFake(), { onConsole: (line) => lines.push(line) });
+    expect(lines).toEqual([]);
+  });
+
   it('a console line past the contract is refused like any other message', () => {
     const port = new SheetHostPortFake();
     const lines: unknown[] = [];

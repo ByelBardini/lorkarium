@@ -16,12 +16,35 @@ function serviceWith(
 }
 
 describe('PlansService.accountPlanOf', () => {
+  it('a free account paying the Narrador shows the paid plan, until when and the Narrador limits', async () => {
+    const until = new Date('2026-12-16T12:00:00Z');
+    const payer = {
+      ...planAccount({ plan: 'free', activePaidPlan: 'narrador' }),
+      activePaidPlanUntil: until,
+    };
+    const service = serviceWith(
+      new AccountPlansFake().set(ANA_ID, payer),
+      new OwnedCampaignsFake(),
+    );
+
+    const plan = await service.accountPlanOf(ANA_ID);
+
+    expect(plan).toMatchObject({
+      plan: 'free',
+      paidPlan: 'narrador',
+      paidPlanUntil: until.toISOString(),
+    });
+    expect(plan.limits).toEqual(PLAN_LIMITS.narrador);
+  });
+
   it('a free account with one table gets its plan, the free limits and the usage', async () => {
     const accounts = new AccountPlansFake().set(ANA_ID, planAccount({ plan: 'free' }));
     const service = serviceWith(accounts, new OwnedCampaignsFake().set(ANA_ID, 1));
 
     expect(await service.accountPlanOf(ANA_ID)).toEqual({
       plan: 'free',
+      paidPlan: null,
+      paidPlanUntil: null,
       limits: PLAN_LIMITS.free,
       customization: false,
       usage: { campaignsOwned: 1, storageBytes: 0 },

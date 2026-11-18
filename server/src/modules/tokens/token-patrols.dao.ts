@@ -1,4 +1,5 @@
 import { and, count, eq, inArray, isNotNull, sql, type SQL } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { copyRowsSql } from '../../database/copy-rows';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { updateManySql } from '../../database/update-many';
@@ -41,7 +42,14 @@ export function patrolPoOf(json: PatrolJson | null): TokenPatrolPo | null {
 /** What a token command does with the patrols (the copy of a scene stays inside `TokensDao`). */
 export type TokenPatrolWrites = Pick<
   TokenPatrolsDao,
-  'save' | 'remove' | 'start' | 'pause' | 'place' | 'countRunningOfScene' | 'runningOf'
+  | 'save'
+  | 'remove'
+  | 'start'
+  | 'pause'
+  | 'place'
+  | 'countRunningOfScene'
+  | 'runningRankOf'
+  | 'runningOf'
 >;
 
 /** The patrols of the tokens of a scene: every write is scoped to that scene's tokens (§2.6). Run
@@ -123,6 +131,20 @@ export class TokenPatrolsDao {
       .from(tokenPatrols)
       .innerJoin(tokens, eq(tokens.id, tokenPatrols.tokenId))
       .where(and(eq(tokens.sceneId, sceneId), isNotNull(tokenPatrols.startedAt)));
+    return row?.total ?? 0;
+  }
+
+  /** How many running patrols of the scene belong to tokens older than `tokenId`, by
+   *  `(created_at, id)`: the rank of its patrol on the plan, read only on a new route. */
+  async runningRankOf(sceneId: string, tokenId: string): Promise<number> {
+    const self = alias(tokens, 'self');
+    const older = sql`(${tokens.createdAt}, ${tokens.id}) < (${self.createdAt}, ${self.id})`;
+    const [row] = await this.db
+      .select({ total: count() })
+      .from(tokenPatrols)
+      .innerJoin(tokens, eq(tokens.id, tokenPatrols.tokenId))
+      .innerJoin(self, eq(self.id, tokenId))
+      .where(and(eq(tokens.sceneId, sceneId), isNotNull(tokenPatrols.startedAt), older));
     return row?.total ?? 0;
   }
 

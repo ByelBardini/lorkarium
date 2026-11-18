@@ -1,5 +1,6 @@
 import { combatStartedDto, tokensCreatedDto, type TokenDto } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import {
   recordEventsOf,
   type EventRecorder,
@@ -22,6 +23,11 @@ function itemOf(command: object): Item {
 
 describe('token batches and the undo precondition over Socket.IO', () => {
   const live = useTokenTable();
+  // Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+  beforeEach(async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+    await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+  });
 
   function pasteOf(items: Item[]): object {
     return { ...envelope(live.vharn.id), tokens: items };

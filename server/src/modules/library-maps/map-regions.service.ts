@@ -13,6 +13,7 @@ import {
 } from './library-maps.error';
 import {
   editAsMaster,
+  requireEditableMap,
   requireMapRow,
   type LibraryMapDaos,
   type LibraryMapServiceDeps,
@@ -56,8 +57,8 @@ async function targetExists(
   return (await lookup()).length > 0;
 }
 
-/** Writes the regions of a map. Every write is the master's, runs with the campaign locked, goes
- *  one version up, commits, and only then tells the table `library:mapChanged`, which carries no
+/** Writes the regions of a map. Every write is the master's, runs with the campaign locked, is
+ *  refused on a map past the owner's plan (PLAN_LIMIT `readOnly`), goes one version up, commits, and only then tells the table `library:mapChanged`, which carries no
  *  name and no shape: each client reads back through the route that projects for its reader.
  *
  *  Example: `await regions.create(requester, mapId, { name: 'Reino', geometry, color, hidden: false, description: '', link: null })` */
@@ -128,8 +129,9 @@ export class MapRegionsService {
       this.deps,
       requester,
       action,
-      async (daos, access) => {
+      async (daos, access, campaign) => {
         await requireMapRow(daos, requester, mapId);
+        await requireEditableMap(daos, campaign, mapId);
         const result = await work(daos, access);
         const version = await daos.maps.bumpVersion(campaignId, mapId);
         if (version === undefined) throw new LibraryMapNotFoundError(campaignId, mapId, userId);

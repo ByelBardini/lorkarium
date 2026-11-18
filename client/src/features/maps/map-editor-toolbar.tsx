@@ -1,20 +1,37 @@
 import { MAP_POLYGON_VERTICES_MAX } from '@lorkarium/game-core';
 import { Hexagon, MapPin, Pencil, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { planHintIdOf } from '@/features/plans/plan-gate';
+import { PlanGateHint } from '@/features/plans/plan-gate-hint';
 import { useMapDrawingFlow, type MapDrawingTool } from '@/stores/map-drawing-flow';
 import { mapDrawingFailureMessage } from './map-messages';
 import type { MapEditor } from './use-map-editor';
 
 /** The master's way into the editor of a map and, inside it, the tools and what they are saying.
+ *  On a map past the plan, "Editar mapa" is off, with the sentence under it.
  *
  *  Example: `<MapEditorToolbar editor={editor} />` */
 export function MapEditorToolbar({ editor }: Readonly<{ editor: MapEditor }>): React.JSX.Element {
   if (editor.editing) return <EditingTools editor={editor} />;
+  const { lock, lockHintId } = editor;
   return (
-    <Button size="sm" variant="outline" disabled={!editor.live} onClick={editor.open}>
-      <Pencil aria-hidden="true" />
-      Editar mapa
-    </Button>
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={!editor.live || !lock.open}
+        aria-describedby={planHintIdOf(lock, lockHintId)}
+        onClick={editor.open}
+      >
+        <Pencil aria-hidden="true" />
+        Editar mapa
+      </Button>
+      <PlanGateHint
+        id={lockHintId}
+        gate={lock}
+        className="max-w-full rounded-md border border-border bg-popover p-2 shadow-lg"
+      />
+    </>
   );
 }
 

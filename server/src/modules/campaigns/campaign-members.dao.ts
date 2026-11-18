@@ -14,7 +14,7 @@ import {
 import { alias } from 'drizzle-orm/pg-core';
 import { lorkariumOwnerSql } from '../../database/lorkarium-owner-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
-import { PLAN_ACCOUNT_COLUMNS } from '../auth/users.dao';
+import { PLAN_ACCOUNT_COLUMNS, activePaidPlanSql } from '../auth/users.dao';
 import { users, type UserPlanPo, type UserPo } from '../auth/users.po';
 import { userBlocks } from '../friends/user-blocks.po';
 import { campaignMembers } from './campaign-members.po';
@@ -83,6 +83,7 @@ const ownerUsers = alias(users, 'owner_user');
 const ownerPlanColumns = {
   role: ownerUsers.role,
   plan: ownerUsers.plan,
+  activePaidPlan: activePaidPlanSql(ownerUsers),
   lorkariumOwner: lorkariumOwnerSql(ownerUsers.username),
 };
 const readerMembers = alias(campaignMembers, 'reader_member');

@@ -7,11 +7,13 @@
     "./tokens.css": "./tokens.css",
     "./fonts.css": "./fonts.css",
     "./logo-mark.svg": "./logo-mark.svg",
-    "./favicon.svg": "./favicon.svg"
+    "./favicon.svg": "./favicon.svg",
+    "./seals/*.svg": "./seals/*.svg"
   },
   "files": [
     "*.css",
-    "*.svg"
+    "*.svg",
+    "seals/*.svg"
   ],
   "dependencies": {
     "@fontsource-variable/cinzel": "^5.3.0",

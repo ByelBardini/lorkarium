@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
 import { TokensDao, type NewTokenRow } from '../../src/modules/tokens/tokens.dao';
 import { setAccountPlan } from '../support/account-plans';
+import { barInputsOf, barsOf, formsOf, planRefusal, updateOf } from '../support/board-plan';
 import { envelope, send, silence, synced } from '../support/live-table';
 import { recordEventsOf, type RealtimeClient } from '../support/realtime-client';
 import type { SignedInUser } from '../support/sign-in';
@@ -28,37 +29,6 @@ const ROUTE = {
   gait: 'glide',
 };
 const TORCH = { x: 5.5, y: 3, bright: 4, dim: 4 } as const;
-
-function planRefusal(resource: string, limit: number, plan: UserPlan = 'free'): object {
-  const planLimit = { resource, limit, plan };
-  return { ok: false, error: expect.objectContaining({ code: 'PLAN_LIMIT', planLimit }) };
-}
-
-function barsOf(count: number): object[] {
-  return Array.from({ length: count }, (_, index) => ({
-    label: `Barra ${index + 1}`,
-    current: 1,
-    max: 1,
-    color: 'gold',
-    visibility: 'everyone',
-  }));
-}
-
-function formsOf(count: number): object[] {
-  return Array.from({ length: count }, (_, index) => ({
-    id: crypto.randomUUID(),
-    name: `Forma ${index + 1}`,
-    imageAssetId: null,
-    width: 1,
-    height: 1,
-    frame: 'square',
-  }));
-}
-
-function updateOf(table: Table, tokenId: string, overrides: object = {}): object {
-  const fields = { name: 'Lyra', initials: 'LY', side: 'ally', width: 1, height: 1 };
-  return { ...envelope(table.id), tokenId, ...fields, controllerIds: [], bars: [], ...overrides };
-}
 
 async function planOf(user: SignedInUser, plan: UserPlan): Promise<void> {
   await setAccountPlan(live.connection.db, user.id, plan);
@@ -109,35 +79,37 @@ describe('the board commands follow the plan of the table owner', () => {
   beforeEach(() => planOf(live.ana, 'free'));
 
   describe('bars and forms', () => {
-    it('on a free table, token:create with 3 bars is PLAN_LIMIT tokenBars and no event goes out', async () => {
+    it('on a free table, token:create with 2 bars is PLAN_LIMIT tokenBars and no event goes out', async () => {
       const ana = await live.atTable(live.ana, live.vharn);
       const caio = recordEventsOf(await live.atTable(live.caio, live.vharn));
 
-      const command = tokenCommandFor(live.vharn, live.bia.id, { bars: barsOf(3) });
-      expect(await send(ana, 'token:create', command)).toEqual(planRefusal('tokenBars', 2));
+      const command = tokenCommandFor(live.vharn, live.bia.id, { bars: barsOf(2) });
+      expect(await send(ana, 'token:create', command)).toEqual(planRefusal('tokenBars', 1));
 
       await expectNothingHeard(caio);
       expect((await synced(ana, live.vharn)).tokens).toEqual([]);
     });
 
-    it('token:update to 3 bars is refused the same way', async () => {
+    it('token:update to 2 bars is refused the same way', async () => {
       const ana = await live.atTable(live.ana, live.vharn);
-      const lyraId = await createdBy(ana, { bars: barsOf(2) });
+      const lyraId = await createdBy(ana, { bars: barsOf(1) });
 
       const ack = await send(
         ana,
         'token:update',
-        updateOf(live.vharn, lyraId, { bars: barsOf(3) }),
+        updateOf(live.vharn, lyraId, { bars: barsOf(2) }),
       );
 
-      expect(ack).toEqual(planRefusal('tokenBars', 2));
+      expect(ack).toEqual(planRefusal('tokenBars', 1));
     });
 
     it('a token with 5 bars from before the downgrade keeps them while only its name changes', async () => {
       const ana = await live.atTable(live.ana, live.vharn);
       const ogroId = await savedWithBars(live.vharn, 5);
+      const [before] = (await synced(ana, live.vharn)).tokens;
 
-      const renamed = { name: 'Ogro velho', bars: barsOf(5) };
+      // The 5 bars go back as stored: past the plan their settings are read only.
+      const renamed = { name: 'Ogro velho', bars: barInputsOf(before ?? { bars: [] }) };
       const ack = await send(ana, 'token:update', updateOf(live.vharn, ogroId, renamed));
 
       expect(ack).toMatchObject({ ok: true });
@@ -158,9 +130,9 @@ describe('the board commands follow the plan of the table owner', () => {
       expect(ack).toEqual(planRefusal('tokenForms', 2));
     });
 
-    it('a paste of a copy with 3 bars is refused whole', async () => {
+    it('a paste of a copy with 2 bars is refused whole', async () => {
       const ana = await live.atTable(live.ana, live.vharn);
-      const copy = tokenCommandFor(live.vharn, live.bia.id, { bars: barsOf(3) }) as Record<
+      const copy = tokenCommandFor(live.vharn, live.bia.id, { bars: barsOf(2) }) as Record<
         string,
         unknown
       >;
@@ -172,7 +144,7 @@ describe('the board commands follow the plan of the table owner', () => {
         tokens: [copy],
       });
 
-      expect(ack).toEqual(planRefusal('tokenBars', 2));
+      expect(ack).toEqual(planRefusal('tokenBars', 1));
     });
   });
 
@@ -186,7 +158,7 @@ describe('the board commands follow the plan of the table owner', () => {
       const created = await send(
         ana,
         'token:create',
-        tokenCommandFor(live.vharn, live.bia.id, { aura: FIRE }),
+        tokenCommandFor(live.vharn, live.bia.id, { bars: [], aura: FIRE }),
       );
       const updated = await send(
         ana,
@@ -197,6 +169,18 @@ describe('the board commands follow the plan of the table owner', () => {
 
       const refused = planRefusal('auraKind', 0);
       expect([created, updated, restyled]).toEqual([refused, refused, refused]);
+    });
+
+    it('an effect aura is PLAN_LIMIT auraKind on a narrador table too; the Lenda takes it', async () => {
+      await planOf(live.ana, 'narrador');
+      const ana = await live.atTable(live.ana, live.vharn);
+      const command = tokenCommandFor(live.vharn, live.bia.id, { bars: [], aura: FIRE });
+
+      expect(await send(ana, 'token:create', command)).toEqual(
+        planRefusal('auraKind', 0, 'narrador'),
+      );
+      await planOf(live.ana, 'lenda');
+      expect(await send(ana, 'token:create', command)).toMatchObject({ ok: true });
     });
 
     it('a color aura passes on the free table', async () => {
@@ -252,33 +236,32 @@ describe('the board commands follow the plan of the table owner', () => {
   });
 
   describe('lights', () => {
-    it('the 16th light of the scene is PLAN_LIMIT lights; the 15 before it pass', async () => {
+    it('the 11th light of the scene is PLAN_LIMIT lights; the 10 before it pass', async () => {
       const ana = await live.atTable(live.ana, live.vharn);
-      const fifteen = Array.from({ length: 15 }, () => TORCH);
+      const ten = Array.from({ length: 10 }, () => TORCH);
       const create = (lights: object[]) => ({ ...envelope(live.vharn.id), lights });
 
-      expect(await send(ana, 'light:createMany', create(fifteen))).toMatchObject({ ok: true });
+      expect(await send(ana, 'light:createMany', create(ten))).toMatchObject({ ok: true });
       expect(await send(ana, 'light:createMany', create([TORCH]))).toEqual(
-        planRefusal('lights', 15),
+        planRefusal('lights', 10),
       );
     });
   });
 
   describe('the sheet SDK', () => {
-    it("the sheet creating a 3rd bar on Bia's character is 403 PLAN_LIMIT tokenBars", async () => {
+    it("the sheet creating a 2nd bar on Bia's character is 403 PLAN_LIMIT tokenBars", async () => {
       const sheetId = await sheetOfBia();
       const url = `/api/campaigns/${live.vharn.id}/sheets/${sheetId}/bars`;
       const create = (label: string) =>
         live.http(live.bia, { method: 'POST', url, payload: { bar: { label, max: 6 } } });
 
       expect((await create('Fôlego')).statusCode).toBe(201);
-      expect((await create('Mana')).statusCode).toBe(201);
-      const third = await create('Sorte');
+      const second = await create('Mana');
 
-      expect(third.statusCode).toBe(403);
-      expect(third.json()).toMatchObject({
+      expect(second.statusCode).toBe(403);
+      expect(second.json()).toMatchObject({
         code: 'PLAN_LIMIT',
-        planLimit: { resource: 'tokenBars', limit: 2, plan: 'free' },
+        planLimit: { resource: 'tokenBars', limit: 1, plan: 'free' },
       });
     });
   });
@@ -303,11 +286,11 @@ describe('the board commands follow the plan of the table owner', () => {
       await planOf(live.caio, 'amigo_do_dono');
       const ana = await live.atTable(live.ana, live.vharn);
       const caio = await live.atTable(live.caio, live.quelm);
-      const onQuelm = tokenCommandFor(live.quelm, live.caio.id, { bars: barsOf(3) });
-      const onVharn = tokenCommandFor(live.vharn, live.bia.id, { bars: barsOf(3) });
+      const onQuelm = tokenCommandFor(live.quelm, live.caio.id, { bars: barsOf(2) });
+      const onVharn = tokenCommandFor(live.vharn, live.bia.id, { bars: barsOf(2) });
 
       expect(await send(caio, 'token:create', onQuelm)).toMatchObject({ ok: true });
-      expect(await send(ana, 'token:create', onVharn)).toEqual(planRefusal('tokenBars', 2));
+      expect(await send(ana, 'token:create', onVharn)).toEqual(planRefusal('tokenBars', 1));
     });
   });
 });

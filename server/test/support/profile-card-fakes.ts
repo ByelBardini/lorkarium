@@ -34,6 +34,7 @@ export function cardAccountRow(
     createdAt: new Date('2026-10-01T12:00:00Z'),
     role: 'user',
     plan: 'narrador',
+    activePaidPlan: null,
     lorkariumOwner: false,
     ...overrides,
   };

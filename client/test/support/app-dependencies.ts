@@ -19,6 +19,7 @@ import { createDicePreferencesStore } from '@/stores/dice-preferences-store';
 import { createChatPreferencesStore } from '@/stores/chat-preferences-store';
 import { AccountLinksApiFake } from './account-links-api-fake';
 import { AccountPlanApiFake } from './account-plan-api-fake';
+import { BillingApiFake, BillingWaitsFake, CheckoutNavigationFake } from './billing-api-fake';
 import { AccountSecurityApiFake } from './account-security-api-fake';
 import { UserAdminApiFake } from './user-admin-api-fake';
 import { UserReportsApiFake } from './user-reports-api-fake';
@@ -71,6 +72,9 @@ export type TestDependencies = AppDependencies & {
   savedColorsApi: SavedColorsApiFake;
   accountSecurityApi: AccountSecurityApiFake;
   accountPlanApi: AccountPlanApiFake;
+  billingApi: BillingApiFake;
+  checkoutNavigation: CheckoutNavigationFake;
+  billingWaits: BillingWaitsFake;
   userAdminApi: UserAdminApiFake;
   userReportsApi: UserReportsApiFake;
   badgesAdminApi: BadgesAdminApiFake;
@@ -209,6 +213,8 @@ export function testDependencies(): TestDependencies {
     presenceChoice,
     new RealtimePresenceCommands(accountTransport, () => PRESENCE_ACTION_ID),
   );
+  const checkoutNavigation = new CheckoutNavigationFake();
+  const billingWaits = new BillingWaitsFake();
   return {
     journal,
     retryWaits,
@@ -219,6 +225,11 @@ export function testDependencies(): TestDependencies {
     savedColorsApi: new SavedColorsApiFake(),
     accountSecurityApi: new AccountSecurityApiFake(TEST_NOW),
     accountPlanApi: new AccountPlanApiFake(),
+    billingApi: new BillingApiFake(),
+    checkoutNavigation,
+    goToCheckout: checkoutNavigation.goTo,
+    billingWaits,
+    waitBeforeBillingCheck: billingWaits.wait,
     userAdminApi: new UserAdminApiFake(TEST_NOW),
     userReportsApi: new UserReportsApiFake(),
     badgesAdminApi: new BadgesAdminApiFake(),

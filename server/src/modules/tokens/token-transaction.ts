@@ -16,7 +16,13 @@ import type { AddressedSceneRow, ScenesDao } from '../scenes/scenes.dao';
 import type { ScenePo } from '../scenes/scenes.po';
 import type { CharactersDao } from '../characters/characters.dao';
 import { TokenAccessBo } from './token-access.bo';
-import { TokenPlanBo, type TokenPlanHold, type TokenPlanSent } from './token-plan.bo';
+import {
+  TokenPlanBo,
+  type TokenBarSetting,
+  type TokenFormSetting,
+  type TokenPlanHold,
+  type TokenPlanSent,
+} from './token-plan.bo';
 import type { TokenRulesBo } from './token-rules.bo';
 import type { TokenCharacterLinkDao } from './token-character-link.dao';
 import type { NewTokenRow, TokenRow, TokensDao } from './tokens.dao';
@@ -174,24 +180,32 @@ export function tokenPlanOf(scene: Pick<AddressedSceneRow, 'owner'>): TokenPlanB
   return new TokenPlanBo(effectiveLimitsOf(scene.owner));
 }
 
-/** What a stored token holds that the plan counts (a linked one, its character's). */
+/** What a stored token holds that the plan counts (a linked one, its character's), with the
+ *  settings of its bars and forms in position order (their rank past the plan). */
 export function tokenPlanHoldOf(row: Pick<TokenRow, 'token' | 'bars' | 'forms'>): TokenPlanHold {
   const { auraKind, auraColor, lightColor } = row.token;
   const colors = [...row.bars.map(({ color }) => color), auraColor, lightColor];
-  return { bars: row.bars.length, forms: row.forms.length, auraKind, colors };
+  const settings = { barSettings: row.bars.map(barSettingOf), formSettings: row.forms };
+  return { bars: row.bars.length, forms: row.forms.length, auraKind, colors, ...settings };
 }
 
 /** What a create, paste or edit sends that the plan counts; absent forms or aura keep them. */
 export function tokenPlanSentOf(
   command: Readonly<{
-    bars: readonly Readonly<{ color: string }>[];
-    forms?: readonly unknown[] | undefined;
+    bars: readonly TokenBarSetting[];
+    forms?: readonly TokenFormSetting[] | undefined;
     aura?: TokenPlanSent['aura'];
     light?: Readonly<{ color: string | null }> | null | undefined;
   }>,
 ): TokenPlanSent {
   const colors = [...command.bars.map(({ color }) => color), command.light?.color];
-  return { bars: command.bars.length, forms: command.forms?.length, aura: command.aura, colors };
+  const settings = { barSettings: command.bars.map(barSettingOf), formSettings: command.forms };
+  const { aura } = command;
+  return { bars: command.bars.length, forms: command.forms?.length, aura, colors, ...settings };
+}
+
+function barSettingOf({ label, max, color }: TokenBarSetting): TokenBarSetting {
+  return { label, max, color };
 }
 
 /** The ceilings of sight-blocking tokens (the table's plan, then the technical one), counted
