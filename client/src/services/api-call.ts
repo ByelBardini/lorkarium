@@ -5,6 +5,7 @@ import {
   type HttpMethod,
   type HttpResponse,
   type HttpTransport,
+  type RequestHeaders,
   type UploadMethod,
 } from './http-transport';
 
@@ -28,8 +29,9 @@ export async function callApi(
   method: HttpMethod,
   path: string,
   body?: unknown,
+  headers?: RequestHeaders,
 ): Promise<ApiCall> {
-  return exchange(() => transport.request(method, path, body));
+  return exchange(() => transport.request(method, path, body, headers));
 }
 
 /** Sends a file as the raw body (its own content type), with the same outcomes as `callApi`;

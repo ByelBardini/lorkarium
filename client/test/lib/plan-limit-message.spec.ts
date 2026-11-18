@@ -4,20 +4,20 @@ import { amountText, planLimitMessage } from '@/lib/plan-limit-message';
 
 describe('planLimitMessage', () => {
   it('names the ceiling of the table owner plan and the plan that frees more', () => {
-    expect(planLimitMessage({ resource: 'scenes', limit: 5, plan: 'free' })).toBe(
-      'Esta mesa usa o plano Grátis, que permite até 5 grids. O Narrador libera 20.',
+    expect(planLimitMessage({ resource: 'scenes', limit: 3, plan: 'free' })).toBe(
+      'Esta mesa usa o plano Grátis, que permite até 3 grids. O Narrador libera 15.',
     );
   });
 
   it('points a Narrador table at Lenda, with its article', () => {
-    expect(planLimitMessage({ resource: 'lights', limit: 50, plan: 'narrador' })).toBe(
-      'Esta mesa usa o plano Narrador, que permite até 50 luzes por cena. A Lenda libera 100.',
+    expect(planLimitMessage({ resource: 'lights', limit: 30, plan: 'narrador' })).toBe(
+      'Esta mesa usa o plano Narrador, que permite até 30 luzes por cena. A Lenda libera 100.',
     );
   });
 
-  it('skips a plan above that frees no more (bars are 8 from Narrador on)', () => {
-    expect(planLimitMessage({ resource: 'tokenBars', limit: 2, plan: 'free' })).toBe(
-      'Esta mesa usa o plano Grátis, que permite até 2 barras por token. O Narrador libera 8.',
+  it('skips a plan above that frees no more (a ceiling of 4 bars skips the Narrador, also 4)', () => {
+    expect(planLimitMessage({ resource: 'tokenBars', limit: 4, plan: 'free' })).toBe(
+      'Esta mesa usa o plano Grátis, que permite até 4 barras por token. A Lenda libera 8.',
     );
   });
 
@@ -29,13 +29,13 @@ describe('planLimitMessage', () => {
 
   it('speaks of the person own plan for the tables they own, in the singular at 1', () => {
     expect(planLimitMessage({ resource: 'campaigns', limit: 1, plan: 'free' })).toBe(
-      'Seu plano Grátis permite até 1 mesa como dono. O Narrador libera 5.',
+      'Seu plano Grátis permite até 1 mesa como dono. O Narrador libera 3.',
     );
   });
 
   it('writes storage in MB and GB', () => {
     expect(planLimitMessage({ resource: 'storage', limit: 100 * 1024 ** 2, plan: 'free' })).toBe(
-      'Esta mesa usa o plano Grátis, que permite até 100 MB de arquivos. O Narrador libera 2 GB.',
+      'Esta mesa usa o plano Grátis, que permite até 100 MB de arquivos. O Narrador libera 1 GB.',
     );
   });
 
@@ -70,8 +70,8 @@ describe('planLimitMessage', () => {
   });
 
   it('an Apoiador table points at the Narrador, never at the Apoiador', () => {
-    expect(planLimitMessage({ resource: 'scenes', limit: 5, plan: 'apoiador' })).toBe(
-      'Esta mesa usa o plano Apoiador, que permite até 5 grids. O Narrador libera 20.',
+    expect(planLimitMessage({ resource: 'scenes', limit: 3, plan: 'apoiador' })).toBe(
+      'Esta mesa usa o plano Apoiador, que permite até 3 grids. O Narrador libera 15.',
     );
     expect(planLimitMessage({ resource: 'campaigns', limit: 1, plan: 'free' })).not.toContain(
       'O Apoiador',

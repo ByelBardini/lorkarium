@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { PLAN_NAMES, planSealOf, sealHolderOfAccount, type PlanSealHolder } from '@/lib/plan-seal';
+import {
+  isAbovePlans,
+  PLAN_NAMES,
+  planSealOf,
+  planTitleOf,
+  sealHolderOfAccount,
+  type PlanSealHolder,
+} from '@/lib/plan-seal';
 
 const PLAIN: PlanSealHolder = {
   plan: 'free',
@@ -109,5 +116,62 @@ describe('sealHolderOfAccount', () => {
     const account = { role: 'user', plan: 'free', lorkariumOwner: true } as const;
 
     expect(sealHolderOfAccount(account).admin).toBe(false);
+  });
+});
+
+describe('sealHolderOfAccount with a paid plan', () => {
+  it('a free account paying the Lenda shows the Lenda', () => {
+    const account = {
+      role: 'user',
+      plan: 'free',
+      paidPlan: 'lenda',
+      lorkariumOwner: false,
+    } as const;
+    expect(sealHolderOfAccount(account).plan).toBe('lenda');
+  });
+
+  it('a Lenda of the admin paying the Narrador keeps the Lenda', () => {
+    const account = {
+      role: 'user',
+      plan: 'lenda',
+      paidPlan: 'narrador',
+      lorkariumOwner: false,
+    } as const;
+    expect(sealHolderOfAccount(account).plan).toBe('lenda');
+  });
+
+  it('an admin paying the Apoiador is still picked as admin', () => {
+    const account = {
+      role: 'admin',
+      plan: 'free',
+      paidPlan: 'apoiador',
+      lorkariumOwner: false,
+    } as const;
+    expect(planSealOf(sealHolderOfAccount(account))?.kind).toBe('admin');
+  });
+});
+
+describe('planTitleOf', () => {
+  it('names who has no plan limit by who they are, never by the stored plan', () => {
+    expect(planTitleOf({ plan: 'free', admin: false, lorkariumOwner: true })).toBe(
+      'Dono do Lorkarium',
+    );
+    expect(planTitleOf({ plan: 'free', admin: true, lorkariumOwner: false })).toBe('Administrador');
+  });
+
+  it('names everyone else by the plan, the Amigo do Dono included', () => {
+    expect(planTitleOf({ plan: 'amigo_do_dono', admin: false, lorkariumOwner: false })).toBe(
+      'Amigo do Dono',
+    );
+    expect(planTitleOf({ plan: 'narrador', admin: false, lorkariumOwner: false })).toBe('Narrador');
+  });
+});
+
+describe('isAbovePlans', () => {
+  it('is true for the admin, the Dono do Lorkarium and the Amigo do Dono', () => {
+    expect(isAbovePlans({ plan: 'free', admin: true, lorkariumOwner: false })).toBe(true);
+    expect(isAbovePlans({ plan: 'free', admin: false, lorkariumOwner: true })).toBe(true);
+    expect(isAbovePlans({ plan: 'amigo_do_dono', admin: false, lorkariumOwner: false })).toBe(true);
+    expect(isAbovePlans({ plan: 'lenda', admin: false, lorkariumOwner: false })).toBe(false);
   });
 });

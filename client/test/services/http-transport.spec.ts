@@ -67,6 +67,23 @@ describe('FetchHttpTransport', () => {
     expect(fake.calls[0]?.init).toMatchObject({ method: 'PUT', body: file });
   });
 
+  it('an extra header of the request (an idempotency key) rides with the JSON ones', async () => {
+    const fake = new FetchFake(Response.json({}, { status: 200 }));
+    await new FetchHttpTransport(fake.fetch).request(
+      'POST',
+      '/billing/admin/refunds',
+      { a: 1 },
+      {
+        'x-idempotency-key': 'key-1',
+      },
+    );
+    expect(fake.calls[0]?.init?.headers).toEqual({
+      'x-idempotency-key': 'key-1',
+      accept: 'application/json',
+      'content-type': 'application/json',
+    });
+  });
+
   it('a GET carries no body nor content-type', async () => {
     const fake = new FetchFake(Response.json({ user: null }));
     await new FetchHttpTransport(fake.fetch).request('GET', '/auth/me');

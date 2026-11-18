@@ -32,9 +32,9 @@ describe('juggernautFailureMessage', () => {
 
 describe('commandFailureMessage', () => {
   it('a plan refusal reads the sentence of the plan, not the generic one', () => {
-    const planLimit = { resource: 'players', limit: 6, plan: 'free' } as const;
+    const planLimit = { resource: 'players', limit: 5, plan: 'free' } as const;
     expect(commandFailureMessage({ kind: 'plan_limit', planLimit })).toBe(
-      'Esta mesa usa o plano Grátis, que permite até 6 jogadores. O Narrador libera 10.',
+      'Esta mesa usa o plano Grátis, que permite até 5 jogadores. O Narrador libera 8.',
     );
   });
 });

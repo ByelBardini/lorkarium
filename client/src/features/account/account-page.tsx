@@ -15,7 +15,7 @@ import {
   type AccountTab,
 } from './account-tabs';
 import { LeaveWithoutSavingDialog } from './leave-without-saving-dialog';
-import { PlanSection } from './plan-section';
+import { PlanSection, type PlanSectionProps } from './plan-section';
 import { ProfileSection } from './profile-section';
 import { SecuritySection } from './security-section';
 import { useProfileEditor, type ProfileEditor } from './use-profile-editor';
@@ -28,6 +28,7 @@ export type AccountPageProps = AccountLoaderData &
     clipboard: Clipboard;
     dicePreferences: StoreApi<DicePreferencesStore>;
     chatPreferences: StoreApi<ChatPreferencesStore>;
+    billingApi: PlanSectionProps['billingApi'];
   }>;
 
 /** "Minha conta" in tabs: how the person shows up to the table and rolls the dice (Perfil), how
@@ -114,7 +115,12 @@ function AccountTabPanels(
         />
       </TabsContent>
       <TabsContent value="plano">
-        <PlanSection plan={props.plan} account={profile} />
+        <PlanSection
+          plan={props.plan}
+          account={profile}
+          billingApi={props.billingApi}
+          now={props.now}
+        />
       </TabsContent>
     </>
   );

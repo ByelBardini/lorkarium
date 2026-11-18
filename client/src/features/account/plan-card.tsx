@@ -2,9 +2,10 @@ import type { UserPlan } from '@lorkarium/contracts';
 import { BrandIcon } from '@/components/brand-mark';
 import { PLAN_SEAL_ICONS } from '@/components/plan-seal-icon-map';
 import { memberColorCss } from '@/lib/member-color';
-import { PLAN_NAMES, planSealOf, type PlanSealHolder } from '@/lib/plan-seal';
+import { useId } from 'react';
+import { planSealOf, planTitleOf, type PlanSealHolder } from '@/lib/plan-seal';
 
-export type PlanCardProps = Readonly<{ holder: PlanSealHolder }>;
+export type PlanCardProps = Readonly<{ holder: PlanSealHolder; children?: React.ReactNode }>;
 
 const PLAN_MESSAGES: Readonly<Record<UserPlan, string>> = {
   free: 'Você joga com o essencial do Lorkarium. Quer mesas maiores? Compare os planos abaixo.',
@@ -19,31 +20,44 @@ const ADMIN_MESSAGE = 'Conta de administrador: sem limite de plano, valem só os
 
 // The Dono and an admin see who they are, never the stored plan (it gives them no limit).
 function headlineOf(holder: PlanSealHolder): Readonly<{ title: string; message: string }> {
-  if (holder.lorkariumOwner) return { title: 'Dono do Lorkarium', message: OWNER_MESSAGE };
-  if (holder.admin) return { title: 'Administrador', message: ADMIN_MESSAGE };
-  return { title: PLAN_NAMES[holder.plan], message: PLAN_MESSAGES[holder.plan] };
+  const title = planTitleOf(holder);
+  if (holder.lorkariumOwner) return { title, message: OWNER_MESSAGE };
+  if (holder.admin) return { title, message: ADMIN_MESSAGE };
+  return { title, message: PLAN_MESSAGES[holder.plan] };
 }
 
 /** The headline card of "Seu plano": the big seal, the plan's name in its color and the plan's
- *  own sentence. The Dono do Lorkarium and an admin see who they are, never the stored plan.
+ *  own sentence, with `children` (the subscription) under a divider. The Dono do Lorkarium and
+ *  an admin see who they are, never the stored plan.
  *
- *  Example: `<PlanCard holder={{ plan: 'lenda', admin: false, lorkariumOwner: false }} />` */
-export function PlanCard({ holder }: PlanCardProps): React.JSX.Element {
+ *  Example: `<PlanCard holder={{ plan: 'lenda', admin: false, lorkariumOwner: false }}>{panel}</PlanCard>` */
+export function PlanCard({ holder, children }: PlanCardProps): React.JSX.Element {
+  const titleId = useId();
   const seal = planSealOf(holder);
   const { title, message } = headlineOf(holder);
   const color = seal === null ? undefined : memberColorCss(seal.color);
   return (
-    <div className="flex items-center gap-7 rounded-xl border border-border bg-card px-8 py-7">
-      <PlanCardSymbol holder={holder} color={color} />
-      <div className="flex min-w-0 flex-col gap-2">
-        <h3
-          className="font-display text-5xl font-semibold tracking-wide uppercase"
-          style={{ color }}
-        >
-          {title}
-        </h3>
-        <p className="text-base text-muted-foreground">{message}</p>
+    <div
+      role="group"
+      aria-labelledby={titleId}
+      className="flex flex-col gap-6 rounded-xl border border-border bg-card px-8 py-7"
+    >
+      <div className="flex items-center gap-7">
+        <PlanCardSymbol holder={holder} color={color} />
+        <div className="flex min-w-0 flex-col gap-2">
+          <h3
+            id={titleId}
+            className="font-display text-5xl font-semibold tracking-wide uppercase"
+            style={{ color }}
+          >
+            {title}
+          </h3>
+          <p className="text-base text-muted-foreground">{message}</p>
+        </div>
       </div>
+      {children === undefined ? null : (
+        <div className="border-t border-border pt-5">{children}</div>
+      )}
     </div>
   );
 }

@@ -26,6 +26,7 @@ import { inviteRoute, passwordResetRoute } from '@/features/account-links/accoun
 import { LoginPage } from '@/features/auth/login-page';
 import { campaignTableRoute } from '@/features/campaigns/campaign-routes';
 import { exploreRoute } from '@/features/explore/explore-route';
+import { checkoutReturnRoute, plansRoute } from '@/features/billing/billing-routes';
 import { friendsRoute } from '@/features/friends/friends-route';
 import { useFriendsBadge, useUserMenuPresence } from '@/features/friends/use-shell-friends';
 import { homeRoutes } from '@/features/home/home-route';
@@ -38,6 +39,7 @@ import { useSignOutWhenRefused } from '@/features/sessions/use-sign-out-when-ref
 import { safeRedirectTarget } from '@/lib/safe-redirect';
 import type { AccountLinksApi } from '@/services/account-links-api';
 import type { AccountPlanApi } from '@/services/account-plan-api';
+import type { BillingApi } from '@/services/billing-api';
 import type { AccountSecurityApi } from '@/services/account-security-api';
 import type { UserAdminApi } from '@/services/user-admin-api';
 import type { UserReportsApi } from '@/services/user-reports-api';
@@ -108,6 +110,12 @@ export type AppDependencies = Readonly<{
   accountSecurityApi: AccountSecurityApi;
   /** The plan, its limits and the usage ("Seu plano" in "Minha conta"). */
   accountPlanApi: AccountPlanApi;
+  /** The billing service (`/api/billing/*`): prices, checkout, subscription, refunds. */
+  billingApi: BillingApi;
+  /** Leaves the app for the hosted checkout of the Mercado Pago; `location.assign` in the app. */
+  goToCheckout: (url: string) => void;
+  /** The pause between two checks of a payment coming back from the checkout. */
+  waitBeforeBillingCheck: (ms: number) => Promise<void>;
   /** The backoffice over the accounts and the invitations (admins only). */
   userAdminApi: UserAdminApi;
   /** The backoffice queue of user reports (admins only). */
@@ -292,6 +300,8 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
             withPlace(exploreRoute(deps), 'Explorar mesas'),
             withPlace(friendsRoute(deps), 'Amigos'),
             withPlace(accountRoute(deps), 'Minha conta'),
+            withPlace(plansRoute(deps), 'Planos'),
+            withPlace(checkoutReturnRoute(deps), 'Planos'),
             campaignTableRoute(deps),
           ],
         },
