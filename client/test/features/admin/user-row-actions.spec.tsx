@@ -80,10 +80,10 @@ describe('actions of each account', () => {
     expect(screen.queryByRole('menuitem', { name: 'Mandar link de nova senha' })).toBeNull();
   });
 
-  it('"Insígnias…" sits before "Excluir usuário" and opens the badges of the account', async () => {
+  it('"Insígnias…" and "Cobrança…" sit before "Excluir usuário"; "Insígnias…" opens the badges', async () => {
     await userEvent.click(screen.getByRole('button', { name: 'Ações de Bia' }));
     const items = screen.getAllByRole('menuitem').map((item) => item.textContent);
-    expect(items.slice(-2)).toEqual(['Insígnias…', 'Excluir usuário']);
+    expect(items.slice(-3)).toEqual(['Insígnias…', 'Cobrança…', 'Excluir usuário']);
     await userEvent.click(screen.getByRole('menuitem', { name: 'Insígnias…' }));
     expect(
       await screen.findByRole('dialog', { name: 'Insígnias de @biaflor' }),

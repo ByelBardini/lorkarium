@@ -21,12 +21,19 @@ import {
 import { PLAN_NAMES } from '@/lib/plan-seal';
 
 export type UserRowCommand =
-  'password-link' | 'grant-admin' | 'revoke-admin' | 'suspend' | 'reactivate' | 'delete' | 'badges';
+  | 'password-link'
+  | 'grant-admin'
+  | 'revoke-admin'
+  | 'suspend'
+  | 'reactivate'
+  | 'delete'
+  | 'badges'
+  | 'billing';
 export type InvitationRowCommand = 'resend' | 'cancel';
 
 type UserRowMenuProps = Readonly<{
   user: AdminUserDto;
-  /** The admin's own row: only "Insígnias…" (granting oneself is allowed, the rest is not). */
+  /** The admin's own row: only "Insígnias…" and "Cobrança…" (the rest is not allowed on oneself). */
   self?: boolean;
   onCommand: (command: UserRowCommand) => void;
   onPlan: (plan: UserPlan) => void;
@@ -48,6 +55,7 @@ export function UserRowMenu(props: UserRowMenuProps): React.JSX.Element {
       <DropdownMenuContent align="end">
         {!props.self && <AccountCommands {...props} />}
         <DropdownMenuItem onSelect={() => onCommand('badges')}>Insígnias…</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onCommand('billing')}>Cobrança…</DropdownMenuItem>
         {!props.self && (
           <>
             <DropdownMenuSeparator />

@@ -114,7 +114,7 @@ describe('granting badges from the account menu', () => {
     await openUsers();
     await userEvent.click(screen.getByRole('button', { name: 'Ações de Lucas' }));
     const items = screen.getAllByRole('menuitem').map((item) => item.textContent);
-    expect(items).toEqual(['Insígnias…']);
+    expect(items).toEqual(['Insígnias…', 'Cobrança…']);
     await userEvent.click(screen.getByRole('menuitem', { name: 'Insígnias…' }));
     const dialog = await screen.findByRole('dialog', { name: 'Insígnias de @lucas' });
     await userEvent.click(await within(dialog).findByRole('checkbox', { name: 'Veterano' }));
