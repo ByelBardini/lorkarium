@@ -26,6 +26,8 @@ export * from './http/api-error.dto';
 export * from './plans/user-plan.dto';
 export * from './plans/plan-limits';
 export * from './plans/account-plan.dto';
+export * from './plans/paid-plan.dto';
+export * from './billing/billing.dto';
 export * from './http/health.dto';
 export * from './http/realtime-ack.dto';
 export * from './realtime-limits';
