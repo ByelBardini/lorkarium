@@ -34,7 +34,7 @@ const REFUSED = {
   ok: false,
   error: expect.objectContaining({
     code: 'PLAN_LIMIT',
-    planLimit: { resource: 'customColor', limit: 0, plan: 'free' },
+    planLimit: { resource: 'customColor', limit: 0, plan: 'free', reason: 'room' },
   }),
 };
 

@@ -85,6 +85,7 @@ describe("the owner's storage", () => {
       resource: 'storage',
       limit: FREE_STORAGE,
       plan: 'free',
+      reason: 'room',
     });
     expect(await assetCountOf(live.vharn)).toBe(before);
   });

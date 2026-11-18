@@ -124,7 +124,7 @@ describe('onCommand with a plan refusal', () => {
       error: {
         code: 'PLAN_LIMIT',
         message: 'would have 2 tokenBars; plan free allows at most 1',
-        planLimit: { resource: 'tokenBars', limit: 1, plan: 'free' },
+        planLimit: { resource: 'tokenBars', limit: 1, plan: 'free', reason: 'room' },
       },
     });
   });
