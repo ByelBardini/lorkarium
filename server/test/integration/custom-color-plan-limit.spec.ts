@@ -148,7 +148,7 @@ describe('a custom color on the table content follows the plan of its owner', ()
 
   it('token:create with a hex aura is PLAN_LIMIT customColor', async () => {
     const ana = await anaAtVharn();
-    const command = tokenCommandFor(live.vharn, live.bia.id, { aura: HEX_AURA });
+    const command = tokenCommandFor(live.vharn, live.bia.id, { bars: [], aura: HEX_AURA });
 
     expect(await send(ana, 'token:create', command)).toEqual(REFUSED);
     expect((await synced(ana, live.vharn)).tokens).toEqual([]);

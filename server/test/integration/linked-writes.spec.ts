@@ -1,6 +1,7 @@
 import { characterChangedEventDto } from '@lorkarium/contracts';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { COMMANDS_PER_SECOND } from '../../src/realtime/command-rate.bo';
 import {
   gridState,
@@ -20,6 +21,11 @@ import {
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+beforeEach(async () => {
+  await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+  await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+});
 const LYRA_PV = {
   label: 'PV',
   current: 32,

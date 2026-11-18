@@ -184,6 +184,7 @@ describe('SavedRollsDao on Postgres', () => {
     expect(await lockOf(biaId)).toEqual({
       role: 'user',
       plan: 'narrador',
+      activePaidPlan: null,
       lorkariumOwner: false,
     });
     expect(await lockOf(stranger)).toBeUndefined();

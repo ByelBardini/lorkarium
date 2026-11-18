@@ -5,27 +5,49 @@ import {
   type PlanFeatureResource,
   type PlanLimits,
   type UserPlan,
+  higherPlanOf,
 } from '@lorkarium/contracts';
 import { PlanLimitError } from './plans.error';
 
-/** What decides the limits of an account: its global role, its plan and whether it is the Dono
- *  do Lorkarium (`OWNER_USERNAME`, read by `lorkariumOwnerSql`). */
+/** What decides the limits of an account: its global role, the plan set by the admin, the paid
+ *  plan still in force (`activePaidPlanSql`; absent or null: none) and whether it is the Dono do
+ *  Lorkarium (`OWNER_USERNAME`, read by `lorkariumOwnerSql`). */
 export type PlanAccount = Readonly<{
   role: 'user' | 'admin';
   plan: UserPlan;
+  activePaidPlan?: UserPlan | null;
   lorkariumOwner: boolean;
 }>;
+
+/** The plan that applies to an account: the higher of the admin's and the paid one, ranked by
+ *  the order of `USER_PLANS`. Neither writer touches the other's column, so a courtesy never
+ *  shrinks a purchase nor the other way round.
+ *
+ *  Example: `effectivePlanOf({ plan: 'free', activePaidPlan: 'lenda' }) // 'lenda'` */
+export function effectivePlanOf(account: Pick<PlanAccount, 'plan' | 'activePaidPlan'>): UserPlan {
+  return higherPlanOf(account.plan, account.activePaidPlan ?? null);
+}
+
+/** The paid plan of a whole `users` row while its end is ahead of `now`, null after: what
+ *  `activePaidPlanSql` answers in a query, for the reads that already hold the row (`/me`).
+ *
+ *  Example: `activePaidPlanOf({ paidPlan: 'lenda', paidPlanUntil: tomorrow }, now) // 'lenda'` */
+export function activePaidPlanOf(
+  row: Readonly<{ paidPlan: UserPlan | null; paidPlanUntil: Date | null }>,
+  now: Date,
+): UserPlan | null {
+  if (row.paidPlan === null || row.paidPlanUntil === null) return null;
+  return row.paidPlanUntil.getTime() > now.getTime() ? row.paidPlan : null;
+}
 
 /** The limits that apply to an account (to every table it owns, too): the admin and the Dono do
  *  Lorkarium have no plan limit, so they get the grid of `amigo_do_dono` (only the technical
  *  ceilings) whatever the plan.
  *
  *  Example: `effectiveLimitsOf({ role: 'user', plan: 'free', lorkariumOwner: false }).maxCampaigns // 1` */
-export function effectiveLimitsOf(
-  account: Pick<PlanAccount, 'role' | 'plan' | 'lorkariumOwner'>,
-): PlanLimits {
+export function effectiveLimitsOf(account: PlanAccount): PlanLimits {
   if (account.role === 'admin' || account.lorkariumOwner) return PLAN_LIMITS.amigo_do_dono;
-  return PLAN_LIMITS[account.plan];
+  return PLAN_LIMITS[effectivePlanOf(account)];
 }
 
 /** Whether the account of `username` is the Dono do Lorkarium, `ownerUsername` being the
@@ -43,7 +65,7 @@ export function isLorkariumOwner(username: string, ownerUsername: string | null)
  *  Example: `customizationAllowed({ role: 'user', plan: 'apoiador', lorkariumOwner: false }) // true` */
 export function customizationAllowed(account: PlanAccount): boolean {
   // The Apoiador's tables keep the Grátis palette (`customColor: false`); its own account opens.
-  return account.plan === 'apoiador' || effectiveLimitsOf(account).customColor;
+  return effectivePlanOf(account) === 'apoiador' || effectiveLimitsOf(account).customColor;
 }
 
 /** The checks of the plan a service runs after its lock, before writing. */

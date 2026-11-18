@@ -21,6 +21,7 @@ export const DUDA_ID = 'd7a1c3e5-2b4f-4a6c-8d0e-9f1b3c5d7e9a';
 export const FREE_ACCOUNT: UserPlanPo = {
   role: 'user',
   plan: 'free',
+  activePaidPlan: null,
   lorkariumOwner: false,
 };
 

@@ -188,7 +188,7 @@ describe('TokenPatrolBo.start', () => {
     );
   });
 
-  it('on narrador the 5th starts and the 6th is PLAN_LIMIT; pausing on free passes', () => {
+  it('on narrador the 3rd starts and the 4th is PLAN_LIMIT; pausing on free passes', () => {
     const narrator = new TokenPatrolBo({
       scene: SCENE,
       runningLimit: 30,
@@ -196,9 +196,9 @@ describe('TokenPatrolBo.start', () => {
     });
     const free = new TokenPatrolBo({ scene: SCENE, runningLimit: 30, plan: PLAN_LIMITS.free });
 
-    expect(narrator.start([paused('kael')], 4, at(0))).toHaveLength(1);
-    expect(() => narrator.start([paused('kael')], 5, at(0))).toThrow(
-      expect.objectContaining({ code: 'PLAN_LIMIT', resource: 'patrols', limit: 5 }),
+    expect(narrator.start([paused('kael')], 2, at(0))).toHaveLength(1);
+    expect(() => narrator.start([paused('kael')], 3, at(0))).toThrow(
+      expect.objectContaining({ code: 'PLAN_LIMIT', resource: 'patrols', limit: 3 }),
     );
     expect(free.pause([kael()], at(500))).toHaveLength(1);
   });

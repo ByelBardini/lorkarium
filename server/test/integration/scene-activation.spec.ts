@@ -1,5 +1,6 @@
 import { sceneActivatedDto, sceneClosedDto, sceneUpdatedDto } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { activateGrid, gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { envelope, eventPayload, send, silence } from '../support/live-table';
 import {
@@ -12,6 +13,11 @@ import { characterOfUser, characterUpdate } from '../support/table-characters';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+beforeEach(async () => {
+  await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+  await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+});
 
 const GRID_30_BY_20 = {
   widthCells: 30,

@@ -806,6 +806,13 @@
       "when": 1794777231321,
       "tag": "0114_badges",
       "breakpoints": true
+    },
+    {
+      "idx": 115,
+      "version": "7",
+      "when": 1794879802280,
+      "tag": "0115_paid_plan",
+      "breakpoints": true
     }
   ]
 }

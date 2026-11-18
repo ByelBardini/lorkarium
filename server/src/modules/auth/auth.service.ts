@@ -93,7 +93,8 @@ export class AuthService {
     const device = { userAgent: agent, lastSeenAt: now };
     await this.deps.sessions.insert({ id, userId: row.id, ...device, ...terms });
     await this.deps.users.touchLastSeen(row.id, now);
-    return { user: toAuthUserDto(row, this.deps.cipher, this.deps.ownerUsername), token, ...terms };
+    const user = toAuthUserDto(row, this.deps.cipher, this.deps.ownerUsername, now);
+    return { user, token, ...terms };
   }
 
   async resolveSession(token: string | undefined): Promise<ResolvedSession | null> {
@@ -175,10 +176,10 @@ type ResolvedRows = Readonly<{ user: UserPo; session: AuthSessionPo; expiresAt: 
 
 function toResolvedSession(
   { user, session, expiresAt }: ResolvedRows,
-  { cipher, ownerUsername }: Pick<AuthServiceDeps, 'cipher' | 'ownerUsername'>,
+  { cipher, ownerUsername, clock }: Pick<AuthServiceDeps, 'cipher' | 'ownerUsername' | 'clock'>,
 ): ResolvedSession {
   return {
-    user: toAuthUserDto(user, cipher, ownerUsername),
+    user: toAuthUserDto(user, cipher, ownerUsername, clock.now()),
     sessionId: session.id,
     expiresAt,
     recheckAt: toAuthSessionBo({ ...session, expiresAt }).recheckAt(),

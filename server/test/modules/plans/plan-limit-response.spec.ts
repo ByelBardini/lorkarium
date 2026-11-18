@@ -17,11 +17,11 @@ const replyAsTheModule: ApiErrorReply = async (_error, _request, reply) =>
 
 function refusalOfScenes(): PlanLimitError {
   try {
-    PlanLimitsBo.requireRoom('scenes', 5, 1, PLAN_LIMITS.free);
+    PlanLimitsBo.requireRoom('scenes', 3, 1, PLAN_LIMITS.free);
   } catch (error) {
     if (error instanceof PlanLimitError) return error;
   }
-  throw new Error('expected requireRoom to refuse the 6th scene of free');
+  throw new Error('expected requireRoom to refuse the 4th scene of free');
 }
 
 async function appThrowing(error: Error): Promise<FastifyInstance> {
@@ -39,8 +39,8 @@ describe('planLimitErrorBody', () => {
     const body = planLimitErrorBody(refusalOfScenes());
     expect(apiErrorDto.parse(body)).toEqual({
       code: 'PLAN_LIMIT',
-      message: 'would have 6 scenes; plan free allows at most 5',
-      planLimit: { resource: 'scenes', limit: 5, plan: 'free' },
+      message: 'would have 4 scenes; plan free allows at most 3',
+      planLimit: { resource: 'scenes', limit: 3, plan: 'free' },
     });
   });
 });
@@ -58,7 +58,7 @@ describe('withPlanLimitReply', () => {
     expect(response.statusCode).toBe(403);
     expect(response.json<ApiErrorDto>().planLimit).toEqual({
       resource: 'scenes',
-      limit: 5,
+      limit: 3,
       plan: 'free',
     });
   });

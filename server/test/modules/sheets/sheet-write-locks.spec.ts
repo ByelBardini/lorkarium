@@ -7,7 +7,12 @@ import { LYRA_SHEET_ID, SheetsHarness } from '../../support/sheets-fakes';
 describe('sheet write locks', () => {
   it("the table lock locks the table and gives the owner's effective limits", async () => {
     const harness = new SheetsHarness();
-    harness.campaigns.owner = { role: 'user', plan: 'free', lorkariumOwner: false };
+    harness.campaigns.owner = {
+      role: 'user',
+      plan: 'free',
+      activePaidPlan: null,
+      lorkariumOwner: false,
+    };
 
     const locked = await lockedTableOf(harness.members, harness.daos, harness.as(ANA_ID));
 
@@ -18,7 +23,12 @@ describe('sheet write locks', () => {
 
   it('the table lock gives an admin owner the limits of the amigo_do_dono', async () => {
     const harness = new SheetsHarness();
-    harness.campaigns.owner = { role: 'admin', plan: 'free', lorkariumOwner: false };
+    harness.campaigns.owner = {
+      role: 'admin',
+      plan: 'free',
+      activePaidPlan: null,
+      lorkariumOwner: false,
+    };
 
     const { limits } = await lockedTableOf(harness.members, harness.daos, harness.as(ANA_ID));
 

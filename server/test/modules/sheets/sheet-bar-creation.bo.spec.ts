@@ -36,15 +36,15 @@ describe('SheetBarCreationBo.barIdOf', () => {
     );
   });
 
-  it('on a free table, a label skipped past its 2 bars is PLAN_LIMIT tokenBars, limit 2', () => {
+  it('on a free table, a label skipped past its 1 bar is PLAN_LIMIT tokenBars, limit 1', () => {
     const free = new SheetBarCreationBo(LYRA_SHEET_ID, PLAN_LIMITS.free);
 
-    expect(free.barCap).toBe(2);
+    expect(free.barCap).toBe(1);
     expect(() => free.barIdOf('Sorte', bars, ['Sorte'])).toThrow(
       expect.objectContaining({
         code: 'PLAN_LIMIT',
         resource: 'tokenBars',
-        limit: 2,
+        limit: 1,
         plan: 'free',
       }),
     );

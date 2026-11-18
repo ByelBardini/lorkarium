@@ -4,6 +4,7 @@ import {
   type CharacterDto,
 } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { AssetsDao } from '../../src/modules/assets/assets.dao';
 import type { AssetPo } from '../../src/modules/assets/assets.po';
 import { CharactersDao } from '../../src/modules/characters/characters.dao';
@@ -26,6 +27,11 @@ const STRANGER_ID = 'f1e2d3c4-b5a6-4978-8a9b-0c1d2e3f4a5b';
 
 describe('characters over Socket.IO', () => {
   const live = useTokenTable();
+  // Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+  beforeEach(async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+    await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+  });
   let biaCharacterId: string;
   let pvId: string;
 

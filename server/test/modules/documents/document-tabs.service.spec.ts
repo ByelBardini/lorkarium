@@ -289,12 +289,13 @@ describe('DocumentTabsService tab content', () => {
 });
 
 describe("DocumentTabsService against the owner's plan", () => {
-  // The Diário of a free table (5 tabs per document) with `count` tabs.
+  // The Diário of a free table (3 tabs per document) with `count` tabs.
   function freeDiaryWith(count: number): DocumentsHarness {
     const harness = diary();
     harness.campaigns.owner = {
       role: 'user',
       plan: 'free',
+      activePaidPlan: null,
       lorkariumOwner: false,
     };
     for (let position = 2; position < count; position += 1)
@@ -303,21 +304,21 @@ describe("DocumentTabsService against the owner's plan", () => {
       );
     return harness;
   }
-  it('the owner creating the 6th tab is PLAN_LIMIT documentTabs, and nothing is written nor published', async () => {
-    const harness = freeDiaryWith(5);
+  it('the owner creating the 4th tab is PLAN_LIMIT documentTabs, and nothing is written nor published', async () => {
+    const harness = freeDiaryWith(3);
     const create = serviceWith(harness).create(bia(harness), DOCUMENT_ID, versioned);
     await expect(create).rejects.toMatchObject({
       code: 'PLAN_LIMIT',
       resource: 'documentTabs',
-      limit: 5,
+      limit: 3,
       plan: 'free',
     });
-    expect(harness.tabs.rows).toHaveLength(5);
+    expect(harness.tabs.rows).toHaveLength(3);
     expect(harness.documents.rows[0]?.version).toBe(3);
     expect(harness.journal).not.toContain('publish');
   });
-  it('the 5th tab of the free table is created', async () => {
-    const harness = freeDiaryWith(4);
+  it('the 3rd tab of the free table is created', async () => {
+    const harness = freeDiaryWith(2);
     const result = await serviceWith(harness).create(bia(harness), DOCUMENT_ID, versioned);
     expect(result.receipt).toMatchObject({ operation: 'tab-create', version: 4 });
   });

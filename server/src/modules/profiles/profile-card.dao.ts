@@ -2,13 +2,14 @@ import { and, asc, eq, isNull, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { lorkariumOwnerSql } from '../../database/lorkarium-owner-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
-import { users, type UserPo } from '../auth/users.po';
+import { activePaidPlanSql } from '../auth/users.dao';
+import { users, type UserPlanPo, type UserPo } from '../auth/users.po';
 import { campaignMembers } from '../campaigns/campaign-members.po';
 import { campaigns } from '../campaigns/campaigns.po';
 import { playingSeatOf } from '../reputation/reputation.dao';
 
 /** The columns of another account its card shows (never the e-mail nor the password hash). */
-export type ProfileCardAccountRow = Readonly<{ lorkariumOwner: boolean }> &
+export type ProfileCardAccountRow = Pick<UserPlanPo, 'activePaidPlan' | 'lorkariumOwner'> &
   Pick<
     UserPo,
     | 'id'
@@ -49,6 +50,7 @@ const cardColumns = {
   createdAt: users.createdAt,
   role: users.role,
   plan: users.plan,
+  activePaidPlan: activePaidPlanSql(),
   lorkariumOwner: lorkariumOwnerSql(users.username),
 };
 

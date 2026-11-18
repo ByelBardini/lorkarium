@@ -3,7 +3,8 @@ import {
   sheetWriteResponseDto,
   characterChangedEventDto,
 } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import {
   gridState,
   linkToPlayerCharacter,
@@ -18,6 +19,11 @@ import { lyraBarsOnBia } from '../support/table-characters';
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+beforeEach(async () => {
+  await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+  await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+});
 const CODE = { files: [{ path: 'index.html', content: '<p></p>' }] };
 
 async function sheetOf(

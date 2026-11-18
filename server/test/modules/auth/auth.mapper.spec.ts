@@ -11,11 +11,12 @@ import { DataCipherFake } from '../../support/auth-fakes';
 import { ANA_ID, userPo } from '../../support/auth-factories';
 
 const AVATAR_ID = '9b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e';
+const NOW = new Date('2026-11-16T12:00:00Z');
 
 describe('toAuthUserDto', () => {
   it('a full user row becomes the client view: e-mail opened with the id, no hash nor createdAt', () => {
     const row = userPo({ name: 'Ana', email: 'ana@mesa.com', role: 'admin', avatarId: AVATAR_ID });
-    expect(toAuthUserDto(row, new DataCipherFake(), null)).toEqual({
+    expect(toAuthUserDto(row, new DataCipherFake(), null, NOW)).toEqual({
       id: ANA_ID,
       username: 'ana',
       name: 'Ana',
@@ -25,6 +26,8 @@ describe('toAuthUserDto', () => {
       color: 'teal',
       avatarId: AVATAR_ID,
       plan: 'free',
+      paidPlan: null,
+      paidPlanUntil: null,
       lorkariumOwner: false,
       limits: PLAN_LIMITS.amigo_do_dono,
       customization: true,
@@ -32,43 +35,69 @@ describe('toAuthUserDto', () => {
   });
 
   it('a free user carries its plan, the free limits and no customization', () => {
-    const dto = toAuthUserDto(userPo({ plan: 'free' }), new DataCipherFake(), null);
+    const dto = toAuthUserDto(userPo({ plan: 'free' }), new DataCipherFake(), null, NOW);
     expect(dto).toMatchObject({ plan: 'free', customization: false });
     expect(dto.limits).toEqual(PLAN_LIMITS.free);
   });
 
   it('the Apoiador opens the customizations with the table limits of free', () => {
-    const dto = toAuthUserDto(userPo({ plan: 'apoiador' }), new DataCipherFake(), null);
+    const dto = toAuthUserDto(userPo({ plan: 'apoiador' }), new DataCipherFake(), null, NOW);
     expect(dto).toMatchObject({ plan: 'apoiador', customization: true });
     expect(dto.limits).toEqual(PLAN_LIMITS.apoiador);
     expect(dto.limits.customColor).toBe(false);
   });
 
   it('a lenda user carries the lenda limits', () => {
-    const dto = toAuthUserDto(userPo({ plan: 'lenda' }), new DataCipherFake(), null);
+    const dto = toAuthUserDto(userPo({ plan: 'lenda' }), new DataCipherFake(), null, NOW);
     expect(dto.limits).toEqual(PLAN_LIMITS.lenda);
   });
 
   it('the account of OWNER_USERNAME is the Dono do Lorkarium: no plan limit, customization open', () => {
-    const dto = toAuthUserDto(userPo({ plan: 'free' }), new DataCipherFake(), 'ana');
+    const dto = toAuthUserDto(userPo({ plan: 'free' }), new DataCipherFake(), 'ana', NOW);
     expect(dto).toMatchObject({ plan: 'free', lorkariumOwner: true, customization: true });
     expect(dto.limits).toEqual(PLAN_LIMITS.amigo_do_dono);
   });
 
   it('another @ in OWNER_USERNAME leaves the account as its plan says', () => {
-    const dto = toAuthUserDto(userPo({ plan: 'free' }), new DataCipherFake(), 'byel');
+    const dto = toAuthUserDto(userPo({ plan: 'free' }), new DataCipherFake(), 'byel', NOW);
     expect(dto).toMatchObject({ lorkariumOwner: false, customization: false });
     expect(dto.limits).toEqual(PLAN_LIMITS.free);
   });
 
   it('a chosen color wins over the drawn one', () => {
     const row = userPo({ color: 'moss' });
-    expect(toAuthUserDto(row, new DataCipherFake(), null).color).toBe('moss');
+    expect(toAuthUserDto(row, new DataCipherFake(), null, NOW).color).toBe('moss');
   });
 
   it('an e-mail sealed for another account does not open', () => {
     const row = { ...userPo(), emailCipher: 'sealed:user-email:someone-else:ana@mesa.com' };
-    expect(() => toAuthUserDto(row, new DataCipherFake(), null)).toThrow(/user-email/);
+    expect(() => toAuthUserDto(row, new DataCipherFake(), null, NOW)).toThrow(/user-email/);
+  });
+});
+
+describe('toAuthUserDto with a paid plan', () => {
+  const TOMORROW = new Date('2026-11-17T12:00:00Z');
+
+  it('a free account paying the Lenda until tomorrow carries it, its date and the Lenda limits', () => {
+    const row = userPo({ plan: 'free', paidPlan: 'lenda', paidPlanUntil: TOMORROW });
+    const dto = toAuthUserDto(row, new DataCipherFake(), null, NOW);
+    expect(dto).toMatchObject({
+      plan: 'free',
+      paidPlan: 'lenda',
+      paidPlanUntil: TOMORROW.toISOString(),
+    });
+    expect(dto.limits).toEqual(PLAN_LIMITS.lenda);
+  });
+
+  it('a paid plan that ended a second ago is gone: no plan, no date, the free limits', () => {
+    const row = userPo({
+      plan: 'free',
+      paidPlan: 'lenda',
+      paidPlanUntil: new Date(NOW.getTime() - 1000),
+    });
+    const dto = toAuthUserDto(row, new DataCipherFake(), null, NOW);
+    expect(dto).toMatchObject({ paidPlan: null, paidPlanUntil: null, customization: false });
+    expect(dto.limits).toEqual(PLAN_LIMITS.free);
   });
 });
 

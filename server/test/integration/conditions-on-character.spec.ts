@@ -4,7 +4,8 @@ import {
   combatTurnChangedDto,
   conditionsAppliedDto,
 } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { gridState, poison, tokenIn } from '../support/characters';
 import { gridAck, newGrid, setGridVisibility } from '../support/grids';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
@@ -13,6 +14,11 @@ import { charactersSynced, lyraBarsOnBia, wearCharacter } from '../support/table
 import { createdTokenOf, tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+beforeEach(async () => {
+  await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+  await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+});
 
 // Lyra, Bia's character, worn by a token on the Salão (the group grid) and one on the public
 // Estrada, which everyone has open; Kael, Caio's unlinked token, on the Salão.

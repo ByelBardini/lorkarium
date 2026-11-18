@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
 import { WallsDao } from '../../src/modules/walls/walls.dao';
 import type { NewWallPo } from '../../src/modules/walls/walls.po';
@@ -16,6 +17,11 @@ const AROUND = [
 
 describe('walls barring tokens over Socket.IO', () => {
   const live = useTokenTable();
+  // Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+  beforeEach(async () => {
+    await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+    await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+  });
 
   async function wallOn(table: Table, overrides: Partial<NewWallPo> = {}): Promise<string> {
     const scene = await new ScenesDao(live.connection.db).findActiveOf(table.id);

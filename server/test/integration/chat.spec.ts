@@ -5,7 +5,8 @@ import {
   type ChatSendAckDto,
   type ChatSentDto,
 } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import {
   recordEventsOf,
@@ -18,6 +19,11 @@ import type { Table } from '../support/tables';
 import { tokenCommandFor, useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+// Not about plans: the owners of Vharn and Quelm, born free, keep no ceiling of plan.
+beforeEach(async () => {
+  await setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono');
+  await setAccountPlan(live.connection.db, live.caio.id, 'amigo_do_dono');
+});
 
 const GROUP_ID = '1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f';
 const TABLE = { kind: 'table', whisperTo: null } as const;

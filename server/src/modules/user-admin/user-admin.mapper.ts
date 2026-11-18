@@ -5,8 +5,8 @@ import type { DeletionVerdict } from './user-admin.bo';
 import type { AccountListingRow } from './user-admin.dao';
 
 /** An account for the backoffice: the e-mail opened with the id as context, the status from
- *  `suspended_at`, the effective color, the stored plan and the
- *  Dono do Lorkarium. Never the hash nor the sealed columns.
+ *  `suspended_at`, the effective color, the plan of the admin, the paid one in force (with its end,
+ *  read only, the billing service writes it) and the Dono do Lorkarium. Never the hash nor the sealed columns.
  *
  *  Example: `toAdminUserDto(row, cipher).status // 'suspended'` */
 export function toAdminUserDto(row: AccountListingRow, cipher: DataCipherPort): AdminUserDto {
@@ -17,6 +17,8 @@ export function toAdminUserDto(row: AccountListingRow, cipher: DataCipherPort): 
     email: cipher.open('user-email', row.emailCipher, row.id),
     role: row.role,
     plan: row.plan,
+    paidPlan: row.activePaidPlan,
+    paidPlanUntil: row.activePaidPlanUntil?.toISOString() ?? null,
     lorkariumOwner: row.lorkariumOwner,
     status: row.suspendedAt === null ? 'active' : 'suspended',
     color: memberColorOf(row.id, row.color),

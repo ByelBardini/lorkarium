@@ -97,9 +97,9 @@ describe("the members of a table hold to its owner's plan", () => {
   }
 
   describe('the entry, always as a spectator', () => {
-    it('a third spectator of a free table is refused by the code with PLAN_LIMIT and gets no seat', async () => {
-      await seat(vharn.id, 'spectator', 2);
-      expectPlanLimit(await joinByCode(bia), 'spectators', 2);
+    it('a second spectator of a free table is refused by the code with PLAN_LIMIT and gets no seat', async () => {
+      await seat(vharn.id, 'spectator', 1);
+      expectPlanLimit(await joinByCode(bia), 'spectators', 1);
       expect(await roleOf(bia.id)).toBeUndefined();
     });
 
@@ -108,28 +108,27 @@ describe("the members of a table hold to its owner's plan", () => {
         .update(campaigns)
         .set({ visibility: 'public' })
         .where(eq(campaigns.id, vharn.id));
-      await seat(vharn.id, 'spectator', 2);
-      expectPlanLimit(await http(bia, 'POST', `/campaigns/${vharn.id}/join`), 'spectators', 2);
+      await seat(vharn.id, 'spectator', 1);
+      expectPlanLimit(await http(bia, 'POST', `/campaigns/${vharn.id}/join`), 'spectators', 1);
     });
 
-    it('with one spectator, the second enters', async () => {
-      await seat(vharn.id, 'spectator', 1);
+    it('with no spectator, the first enters', async () => {
       expect((await joinByCode(bia)).statusCode).toBe(200);
       expect(await roleOf(bia.id)).toBe('spectator');
     });
 
-    it('a plan changed in the backoffice counts at once: amigo_do_dono lets the third in', async () => {
-      await seat(vharn.id, 'spectator', 2);
+    it('a plan changed in the backoffice counts at once: amigo_do_dono lets the second in', async () => {
+      await seat(vharn.id, 'spectator', 1);
       await planOf(ana.id, 'amigo_do_dono');
       expect((await joinByCode(bia)).statusCode).toBe(200);
     });
   });
 
   describe('the promotion, by the destination role', () => {
-    it('promoting to player with six players is PLAN_LIMIT players and keeps the role', async () => {
-      await seat(vharn.id, 'player', 6);
+    it('promoting to player with five players is PLAN_LIMIT players and keeps the role', async () => {
+      await seat(vharn.id, 'player', 5);
       const [duda = ''] = await seat(vharn.id, 'spectator', 1);
-      expectPlanLimit(await setRole(duda, 'player'), 'players', 6);
+      expectPlanLimit(await setRole(duda, 'player'), 'players', 5);
       expect(await roleOf(duda)).toBe('spectator');
     });
 
@@ -145,8 +144,8 @@ describe("the members of a table hold to its owner's plan", () => {
       expect((await setRole(duda, 'master')).statusCode).toBe(200);
     });
 
-    it('moving a player to the spectators of a table with two of them passes', async () => {
-      await seat(vharn.id, 'spectator', 2);
+    it('moving a player to the spectators of a table with its one spectator passes', async () => {
+      await seat(vharn.id, 'spectator', 1);
       const [duda = ''] = await seat(vharn.id, 'player', 1);
       expect((await setRole(duda, 'spectator')).statusCode).toBe(200);
       expect(await roleOf(duda)).toBe('spectator');
@@ -155,8 +154,8 @@ describe("the members of a table hold to its owner's plan", () => {
 
   describe('a juggernaut', () => {
     it('enters a full table and takes no seat: a co-master is still promoted after it', async () => {
-      await seat(vharn.id, 'spectator', 2);
-      await seat(vharn.id, 'player', 6);
+      await seat(vharn.id, 'spectator', 1);
+      await seat(vharn.id, 'player', 5);
       await connection.db.update(users).set({ role: 'admin' }).where(eq(users.id, bia.id));
       expect((await http(bia, 'POST', `/campaigns/${vharn.id}/juggernaut`)).statusCode).toBe(200);
       const [duda = ''] = await seat(vharn.id, 'player', 1);
@@ -168,8 +167,8 @@ describe("the members of a table hold to its owner's plan", () => {
     it('the members of Quelm do not count against Vharn', async () => {
       const caio = await signUpAndLogin(app, connection.db, 'Caio');
       const quelm = await createTable(caio, 'Quelm');
-      await seat(quelm.id, 'spectator', 2);
-      await seat(quelm.id, 'player', 6);
+      await seat(quelm.id, 'spectator', 1);
+      await seat(quelm.id, 'player', 5);
       expect((await joinByCode(bia)).statusCode).toBe(200);
       expect((await setRole(bia.id, 'player')).statusCode).toBe(200);
     });

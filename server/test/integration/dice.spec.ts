@@ -179,7 +179,7 @@ describe('dice:roll', () => {
 
   it('the 7th roll of a burst is RATE_LIMITED; the board bucket is apart and nothing is written', async () => {
     const ana = await live.atTable(live.ana, live.vharn);
-    await send(ana, 'token:create', tokenCommandFor(live.vharn, live.bia.id));
+    await send(ana, 'token:create', tokenCommandFor(live.vharn, live.bia.id, { bars: [] }));
     const tokenId = (await synced(ana, live.vharn)).tokens[0]?.id;
     const before = await synced(ana, live.vharn);
 

@@ -117,15 +117,15 @@ describe('CampaignsService.create against the owner plan', () => {
     expect(runner.writesInside).not.toContain('campaigns.insert');
   });
 
-  it('a narrador owner with 4 tables creates the 5th and is refused the 6th', async () => {
+  it('a narrador owner with 2 tables creates the 3rd and is refused the 4th', async () => {
     owners.set(ANA_ID, planAccount({ plan: 'narrador' }));
-    ownedByAna(4);
+    ownedByAna(2);
 
     await service.create(ANA_ID, NEW_CAMPAIGN);
 
     await expect(service.create(ANA_ID, NEW_CAMPAIGN)).rejects.toMatchObject({
       resource: 'campaigns',
-      limit: 5,
+      limit: 3,
       plan: 'narrador',
     });
   });

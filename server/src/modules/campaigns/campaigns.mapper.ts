@@ -16,7 +16,7 @@ import {
 } from '@lorkarium/contracts';
 import { defaultCoverOf, memberColorOf, type TableSeat } from '@lorkarium/game-core';
 import type { UserPlanPo } from '../auth/users.po';
-import { effectiveLimitsOf } from '../plans/plan-limits.bo';
+import { effectiveLimitsOf, effectivePlanOf } from '../plans/plan-limits.bo';
 import { CampaignAccessBo } from './campaign-access.bo';
 import { CampaignJoinBo } from './campaign-join.bo';
 import { CampaignSettingsBo } from './campaign-settings.bo';
@@ -330,13 +330,14 @@ export function toCampaignMemberDto(member: CampaignMemberRow, online: boolean):
   };
 }
 
-/** What the table picks a person's one seal from: the stored plan (never the effective one, which
- *  is Amigo do Dono's for an admin), the global role and the Dono do Lorkarium.
+/** What the table picks a person's one seal from: the higher of the admin's plan and the paid one
+ *  in force (never the limits' plan, which is Amigo do Dono's for an admin), the global role and the
+ *  Dono do Lorkarium.
  *
  *  Example: `accountSealFieldsOf({ role: 'admin', plan: 'free', lorkariumOwner: false }).admin // true` */
 export function accountSealFieldsOf(account: UserPlanPo): AccountSealFields {
-  const { plan, lorkariumOwner } = account;
-  return { plan, admin: account.role === 'admin', lorkariumOwner };
+  const { lorkariumOwner } = account;
+  return { plan: effectivePlanOf(account), admin: account.role === 'admin', lorkariumOwner };
 }
 
 /** The fields of a member DTO the seal is picked from. */

@@ -4,6 +4,7 @@ import {
   PlanLimitsBo,
   customizationAllowed,
   effectiveLimitsOf,
+  effectivePlanOf,
 } from '../../../src/modules/plans/plan-limits.bo';
 import { PlanLimitError } from '../../../src/modules/plans/plans.error';
 
@@ -22,7 +23,7 @@ function refusalOf(work: () => void): PlanLimitError {
 describe('effectiveLimitsOf', () => {
   it('a user in free gets the grid of free', () => {
     const limits = effectiveLimitsOf({ role: 'user', plan: 'free', lorkariumOwner: false });
-    expect(limits).toMatchObject({ maxCampaigns: 1, maxBarsPerToken: 2, auraKinds: ['color'] });
+    expect(limits).toMatchObject({ maxCampaigns: 1, maxBarsPerToken: 1, auraKinds: ['color'] });
   });
 
   it('an admin gets the limits of amigo_do_dono whatever the plan', () => {
@@ -73,20 +74,20 @@ describe('customizationAllowed', () => {
 
 describe('PlanLimitsBo.requireRoom', () => {
   it('refuses passing the ceiling, citing the resource, the count and the plan', () => {
-    const error = refusalOf(() => PlanLimitsBo.requireRoom('scenes', 5, 1, FREE));
+    const error = refusalOf(() => PlanLimitsBo.requireRoom('scenes', 3, 1, FREE));
     expect(error).toMatchObject({
       code: 'PLAN_LIMIT',
       resource: 'scenes',
-      stored: 5,
+      stored: 3,
       adding: 1,
-      limit: 5,
+      limit: 3,
       plan: 'free',
-      message: 'would have 6 scenes; plan free allows at most 5',
+      message: 'would have 4 scenes; plan free allows at most 3',
     });
   });
 
   it('lets the count reach the ceiling', () => {
-    expect(() => PlanLimitsBo.requireRoom('scenes', 4, 1, FREE)).not.toThrow();
+    expect(() => PlanLimitsBo.requireRoom('scenes', 2, 1, FREE)).not.toThrow();
   });
 
   it('a null ceiling takes any count', () => {
@@ -111,8 +112,8 @@ describe('PlanLimitsBo.requireRoom', () => {
   });
 
   it('below the technical ceiling a paid plan is refused like the free one', () => {
-    const error = refusalOf(() => PlanLimitsBo.requireRoom('lights', 50, 1, PLAN_LIMITS.narrador));
-    expect(error).toMatchObject({ resource: 'lights', limit: 50, plan: 'narrador' });
+    const error = refusalOf(() => PlanLimitsBo.requireRoom('lights', 30, 1, PLAN_LIMITS.narrador));
+    expect(error).toMatchObject({ resource: 'lights', limit: 30, plan: 'narrador' });
   });
 });
 
@@ -136,5 +137,58 @@ describe('PlanLimitsBo.requireFeature', () => {
         PLAN_LIMITS.narrador,
       ),
     ).not.toThrow();
+  });
+});
+
+describe('the paid plan against the plan of the admin', () => {
+  const USER = { role: 'user', lorkariumOwner: false } as const;
+
+  it('a free account paying the Narrador gets the limits of the Narrador', () => {
+    expect(effectiveLimitsOf({ ...USER, plan: 'free', activePaidPlan: 'narrador' })).toBe(
+      PLAN_LIMITS.narrador,
+    );
+  });
+
+  it('a Lenda courtesy of the admin outranks a paid Narrador', () => {
+    expect(effectiveLimitsOf({ ...USER, plan: 'lenda', activePaidPlan: 'narrador' })).toBe(
+      PLAN_LIMITS.lenda,
+    );
+  });
+
+  it('without a paid plan only the plan of the admin counts', () => {
+    expect(effectiveLimitsOf({ ...USER, plan: 'apoiador', activePaidPlan: null })).toBe(
+      PLAN_LIMITS.apoiador,
+    );
+  });
+
+  it('an Apoiador of the admin paying the Narrador gets the Narrador and its customization', () => {
+    const account = { ...USER, plan: 'apoiador', activePaidPlan: 'narrador' } as const;
+    expect(effectiveLimitsOf(account)).toBe(PLAN_LIMITS.narrador);
+    expect(customizationAllowed(account)).toBe(true);
+  });
+
+  it('a free account paying the Apoiador opens its customization', () => {
+    expect(customizationAllowed({ ...USER, plan: 'free', activePaidPlan: 'apoiador' })).toBe(true);
+  });
+
+  it('an admin paying the Apoiador keeps the limits of amigo_do_dono', () => {
+    const admin = {
+      role: 'admin',
+      plan: 'free',
+      activePaidPlan: 'apoiador',
+      lorkariumOwner: false,
+    } as const;
+    expect(effectiveLimitsOf(admin)).toBe(PLAN_LIMITS.amigo_do_dono);
+  });
+});
+
+describe('effectivePlanOf', () => {
+  it('is the higher of the two plans, in the order of USER_PLANS', () => {
+    expect(effectivePlanOf({ plan: 'free', activePaidPlan: 'lenda' })).toBe('lenda');
+    expect(effectivePlanOf({ plan: 'narrador', activePaidPlan: 'apoiador' })).toBe('narrador');
+    expect(effectivePlanOf({ plan: 'apoiador', activePaidPlan: null })).toBe('apoiador');
+    expect(effectivePlanOf({ plan: 'amigo_do_dono', activePaidPlan: 'lenda' })).toBe(
+      'amigo_do_dono',
+    );
   });
 });

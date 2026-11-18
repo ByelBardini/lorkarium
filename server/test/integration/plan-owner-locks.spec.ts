@@ -47,7 +47,7 @@ describe('the plan read under the lock: CampaignsDao.lockWithOwner and UsersDao.
     expect(row).toMatchObject({
       id: biaTableId,
       ownerId: biaId,
-      owner: { role: 'user', plan: 'free', lorkariumOwner: false },
+      owner: { role: 'user', plan: 'free', activePaidPlan: null, lorkariumOwner: false },
     });
   });
 
@@ -58,6 +58,7 @@ describe('the plan read under the lock: CampaignsDao.lockWithOwner and UsersDao.
     expect(row?.owner).toEqual({
       role: 'user',
       plan: 'lenda',
+      activePaidPlan: null,
       lorkariumOwner: false,
     });
   });
@@ -83,6 +84,7 @@ describe('the plan read under the lock: CampaignsDao.lockWithOwner and UsersDao.
       await expect(owner).resolves.toEqual({
         role: 'user',
         plan: 'free',
+        activePaidPlan: null,
         lorkariumOwner: false,
       });
       await expect(table).rejects.toMatchObject({ cause: { code: '55P03' } });
@@ -94,6 +96,7 @@ describe('the plan read under the lock: CampaignsDao.lockWithOwner and UsersDao.
       expect(await new UsersDao(tx).lockForPlan(caioId)).toEqual({
         role: 'user',
         plan: 'lenda',
+        activePaidPlan: null,
         lorkariumOwner: false,
       });
       const second = runInTransaction(connection.db, async (other) => {

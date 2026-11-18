@@ -62,24 +62,24 @@ describe('SavedRollRulesBo.requireRoomFor', () => {
 });
 
 describe('SavedRollRulesBo.requireRoomFor under the table plan', () => {
-  it('a free table with 4 kept: the 5th fits', () => {
-    expect(() => rules.requireRoomFor(4, PLAN_LIMITS.free)).not.toThrow();
+  it('a free table with 2 kept: the 3rd fits', () => {
+    expect(() => rules.requireRoomFor(2, PLAN_LIMITS.free)).not.toThrow();
   });
 
-  it('a free table with 5 kept: the 6th is PLAN_LIMIT savedRolls, limit 5, plan free', () => {
-    expect(() => rules.requireRoomFor(5, PLAN_LIMITS.free)).toThrow(
+  it('a free table with 3 kept: the 4th is PLAN_LIMIT savedRolls, limit 3, plan free', () => {
+    expect(() => rules.requireRoomFor(3, PLAN_LIMITS.free)).toThrow(
       expect.objectContaining({
         code: 'PLAN_LIMIT',
         resource: 'savedRolls',
-        limit: 5,
+        limit: 3,
         plan: 'free',
       }),
     );
   });
 
-  it('a narrador table with 20 kept: the 21st is PLAN_LIMIT, limit 20', () => {
-    expect(() => rules.requireRoomFor(20, PLAN_LIMITS.narrador)).toThrow(
-      expect.objectContaining({ code: 'PLAN_LIMIT', limit: 20, plan: 'narrador' }),
+  it('a narrador table with 15 kept: the 16th is PLAN_LIMIT, limit 15', () => {
+    expect(() => rules.requireRoomFor(15, PLAN_LIMITS.narrador)).toThrow(
+      expect.objectContaining({ code: 'PLAN_LIMIT', limit: 15, plan: 'narrador' }),
     );
   });
 
@@ -102,8 +102,8 @@ describe('requireFolderRoom', () => {
     );
   });
 
-  it('a narrador table with 49 kept: the 50th fits', () => {
-    expect(() => requireFolderRoom(49, 50, PLAN_LIMITS.narrador)).not.toThrow();
+  it('a narrador table with 4 kept: the 5th fits', () => {
+    expect(() => requireFolderRoom(4, 50, PLAN_LIMITS.narrador)).not.toThrow();
   });
 
   it('with 50 kept, the next is the technical SAVED_ROLL_FOLDERS_LIMIT "51 of 50"', () => {

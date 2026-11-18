@@ -41,35 +41,35 @@ async function tabCount(document: DocumentDto): Promise<number> {
 }
 
 describe("document tabs follow the owner's plan", () => {
-  it('a document of a free table with 5 tabs refuses the 6th with 403 PLAN_LIMIT documentTabs', async () => {
+  it('a document of a free table with 3 tabs refuses the 4th with 403 PLAN_LIMIT documentTabs', async () => {
     await anaOn('free');
-    const document = await documentWithTabs(5);
+    const document = await documentWithTabs(3);
 
     const response = await createTab(document);
 
     expect(response.statusCode, response.body).toBe(403);
     expect(response.json()).toMatchObject({
       code: 'PLAN_LIMIT',
-      planLimit: { resource: 'documentTabs', limit: 5, plan: 'free' },
+      planLimit: { resource: 'documentTabs', limit: 3, plan: 'free' },
     });
-    expect(await tabCount(document)).toBe(5);
+    expect(await tabCount(document)).toBe(3);
     expect((await documents.read(document.id)).version).toBe(document.version);
   });
 
-  it('a free table creates a new document with its "Geral" tab, and its 5th tab', async () => {
+  it('a free table creates a new document with its "Geral" tab, and its 3rd tab', async () => {
     await anaOn('free');
-    const document = await documentWithTabs(4);
+    const document = await documentWithTabs(2);
 
     const response = await createTab(document);
 
     expect(document.tabs.map(({ name }) => name)).toEqual(['Geral']);
     expect(response.statusCode, response.body).toBe(201);
-    expect(await tabCount(document)).toBe(5);
+    expect(await tabCount(document)).toBe(3);
   });
 
-  it('a narrador table creates the 6th tab', async () => {
+  it('a narrador table creates the 4th tab', async () => {
     await anaOn('narrador');
-    const document = await documentWithTabs(5);
+    const document = await documentWithTabs(3);
 
     expect((await createTab(document)).statusCode).toBe(201);
   });
