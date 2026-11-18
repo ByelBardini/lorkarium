@@ -27,6 +27,7 @@ export class ScenesDaoFake implements Pick<
   | 'bumpVersion'
   | 'update'
   | 'listOfCampaign'
+  | 'rankOf'
 > {
   readonly journal: string[] = [];
   readonly activeOf = new Map<string, string>();
@@ -45,6 +46,16 @@ export class ScenesDaoFake implements Pick<
   async listOfCampaign(campaignId: string): Promise<LibrarySceneRow[]> {
     const grids = this.rows.filter((row) => row.campaignId === campaignId);
     return grids.map((row) => ({ ...this.withBackground(row), tokenCount: 0 }));
+  }
+
+  /** The place of the grid among its table's, as stored (the oldest first); a missing one, 0.
+   *  Writes nothing to the journal: ranking is a read under the lock already taken. */
+  async rankOf(campaignId: string, sceneId: string): Promise<number> {
+    const grids = this.rows.filter((row) => row.campaignId === campaignId);
+    return Math.max(
+      0,
+      grids.findIndex((row) => row.id === sceneId),
+    );
   }
 
   async findActiveOf(campaignId: string): Promise<SceneRow | undefined> {

@@ -1,4 +1,5 @@
-import { and, asc, eq, getTableColumns, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, eq, getTableColumns, inArray, sql, type SQL } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { hiddenByFolderSql } from '../../database/hidden-by-folder-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { assets } from '../assets/assets.po';
@@ -48,6 +49,9 @@ const backgroundOfScene = and(
 const tokenCountOfScene = sql<number>`(
   SELECT count(*) FROM ${tokens} WHERE ${tokens.sceneId} = ${scenes.id}
 )`.mapWith(Number);
+
+// The grid being ranked, joined to the grids of its campaign born before it.
+const rankedScene = alias(scenes, 'ranked_scene');
 
 /** Whether the scene is its table's group grid; the query must join `campaigns`. */
 export const IS_GROUP_GRID = sql<boolean>`coalesce(${campaigns.activeSceneId} = ${scenes.id}, false)`;
@@ -209,6 +213,28 @@ export class ScenesDao {
       .leftJoin(assets, backgroundOfScene)
       .where(eq(scenes.campaignId, campaignId))
       .orderBy(asc(scenes.createdAt), asc(scenes.id));
+  }
+
+  /** How many grids of the campaign were born before this one, by `(created_at, id)`: what the
+   *  owner's plan ranks it by (`PlanLimitsBo.requireEditable`). Call it on the `tx` DAO, after the
+   *  lock of the write; a grid of another campaign or a missing one counts 0.
+   *
+   *  Example: `await new ScenesDao(tx).rankOf(campaignId, cryptaId) // 3: the 4th grid` */
+  async rankOf(campaignId: string, sceneId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ total: count() })
+      .from(scenes)
+      .innerJoin(
+        rankedScene,
+        and(eq(rankedScene.campaignId, campaignId), eq(rankedScene.id, sceneId)),
+      )
+      .where(
+        and(
+          eq(scenes.campaignId, campaignId),
+          sql`(${scenes.createdAt}, ${scenes.id}) < (${rankedScene.createdAt}, ${rankedScene.id})`,
+        ),
+      );
+    return row?.total ?? 0;
   }
 
   /** One scene as the library lists it, only if it belongs to the campaign. */

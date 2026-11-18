@@ -14,6 +14,9 @@ export const documentTabSummaryDto = z.strictObject({
   visibility: documentTabVisibilityDto,
   version: documentVersionDto,
   updatedAt: z.iso.datetime(),
+  /** Past the table owner's plan (`documentTabs`, by creation order): the name and the body are
+   *  read only, while hiding, reordering and deleting still pass. */
+  planLocked: z.boolean(),
 });
 export type DocumentTabSummaryDto = z.infer<typeof documentTabSummaryDto>;
 export const documentTabDto = documentTabSummaryDto.extend({

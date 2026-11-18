@@ -38,6 +38,20 @@ describe('LibraryMapsDao on Postgres', () => {
       expect(listed[1]?.asset).toMatchObject({ id: mundo.assetId, purpose: 'library_map' });
     });
 
+    it('rankOf counts the maps of the campaign born before, none of another campaign', async () => {
+      const mundo = await live.createMap(live.vharn);
+      await live.createMap(live.quelm, { name: 'Quelm' });
+      const cidade = await live.createMap(live.vharn, { name: 'Cidade' });
+      const vharnId = live.vharn.campaignId;
+
+      const ranks = [live.vharn.otherMapId, mundo.id, cidade.id].map((id) =>
+        live.maps.rankOf(vharnId, id),
+      );
+
+      expect(await Promise.all(ranks)).toEqual([0, 1, 2]);
+      expect(await live.maps.rankOf(live.quelm.campaignId, cidade.id)).toBe(0);
+    });
+
     it('finds a map of the campaign with its asset', async () => {
       const mundo = await live.createMap(live.vharn);
       const found = await live.maps.findInCampaign(live.vharn.campaignId, mundo.id);

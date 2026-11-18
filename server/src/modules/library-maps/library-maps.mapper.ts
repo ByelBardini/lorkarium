@@ -6,14 +6,19 @@ import type {
 } from '@lorkarium/contracts';
 import { hexColorDto } from '@lorkarium/contracts';
 import { toAssetDto } from '../assets/assets.mapper';
+import { planLockedOf, type PlanRank } from '../library/library.mapper';
 import type { MapAppearanceRow } from './library-map-regions.dao';
 import type { LibraryMapRow } from './library-maps.dao';
 import type { ProjectedMapRegion } from './map-region-projection.bo';
 
-/** A map and its image → how the library lists it.
+/** A map and its image → how the library lists it; `place` (its rank among the table's maps and
+ *  the owner's limits) decides `planLocked`.
  *
- *  Example: `toLibraryMapSummaryDto(row).isMain // false` */
-export function toLibraryMapSummaryDto({ map, asset }: LibraryMapRow): LibraryMapSummaryDto {
+ *  Example: `toLibraryMapSummaryDto(row, { rank: 0, limits: PLAN_LIMITS.free }).planLocked // true` */
+export function toLibraryMapSummaryDto(
+  { map, asset }: LibraryMapRow,
+  place: PlanRank,
+): LibraryMapSummaryDto {
   return {
     id: map.id,
     name: map.name,
@@ -22,18 +27,20 @@ export function toLibraryMapSummaryDto({ map, asset }: LibraryMapRow): LibraryMa
     isMain: map.isMain,
     asset: toAssetDto(asset),
     version: map.version,
+    planLocked: planLockedOf('libraryMaps', place),
     updatedAt: map.updatedAt.toISOString(),
   };
 }
 
 /** The summary plus the regions already chosen for this reader.
  *
- *  Example: `toLibraryMapDetailDto(row, regions).regions.length // 12` */
+ *  Example: `toLibraryMapDetailDto(row, regions, place).regions.length // 12` */
 export function toLibraryMapDetailDto(
   row: LibraryMapRow,
   regions: readonly MapRegionDto[],
+  place: PlanRank,
 ): LibraryMapDetailDto {
-  return { ...toLibraryMapSummaryDto(row), regions: [...regions] };
+  return { ...toLibraryMapSummaryDto(row, place), regions: [...regions] };
 }
 
 /** A region already projected for its reader → what goes on the wire, field by field, so that

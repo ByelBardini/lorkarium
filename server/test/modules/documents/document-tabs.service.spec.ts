@@ -300,7 +300,14 @@ describe("DocumentTabsService against the owner's plan", () => {
     };
     for (let position = 2; position < count; position += 1)
       harness.tabs.rows.push(
-        documentTabPo({ id: randomUUID(), name: `Aba ${position}`, position }),
+        // Born after the Geral, one minute apart: the rank by (createdAt, id) must not hang on
+        // the random id.
+        documentTabPo({
+          id: randomUUID(),
+          name: `Aba ${position}`,
+          position,
+          createdAt: new Date(Date.UTC(2026, 9, 29, 16, position)),
+        }),
       );
     return harness;
   }
@@ -322,7 +329,7 @@ describe("DocumentTabsService against the owner's plan", () => {
     const result = await serviceWith(harness).create(bia(harness), DOCUMENT_ID, versioned);
     expect(result.receipt).toMatchObject({ operation: 'tab-create', version: 4 });
   });
-  it('renaming and deleting past the ceiling still apply (who is past keeps what it has)', async () => {
+  it('past the ceiling the oldest tab still renames and deletes', async () => {
     const harness = freeDiaryWith(7);
     const service = serviceWith(harness);
     await service.update(harness.requester, DOCUMENT_ID, GERAL_TAB_ID, {
@@ -332,5 +339,23 @@ describe("DocumentTabsService against the owner's plan", () => {
     const next = { actionId: randomUUID(), expectedVersion: 4 };
     await service.delete(harness.requester, DOCUMENT_ID, GERAL_TAB_ID, next);
     expect(harness.tabs.rows).toHaveLength(6);
+  });
+
+  it('past the ceiling a newer tab refuses a rename as readOnly, and still deletes', async () => {
+    const harness = freeDiaryWith(7);
+    const newest = harness.tabs.rows.find((row) => row.name === 'Aba 6')!;
+    const service = serviceWith(harness);
+    const rename = service.update(harness.requester, DOCUMENT_ID, newest.id, {
+      ...versioned,
+      name: 'Mundo',
+    });
+    await expect(rename).rejects.toMatchObject({
+      code: 'PLAN_LIMIT',
+      resource: 'documentTabs',
+      reason: 'readOnly',
+      limit: 3,
+    });
+    await service.delete(harness.requester, DOCUMENT_ID, newest.id, versioned);
+    expect(harness.tabs.rows.map((row) => row.name)).not.toContain('Aba 6');
   });
 });

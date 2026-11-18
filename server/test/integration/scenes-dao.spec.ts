@@ -42,6 +42,30 @@ describe('ScenesDao on Postgres', () => {
     return scene.id;
   }
 
+  it('rankOf counts the grids of the campaign born before, the id breaking a tie, none of another', async () => {
+    const tie = new Date('2026-11-01T12:00:00Z');
+    const first = await scenesDao.insert({
+      campaignId: vharnId,
+      createdAt: new Date('2026-10-01'),
+    });
+    const tieA = await scenesDao.insert({
+      id: '00000000-0000-4000-8000-00000000000a',
+      campaignId: vharnId,
+      createdAt: tie,
+    });
+    const tieB = await scenesDao.insert({
+      id: '00000000-0000-4000-8000-00000000000b',
+      campaignId: vharnId,
+      createdAt: tie,
+    });
+    await scenesDao.insert({ campaignId: quelmId, createdAt: new Date('2026-09-01') });
+
+    const ranks = [first, tieA, tieB].map(({ id }) => scenesDao.rankOf(vharnId, id));
+
+    expect(await Promise.all(ranks)).toEqual([0, 1, 2]);
+    expect(await scenesDao.rankOf(quelmId, tieB.id)).toBe(0);
+  });
+
   it('a new scene has the default 20×12 grid of 1.5 m cells at version 0', async () => {
     const scene = await scenesDao.insert({ campaignId: vharnId });
     expect(scene).toMatchObject({

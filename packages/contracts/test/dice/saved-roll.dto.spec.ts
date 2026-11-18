@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createSavedRollRequestDto,
+  savedRollDto,
   savedRollNameKey,
   updateSavedRollRequestDto,
 } from '../../src/dice/saved-roll.dto';
@@ -77,5 +78,23 @@ describe('updateSavedRollRequestDto', () => {
     const body = { name: 'Acerto', campaignId: VHARN_ID };
 
     expect(updateSavedRollRequestDto.safeParse(body).success).toBe(false);
+  });
+});
+
+describe('savedRollDto', () => {
+  const acerto = {
+    id: VHARN_ID,
+    name: 'Acerto',
+    folderId: null,
+    parts: [ATTACK],
+    planLocked: true,
+  };
+
+  it('a roll past the table plan comes with planLocked, and one without the key is refused', () => {
+    const withoutLock: Record<string, unknown> = { ...acerto };
+    delete withoutLock.planLocked;
+
+    expect(savedRollDto.parse(acerto).planLocked).toBe(true);
+    expect(savedRollDto.safeParse(withoutLock).success).toBe(false);
   });
 });

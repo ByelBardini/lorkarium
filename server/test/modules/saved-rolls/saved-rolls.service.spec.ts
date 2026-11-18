@@ -13,6 +13,7 @@ import {
   ACERTO_ID,
   MAGIAS_ID,
   SavedRollFoldersDaoFake,
+  SavedRollTableOwnersFake,
   SavedRollsDaoFake,
   SavedRollsTransactionRunnerFake,
   savedRollFolderPo,
@@ -33,9 +34,11 @@ function setup(rows = [savedRollPo()]) {
     campaignMemberPo({ userId: DUDA_ID, role: 'spectator' }),
   ]);
   const rolls = new SavedRollsDaoFake(journal, rows);
+  rolls.owners.add(`${VHARN_ID}:${CAIO_ID}`);
   const folders = new SavedRollFoldersDaoFake(journal, [savedRollFolderPo()]);
   const transaction = new SavedRollsTransactionRunnerFake(journal, { rolls, folders }).run;
-  const service = new SavedRollsService({ members, rolls, folders, transaction, maxSaved: 50 });
+  const tableOwners = new SavedRollTableOwnersFake(rolls);
+  const service = new SavedRollsService({ members, tableOwners, rolls, transaction, maxSaved: 50 });
   return { service, journal, members, rolls };
 }
 
@@ -50,8 +53,25 @@ describe('SavedRollsService.list', () => {
     const { service } = setup();
 
     expect(await service.list(BIA)).toEqual({
-      savedRolls: [{ id: ACERTO_ID, name: 'Acerto', folderId: null, parts: ATTACK }],
+      savedRolls: [
+        { id: ACERTO_ID, name: 'Acerto', folderId: null, parts: ATTACK, planLocked: false },
+      ],
     });
+  });
+
+  it('at a free table, Bia’s 5 rolls are planLocked from the 4th born on', async () => {
+    const { service, rolls } = setup(rollsOfBia(5));
+    rolls.tablePlans.set(VHARN_ID, planAccount({ plan: 'free' }));
+
+    const { savedRolls } = await service.list(BIA);
+
+    expect(savedRolls.map(({ planLocked }) => planLocked)).toEqual([
+      false,
+      false,
+      false,
+      true,
+      true,
+    ]);
   });
 
   it('Caio does not see the rolls of Bia', async () => {
@@ -76,6 +96,7 @@ describe('SavedRollsService.create', () => {
       name: 'Bênção',
       folderId: null,
       parts: [{ label: null, expression: '1d4' }],
+      planLocked: false,
     });
   });
 
@@ -184,8 +205,41 @@ describe('SavedRollsService.update', () => {
 
     const roll = await service.update(BIA, ACERTO_ID, { name: 'Acerto com espada', parts });
 
-    expect(roll).toEqual({ id: ACERTO_ID, name: 'Acerto com espada', folderId: null, parts });
-    expect(journal).toEqual([`update:${ACERTO_ID}`]);
+    expect(roll).toEqual({
+      id: ACERTO_ID,
+      name: 'Acerto com espada',
+      folderId: null,
+      parts,
+      planLocked: false,
+    });
+    expect(journal).toEqual(['lock', 'rank', `update:${ACERTO_ID}`, 'commit']);
+  });
+
+  it('at a free table, renaming Bia’s 4th born roll is PLAN_LIMIT readOnly and nothing is written', async () => {
+    const { service, journal, rolls } = setup(rollsOfBia(5));
+    rolls.tablePlans.set(VHARN_ID, planAccount({ plan: 'free' }));
+
+    const renaming = service.update(BIA, 'roll-of-bia-3', { name: 'Quarta' });
+
+    await expect(renaming).rejects.toMatchObject({
+      code: 'PLAN_LIMIT',
+      reason: 'readOnly',
+      resource: 'savedRolls',
+      stored: 4,
+      limit: 3,
+    });
+    expect(journal).toEqual(['lock', 'rank']);
+  });
+
+  it('at a free table, new parts on the 5th are refused and moving it to a folder passes, still planLocked', async () => {
+    const { service, rolls } = setup(rollsOfBia(5));
+    rolls.tablePlans.set(VHARN_ID, planAccount({ plan: 'free' }));
+
+    const formula = service.update(BIA, 'roll-of-bia-4', { parts: ATTACK });
+    await expect(formula).rejects.toMatchObject({ code: 'PLAN_LIMIT', reason: 'readOnly' });
+    const moved = await service.update(BIA, 'roll-of-bia-4', { folderId: MAGIAS_ID });
+
+    expect(moved).toMatchObject({ folderId: MAGIAS_ID, planLocked: true });
   });
 
   it('Caio on the roll of Bia is SAVED_ROLL_NOT_FOUND', async () => {
@@ -194,7 +248,7 @@ describe('SavedRollsService.update', () => {
     await expect(service.update(CAIO, ACERTO_ID, { name: 'Meu' })).rejects.toMatchObject({
       code: 'SAVED_ROLL_NOT_FOUND',
     });
-    expect(journal).toEqual([]);
+    expect(journal).toEqual(['lock', 'rank']);
   });
 
   it('renaming onto a name Bia already has is SAVED_ROLL_NAME_TAKEN', async () => {
@@ -282,7 +336,7 @@ describe('SavedRollsService and folders', () => {
     await expect(service.update(CAIO, ACERTO_ID, { folderId: MAGIAS_ID })).rejects.toMatchObject({
       code: 'SAVED_ROLL_FOLDER_NOT_FOUND',
     });
-    expect(journal).toEqual(['folder:find']);
+    expect(journal).toEqual(['lock', 'rank', 'folder:find']);
     expect(rolls.rows[0]?.folderId).toBeNull();
   });
 

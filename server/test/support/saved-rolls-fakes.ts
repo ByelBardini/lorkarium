@@ -1,3 +1,4 @@
+import type { CampaignsDao } from '../../src/modules/campaigns/campaigns.dao';
 import type { SavedRollsDao } from '../../src/modules/saved-rolls/saved-rolls.dao';
 import type { SavedRollFoldersDao } from '../../src/modules/saved-rolls/saved-roll-folders.dao';
 import type {
@@ -141,10 +142,11 @@ export class SavedRollNameViolationFake extends Error {
 }
 
 /** In-memory saved rolls; a repeated name key of the same owner throws like the unique index.
- *  Writes `lock`, `count`, `insert:<name>`, `update:<id>` and `remove:<id>` in the journal. */
+ *  Writes `lock`, `count`, `rank`, `insert:<name>`, `update:<id>` and `remove:<id>` in the
+ *  journal. */
 export class SavedRollsDaoFake implements Pick<
   SavedRollsDao,
-  'listOf' | 'countOf' | 'lockOwner' | 'insert' | 'update' | 'remove'
+  'listOf' | 'countOf' | 'rankOf' | 'lockOwner' | 'insert' | 'update' | 'remove'
 > {
   /** Owners (`<campaign>:<user>`) still at the table; `lockOwner` answers from it. */
   readonly owners = new Set<string>([`${VHARN_ID}:${BIA_ID}`]);
@@ -158,7 +160,18 @@ export class SavedRollsDaoFake implements Pick<
 
   async listOf(campaignId: string, userId: string): Promise<SavedRollPo[]> {
     this.journal.push('list');
-    return this.rows.filter((row) => row.campaignId === campaignId && row.userId === userId);
+    return this.bornOrder(campaignId, userId);
+  }
+
+  /** Rank by `(createdAt, id)`, as the DAO counts it. */
+  async rankOf(
+    campaignId: string,
+    userId: string,
+    savedRollId: string,
+  ): Promise<number | undefined> {
+    this.journal.push('rank');
+    const rank = this.bornOrder(campaignId, userId).findIndex((row) => row.id === savedRollId);
+    return rank < 0 ? undefined : rank;
   }
 
   async countOf(campaignId: string, userId: string): Promise<number> {
@@ -203,6 +216,15 @@ export class SavedRollsDaoFake implements Pick<
     return true;
   }
 
+  private bornOrder(campaignId: string, userId: string): SavedRollPo[] {
+    return this.rows
+      .filter((row) => row.campaignId === campaignId && row.userId === userId)
+      .sort(
+        (left, right) =>
+          left.createdAt.getTime() - right.createdAt.getTime() || left.id.localeCompare(right.id),
+      );
+  }
+
   private indexOf(campaignId: string, userId: string, savedRollId: string): number {
     return this.rows.findIndex(
       (row) => row.campaignId === campaignId && row.userId === userId && row.id === savedRollId,
@@ -224,6 +246,18 @@ export class SavedRollsDaoFake implements Pick<
     );
     if (taken)
       throw new SavedRollNameViolationFake('duplicate key value violates unique constraint');
+  }
+}
+
+/** The table owner's plan read without a lock, from the `tablePlans` of the rolls fake (a table
+ *  not set answers `planAccount()`, everything open).
+ *
+ *  Example: `new SavedRollTableOwnersFake(rolls).findOwnerPlan(VHARN_ID)` */
+export class SavedRollTableOwnersFake implements Pick<CampaignsDao, 'findOwnerPlan'> {
+  constructor(private readonly rolls: SavedRollsDaoFake) {}
+
+  async findOwnerPlan(campaignId: string): Promise<UserPlanPo | undefined> {
+    return this.rolls.tablePlans.get(campaignId) ?? planAccount();
   }
 }
 

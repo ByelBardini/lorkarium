@@ -3,6 +3,7 @@ import type {
   LibraryMapDetailDto,
   LibraryMapSummaryDto,
   MainMapResponseDto,
+  PlanLimits,
   UpdateLibraryMapRequestDto,
 } from '@lorkarium/contracts';
 import type { AssetsDao } from '../assets/assets.dao';
@@ -14,6 +15,7 @@ import { CampaignNotFoundError } from '../campaigns/campaigns.error';
 import { viewerAccessOf } from '../campaigns/member-access';
 import type { DocumentsDao } from '../documents/documents.dao';
 import type { LibraryPublisherPort } from '../library/library-publisher.port';
+import type { PlanRank } from '../library/library.mapper';
 import { PlanLimitsBo, effectiveLimitsOf } from '../plans/plan-limits.bo';
 import type { LibraryRequester } from '../library/library.service';
 import { SceneLibraryBo } from '../library/scene-library.bo';
@@ -31,7 +33,7 @@ import type { MapLinkTargetsDao } from './map-link-targets.dao';
 import { readMapRegions } from './map-region-links.service';
 
 export type LibraryMapDaos = Readonly<{
-  campaigns: Pick<CampaignsDao, 'lockWithOwner' | 'findById'>;
+  campaigns: Pick<CampaignsDao, 'lockWithOwner' | 'findById' | 'findOwnerPlan'>;
   members: Pick<CampaignMembersDao, 'findMembership'>;
   assets: Pick<AssetsDao, 'findInCampaign'>;
   folders: Pick<SceneFoldersDao, 'listOfCampaign'>;
@@ -42,6 +44,7 @@ export type LibraryMapDaos = Readonly<{
     | 'findInCampaign'
     | 'findMainOfCampaign'
     | 'findByAsset'
+    | 'rankOf'
     | 'update'
     | 'bumpVersion'
     | 'setMain'
@@ -73,7 +76,17 @@ export type LibraryMapServiceDeps = Readonly<{
 }>;
 
 // The outcome of an edit that may find nothing to do: only a real change is announced.
-type MainSwitch = Readonly<{ row: LibraryMapRow; changed: boolean }>;
+type MainSwitch = Readonly<{ row: LibraryMapRow; place: PlanRank; changed: boolean }>;
+
+// The limits of the owner's plan, read without a lock (a read: nothing is written by them).
+async function ownerLimitsOf(
+  daos: Pick<LibraryMapDaos, 'campaigns'>,
+  requester: LibraryRequester,
+): Promise<PlanLimits> {
+  const owner = await daos.campaigns.findOwnerPlan(requester.campaignId);
+  if (!owner) throw new CampaignNotFoundError(requester);
+  return effectiveLimitsOf(owner);
+}
 
 /** The master's edit of the maps: refuses anyone else before locking, then runs the work with the
  *  campaign locked, in one transaction; the work gets the locked row with its owner's plan.
@@ -112,6 +125,32 @@ export async function requireMapRow(
   throw new LibraryMapNotFoundError(requester.campaignId, mapId, requester.userId);
 }
 
+/** Where the map stands among the table's maps, with the limits of the owner's plan.
+ *
+ *  Example: `toLibraryMapSummaryDto(row, await mapPlaceOf(daos, campaignId, mapId, limits))` */
+export async function mapPlaceOf(
+  daos: Pick<LibraryMapDaos, 'maps'>,
+  campaignId: string,
+  mapId: string,
+  limits: PlanLimits,
+): Promise<PlanRank> {
+  return { rank: await daos.maps.rankOf(campaignId, mapId), limits };
+}
+
+/** Refuses with PLAN_LIMIT `readOnly` a change of a map past the owner's plan (its name, folder,
+ *  visibility or regions); call it with the campaign locked, before writing.
+ *
+ *  Example: `await requireEditableMap(daos, campaign, mapId)` */
+export async function requireEditableMap(
+  daos: Pick<LibraryMapDaos, 'maps'>,
+  campaign: CampaignWithOwnerPo,
+  mapId: string,
+): Promise<PlanRank> {
+  const place = await mapPlaceOf(daos, campaign.id, mapId, effectiveLimitsOf(campaign.owner));
+  PlanLimitsBo.requireEditable('libraryMaps', place.rank, place.limits);
+  return place;
+}
+
 /** The maps of the library. Every edit is the master's, runs with the campaign locked, commits,
  *  and only then tells the table `library:changed`, which carries nothing: each client reads back
  *  through a route that filters by role.
@@ -135,10 +174,15 @@ export class LibraryMapsService {
       await this.requireFolder(daos, campaignId, folderId);
       const visibility = input.visibility ?? 'private';
       const row = { campaignId, name: input.name, assetId: input.assetId, folderId, visibility };
-      return requireMapRow(daos, requester, (await daos.maps.insert(row)).id);
+      const created = await requireMapRow(daos, requester, (await daos.maps.insert(row)).id);
+      const limits = effectiveLimitsOf(campaign.owner);
+      return toLibraryMapSummaryDto(
+        created,
+        await mapPlaceOf(daos, campaignId, created.map.id, limits),
+      );
     });
     this.announce(requester.campaignId);
-    return toLibraryMapSummaryDto(saved);
+    return saved;
   }
 
   /** The map as this reader may know it; one they may not see answers LIBRARY_MAP_NOT_FOUND.
@@ -151,7 +195,8 @@ export class LibraryMapsService {
       const row = await requireMapRow(daos, requester, mapId);
       new LibraryMapAccessBo(access).requireSee(row.map);
       const regions = await daos.regions.listOfMap(campaignId, mapId);
-      return toLibraryMapDetailDto(row, await readMapRegions(daos, access, regions));
+      const place = await mapPlaceOf(daos, campaignId, mapId, await ownerLimitsOf(daos, requester));
+      return toLibraryMapDetailDto(row, await readMapRegions(daos, access, regions), place);
     });
   }
 
@@ -160,13 +205,22 @@ export class LibraryMapsService {
    *  Example: `(await maps.main(requester)).map?.id` */
   async main(requester: LibraryRequester): Promise<MainMapResponseDto> {
     const { userId, campaignId } = requester;
-    await viewerAccessOf(this.deps.read.members, campaignId, userId);
-    const row = await this.deps.read.maps.findMainOfCampaign(campaignId);
-    return { map: row ? toLibraryMapSummaryDto(row) : null };
+    const { read } = this.deps;
+    await viewerAccessOf(read.members, campaignId, userId);
+    const row = await read.maps.findMainOfCampaign(campaignId);
+    if (!row) return { map: null };
+    const place = await mapPlaceOf(
+      read,
+      campaignId,
+      row.map.id,
+      await ownerLimitsOf(read, requester),
+    );
+    return { map: toLibraryMapSummaryDto(row, place) };
   }
 
   /** Renames, moves or publishes/hides a map; an absent key stays. The version goes up because
-   *  an open map only replaces what it shows by a higher one.
+   *  an open map only replaces what it shows by a higher one. A map past the owner's plan is read
+   *  only (PLAN_LIMIT `readOnly`).
    *
    *  Example: `await maps.update(requester, mapId, { visibility: 'public' })` */
   async update(
@@ -174,17 +228,18 @@ export class LibraryMapsService {
     mapId: string,
     changes: UpdateLibraryMapRequestDto,
   ): Promise<LibraryMapSummaryDto> {
-    const saved = await this.edit(requester, `edit map ${mapId}`, async (daos) => {
+    const saved = await this.edit(requester, `edit map ${mapId}`, async (daos, campaign) => {
       const { campaignId } = requester;
+      const place = await requireEditableMap(daos, campaign, mapId);
       if (changes.folderId !== undefined)
         await this.requireFolder(daos, campaignId, changes.folderId);
       if (!(await daos.maps.update(campaignId, mapId, changes)))
         throw new LibraryMapNotFoundError(campaignId, mapId, requester.userId);
       await daos.maps.bumpVersion(campaignId, mapId);
-      return requireMapRow(daos, requester, mapId);
+      return toLibraryMapSummaryDto(await requireMapRow(daos, requester, mapId), place);
     });
     this.announce(requester.campaignId);
-    return toLibraryMapSummaryDto(saved);
+    return saved;
   }
 
   /** Deletes a map and its regions; never the main one (MAP_IS_MAIN).
@@ -222,18 +277,20 @@ export class LibraryMapsService {
     isMain: boolean,
     save: (maps: LibraryMapDaos['maps']) => Promise<void>,
   ): Promise<LibraryMapSummaryDto> {
-    const { row, changed } = await this.edit(
+    const { row, place, changed } = await this.edit(
       requester,
       `change the main map at ${mapId}`,
-      async (daos): Promise<MainSwitch> => {
+      async (daos, campaign): Promise<MainSwitch> => {
         const current = await requireMapRow(daos, requester, mapId);
-        if (current.map.isMain === isMain) return { row: current, changed: false };
+        const limits = effectiveLimitsOf(campaign.owner);
+        const place = await mapPlaceOf(daos, requester.campaignId, mapId, limits);
+        if (current.map.isMain === isMain) return { row: current, place, changed: false };
         await save(daos.maps);
-        return { row: await requireMapRow(daos, requester, mapId), changed: true };
+        return { row: await requireMapRow(daos, requester, mapId), place, changed: true };
       },
     );
     if (changed) this.announce(requester.campaignId);
-    return toLibraryMapSummaryDto(row);
+    return toLibraryMapSummaryDto(row, place);
   }
 
   private async edit<T>(

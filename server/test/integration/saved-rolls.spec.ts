@@ -70,6 +70,7 @@ describe('the saved rolls over HTTP', () => {
       name: 'Acerto',
       folderId: null,
       parts: [{ label: 'Espada', expression: '1d20+5' }],
+      planLocked: false,
     });
   });
 
@@ -95,7 +96,7 @@ describe('the saved rolls over HTTP', () => {
 
     expect(response.statusCode).toBe(200);
     expect(await listOf(live.bia)).toEqual([
-      { id: acerto.id, name: 'Acerto com espada', folderId: null, parts },
+      { id: acerto.id, name: 'Acerto com espada', folderId: null, parts, planLocked: false },
     ]);
   });
 

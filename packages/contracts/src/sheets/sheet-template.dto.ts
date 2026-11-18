@@ -10,13 +10,16 @@ const CHANGE_KEYS = ['name', 'folderId', 'files', 'manifest'] as const;
 export const sheetTemplateNameDto = z.string().trim().min(1).max(SHEET_TEMPLATE_NAME_MAX_LENGTH);
 
 /** A template as the library lists it (master only): no code, so the aggregate stays small.
+ *  `planLocked`: the owner's plan went down and this template is past its ceiling of templates,
+ *  so its files and name are read only (deleting it and making sheets from it still pass).
  *
- *  Example: `sheetTemplateSummaryDto.parse({ id, folderId: null, name: 'Ficha Tormenta', version: 3, updatedAt })` */
+ *  Example: `sheetTemplateSummaryDto.parse({ id, folderId: null, name: 'Ficha Tormenta', version: 3, planLocked: false, updatedAt })` */
 export const sheetTemplateSummaryDto = z.strictObject({
   id: z.uuid(),
   folderId: z.uuid().nullable(),
   name: sheetTemplateNameDto,
   version: stateVersionDto,
+  planLocked: z.boolean(),
   updatedAt: z.iso.datetime(),
 });
 export type SheetTemplateSummaryDto = z.infer<typeof sheetTemplateSummaryDto>;

@@ -68,6 +68,17 @@ export class LibraryCampaignsDaoFake implements Pick<
   }
 }
 
+/** The library's campaigns plus the owner's plan read without a lock (`findOwnerPlan`, nothing
+ *  in the journal): what a list needs to mark `planLocked`. */
+export class OwnerPlanCampaignsDaoFake
+  extends LibraryCampaignsDaoFake
+  implements Pick<CampaignsDao, 'findOwnerPlan'>
+{
+  async findOwnerPlan(campaignId: string): Promise<UserPlanPo | undefined> {
+    return (await this.findById(campaignId)) && this.owner;
+  }
+}
+
 /** In-memory scene_folders of every campaign; each write records its name in the journal. */
 export class SceneFoldersDaoFake implements Pick<
   SceneFoldersDao,
@@ -128,6 +139,7 @@ export class LibraryScenesDaoFake implements Pick<
   | 'insert'
   | 'findInCampaign'
   | 'findLibraryRow'
+  | 'rankOf'
   | 'updateLibrary'
   | 'bumpVersion'
   | 'moveScenes'
@@ -156,6 +168,15 @@ export class LibraryScenesDaoFake implements Pick<
 
   async findLibraryRow(campaignId: string, sceneId: string): Promise<LibrarySceneRow | undefined> {
     return this.rows.find((row) => row.campaignId === campaignId && row.id === sceneId);
+  }
+
+  /** The place of the grid among its table's, as stored (the oldest first); a missing one, 0. */
+  async rankOf(campaignId: string, sceneId: string): Promise<number> {
+    const grids = await this.listOfCampaign(campaignId);
+    return Math.max(
+      0,
+      grids.findIndex((row) => row.id === sceneId),
+    );
   }
 
   async updateLibrary(

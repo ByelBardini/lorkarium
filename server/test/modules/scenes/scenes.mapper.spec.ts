@@ -5,11 +5,11 @@ import { scenePo, sceneRow } from '../../support/scenes-factories';
 
 describe('scenes mapper', () => {
   it('a numeric cell distance "1.50" from Postgres becomes the number 1.5', () => {
-    expect(toSceneDto(sceneRow({ cellDistance: '1.50' })).cellDistance).toBe(1.5);
+    expect(toSceneDto(sceneRow({ cellDistance: '1.50' }), false).cellDistance).toBe(1.5);
   });
 
   it('the scene DTO carries the grid as saved, without version or dates', () => {
-    expect(toSceneDto(sceneRow({ gridOpacity: 15, widthCells: 30 }))).toEqual({
+    expect(toSceneDto(sceneRow({ gridOpacity: 15, widthCells: 30 }), false)).toEqual({
       id: scenePo().id,
       name: 'Cena 1',
       widthCells: 30,
@@ -21,15 +21,20 @@ describe('scenes mapper', () => {
       background: null,
       vision: 'off',
       freeMovement: false,
+      planLocked: false,
     });
   });
 
+  it('the planLocked decided by the grid rank rides on the scene DTO as given', () => {
+    expect(toSceneDto(sceneRow(), true).planLocked).toBe(true);
+  });
+
   it('a scene saved with free_movement carries freeMovement true', () => {
-    expect(toSceneDto(sceneRow({ freeMovement: true })).freeMovement).toBe(true);
+    expect(toSceneDto(sceneRow({ freeMovement: true }), false).freeMovement).toBe(true);
   });
 
   it('a scene saved with vision_mode daylight carries vision daylight', () => {
-    expect(toSceneDto(sceneRow({ visionMode: 'daylight' })).vision).toBe('daylight');
+    expect(toSceneDto(sceneRow({ visionMode: 'daylight' }), false).vision).toBe('daylight');
   });
 
   it('a scene with a background carries its asset and the pixels of the image', () => {
@@ -39,7 +44,7 @@ describe('scenes mapper', () => {
       backgroundHeight: 700,
     });
 
-    expect(toSceneDto(row).background).toEqual({
+    expect(toSceneDto(row, false).background).toEqual({
       assetId: LYRA_PORTRAIT_ID,
       width: 1400,
       height: 700,
@@ -47,7 +52,9 @@ describe('scenes mapper', () => {
   });
 
   it('a background id whose asset did not join (gone) is no background', () => {
-    expect(toSceneDto(sceneRow({ backgroundAssetId: LYRA_PORTRAIT_ID })).background).toBeNull();
+    expect(
+      toSceneDto(sceneRow({ backgroundAssetId: LYRA_PORTRAIT_ID }), false).background,
+    ).toBeNull();
   });
 
   it('a grid of 2.5 ft cells becomes the PO with the distance as a numeric string', () => {

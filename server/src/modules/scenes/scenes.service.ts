@@ -6,14 +6,14 @@ import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { toCampaignAccessBo } from '../campaigns/campaigns.mapper';
 import type { BoardPublisherPort } from './board-publisher.port';
-import { inLockedGrid } from './locked-scene';
-import { SceneConfigBo, type SceneGrid } from './scene-config.bo';
-import type { SceneRow, ScenesDao } from './scenes.dao';
-import { backgroundOfScene, toSceneDto, toSceneGridPo } from './scenes.mapper';
+import { gridPlanLockOf, inLockedGrid, requireEditableGrid } from './locked-scene';
+import { SceneConfigBo, changesGridSetup, type SceneGrid } from './scene-config.bo';
+import type { AddressedSceneRow, SceneRow, ScenesDao } from './scenes.dao';
+import { backgroundOfScene, toSceneDto, toSceneGridPo, toSceneSetup } from './scenes.mapper';
 
 /** The DAOs a transaction hands out, bound to the open `tx`. */
 export type SceneWriteDaos = Readonly<{
-  scenes: Pick<ScenesDao, 'lockInCampaign' | 'update' | 'bumpVersion'>;
+  scenes: Pick<ScenesDao, 'lockInCampaign' | 'update' | 'bumpVersion' | 'rankOf'>;
   assets: Pick<AssetsDao, 'findInCampaign'>;
 }>;
 
@@ -44,7 +44,9 @@ export type SceneConfigRequest = Readonly<{
 }>;
 
 /** Configures the grid, the background and the vision mode of one grid of a campaign (absent
- *  `sceneId` = the group grid): persists, bumps that grid's version, then publishes.
+ *  `sceneId` = the group grid): persists, bumps that grid's version, then publishes. A grid past
+ *  the owner's plan keeps its size, ruler and background (PLAN_LIMIT `readOnly`); its vision mode
+ *  and free movement still change.
  *
  *  Example: `const version = await scenesService.configure(user.id, campaignId, { grid, sceneId })` */
 export class ScenesService {
@@ -64,19 +66,24 @@ export class ScenesService {
       savedConfigOf(daos, scene, new SceneConfigBo(access).configure(request.grid), request),
     );
     const at = this.deps.clock.now().toISOString();
-    const scene = toSceneDto(saved.value);
+    const scene = toSceneDto(saved.value.row, saved.value.planLocked);
     const { version, sceneId } = saved;
     this.deps.publisher.sceneUpdated({ campaignId, sceneId, version, at, scene });
     return version;
   }
 }
 
+/** The saved grid and whether it is past the owner's plan (the `planLocked` of `scene:updated`). */
+type ConfiguredGrid = Readonly<{ row: SceneRow; planLocked: boolean }>;
+
 async function savedConfigOf(
   daos: SceneWriteDaos,
-  scene: SceneRow,
+  scene: AddressedSceneRow,
   grid: SceneGrid,
   request: SceneConfigRequest,
-): Promise<SceneRow> {
+): Promise<ConfiguredGrid> {
+  const changesSetup = changesGridSetup(toSceneSetup(scene), grid, request.backgroundAssetId);
+  const planLocked = await planLockOfConfigure(daos.scenes, scene, changesSetup);
   const background = await backgroundFor(daos.assets, scene, request.backgroundAssetId);
   const config = {
     ...toSceneGridPo(grid),
@@ -85,11 +92,20 @@ async function savedConfigOf(
     freeMovement: request.freeMovement ?? scene.freeMovement,
   };
   const { hiddenByFolder } = scene;
-  return {
-    ...(await daos.scenes.update(scene.id, config)),
-    ...pixelsOf(background),
-    hiddenByFolder,
-  };
+  const saved = await daos.scenes.update(scene.id, config);
+  return { row: { ...saved, ...pixelsOf(background), hiddenByFolder }, planLocked };
+}
+
+// One rank per configure: a change of setup is refused past the plan (so it was not locked); a
+// vision or free movement alone only reads whether it is.
+async function planLockOfConfigure(
+  scenes: SceneWriteDaos['scenes'],
+  scene: AddressedSceneRow,
+  changesSetup: boolean,
+): Promise<boolean> {
+  if (!changesSetup) return gridPlanLockOf(scenes, scene);
+  await requireEditableGrid(scenes, scene);
+  return false;
 }
 
 // Only an asset of the scene's own campaign may become its background (§2.6).

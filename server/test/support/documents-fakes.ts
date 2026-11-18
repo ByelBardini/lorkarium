@@ -19,11 +19,12 @@ import type {
 import type {
   DocumentTabChangesPo,
   DocumentTabPositionPo,
+  DocumentTabRankedPo,
 } from '../../src/modules/documents/document-tabs.dao';
 import type { DocumentAssetPo } from '../../src/modules/documents/document-assets.po';
 import { ClockFake } from './auth-fakes';
 import { LibraryImagesHarness } from './library-images-fakes';
-import { LibraryCampaignsDaoFake } from './library-fakes';
+import { OwnerPlanCampaignsDaoFake } from './library-fakes';
 import { CAIO_ID, VHARN_ID, campaignMemberPo, campaignPo } from './campaigns-factories';
 import { ANA_ID } from './auth-factories';
 
@@ -143,9 +144,17 @@ type TabOperations = DocumentDaos['tabs'];
 export class DocumentTabsDaoFake implements TabOperations {
   rows: DocumentTabPo[] = [];
   constructor(readonly journal: string[]) {}
-  async listOfDocument(campaignId: string, documentId: string): Promise<DocumentTabSummaryPo[]> {
+  async listOfDocument(campaignId: string, documentId: string): Promise<DocumentTabRankedPo[]> {
     this.journal.push('load tabs');
-    return this.of(campaignId, documentId).sort((left, right) => left.position - right.position);
+    const born = this.bornOrder(campaignId, documentId);
+    return this.of(campaignId, documentId)
+      .sort((left, right) => left.position - right.position)
+      .map((row) => ({ ...row, rank: born.indexOf(row) }));
+  }
+  /** Rank by `(createdAt, id)`, as the DAO counts it. */
+  async rankOf(campaignId: string, documentId: string, tabId: string): Promise<number | undefined> {
+    const rank = this.bornOrder(campaignId, documentId).findIndex((row) => row.id === tabId);
+    return rank < 0 ? undefined : rank;
   }
   async findInDocument(
     campaignId: string,
@@ -198,6 +207,12 @@ export class DocumentTabsDaoFake implements TabOperations {
   async delete(campaignId: string, documentId: string, tabId: string): Promise<void> {
     this.rows = this.rows.filter((row) => row !== this.required(campaignId, documentId, tabId));
     this.journal.push('delete tab');
+  }
+  private bornOrder(campaignId: string, documentId: string): DocumentTabPo[] {
+    return this.of(campaignId, documentId).sort(
+      (left, right) =>
+        left.createdAt.getTime() - right.createdAt.getTime() || left.id.localeCompare(right.id),
+    );
   }
   private of(campaignId: string, documentId: string): DocumentTabPo[] {
     return this.rows.filter(
@@ -262,7 +277,7 @@ export class DocumentsHarness {
   readonly assets = new DocumentAssetsDaoFake(this.journal);
   readonly requester = { campaignId: VHARN_ID, userId: ANA_ID };
   /** Vharn; its owner's plan is `campaigns.owner` (no plan limit until a spec sets one). */
-  readonly campaigns = new LibraryCampaignsDaoFake(this.journal, [campaignPo({ id: VHARN_ID })]);
+  readonly campaigns = new OwnerPlanCampaignsDaoFake(this.journal, [campaignPo({ id: VHARN_ID })]);
   readonly daos: DocumentDaos = {
     ...this.library.daos,
     campaigns: this.campaigns,

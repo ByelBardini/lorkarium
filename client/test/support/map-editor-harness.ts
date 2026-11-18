@@ -1,6 +1,6 @@
 import { act, fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { CampaignDetailDto, MapRegionDto } from '@lorkarium/contracts';
+import type { CampaignDetailDto, LibraryMapDetailDto, MapRegionDto } from '@lorkarium/contracts';
 import type { MapPoint } from '@lorkarium/game-core';
 import { beforeEach, vi } from 'vitest';
 import { mapPointToScreen } from '@/lib/map-viewport';
@@ -30,11 +30,12 @@ export type Deps = ReturnType<typeof testDependencies>;
 export async function onTheMap(
   regions: readonly MapRegionDto[] = [],
   campaign: CampaignDetailDto = detailOf(VHARN),
+  map: Partial<LibraryMapDetailDto> = {},
 ): Promise<Deps> {
   const deps = testDependencies();
   deps.sessionStore.getState().signedIn(ANA);
   deps.openTables.getState().restore(ANA.id);
-  deps.libraryMapsApi.maps.set(MUNDO_ID, libraryMapDetail({ regions: [...regions] }));
+  deps.libraryMapsApi.maps.set(MUNDO_ID, libraryMapDetail({ regions: [...regions], ...map }));
   deps.libraryApi.answer('list', { ok: true, value: masterLibrary() });
   deps.documentWorkspace.getState().openMap({ campaign, mapId: MUNDO_ID, mapName: 'Mundo' });
   renderMapTab(deps);

@@ -1,5 +1,6 @@
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
+import { PlanLimitsBo, effectiveLimitsOf } from '../plans/plan-limits.bo';
 import { SceneAccessBo, type GridReach } from './scene-access.bo';
 import type { AddressedSceneRow, ScenesDao } from './scenes.dao';
 import { SceneNotFoundError } from './scenes.error';
@@ -51,6 +52,31 @@ export async function inLockedGrid<Daos extends GridLockDaos, T>(
     const value = await work({ daos, scene });
     return { value, version: await daos.scenes.bumpVersion(scene.id), sceneId: scene.id };
   });
+}
+
+/** Refuses with PLAN_LIMIT `readOnly` a change of setup (ruler, background, walls) on a grid past
+ *  the owner's plan, ranked among its table's grids; play on it never calls this. Call it inside
+ *  `inLockedGrid`, with the DAO of its `tx`.
+ *
+ *  Example: `await requireEditableGrid(locked.daos.scenes, locked.scene)` */
+export async function requireEditableGrid(
+  scenes: Pick<ScenesDao, 'rankOf'>,
+  scene: Pick<AddressedSceneRow, 'id' | 'campaignId' | 'owner'>,
+): Promise<void> {
+  const rank = await scenes.rankOf(scene.campaignId, scene.id);
+  PlanLimitsBo.requireEditable('scenes', rank, effectiveLimitsOf(scene.owner));
+}
+
+/** Whether the grid is past the owner's plan, ranked among its table's grids: the `planLocked`
+ *  of the scene the room receives. One count, in the snapshot's or the write's transaction.
+ *
+ *  Example: `await gridPlanLockOf(daos.scenes, scene) // true for the 4th grid of a free table` */
+export async function gridPlanLockOf(
+  scenes: Pick<ScenesDao, 'rankOf'>,
+  scene: Pick<AddressedSceneRow, 'id' | 'campaignId' | 'owner'>,
+): Promise<boolean> {
+  const rank = await scenes.rankOf(scene.campaignId, scene.id);
+  return PlanLimitsBo.isReadOnly('scenes', rank, effectiveLimitsOf(scene.owner));
 }
 
 /** The grid read for an address, if the requester may act on it: the master any grid of the

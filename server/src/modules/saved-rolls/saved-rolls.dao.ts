@@ -1,4 +1,5 @@
 import { and, asc, count, eq, sql, type SQL } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { PLAN_ACCOUNT_COLUMNS } from '../auth/users.dao';
 import { users, type UserPlanPo } from '../auth/users.po';
@@ -10,6 +11,8 @@ import {
   type SavedRollChangesPo,
   type SavedRollPo,
 } from './saved-rolls.po';
+
+const older = alias(savedRolls, 'older');
 
 /** The saved rolls of a member at a table: every query is keyed by the table and the owner, so a
  *  roll of someone else (or of another table) is never read, changed nor deleted. */
@@ -36,6 +39,31 @@ export class SavedRollsDao {
       .from(savedRolls)
       .where(ownedBy(campaignId, userId));
     return row?.total ?? 0;
+  }
+
+  /** How many of the owner's rolls at the table were born before `savedRollId`, by
+   *  `(created_at, id)` (the order of `listOf`); `undefined` when the roll is not the owner's.
+   *  Call it in the write's transaction, after `lockOwner`.
+   *
+   *  Example: `await rolls.rankOf(vharnId, biaId, rollId) // 3` */
+  async rankOf(
+    campaignId: string,
+    userId: string,
+    savedRollId: string,
+  ): Promise<number | undefined> {
+    const bornBefore = sql`(${older.createdAt}, ${older.id}) < (${savedRolls.createdAt}, ${savedRolls.id})`;
+    const sameOwner = and(
+      eq(older.campaignId, savedRolls.campaignId),
+      eq(older.userId, savedRolls.userId),
+      bornBefore,
+    );
+    const [row] = await this.db
+      .select({ rank: count(older.id) })
+      .from(savedRolls)
+      .leftJoin(older, sameOwner)
+      .where(and(ownedBy(campaignId, userId), eq(savedRolls.id, savedRollId)))
+      .groupBy(savedRolls.id);
+    return row?.rank;
   }
 
   /** Locks the owner's membership until the transaction ends, so two saves of the same member

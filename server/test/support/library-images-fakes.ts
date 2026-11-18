@@ -16,8 +16,8 @@ import { ANA_ID } from './auth-factories';
 import { CampaignMembersDaoFake, CampaignsDaoFake } from './campaigns-fakes';
 import { BIA_ID, VHARN_ID, campaignPo, campaignMemberPo } from './campaigns-factories';
 import {
-  LibraryCampaignsDaoFake,
   LibraryScenesDaoFake,
+  OwnerPlanCampaignsDaoFake,
   SceneFoldersDaoFake,
 } from './library-fakes';
 import { AssetsDaoFake } from './assets-fakes';
@@ -95,7 +95,7 @@ export class LibraryImagesHarness {
   ]);
   readonly assets = new AssetsDaoFake([], [libraryImageRow().asset]);
   readonly daos: LibraryImageDaos = {
-    campaigns: new LibraryCampaignsDaoFake(this.journal, [campaignPo({ id: VHARN_ID })]),
+    campaigns: new OwnerPlanCampaignsDaoFake(this.journal, [campaignPo({ id: VHARN_ID })]),
     members: this.members,
     assets: this.assets,
     images: this.images,

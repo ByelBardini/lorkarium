@@ -134,7 +134,9 @@ export const mapRegionDto = z.strictObject({
 });
 export type MapRegionDto = z.infer<typeof mapRegionDto>;
 
-/** A map as the library lists it, without its regions.
+/** A map as the library lists it, without its regions. `planLocked`: the owner's plan went down
+ *  and this map is past its ceiling of maps, so its name, folder, visibility and regions are read
+ *  only (marking it main and deleting it still pass).
  *
  *  Example: `libraryMapSummaryDto.parse(body).isMain // false` */
 export const libraryMapSummaryDto = z.strictObject({
@@ -145,6 +147,7 @@ export const libraryMapSummaryDto = z.strictObject({
   isMain: z.boolean(),
   asset: assetDto,
   version: stateVersionDto,
+  planLocked: z.boolean(),
   updatedAt: z.iso.datetime(),
 });
 export type LibraryMapSummaryDto = z.infer<typeof libraryMapSummaryDto>;

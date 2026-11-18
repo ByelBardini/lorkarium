@@ -1,4 +1,5 @@
 import { and, count, eq, getTableColumns, sql, type SQL } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { hiddenByFolderSql } from '../../database/hidden-by-folder-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { assets, type AssetPo } from '../assets/assets.po';
@@ -18,6 +19,9 @@ const MAP_WITH_FOLDER = {
   ...getTableColumns(libraryMaps),
   hiddenByFolder: hiddenByFolderSql('"library_maps"."folder_id"'),
 };
+
+// The map being ranked, joined to the maps of its campaign born before it.
+const rankedMap = alias(libraryMaps, 'ranked_map');
 
 const MAP_ASSET = and(
   eq(assets.id, libraryMaps.assetId),
@@ -59,6 +63,25 @@ export class LibraryMapsDao {
       .select({ total: count() })
       .from(libraryMaps)
       .where(eq(libraryMaps.campaignId, campaignId));
+    return row?.total ?? 0;
+  }
+
+  /** How many maps of the campaign were born before this one, by `(created_at, id)`: what the
+   *  owner's plan ranks it by (`PlanLimitsBo.requireEditable`). Call it on the `tx` DAO after the
+   *  lock of the write; a map of another campaign or a missing one counts 0.
+   *
+   *  Example: `await mapsDao.rankOf(campaignId, mapId) // 0: the oldest map` */
+  async rankOf(campaignId: string, mapId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ total: count() })
+      .from(libraryMaps)
+      .innerJoin(rankedMap, and(eq(rankedMap.campaignId, campaignId), eq(rankedMap.id, mapId)))
+      .where(
+        and(
+          eq(libraryMaps.campaignId, campaignId),
+          sql`(${libraryMaps.createdAt}, ${libraryMaps.id}) < (${rankedMap.createdAt}, ${rankedMap.id})`,
+        ),
+      );
     return row?.total ?? 0;
   }
 

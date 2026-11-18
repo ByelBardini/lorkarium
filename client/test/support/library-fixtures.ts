@@ -34,6 +34,7 @@ export function libraryScene(
     heightCells: scene.heightCells,
     background: null,
     tokenCount: 0,
+    planLocked: false,
     updatedAt: UPDATED_AT,
     ...overrides,
   };
