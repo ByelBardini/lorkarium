@@ -45,6 +45,24 @@ export class LightRulesBo {
     if (total > this.state.limit) throw new LightLimitError(total, this.state.limit);
   }
 
+  /** A new point, range, color or cone for the light of `lightRank` (lights of its grid born
+   *  before it) on the grid of `sceneRank` (grids of its table born before it): past the plan the
+   *  grid (`scenes`) or the light (`lights`) is read only. Lighting it and putting it out, and
+   *  deleting it, never pass through here.
+   *
+   *  Example: `rules.requireConfigurable(await lights.sceneRankOf(scene.id), row.rank)` */
+  requireConfigurable(sceneRank: number, lightRank: number): void {
+    this.requireSceneConfigurable(sceneRank);
+    PlanLimitsBo.requireEditable('lights', lightRank, this.state.plan);
+  }
+
+  /** A light placed on the grid of `sceneRank`: a grid past the plan keeps its lights as they are.
+   *
+   *  Example: `rules.requireSceneConfigurable(3) // PLAN_LIMIT scenes on a free table` */
+  requireSceneConfigurable(sceneRank: number): void {
+    PlanLimitsBo.requireEditable('scenes', sceneRank, this.state.plan);
+  }
+
   /** No `expected` (a normal command) always passes; points compare to the hundredth. */
   requireAt(lightId: string, expected: LightPosition | undefined, actual: LightPosition): void {
     if (!expected || (same(expected.x, actual.x) && same(expected.y, actual.y))) return;

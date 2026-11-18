@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
 import { TokensDao, type NewTokenRow } from '../../src/modules/tokens/tokens.dao';
 import { setAccountPlan } from '../support/account-plans';
+import { barInputsOf, barsOf, formsOf, planRefusal, updateOf } from '../support/board-plan';
 import { envelope, send, silence, synced } from '../support/live-table';
 import { recordEventsOf, type RealtimeClient } from '../support/realtime-client';
 import type { SignedInUser } from '../support/sign-in';
@@ -28,37 +29,6 @@ const ROUTE = {
   gait: 'glide',
 };
 const TORCH = { x: 5.5, y: 3, bright: 4, dim: 4 } as const;
-
-function planRefusal(resource: string, limit: number, plan: UserPlan = 'free'): object {
-  const planLimit = { resource, limit, plan };
-  return { ok: false, error: expect.objectContaining({ code: 'PLAN_LIMIT', planLimit }) };
-}
-
-function barsOf(count: number): object[] {
-  return Array.from({ length: count }, (_, index) => ({
-    label: `Barra ${index + 1}`,
-    current: 1,
-    max: 1,
-    color: 'gold',
-    visibility: 'everyone',
-  }));
-}
-
-function formsOf(count: number): object[] {
-  return Array.from({ length: count }, (_, index) => ({
-    id: crypto.randomUUID(),
-    name: `Forma ${index + 1}`,
-    imageAssetId: null,
-    width: 1,
-    height: 1,
-    frame: 'square',
-  }));
-}
-
-function updateOf(table: Table, tokenId: string, overrides: object = {}): object {
-  const fields = { name: 'Lyra', initials: 'LY', side: 'ally', width: 1, height: 1 };
-  return { ...envelope(table.id), tokenId, ...fields, controllerIds: [], bars: [], ...overrides };
-}
 
 async function planOf(user: SignedInUser, plan: UserPlan): Promise<void> {
   await setAccountPlan(live.connection.db, user.id, plan);
@@ -136,8 +106,10 @@ describe('the board commands follow the plan of the table owner', () => {
     it('a token with 5 bars from before the downgrade keeps them while only its name changes', async () => {
       const ana = await live.atTable(live.ana, live.vharn);
       const ogroId = await savedWithBars(live.vharn, 5);
+      const [before] = (await synced(ana, live.vharn)).tokens;
 
-      const renamed = { name: 'Ogro velho', bars: barsOf(5) };
+      // The 5 bars go back as stored: past the plan their settings are read only.
+      const renamed = { name: 'Ogro velho', bars: barInputsOf(before ?? { bars: [] }) };
       const ack = await send(ana, 'token:update', updateOf(live.vharn, ogroId, renamed));
 
       expect(ack).toMatchObject({ ok: true });

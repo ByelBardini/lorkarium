@@ -254,3 +254,35 @@ describe('TokenPatrolBo.pause', () => {
     expect(write?.timeline?.step).toBe(3);
   });
 });
+
+describe('TokenPatrolBo route past the plan', () => {
+  const free = new TokenPatrolBo({ scene: SCENE, runningLimit: 30, plan: PLAN_LIMITS.free });
+  const narrator = new TokenPatrolBo({
+    scene: SCENE,
+    runningLimit: 30,
+    plan: PLAN_LIMITS.narrador,
+  });
+
+  it('only a running patrol counts on the plan; a paused one or none does not', () => {
+    expect(free.countsOnPlan(kael())).toBe(true);
+    expect(free.countsOnPlan(kael({ timeline: timelineOf({ startedAt: null }) }))).toBe(false);
+    expect(free.countsOnPlan(kael({ timeline: null }))).toBe(false);
+  });
+
+  it('a new route for the 1st running patrol of a free table is PLAN_LIMIT patrols read only', () => {
+    expect(() => free.requireRouteEditable(0)).toThrow(
+      expect.objectContaining({ code: 'PLAN_LIMIT', resource: 'patrols', reason: 'readOnly' }),
+    );
+  });
+
+  it('on narrador the 3rd running patrol takes a new route and the 4th is read only', () => {
+    expect(() => narrator.requireRouteEditable(2)).not.toThrow();
+    expect(() => narrator.requireRouteEditable(3)).toThrow(
+      expect.objectContaining({ resource: 'patrols', reason: 'readOnly', stored: 4, limit: 3 }),
+    );
+  });
+
+  it('amigo_do_dono leaves every route free (the technical ceiling)', () => {
+    expect(() => rule.requireRouteEditable(29)).not.toThrow();
+  });
+});

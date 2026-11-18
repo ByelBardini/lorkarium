@@ -1,7 +1,11 @@
 import { PLAN_LIMITS, type PlanLimitDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import { PlanLimitError } from '../../../src/modules/plans/plans.error';
-import { TokenPlanBo } from '../../../src/modules/tokens/token-plan.bo';
+import {
+  TokenPlanBo,
+  type TokenBarSetting,
+  type TokenFormSetting,
+} from '../../../src/modules/tokens/token-plan.bo';
 
 const free = new TokenPlanBo(PLAN_LIMITS.free);
 const friend = new TokenPlanBo(PLAN_LIMITS.amigo_do_dono);
@@ -82,6 +86,129 @@ describe('TokenPlanBo.requireChange', () => {
   it('taking the aura away or not sending it passes', () => {
     expect(() => free.requireChange(heldFive, { aura: null })).not.toThrow();
     expect(() => free.requireChange(heldFive, {})).not.toThrow();
+  });
+});
+
+function readOnlyOf(
+  act: () => void,
+): Readonly<{ resource: string; reason: string; stored: number }> {
+  try {
+    act();
+  } catch (error) {
+    if (error instanceof PlanLimitError) {
+      const { resource, reason, stored } = error;
+      return { resource, reason, stored };
+    }
+    throw error;
+  }
+  throw new Error('expected a read only PlanLimitError; the act passed');
+}
+
+describe('TokenPlanBo.requireChange (bars past the plan are read only)', () => {
+  const pv = { label: 'PV', max: 45, color: 'ember' };
+  const mana = { label: 'Mana', max: 10, color: 'arcane' };
+  const folego = { label: 'Fôlego', max: 6, color: 'gold' };
+  const held = { bars: 3, forms: 0, auraKind: null, barSettings: [pv, mana, folego] };
+  const sending = (barSettings: TokenBarSetting[]) => ({ bars: barSettings.length, barSettings });
+
+  it('the same settings on the 3 bars (only the values changed) pass on free', () => {
+    expect(() => free.requireChange(held, sending([pv, mana, folego]))).not.toThrow();
+  });
+
+  it('a new max on the 2nd bar of a free table is tokenBars read only, the 2nd item', () => {
+    const raised = sending([pv, { ...mana, max: 12 }, folego]);
+    expect(readOnlyOf(() => free.requireChange(held, raised))).toEqual({
+      resource: 'tokenBars',
+      reason: 'readOnly',
+      stored: 2,
+    });
+  });
+
+  it.each([
+    ['label', { ...folego, label: 'Ânimo' }],
+    ['color', { ...folego, color: 'ash' }],
+  ])('a new %s on the 3rd bar is read only, the 3rd item', (_field, changed) => {
+    const sent = sending([pv, mana, changed]);
+    expect(readOnlyOf(() => free.requireChange(held, sent)).stored).toBe(3);
+  });
+
+  it('the 1st bar (under the ceiling) takes any setting', () => {
+    const renamed = sending([{ label: 'Vida', max: 50, color: 'ash' }, mana, folego]);
+    expect(() => free.requireChange(held, renamed)).not.toThrow();
+  });
+
+  it('deleting the 1st bar passes and the 2nd, now the 1st, takes a new setting', () => {
+    const sent = sending([{ ...mana, max: 20 }, folego]);
+    expect(() => free.requireChange(held, sent)).not.toThrow();
+  });
+
+  it('deleting the 2nd bar passes with the 3rd kept as it was', () => {
+    expect(() => free.requireChange(held, sending([pv, folego]))).not.toThrow();
+  });
+
+  it('swapping the 2nd and the 3rd bars is read only', () => {
+    const swapped = sending([pv, folego, mana]);
+    expect(readOnlyOf(() => free.requireChange(held, swapped)).resource).toBe('tokenBars');
+  });
+
+  it('on narrador (4 bars) and amigo_do_dono every one of the 3 bars takes a new setting', () => {
+    const changed = sending([pv, { ...mana, max: 12 }, { ...folego, label: 'Ânimo' }]);
+    expect(() => narrator.requireChange(held, changed)).not.toThrow();
+    expect(() => friend.requireChange(held, changed)).not.toThrow();
+  });
+});
+
+describe('TokenPlanBo.requireChange (forms past the plan are read only)', () => {
+  const dwarf = { id: 'form-dwarf', name: 'Anão', imageAssetId: 'asset-dwarf' };
+  const wolf = { id: 'form-wolf', name: 'Lobo', imageAssetId: 'asset-wolf' };
+  const bear = { id: 'form-bear', name: 'Urso', imageAssetId: 'asset-bear' };
+  const held = { bars: 0, forms: 3, auraKind: null, formSettings: [dwarf, wolf, bear] };
+  const sending = (formSettings: TokenFormSetting[]) => ({
+    forms: formSettings.length,
+    formSettings,
+  });
+
+  it('a new image on the 3rd form of a free table is tokenForms read only, the 3rd item', () => {
+    const repainted = sending([dwarf, wolf, { ...bear, imageAssetId: 'asset-other' }]);
+    expect(readOnlyOf(() => free.requireChange(held, repainted))).toEqual({
+      resource: 'tokenForms',
+      reason: 'readOnly',
+      stored: 3,
+    });
+  });
+
+  it('a new name on the 3rd form is read only too', () => {
+    const renamed = sending([dwarf, wolf, { ...bear, name: 'Urso velho' }]);
+    expect(readOnlyOf(() => free.requireChange(held, renamed)).stored).toBe(3);
+  });
+
+  it('the 2nd form (under the ceiling of 2) takes a new image and name', () => {
+    const changed = sending([dwarf, { ...wolf, name: 'Lobo atroz', imageAssetId: null }, bear]);
+    expect(() => free.requireChange(held, changed)).not.toThrow();
+  });
+
+  it('deleting the 1st form, or reordering them, passes while the 3rd stays as it was', () => {
+    expect(() => free.requireChange(held, sending([wolf, bear]))).not.toThrow();
+    expect(() => free.requireChange(held, sending([bear, dwarf, wolf]))).not.toThrow();
+  });
+
+  it('swapping the 3rd form for a new one (another id) is tokenForms room: no room is left', () => {
+    const replaced = sending([dwarf, wolf, { id: 'form-new', name: 'Urso', imageAssetId: null }]);
+    expect(refusalOf(() => free.requireChange(held, replaced))).toEqual({
+      resource: 'tokenForms',
+      limit: 2,
+      plan: 'free',
+    });
+  });
+
+  it('deleting two forms makes room for a new one', () => {
+    const renewed = sending([dwarf, { id: 'form-new', name: 'Corvo', imageAssetId: null }]);
+    expect(() => free.requireChange(held, renewed)).not.toThrow();
+  });
+
+  it('on narrador (4 forms) the 3rd form takes a new image', () => {
+    const repainted = sending([dwarf, wolf, { ...bear, imageAssetId: null }]);
+    expect(() => narrator.requireChange(held, repainted)).not.toThrow();
   });
 });
 
