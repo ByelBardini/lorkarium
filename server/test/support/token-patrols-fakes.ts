@@ -19,6 +19,8 @@ export type PatrolRowStore = Readonly<{ rows: TokenRow[] }>;
 export class TokenPatrolsDaoFake implements TokenPatrolWrites {
   /** The scenes whose running patrols were counted. */
   readonly counted: string[] = [];
+  /** Every rank asked (`runningRankOf`), with the answer. */
+  readonly ranked: { sceneId: string; tokenId: string; rank: number }[] = [];
 
   constructor(
     private readonly journal: string[],
@@ -69,6 +71,15 @@ export class TokenPatrolsDaoFake implements TokenPatrolWrites {
     return this.running(sceneId).length;
   }
 
+  /** Running patrols of the scene on older tokens, by `(createdAt, id)` as the real DAO. */
+  async runningRankOf(sceneId: string, tokenId: string): Promise<number> {
+    const self = this.store.rows.find(({ token }) => token.id === tokenId)?.token;
+    if (!self) throw new Error(`token ${tokenId} is not in the fake`);
+    const rank = this.running(sceneId).filter(({ token }) => olderThan(token, self)).length;
+    this.ranked.push({ sceneId, tokenId, rank });
+    return rank;
+  }
+
   async runningOf(sceneId: string, tokenIds: readonly string[]): Promise<PatrolledTokenPo[]> {
     return this.running(sceneId).filter(({ token }) => tokenIds.includes(token.id));
   }
@@ -89,4 +100,11 @@ export class TokenPatrolsDaoFake implements TokenPatrolWrites {
       this.store.rows[index] = update(row);
     });
   }
+}
+
+type Aged = Readonly<{ id: string; createdAt: Date }>;
+
+function olderThan(token: Aged, self: Aged): boolean {
+  const byTime = token.createdAt.getTime() - self.createdAt.getTime();
+  return byTime < 0 || (byTime === 0 && token.id < self.id);
 }

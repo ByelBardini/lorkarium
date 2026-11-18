@@ -1,4 +1,4 @@
-import type { LightsDao } from '../../src/modules/lights/lights.dao';
+import type { LightsDao, RankedLightPo } from '../../src/modules/lights/lights.dao';
 import type {
   LightColorPo,
   LightConePo,
@@ -16,6 +16,8 @@ type LightsDaoMethods =
   | 'listOfScene'
   | 'countOfScene'
   | 'findManyInScene'
+  | 'findManyRankedInScene'
+  | 'sceneRankOf'
   | 'moveMany'
   | 'setRanges'
   | 'setColors'
@@ -24,10 +26,14 @@ type LightsDaoMethods =
   | 'deleteMany';
 
 /** In-memory lights of every scene, filtered by scene like the real DAO. Writes go to `journal`
- *  ('save'), shared with the scenes fake, so a spec reads the whole order of a command.
+ *  ('save'), shared with the scenes fake, so a spec reads the whole order of a command. The rank
+ *  of a light is counted by `lightOrder`; the rank of a grid on the plan is `sceneRanks` (0 unset).
  *
  *  Example: `const lights = new LightsDaoFake(scenes.journal, [corridorTorchPo()])` */
 export class LightsDaoFake implements Pick<LightsDao, LightsDaoMethods> {
+  /** The rank of each grid among the grids of its table (`sceneRankOf`); unset = 0. */
+  readonly sceneRanks = new Map<string, number>();
+
   constructor(
     private readonly journal: string[],
     readonly rows: LightPo[] = [],
@@ -64,6 +70,21 @@ export class LightsDaoFake implements Pick<LightsDao, LightsDaoMethods> {
 
   async findManyInScene(sceneId: string, lightIds: readonly string[]): Promise<LightPo[]> {
     return this.rows.filter((row) => row.sceneId === sceneId && lightIds.includes(row.id));
+  }
+
+  async findManyRankedInScene(
+    sceneId: string,
+    lightIds: readonly string[],
+  ): Promise<RankedLightPo[]> {
+    const ofScene = await this.listOfScene(sceneId);
+    return (await this.findManyInScene(sceneId, lightIds)).map((row) => ({
+      ...row,
+      rank: ofScene.filter(({ lightOrder }) => lightOrder < row.lightOrder).length,
+    }));
+  }
+
+  async sceneRankOf(sceneId: string): Promise<number> {
+    return this.sceneRanks.get(sceneId) ?? 0;
   }
 
   // One 'save' for the whole group: it is one write in the transaction.

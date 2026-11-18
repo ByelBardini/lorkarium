@@ -3,6 +3,7 @@ import type { TokenPatrolFieldsDto } from '@lorkarium/contracts';
 import { TokenPatrolService } from '../../../src/modules/tokens/token-patrol.service';
 import type { TokenRow } from '../../../src/modules/tokens/tokens.dao';
 import { ClockFake } from '../../support/auth-fakes';
+import { planAccount } from '../../support/plan-account-fakes';
 import { ANA_ID } from '../../support/auth-factories';
 import { CampaignMembersDaoFake, CampaignsDaoFake } from '../../support/campaigns-fakes';
 import { BIA_ID, VHARN_ID, campaignMemberPo } from '../../support/campaigns-factories';
@@ -165,6 +166,57 @@ describe('TokenPatrolService', () => {
 
       await expect(save).rejects.toMatchObject({ code: 'TOKEN_NOT_FOUND' });
       expect(patrolOf(GUARD_ID)).toBeNull();
+    });
+  });
+
+  describe('setPatrol past the plan of the table', () => {
+    // The guard is older than Lyra by id: with both running, Lyra is the 2nd running patrol.
+    const OLDER_GUARD_ID = '00000000-0000-4000-8000-000000000001';
+
+    function onPlan(plan: 'free' | 'narrador', rows: TokenRow[]): void {
+      setUp(rows);
+      scenes.owners.set(VHARN_ID, planAccount({ plan }));
+    }
+
+    it('a new route over the running Lyra of a free table is PLAN_LIMIT read only and nothing is saved', async () => {
+      onPlan('free', [walkingLyra()]);
+
+      const save = service.setPatrol(ANA_ID, VHARN_ID, { tokenId: LYRA_ID, patrol: ROUTE });
+
+      await expect(save).rejects.toMatchObject({
+        code: 'PLAN_LIMIT',
+        resource: 'patrols',
+        reason: 'readOnly',
+      });
+      expect(scenes.journal).toEqual(['lock']);
+      expect(publisher.tokenPatrolChanges).toEqual([]);
+    });
+
+    it('taking the running route away, or a new route on a paused one, passes on free', async () => {
+      onPlan('free', [
+        walkingLyra(),
+        rowWith(BRAM_ID, squarePatrolPo({ tokenId: BRAM_ID, startedAt: null })),
+      ]);
+
+      await service.setPatrol(ANA_ID, VHARN_ID, { tokenId: LYRA_ID, patrol: null });
+      await service.setPatrol(ANA_ID, VHARN_ID, { tokenId: BRAM_ID, patrol: ROUTE });
+
+      expect(patrolOf(LYRA_ID)).toBeNull();
+      expect(patrolOf(BRAM_ID)).toMatchObject({ path: ROUTE.path, startedAt: null });
+    });
+
+    it('on narrador the rank counts only the running patrols of older tokens', async () => {
+      const bram = rowWith(
+        OLDER_GUARD_ID,
+        squarePatrolPo({ tokenId: OLDER_GUARD_ID, startedAt: STARTED }),
+      );
+      onPlan('narrador', [walkingLyra(), bram]);
+
+      await service.setPatrol(ANA_ID, VHARN_ID, { tokenId: LYRA_ID, patrol: ROUTE });
+
+      expect(tokens.patrols.ranked).toEqual([
+        { sceneId: VHARN_SCENE_ID, tokenId: LYRA_ID, rank: 1 },
+      ]);
     });
   });
 
