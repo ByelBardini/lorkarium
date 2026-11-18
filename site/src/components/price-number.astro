@@ -1,0 +1,19 @@
+---
+interface Props {
+  reais: string;
+  /** With its comma (",91"); empty on a whole price. */
+  cents: string;
+  per: string;
+}
+
+const { reais, cents, per } = Astro.props;
+---
+
+<div class="flex items-baseline">
+  <span class="mr-1.5 text-base font-semibold text-muted">R$</span>
+  <span class="font-display text-[58px] leading-[0.9] font-semibold text-parchment lining-nums">
+    {reais}
+  </span>
+  <span class="text-[19px] font-bold text-parchment">{cents}</span>
+  <span class="ml-1.5 text-sm text-faint">{per}</span>
+</div>

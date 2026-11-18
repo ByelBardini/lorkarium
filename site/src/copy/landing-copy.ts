@@ -299,7 +299,7 @@ const faqs: FaqCopy[] = [
   {
     question: 'Quanto custa?',
     answer:
-      'O Lorkarium é gratuito durante o acesso antecipado, sem pagamento. Toda conta começa no plano Grátis, que tem limites menores que os tetos citados nesta página: uma mesa como dono e 2 barras por token, por exemplo. Os planos ainda estão em construção e não estão à venda.',
+      'O Lorkarium é gratuito durante o acesso antecipado, sem pagamento. Toda conta começa no plano Grátis, que tem limites menores que os tetos citados nesta página: uma mesa como dono e 1 barra por token, por exemplo. Os planos ainda estão em construção e não estão à venda.',
     link: { label: 'Ver os planos', href: '/planos/' },
   },
   {

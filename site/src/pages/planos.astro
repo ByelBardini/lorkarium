@@ -1,68 +1,236 @@
 ---
 import { PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
+import ApoiadorSeal from '@lorkarium/brand/seals/apoiador.svg';
+import LendaSeal from '@lorkarium/brand/seals/lenda.svg';
+import NarradorSeal from '@lorkarium/brand/seals/narrador.svg';
+import LogoMark from '@lorkarium/brand/logo-mark.svg';
 import ActPoints from '@/components/act-points.astro';
+import FaqList from '@/components/faq-list.astro';
+import PriceNumber from '@/components/price-number.astro';
 import { inviteMailto } from '@/copy/landing-copy';
-import { plansCopy } from '@/copy/plans-copy';
+import { notifyMailto, plansCopy } from '@/copy/plans-copy';
+import { bestSavingPercent, PLAN_PERIODS, priceView, type PlanPrices } from '@/lib/plan-price';
 import SiteLayout from '@/layouts/site-layout.astro';
+
+const SEALS = { logo: LogoMark, apoiador: ApoiadorSeal, narrador: NarradorSeal, lenda: LendaSeal };
+const SEAL_COLOR = {
+  logo: 'text-faint',
+  apoiador: 'text-seal-apoiador',
+  narrador: 'text-seal-narrador',
+  lenda: 'text-seal-lenda',
+};
+// Tailwind only builds whole class names: one per period, shown while its radio is checked.
+const SHOWN_IN = {
+  mensal: 'group-has-[#periodo-mensal:checked]/precos:flex',
+  semestral: 'group-has-[#periodo-semestral:checked]/precos:flex',
+  anual: 'group-has-[#periodo-anual:checked]/precos:flex',
+};
+const paidPrices = plansCopy.plans.flatMap((plan): PlanPrices[] =>
+  plan.priceCents === null ? [] : [plan.priceCents],
+);
+const periods = PLAN_PERIODS.map((period) => ({
+  ...period,
+  saving: bestSavingPercent(paidPrices, period.key),
+}));
 ---
 
 <SiteLayout
-  title="Planos do Lorkarium · Em construção"
-  description="Os planos do Lorkarium ainda estão em construção e não estão à venda. Durante o acesso antecipado, toda conta começa no plano Grátis."
+  title="Planos do Lorkarium"
+  description="Jogar no Lorkarium é de graça. Os planos Apoiador, Narrador e Lenda abrem depois do acesso antecipado, por cartão ou Pix, com desconto no semestral e no anual."
   noindex
 >
-  <section class="act relative isolate overflow-clip">
-    <div class="site-wrap flex flex-col gap-12">
-      <div class="flex max-w-[860px] flex-col gap-5">
-        <span class="eyebrow">Em construção</span>
-        <h1 class="act-title m-0">Planos</h1>
+  <div class="group/precos">
+    <section class="act relative isolate overflow-clip">
+      <div class="site-wrap flex flex-col items-center gap-6 text-center">
+        <h1 class="act-title m-0">
+          Sua mesa, seu ritmo.
+          <span class="mt-3 block font-display text-[0.62em] tracking-normal text-gold normal-case italic">
+            O Grátis já leva uma campanha inteira.
+          </span>
+        </h1>
         <p
           data-plans-notice
           role="note"
-          class="m-0 border-l-2 border-gold bg-gold/6 px-4 py-3 text-[15px] leading-[1.6] text-label"
+          class="m-0 max-w-[640px] text-[17px] leading-[1.6] text-muted"
         >
-          Os planos ainda estão em construção e não estão abertos: não há como assinar nem pagar, e
-          os números abaixo podem mudar. Durante o acesso antecipado, toda conta nova começa no
-          plano Grátis, sem custo.
+          Toda conta começa no Grátis. Os planos pagos abrem depois do acesso antecipado, e os
+          preços abaixo ainda podem mudar.
         </p>
+        <fieldset class="m-0 flex flex-wrap items-center justify-center gap-4 border-0 p-0">
+          <legend class="sr-only">Período de cobrança</legend>
+          <div class="flex gap-0.5 rounded-sm border border-edge bg-surface-deep p-1">
+            {periods.map((period) => (
+              <label
+                data-period-option
+                class="flex h-10 cursor-pointer items-center gap-1.5 rounded-sm px-2.5 text-[13px] whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm font-semibold text-faint hover:text-parchment has-checked:bg-surface has-checked:text-parchment has-focus-visible:outline-2 has-focus-visible:outline-gold"
+              >
+                <input
+                  type="radio"
+                  name="periodo"
+                  id={`periodo-${period.key}`}
+                  value={period.key}
+                  checked={period.key === 'anual'}
+                  class="sr-only"
+                />
+                {period.label}
+                {period.saving > 0 && (
+                  <span class="text-xs font-bold text-moss-light">até {period.saving}%</span>
+                )}
+              </label>
+            ))}
+          </div>
+          <span class="text-[13px] text-faint">Cartão ou Pix</span>
+        </fieldset>
       </div>
-      <ul
-        aria-label="Planos"
-        class="m-0 grid list-none border-t border-l border-edge p-0 md:grid-cols-2 xl:grid-cols-4"
-      >
-        {plansCopy.plans.map((plan) => (
-          <li data-plan={plan.name} class="flex flex-col gap-5 border-r border-b border-edge p-7">
-            <div class="flex flex-col gap-3">
-              <span
-                data-plan-status
+    </section>
+
+    <section aria-label="Comparação dos planos" class="pb-6">
+      <div class="site-wrap flex flex-col gap-4">
+        <ul class="m-0 grid list-none border-t border-l border-edge p-0 md:grid-cols-2 xl:grid-cols-4">
+          {plansCopy.plans.map((plan) => {
+            const Seal = SEALS[plan.seal];
+            const prices = plan.priceCents;
+            const highlighted = plan.tag !== undefined;
+            return (
+              <li
+                data-plan={plan.name}
                 class:list={[
-                  'text-xs font-bold tracking-[0.12em] uppercase',
-                  plan.available ? 'text-gold' : 'text-faint',
+                  'flex flex-col gap-6 border-r border-b border-edge p-7',
+                  highlighted && 'relative bg-gold/5 outline-1 -outline-offset-1 outline-gold',
                 ]}
               >
-                {plan.available ? 'Disponível no acesso antecipado' : 'Ainda não disponível'}
-              </span>
-              <h2 class="m-0 font-wordmark text-[26px] font-bold tracking-[0.04em] text-parchment uppercase">
-                {plan.name}
-              </h2>
-              <p class="m-0 text-[15px] leading-relaxed text-muted">{plan.pitch}</p>
-            </div>
-            <ActPoints points={plan.limits} />
-          </li>
-        ))}
-      </ul>
-      <div class="flex max-w-[860px] flex-col gap-5">
-        <h2 class="m-0 font-wordmark text-xl font-semibold tracking-[0.04em] text-parchment">
-          Como os limites funcionam
-        </h2>
-        <ActPoints points={plansCopy.rules} />
-        <p class="m-0 text-[15px] leading-relaxed text-muted">
-          Ainda não tem conta?{' '}
-          <a href={inviteMailto(PUBLIC_CONTACT_EMAIL)} class="font-semibold">
-            Pedir convite
-          </a>
+                {highlighted && (
+                  <span
+                    data-plan-tag
+                    class="absolute top-0 right-5 inline-flex h-6 items-center rounded-b-sm bg-gold px-2.5 text-[11px] font-bold tracking-[0.06em] text-ink"
+                  >
+                    {plan.tag}
+                  </span>
+                )}
+                <div class="flex min-h-5 items-center gap-2">
+                  <span
+                    data-plan-status
+                    class:list={[
+                      'text-xs font-bold tracking-[0.14em] uppercase',
+                      plan.available ? 'text-gold' : 'text-faint',
+                    ]}
+                  >
+                    {plan.available ? 'Disponível no acesso antecipado' : 'Ainda não disponível'}
+                  </span>
+                </div>
+                <div class="flex flex-col gap-3">
+                  <div class="flex items-center gap-3">
+                    <span
+                      data-plan-seal={plan.seal}
+                      class:list={['inline-flex', SEAL_COLOR[plan.seal]]}
+                    >
+                      <Seal aria-hidden="true" class="size-8 shrink-0" />
+                    </span>
+                    <h2 class="m-0 font-wordmark text-[26px] font-bold tracking-[0.04em] text-parchment uppercase">
+                      {plan.name}
+                    </h2>
+                  </div>
+                  <p class="m-0 min-h-[4.8em] text-[15px] leading-relaxed text-muted">
+                    {plan.pitch}
+                  </p>
+                </div>
+                <div class="min-h-[104px]">
+                  {prices === null ? (
+                    <div class="flex flex-col gap-1">
+                      <span class="text-[13px] text-faint">Sem custo</span>
+                      <PriceNumber reais="0" cents="" per="para sempre" />
+                      <span class="text-xs text-faint">Sem cartão e sem prazo.</span>
+                    </div>
+                  ) : (
+                    PLAN_PERIODS.map((period) => {
+                      const view = priceView(prices, period.key);
+                      return (
+                        <div
+                          data-period={period.key}
+                          class:list={['hidden flex-col gap-1', SHOWN_IN[period.key]]}
+                        >
+                          <span class="min-h-5 text-[13px] text-faint line-through">
+                            {view.was ?? ''}
+                          </span>
+                          <PriceNumber reais={view.reais} cents={view.cents} per="/mês" />
+                          <span class="text-xs leading-snug text-faint">
+                            {view.billed}
+                            {view.saving && (
+                              <span class="text-moss-light"> · economiza {view.saving}</span>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                <a
+                  data-plan-cta
+                  href={
+                    plan.available
+                      ? inviteMailto(PUBLIC_CONTACT_EMAIL)
+                      : notifyMailto(PUBLIC_CONTACT_EMAIL, plan.name)
+                  }
+                  class:list={[
+                    'inline-flex h-12 items-center justify-center rounded-sm border text-[15px] font-semibold transition-colors',
+                    plan.available || highlighted
+                      ? 'border-gold bg-gold text-ink hover:bg-gold-hover'
+                      : 'border-edge-strong text-parchment hover:border-gold hover:text-gold-light',
+                  ]}
+                >
+                  {plan.available ? 'Pedir convite' : 'Me avise quando abrir'}
+                </a>
+                <div class="border-t border-edge pt-5">
+                  <ActPoints points={plan.limits} />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        <p class="m-0 text-center text-[13px] text-faint">
+          Preços em reais. O pagamento é feito na página do Mercado Pago; o Lorkarium não vê os
+          dados do cartão.
         </p>
       </div>
+    </section>
+
+    <section aria-labelledby="como-limites" class="act">
+      <div class="site-wrap flex flex-col gap-8">
+        <div class="flex flex-col gap-3">
+          <span class="eyebrow">Sem pegadinha</span>
+          <h2 id="como-limites" class="act-title m-0">
+            Como os limites funcionam
+          </h2>
+        </div>
+        <ul class="m-0 grid list-none border-t border-l border-edge p-0 md:grid-cols-3">
+          {plansCopy.rules.map((rule) => (
+            <li class="border-r border-b border-edge p-7 text-[15px] leading-relaxed text-label">
+              {rule}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  </div>
+
+  <FaqList faqs={plansCopy.faqs} title="Perguntas sobre os planos" />
+
+  <section class="act">
+    <div class="site-wrap flex flex-wrap items-center gap-8 border border-edge bg-surface p-10">
+      <div class="flex flex-[1_1_380px] flex-col gap-3">
+        <span class="eyebrow">Acesso antecipado</span>
+        <h2 class="act-title m-0">Ainda não tem conta?</h2>
+        <p class="m-0 max-w-[480px] text-[15px] leading-relaxed text-muted">
+          Estamos abrindo aos poucos, por convite. Mande um e-mail e respondemos assim que houver
+          vaga.
+        </p>
+      </div>
+      <a
+        href={inviteMailto(PUBLIC_CONTACT_EMAIL)}
+        class="inline-flex h-12 items-center rounded-sm bg-gold px-6 text-[15px] font-semibold text-ink hover:bg-gold-hover"
+      >
+        Pedir convite
+      </a>
     </div>
   </section>
 </SiteLayout>
