@@ -15,6 +15,8 @@ const ANA = {
   color: 'teal',
   avatarId: null,
   plan: 'narrador',
+  paidPlan: null,
+  paidPlanUntil: null,
   lorkariumOwner: false,
   limits: PLAN_LIMITS.narrador,
   customization: true,

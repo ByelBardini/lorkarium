@@ -19,7 +19,7 @@ const countCeiling = z.number().int().nonnegative();
  *  sends them in `/me` (the account's) and in the table info (the owner's), so the client never
  *  repeats the rule. `null` = no ceiling of plan. `plan` is the plan whose grid this is.
  *
- *  Example: `planLimitsDto.parse(PLAN_LIMITS.free).maxScenes // 5` */
+ *  Example: `planLimitsDto.parse(PLAN_LIMITS.free).maxScenes // 3` */
 export const planLimitsDto = z.strictObject({
   plan: userPlanDto,
   maxCampaigns: countCeiling.nullable(),
@@ -47,9 +47,13 @@ export const planLimitsDto = z.strictObject({
   conditionImage: z.boolean(),
   desktopWindows: z.boolean(),
   customColor: z.boolean(),
-  /** The table's own cover and banner images, and its three images animated (a GIF). Without
-   *  it the cover and the banner come from the photo and a GIF keeps its first frame. */
+  /** The table's own cover and banner images. Without it they come from the photo. */
   campaignArt: z.boolean(),
+  /** The three images of the table animated (a GIF); without it a GIF keeps its first frame. */
+  animatedCampaignArt: z.boolean(),
   privateCampaign: z.boolean(),
+  /** The `.js` files of a sheet template run; without them the sheet opens with HTML, CSS and
+   *  `data-lk` only. */
+  sheetScripts: z.boolean(),
 });
 export type PlanLimits = z.infer<typeof planLimitsDto>;

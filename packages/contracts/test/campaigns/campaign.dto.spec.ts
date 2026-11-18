@@ -60,7 +60,7 @@ describe('campaignSummaryDto', () => {
 
 describe('contentWarningsDto', () => {
   it("carries the owner's limits and refuses a summary without them", () => {
-    expect(campaignSummaryDto.parse(SUMMARY).limits.maxScenes).toBe(5);
+    expect(campaignSummaryDto.parse(SUMMARY).limits.maxScenes).toBe(3);
     expect(campaignSummaryDto.safeParse({ ...SUMMARY, limits: undefined }).success).toBe(false);
   });
 

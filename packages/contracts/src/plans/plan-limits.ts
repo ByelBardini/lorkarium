@@ -71,14 +71,16 @@ const UNBOUNDED: PlanLimits = {
   desktopWindows: true,
   customColor: true,
   campaignArt: true,
+  animatedCampaignArt: true,
   privateCampaign: true,
+  sheetScripts: true,
 };
 
 const LENDA: PlanLimits = {
   ...UNBOUNDED,
   plan: 'lenda',
   maxCampaigns: 10,
-  maxStorageBytes: 10 * GIBIBYTE,
+  maxStorageBytes: 5 * GIBIBYTE,
   maxPlayers: 20,
   maxMasters: 5,
   maxSpectators: 50,
@@ -88,45 +90,55 @@ const LENDA: PlanLimits = {
   maxNpcSheets: 1000,
 };
 
+// The middle step: everything a table of one or two fixed groups needs, the Lenda keeping more
+// of every count and the extras of a dedicated master (desktop windows, effect and image auras,
+// animated table art).
 const NARRADOR: PlanLimits = {
   ...LENDA,
   plan: 'narrador',
-  maxCampaigns: 5,
-  maxStorageBytes: 2 * GIBIBYTE,
-  maxPlayers: 10,
+  maxCampaigns: 3,
+  maxStorageBytes: GIBIBYTE,
+  maxPlayers: 8,
   maxMasters: 2,
-  maxSpectators: 10,
-  maxScenes: 20,
-  maxLibraryMaps: 5,
-  maxSheetTemplates: 5,
-  maxNpcSheets: 50,
-  maxDocumentTabs: 30,
-  maxLights: 50,
-  maxPatrols: 5,
-  maxSightBlockers: 10,
-  maxSavedRolls: 20,
+  maxSpectators: 5,
+  maxScenes: 15,
+  maxLibraryMaps: 3,
+  maxSheetTemplates: 3,
+  maxNpcSheets: 30,
+  maxDocumentTabs: 10,
+  maxLights: 30,
+  maxBarsPerToken: 4,
+  maxFormsPerToken: 4,
+  maxPatrols: 3,
+  maxSightBlockers: 5,
+  maxSavedRolls: 15,
+  maxSavedRollFolders: 5,
+  maxDiceModelsPerRoll: 15,
+  auraKinds: ['color'],
+  desktopWindows: false,
+  animatedCampaignArt: false,
 };
 
 const FREE: PlanLimits = {
   plan: 'free',
   maxCampaigns: 1,
   maxStorageBytes: 100 * MEBIBYTE,
-  maxPlayers: 6,
+  maxPlayers: 5,
   maxMasters: 1,
-  maxSpectators: 2,
-  maxScenes: 5,
-  maxLibraryMaps: 1,
+  maxSpectators: 1,
+  maxScenes: 3,
+  maxLibraryMaps: 0,
   maxSheetTemplates: 1,
-  maxNpcSheets: 10,
-  maxDocumentTabs: 5,
-  maxLights: 15,
-  maxBarsPerToken: 2,
+  maxNpcSheets: 5,
+  maxDocumentTabs: 3,
+  maxLights: 10,
+  maxBarsPerToken: 1,
   maxFormsPerToken: 2,
   maxPatrols: 0,
   maxSightBlockers: 0,
-  maxSavedRolls: 5,
+  maxSavedRolls: 3,
   maxSavedRollFolders: 0,
-  maxDiceModelsPerRoll: 10,
+  maxDiceModelsPerRoll: 8,
   maxMapSide: 4096,
   maxBackgroundSide: 2048,
   auraKinds: ['color'],
@@ -135,13 +147,15 @@ const FREE: PlanLimits = {
   desktopWindows: false,
   customColor: false,
   campaignArt: false,
+  animatedCampaignArt: false,
   privateCampaign: false,
+  sheetScripts: false,
 };
 
 /** The grid of each plan, as is (no role): the server resolves the effective limits
  *  in the `plans` module; the client reads this table only to show what each plan offers.
  *
- *  Example: `PLAN_LIMITS.narrador.maxScenes // 20` */
+ *  Example: `PLAN_LIMITS.narrador.maxScenes // 15` */
 export const PLAN_LIMITS: Readonly<Record<UserPlan, PlanLimits>> = {
   free: FREE,
   // The Apoiador supports the house: its own account opens up, its tables stay on Grátis.

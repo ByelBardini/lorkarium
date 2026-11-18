@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { checkPaidPlanPair, paidPlanFields } from '../plans/paid-plan.dto';
 import { memberColorDto } from '../account/username.dto';
 import { userRoleDto } from '../auth/auth-user.dto';
 import { userPlanDto } from '../plans/user-plan.dto';
@@ -7,21 +8,24 @@ import { userPlanDto } from '../plans/user-plan.dto';
  *  how many tables it is in and when it was last seen. `plan` is the stored one (an admin's too,
  *  though the admin has no plan limit) and `lorkariumOwner` whether
  *  it is the Dono do Lorkarium (OWNER_USERNAME). Never the hash, the 2FA nor the sessions. */
-export const adminUserDto = z.strictObject({
-  id: z.uuid(),
-  username: z.string(),
-  name: z.string(),
-  email: z.email(),
-  role: userRoleDto,
-  plan: userPlanDto,
-  lorkariumOwner: z.boolean(),
-  status: z.enum(['active', 'suspended']),
-  color: memberColorDto,
-  avatarId: z.uuid().nullable(),
-  campaignCount: z.number().int().nonnegative(),
-  lastSeenAt: z.iso.datetime().nullable(),
-  createdAt: z.iso.datetime(),
-});
+export const adminUserDto = z
+  .strictObject({
+    id: z.uuid(),
+    username: z.string(),
+    name: z.string(),
+    email: z.email(),
+    role: userRoleDto,
+    plan: userPlanDto,
+    ...paidPlanFields,
+    lorkariumOwner: z.boolean(),
+    status: z.enum(['active', 'suspended']),
+    color: memberColorDto,
+    avatarId: z.uuid().nullable(),
+    campaignCount: z.number().int().nonnegative(),
+    lastSeenAt: z.iso.datetime().nullable(),
+    createdAt: z.iso.datetime(),
+  })
+  .check(checkPaidPlanPair);
 
 export type AdminUserDto = z.infer<typeof adminUserDto>;
 
