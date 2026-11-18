@@ -1,20 +1,28 @@
 ---
 import { PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
 import ActHeading from '@/components/act-heading.astro';
-import { inviteMailto, landingCopy } from '@/copy/landing-copy';
+import { inviteMailto, landingCopy, type FaqCopy } from '@/copy/landing-copy';
+
+interface Props {
+  /** The questions; the landing's by default. */
+  faqs?: readonly FaqCopy[];
+  title?: string;
+}
+
+const { faqs = landingCopy.faqs, title = 'Perguntas da mesa' } = Astro.props;
 ---
 
 <section id="perguntas" class="act relative isolate overflow-clip border-t border-edge bg-band">
   <div class="site-wrap flex flex-wrap gap-14">
     <div class="flex flex-[1_1_320px] flex-col gap-5" data-reveal>
-      <ActHeading numeral="?" title="Perguntas da mesa" />
+      <ActHeading numeral="?" title={title} />
       <p class="m-0 text-[15px] leading-relaxed text-faint">
         Para outras dúvidas, entre em contato pelo e-mail{' '}
         <a href={`mailto:${PUBLIC_CONTACT_EMAIL}`}>{PUBLIC_CONTACT_EMAIL}</a>.
       </p>
     </div>
     <div class="flex min-w-0 flex-[2_1_520px] flex-col" data-reveal="2">
-      {landingCopy.faqs.map((faq, index) => (
+      {faqs.map((faq, index) => (
         <details name="faq" open={index === 0} class="group border-t border-edge">
           <summary class="flex cursor-pointer list-none items-center gap-4 px-1 py-5.5 font-wordmark text-lg font-semibold tracking-[0.02em] text-parchment hover:text-gold-light [&::-webkit-details-marker]:hidden">
             <span class="flex-1">{faq.question}</span>
