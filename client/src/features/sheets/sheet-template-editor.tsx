@@ -1,6 +1,10 @@
 import { SHEET_TEMPLATE_NAME_MAX_LENGTH } from '@lorkarium/contracts';
 import { FileCode2Icon } from 'lucide-react';
+import { useId } from 'react';
 import { Button } from '@/components/ui/button';
+import { planHintIdOf, type PlanGate } from '@/features/plans/plan-gate';
+import { PlanLockSeal } from '@/features/plans/plan-lock-seal';
+import { usePlanLock } from '@/features/plans/use-plan-limits';
 import { Input } from '@/components/ui/input';
 import type { SheetEditorLayoutMemory } from '@/lib/sheet-editor-layout';
 import { cn } from '@/lib/utils';
@@ -12,6 +16,7 @@ import type { SheetTemplateDraftState } from '@/stores/sheet-template-draft-stor
 import type { StoreApi } from 'zustand/vanilla';
 import {
   InlineHandlerNotice,
+  ScriptsPlanNotice,
   TemplateEditorMoveButtons,
   type TemplateEditorMoves,
 } from './sheet-template-editor-actions';
@@ -52,14 +57,17 @@ export type SheetTemplateEditorProps = Readonly<{
 
 /** The master's editor of one sheet template: name, its files (HTML, CSS, JS) with highlight, the size against
  *  the budget, save against the version read, the live preview (resizable, full screen or in its
- *  own window) with its console, and the API reference.
+ *  own window) with its console, and the API reference. A template past the plan's ceiling
+ *  (`planLocked`) opens with the lock and its sentence, the name and saving off.
  *
  *  Example: `<SheetTemplateEditor key={id} draft={createSheetTemplateDraftStore({ api, campaignId, templateId: id })} live />` */
 export function SheetTemplateEditor(props: SheetTemplateEditorProps): React.JSX.Element {
   const model = useSheetTemplateDraft(props.draft);
+  const lock = usePlanLock('sheetTemplates', model.base);
+  const lockHintId = useId();
   const leaveDialog = useTemplateLeaveGuard(model.dirty, props.onRegisterLeave);
   const editorRef = useSaveShortcut(() => {
-    if (!saveBlocked(model, props.live)) void model.save();
+    if (lock.open && !saveBlocked(model, props.live)) void model.save();
   });
   if (model.load !== 'ready') return <EditorPlaceholder model={model} />;
   return (
@@ -73,8 +81,12 @@ export function SheetTemplateEditor(props: SheetTemplateEditorProps): React.JSX.
         live={props.live}
         moves={props.moves}
         exportPorts={props.exportPorts}
+        lock={lock}
+        lockHintId={lockHintId}
       />
+      <PlanLockNotice id={lockHintId} lock={lock} />
       <EditorProblem model={model} />
+      <ScriptsPlanNotice files={model.draft.files} />
       <InlineHandlerNotice
         savedFiles={model.phase === 'saved' ? (model.base?.files ?? null) : null}
       />
@@ -89,6 +101,7 @@ export function SheetTemplateEditor(props: SheetTemplateEditorProps): React.JSX.
         clipboard={props.clipboard}
         assetPorts={props.assetPorts}
         documentPorts={props.documentPorts}
+        readOnly={!lock.open}
       />
       {leaveDialog}
     </section>
@@ -117,17 +130,23 @@ type EditorHeaderProps = Readonly<{
   live: boolean;
   moves: TemplateEditorMoves | undefined;
   exportPorts: SheetTemplateExportPorts | undefined;
+  /** Closed on a template past the plan's ceiling: the name and saving are off. */
+  lock: PlanGate;
+  lockHintId: string;
 }>;
 
-function EditorHeader({ model, live, moves, exportPorts }: EditorHeaderProps) {
+function EditorHeader({ model, live, moves, exportPorts, lock, lockHintId }: EditorHeaderProps) {
   const saving = model.phase === 'saving';
-  const blocked = saveBlocked(model, live);
+  const blocked = !lock.open || saveBlocked(model, live);
+  const describedBy = planHintIdOf(lock, lockHintId);
   return (
     <header className="flex flex-wrap items-center gap-3 border-b border-border bg-background px-4 py-2">
       <Input
         aria-label="Nome do modelo"
         value={model.draft.name}
         maxLength={SHEET_TEMPLATE_NAME_MAX_LENGTH}
+        disabled={!lock.open}
+        aria-describedby={describedBy}
         onChange={(event) => model.edit({ name: event.target.value })}
         className="h-9 max-w-72 font-display text-lg"
       />
@@ -148,6 +167,7 @@ function EditorHeader({ model, live, moves, exportPorts }: EditorHeaderProps) {
       <Button
         size="sm"
         disabled={blocked}
+        aria-describedby={describedBy}
         title="Salvar (Ctrl+S)"
         onClick={() => void model.save()}
       >
@@ -176,6 +196,19 @@ function statusText(model: TemplateDraftModel): string {
   if (model.manifestInvalid) return 'Corrija o manifesto para salvar.';
   if (model.phase === 'saved' && !model.dirty) return 'Salvo.';
   return model.dirty ? 'Alterações não salvas.' : '';
+}
+
+function PlanLockNotice({ id, lock }: Readonly<{ id: string; lock: PlanGate }>) {
+  if (lock.open) return null;
+  return (
+    <div
+      role="note"
+      className="flex items-center gap-2 border-b border-border px-4 py-2 text-xs text-muted-foreground"
+    >
+      <PlanLockSeal gate={lock} className="[&_svg]:size-4" />
+      <span id={id}>{lock.hint}</span>
+    </div>
+  );
 }
 
 function EditorProblem({ model }: Readonly<{ model: TemplateDraftModel }>) {

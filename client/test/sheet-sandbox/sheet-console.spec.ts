@@ -6,6 +6,7 @@ import {
   createConsoleIntake,
   droppedLinesText,
   EMPTY_SHEET_CONSOLE,
+  hostConsoleNoticeOf,
   SHEET_CONSOLE_HOST_RATE,
   SHEET_CONSOLE_MAX_ENTRIES,
 } from '@/sheet-sandbox/sheet-console';
@@ -110,5 +111,16 @@ describe('createConsoleIntake', () => {
     nowMs = SHEET_CONSOLE_HOST_RATE.windowMs;
     intake(line('depois'));
     expect(got.at(-2)).toEqual({ type: 'console.dropped', count: 40 });
+  });
+});
+
+describe('hostConsoleNoticeOf', () => {
+  it('is a warning line with the text and no position, as the frame would send one', () => {
+    expect(hostConsoleNoticeOf('Os scripts não rodam.')).toEqual({
+      type: 'console',
+      level: 'warn',
+      message: 'Os scripts não rodam.',
+      at: [],
+    });
   });
 });

@@ -11,6 +11,8 @@ export type SceneBackgroundFieldProps = Readonly<{
   background: SceneBackgroundDto | null;
   /** "Manter proporção da imagem": the cells follow the image; off, the image stretches. */
   locked: boolean;
+  /** The grid is past the owner's plan: the image stays as it is. */
+  disabled?: boolean;
   onBackground: (asset: AssetDto | null) => void;
   onLocked: (locked: boolean) => void;
 }>;
@@ -19,7 +21,7 @@ export type SceneBackgroundFieldProps = Readonly<{
  *
  *  Example: `<SceneBackgroundField campaignId={id} assets={assets} background={bg} locked={locked} onBackground={choose} onLocked={setLocked} />` */
 export function SceneBackgroundField(props: SceneBackgroundFieldProps): React.JSX.Element {
-  const { campaignId, assets, background, locked, onBackground, onLocked } = props;
+  const { campaignId, assets, background, locked, disabled, onBackground, onLocked } = props;
   const lockId = useId();
   return (
     <div className="flex flex-col gap-3">
@@ -31,12 +33,14 @@ export function SceneBackgroundField(props: SceneBackgroundFieldProps): React.JS
         onChange={onBackground}
         label="Imagem de fundo"
         removeLabel="Remover fundo"
+        disabled={disabled}
       />
       {background && (
         <div className="flex items-center gap-3">
           <Checkbox
             id={lockId}
             checked={locked}
+            disabled={disabled}
             onCheckedChange={(checked) => onLocked(checked === true)}
           />
           <Label htmlFor={lockId} className="text-sm text-label">

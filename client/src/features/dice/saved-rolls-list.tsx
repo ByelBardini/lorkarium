@@ -18,6 +18,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PlanLockSeal } from '@/features/plans/plan-lock-seal';
+import { usePlanLock } from '@/features/plans/use-plan-limits';
 import { savedRollFailureMessage, savedRollProblemOf } from './dice-messages';
 import { DeleteFolderDialog, FolderNameForm, SavedRollFolderRow } from './saved-roll-folders';
 import type { SavedRollsView } from './use-saved-rolls';
@@ -36,7 +38,8 @@ export type SavedRollsListProps = Readonly<{
 /** The viewer's saved rolls at this table: the folders first, closed until clicked, then the rolls
  *  out of any folder. Each roll is a tag: a click rolls it (name + formula, the whole formula in
  *  the tooltip), its "+" sums it to the tray, its folder icon moves it and its "×" asks before
- *  deleting.
+ *  deleting. A roll past the plan's ceiling carries the lock (its name and pieces are read only;
+ *  everything here stays).
  *
  *  Example: `<SavedRollsList saved={saved} onRoll={rollSaved} rollDisabled={false} onAddToTray={add} fitsInTray={fits} />` */
 export function SavedRollsList(props: SavedRollsListProps): React.JSX.Element {
@@ -186,6 +189,7 @@ type TagProps = Omit<TagsProps, 'label' | 'rolls'> & Readonly<{ roll: SavedRollD
 function SavedRollTag(props: TagProps) {
   const { roll, onRoll, onDelete, rollDisabled, onAddToTray, fitsInTray, ...move } = props;
   const formula = roll.parts.map((part) => part.expression).join(' + ');
+  const lock = usePlanLock('savedRolls', roll);
   return (
     <li className="flex max-w-full items-center rounded-sm border border-input bg-card transition-colors hover:border-primary motion-reduce:transition-none">
       <Tooltip>
@@ -205,6 +209,7 @@ function SavedRollTag(props: TagProps) {
         </TooltipTrigger>
         <TooltipContent>{formula}</TooltipContent>
       </Tooltip>
+      <PlanLockSeal gate={lock} className="px-0.5 [&_svg]:size-3.5" />
       <AddToTrayButton roll={roll} fits={fitsInTray(roll)} onAdd={() => onAddToTray(roll)} />
       <MoveRollMenu roll={roll} {...move} />
       <Button

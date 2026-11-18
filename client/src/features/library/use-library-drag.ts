@@ -83,15 +83,19 @@ function sourceOf(
     return document.canManage ? sources({ kind: 'document', id: document.id }, document.name) : {};
   const image = library.images?.find(({ id }) => id === imageIdOf(key));
   if (image) return sources({ kind: 'image', id: image.id }, image.name);
+  // The folder of a map, template or grid past the plan's ceiling is read only.
   const map = library.maps?.find(({ id }) => id === mapIdOf(key));
-  if (map) return sources({ kind: 'map', id: map.id }, map.name);
+  if (map) return map.planLocked ? {} : sources({ kind: 'map', id: map.id }, map.name);
   const template = library.sheetTemplates?.find(({ id }) => id === sheetTemplateIdOf(key));
-  if (template) return sources({ kind: 'sheet-template', id: template.id }, template.name);
+  if (template)
+    return template.planLocked
+      ? {}
+      : sources({ kind: 'sheet-template', id: template.id }, template.name);
   const sheet = library.sheets?.find(({ id }) => id === sheetIdOf(key));
   if (sheet) return sources({ kind: 'sheet', id: sheet.id }, sheet.name);
   const sceneId = sceneIdOf(key);
   const scene = library.scenes.find(({ id }) => id === sceneId);
-  if (scene) return sources({ kind: 'scene', id: scene.id }, scene.name);
+  if (scene) return scene.planLocked ? {} : sources({ kind: 'scene', id: scene.id }, scene.name);
   const folder = library.folders.find(({ id }) => id === key);
   return folder ? sources({ kind: 'folder', id: folder.id }, folder.name) : {};
 }

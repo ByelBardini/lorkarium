@@ -10,7 +10,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { countGate, planHintIdOf } from '@/features/plans/plan-gate';
 import { PlanGateHint } from '@/features/plans/plan-gate-hint';
-import { usePlanLimits } from '@/features/plans/use-plan-limits';
+import { PlanLockSeal } from '@/features/plans/plan-lock-seal';
+import { usePlanLimits, usePlanLock } from '@/features/plans/use-plan-limits';
 import { moveFocusAlongTabs } from '@/lib/tab-focus';
 import { splitTabsToFit, tabsThatFit } from '@/lib/tab-overflow';
 import { useElementWidth } from '@/lib/use-element-width';
@@ -165,6 +166,7 @@ type DocumentTabItemProps = Readonly<{
 
 function DocumentTabItem(props: DocumentTabItemProps): React.JSX.Element {
   const { tab, selected, strip } = props;
+  const lock = usePlanLock('documentTabs', tab);
   if (props.renaming) return <TabNameInput name={tab.name} onDone={props.onRename} />;
   return (
     <div
@@ -187,10 +189,12 @@ function DocumentTabItem(props: DocumentTabItemProps): React.JSX.Element {
         {tab.visibility === 'masters' && (
           <EyeOffIcon role="img" aria-label="Só mestres" className="size-3.5 shrink-0" />
         )}
+        <PlanLockSeal gate={lock} className="[&_svg]:size-3.5" />
       </button>
       {strip.canEdit && (
         <DocumentTabMenu
           tab={tab}
+          lock={lock}
           order={strip.tabs.map(({ id }) => id)}
           canManage={strip.canManage}
           onRename={props.onStartRename}

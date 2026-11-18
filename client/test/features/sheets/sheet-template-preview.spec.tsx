@@ -3,9 +3,12 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PLAN_LIMITS, type PlanLimits } from '@lorkarium/contracts';
 import { SheetTemplatePreview } from '@/features/sheets/sheet-template-preview';
+import type { SheetConsoleEntry } from '@/sheet-sandbox/sheet-console';
 import { SAMPLE_SHEET_PREVIEW_DATA, type SheetPreviewData } from '@/lib/sheet-preview-data';
 import { SheetChannelsFake, type HostPortFake } from '../../support/sheet-frame-fakes';
+import { onTablePlan } from '../../support/table-plan';
 
 const SOURCE = { files: [{ path: 'index.html', content: '<p>Ficha</p>' }] };
 
@@ -156,5 +159,50 @@ describe('the permissions of the preview', () => {
       expect.objectContaining({ type: 'error', requestId: '2', code: 'PERMISSION_NOT_DECLARED' }),
     );
     expect(statesOf(port)).toHaveLength(1);
+  });
+});
+
+describe('the preview follows the plan of the table', () => {
+  const WITH_JS = {
+    files: [
+      { path: 'index.html', content: '<p>Ficha</p>' },
+      { path: 'a.js', content: 'window.authorRan = true;' },
+    ],
+  };
+
+  function renderOnPlan(limits: PlanLimits): Omit<SheetConsoleEntry, 'id'>[] {
+    const lines: Omit<SheetConsoleEntry, 'id'>[] = [];
+    render(
+      onTablePlan(
+        limits,
+        <SheetTemplatePreview
+          source={WITH_JS}
+          createChannel={channels.create}
+          onConsole={(entry) => lines.push(entry)}
+          testData={SAMPLE_SHEET_PREVIEW_DATA}
+          onTestData={() => undefined}
+        />,
+      ),
+    );
+    connectFrame();
+    return lines;
+  }
+
+  function previewSrcdoc(): string {
+    return screen.getByTitle('Prévia da ficha').getAttribute('srcdoc') ?? '';
+  }
+
+  it('on a Grátis table the preview runs without the js and its console says why', () => {
+    const lines = renderOnPlan(PLAN_LIMITS.free);
+    expect(previewSrcdoc()).not.toContain('window.authorRan');
+    expect(lines.map(({ level, text }) => [level, text])).toEqual([
+      ['warn', 'Os scripts deste modelo não rodam no plano Grátis. Disponível no Narrador'],
+    ]);
+  });
+
+  it('on a Narrador table the preview runs the js and the console stays quiet', () => {
+    const lines = renderOnPlan(PLAN_LIMITS.narrador);
+    expect(previewSrcdoc()).toContain('window.authorRan = true;');
+    expect(lines).toEqual([]);
   });
 });

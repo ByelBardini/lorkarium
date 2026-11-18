@@ -1,14 +1,11 @@
 import type { SheetTemplateSummaryDto } from '@lorkarium/contracts';
 import { useId } from 'react';
-import {
-  ContextMenuItem,
-  ContextMenuLabel,
-  ContextMenuSeparator,
-} from '@/components/ui/context-menu';
+import { ContextMenuItem, ContextMenuSeparator } from '@/components/ui/context-menu';
 import { planHintIdOf } from '@/features/plans/plan-gate';
 import { DeleteConfirmDialog } from './delete-scene-dialog';
 import { useLibraryPlanGates } from './library-plan-gates';
 import type { MenuActions, TreeMaster } from './library-tree-menu';
+import { MenuPlanHint } from './menu-plan-hint';
 
 type CreateItemsProps = Readonly<{ master: TreeMaster; folderId: string | null }>;
 
@@ -33,11 +30,7 @@ export function CreateItems({ master, folderId }: CreateItemsProps) {
           >
             Importar modelo…
           </ContextMenuItem>
-          {!templateGate.open && (
-            <ContextMenuLabel id={hintId} className="max-w-56 text-xs font-normal">
-              {templateGate.hint}
-            </ContextMenuLabel>
-          )}
+          <MenuPlanHint id={hintId} gate={templateGate} />
         </>
       )}
     </>

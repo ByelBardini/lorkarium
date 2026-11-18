@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { addBar } from '@/features/tokens/bar-form-state';
+import { patchForm } from '@/features/tokens/forms-form-state';
 import {
   dialogTabsOf,
   emptyTokenForm,
@@ -20,6 +21,7 @@ import { auraFormOf, auraKindChosen } from '@/features/tokens/aura-form-state';
 import { SIZE_PRESETS } from '@/features/tokens/token-messages';
 import { BIA_AT_TABLE, lyra } from '../../support/table-session-fixtures';
 import { fireAura, goldAura } from '../../support/aura-fixtures';
+import { BASE_FORM_ID, LYRA_FORMS, shapeshiftingLyra } from '../../support/token-form-fixtures';
 
 const METERS = { cellDistance: 1.5, cellUnit: 'm' };
 
@@ -534,5 +536,73 @@ describe('token form state, the forms', () => {
     const result = parseTokenForm({ ...form, forms }, METERS);
 
     expect(result).toEqual({ ok: false, errors: { forms: { [DWARF.id]: 'Dê um nome à forma.' } } });
+  });
+});
+
+// The rank of a bar or form past the plan is its place on the token (docs/context/plans.md,
+// Armadilhas): another edit must send it back as it came, or the server refuses it as readOnly.
+describe('token form state past the plan ceiling', () => {
+  const pastCeiling = lyra({
+    bars: [
+      ...lyra().bars,
+      {
+        id: 'c3d4e5f6-a7b8-4c9d-8e0f-2a3b4c5d6e7f',
+        position: 2,
+        label: 'Escudo da Fé',
+        current: 3,
+        max: 12,
+        temp: 4,
+        color: 'steel',
+        visibility: 'everyone',
+        display: 'percent',
+      },
+    ],
+  });
+
+  it('renaming a token with 3 bars on a free table sends every bar back in order, untouched', () => {
+    const form = renameToken(tokenFormOf(pastCeiling, METERS), 'Lyra, a Ruiva');
+    const result = parseTokenForm(form, METERS);
+    expect(result.ok && result.token.bars).toEqual([
+      {
+        label: 'PV',
+        current: 32,
+        max: 45,
+        temp: 0,
+        color: 'ember',
+        visibility: 'controllers',
+        display: 'number',
+      },
+      {
+        label: 'Inspiração',
+        current: 1,
+        max: 1,
+        temp: 0,
+        color: 'gold',
+        visibility: 'everyone',
+        display: 'number',
+      },
+      {
+        label: 'Escudo da Fé',
+        current: 3,
+        max: 12,
+        temp: 4,
+        color: 'steel',
+        visibility: 'everyone',
+        display: 'percent',
+      },
+    ]);
+  });
+
+  it('editing the base form sends the forms past the ceiling as they came', () => {
+    const form = tokenFormOf(shapeshiftingLyra(), METERS);
+    const edited = { ...form, forms: patchForm(form.forms, BASE_FORM_ID, { name: 'Lyra Ruiva' }) };
+    const result = parseTokenForm(edited, METERS);
+    expect(result.ok && result.token.forms?.slice(1)).toEqual([LYRA_FORMS[1], LYRA_FORMS[2]]);
+  });
+
+  it('an edit that leaves the forms alone sends no forms at all', () => {
+    const form = renameToken(tokenFormOf(shapeshiftingLyra(), METERS), 'Lyra Ruiva');
+    const result = parseTokenForm(form, METERS);
+    expect(result.ok && 'forms' in result.token).toBe(false);
   });
 });

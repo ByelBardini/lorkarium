@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { StoreApi } from 'zustand/vanilla';
 import type { AppDependencies } from '@/app/router';
 import { Button } from '@/components/ui/button';
+import { TablePlanLimitsProvider } from '@/features/plans/plan-limits-providers';
 import { useOpenTable } from '@/features/sessions/use-open-table';
 import type { MapWorkspaceEntry } from '@/stores/document-workspace-store';
 import { useMapView, type MapViewState } from '@/stores/map-view-store';
@@ -13,7 +14,8 @@ import type { TablePresenceState } from '@/stores/table-presence-store';
 import { MapExplorer } from './map-explorer';
 
 /** The table's map tab: its panel in the room while the tab is shown (a map has no window of its
- *  own), and the map read again whenever what this reader may see of it can have changed.
+ *  own), and the map read again whenever what this reader may see of it can have changed. The
+ *  panel lives in the shell, so it gets the table's limits itself (the lock of a map past them).
  *
  *  Example: `{maps.map((entry) => <WorkspaceMap key={entry.key} deps={deps} entry={entry} />)}` */
 export function WorkspaceMap({
@@ -23,7 +25,12 @@ export function WorkspaceMap({
   useOpenTable(entry.campaign, deps.openTables);
   useMapRereads(deps, entry);
   if (!entry.target) return null;
-  return createPortal(<WorkspaceMapPanel deps={deps} entry={entry} />, entry.target);
+  return createPortal(
+    <TablePlanLimitsProvider openTables={deps.openTables} campaign={entry.campaign}>
+      <WorkspaceMapPanel deps={deps} entry={entry} />
+    </TablePlanLimitsProvider>,
+    entry.target,
+  );
 }
 
 function WorkspaceMapPanel({

@@ -179,3 +179,50 @@ describe('CodeEditor suggestions', () => {
     expect(completionStatus(view.state)).toBeNull();
   });
 });
+
+describe('CodeEditor readOnly', () => {
+  function renderField(readOnly: boolean) {
+    return render(
+      <CodeEditor
+        value="lorkarium.ready();"
+        language="javascript"
+        label={LABEL}
+        readOnly={readOnly}
+        onChange={() => undefined}
+      />,
+    );
+  }
+
+  it('a readOnly field is no longer editable and says it is read only', () => {
+    renderField(true);
+
+    const field = screen.getByRole('textbox', { name: LABEL });
+    expect(field).toHaveAttribute('contenteditable', 'false');
+    expect(field).toHaveAttribute('aria-readonly', 'true');
+    expect(codeViewOf(LABEL).state.readOnly).toBe(true);
+  });
+
+  it('a field without readOnly stays editable', () => {
+    renderField(false);
+
+    expect(screen.getByRole('textbox', { name: LABEL })).toHaveAttribute('contenteditable', 'true');
+    expect(codeViewOf(LABEL).state.readOnly).toBe(false);
+  });
+
+  it('turning readOnly on keeps the text and stops the editing', () => {
+    const { rerender } = renderField(false);
+
+    rerender(
+      <CodeEditor
+        value="lorkarium.ready();"
+        language="javascript"
+        label={LABEL}
+        readOnly
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(codeViewOf(LABEL).state.readOnly).toBe(true);
+    expect(codeTextOf(LABEL)).toBe('lorkarium.ready();');
+  });
+});

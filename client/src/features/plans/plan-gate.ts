@@ -3,9 +3,8 @@ import {
   PLAN_LIMITS,
   type PlanCountResource,
   type PlanLimits,
-  type UserPlan,
 } from '@lorkarium/contracts';
-import { planLimitMessage } from '@/lib/plan-limit-message';
+import { inPlanText, planLimitMessage, type PlanReadOnlyResource } from '@/lib/plan-limit-message';
 import { PLAN_NAMES } from '@/lib/plan-seal';
 
 /** Whether a control the plan rules is offered: `hint` says why not (the plan's sentence). */
@@ -15,31 +14,18 @@ export type PlanGate =
 /** The gate of everything the plan does not stop. */
 export const OPEN_GATE: PlanGate = { open: true, hint: null };
 
-// Amigo do Dono is given, never bought, and the Apoiador opens only the account: a hint only
-// points at the master plans one can move to.
-const PLANS_ON_OFFER: readonly Exclude<UserPlan, 'free' | 'apoiador' | 'amigo_do_dono'>[] = [
-  'narrador',
-  'lenda',
-];
-
-const IN_PLAN: Readonly<Record<(typeof PLANS_ON_OFFER)[number], string>> = {
-  narrador: 'no Narrador',
-  lenda: 'na Lenda',
-};
-
 /** "Disponível no Narrador": the cheapest plan on offer that has what `has` asks of a grid.
  *
  *  Example: `availableInText((limits) => limits.sceneCopy) // 'Disponível no Narrador'` */
 export function availableInText(has: (limits: PlanLimits) => boolean): string {
-  const plan = PLANS_ON_OFFER.find((offer) => has(PLAN_LIMITS[offer]));
-  return plan === undefined ? 'Disponível nos planos pagos' : `Disponível ${IN_PLAN[plan]}`;
+  return `Disponível ${inPlanText(has)}`;
 }
 
 /** Whether one more of a counted resource fits, `stored` being how many there are. Open with no
  *  limits known, no ceiling, or a ceiling at the technical one (that refusal stays as it was);
  *  a ceiling of 0 says which plan has it.
  *
- *  Example: `countGate(PLAN_LIMITS.free, 'scenes', 5).hint // 'Esta mesa usa o plano Grátis, que permite até 5 grids. O Narrador libera 20.'` */
+ *  Example: `countGate(PLAN_LIMITS.free, 'scenes', 3).hint // 'Esta mesa usa o plano Grátis, que permite até 3 grids. O Narrador libera 15.'` */
 export function countGate(
   limits: PlanLimits | null,
   resource: PlanCountResource,
@@ -64,6 +50,24 @@ export function featureGate(
 ): PlanGate {
   if (limits === null || has(limits)) return OPEN_GATE;
   return closed(availableInText(has));
+}
+
+/** What a locked item reads when the table's limits are not known yet. */
+export const PLAN_LOCK_FALLBACK = 'Este item passou do limite do plano da mesa e está só leitura.';
+
+/** Whether the configuration of a list item is editable: the server marks `planLocked` on an item
+ *  kept past the ceiling after the owner's plan went down; the hint is the read-only sentence.
+ *
+ *  Example: `planLockGate(PLAN_LIMITS.free, 'scenes', scene).hint // 'Este grid passou do limite do plano Grátis (3) e está só leitura. …'` */
+export function planLockGate(
+  limits: PlanLimits | null,
+  resource: PlanReadOnlyResource,
+  item: Readonly<{ planLocked: boolean }>,
+): PlanGate {
+  if (!item.planLocked) return OPEN_GATE;
+  if (limits === null) return closed(PLAN_LOCK_FALLBACK);
+  const limit = limits[PLAN_COUNT_LIMIT_KEY[resource]] ?? 0;
+  return closed(planLimitMessage({ resource, limit, plan: limits.plan, reason: 'readOnly' }));
 }
 
 function closed(hint: string): PlanGate {

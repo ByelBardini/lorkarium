@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useId, useRef } from 'react';
 import { DOCUMENT_TAB_NAME_MAX_LENGTH, type DocumentTabSummaryDto } from '@lorkarium/contracts';
 import { EllipsisVerticalIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,9 +17,11 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { planHintIdOf, type PlanGate } from '@/features/plans/plan-gate';
 import { shiftedTabOrder } from '@/lib/tab-order';
 import type { DocumentTabCommand } from '@/stores/document-editor-store';
 
@@ -57,16 +59,20 @@ type DocumentTabMenuProps = Readonly<{
   tab: DocumentTabSummaryDto;
   order: readonly string[];
   canManage: boolean;
+  /** Closed on a tab past the plan's ceiling: renaming is off (moving, hiding, deleting stay). */
+  lock: PlanGate;
   onRename: () => void;
   onRemove: () => void;
   onRun: (command: DocumentTabCommand) => void;
 }>;
 
-/** One tab's actions. "Só mestres" is the master's alone; "Excluir" is missing on the last tab.
+/** One tab's actions. "Só mestres" is the master's alone; "Excluir" is missing on the last tab;
+ *  a tab past the plan's ceiling keeps "Renomear" off, with the plan's sentence.
  *
  *  Example: `<DocumentTabMenu tab={tab} order={ids} canManage onRename={…} onRemove={…} onRun={…} />` */
 export function DocumentTabMenu(props: DocumentTabMenuProps): React.JSX.Element {
-  const { tab, order } = props;
+  const { tab, order, lock } = props;
+  const lockHintId = useId();
   const move = (step: -1 | 1): void =>
     props.onRun({ kind: 'reorder', tabIds: shiftedTabOrder(order, tab.id, step) });
   return (
@@ -82,7 +88,18 @@ export function DocumentTabMenu(props: DocumentTabMenuProps): React.JSX.Element 
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" onCloseAutoFocus={(event) => event.preventDefault()}>
-        <DropdownMenuItem onSelect={props.onRename}>Renomear</DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={!lock.open}
+          aria-describedby={planHintIdOf(lock, lockHintId)}
+          onSelect={props.onRename}
+        >
+          Renomear
+        </DropdownMenuItem>
+        {!lock.open && (
+          <DropdownMenuLabel id={lockHintId} className="max-w-56 text-xs font-normal">
+            {lock.hint}
+          </DropdownMenuLabel>
+        )}
         {order[0] !== tab.id && (
           <DropdownMenuItem onSelect={() => move(-1)}>Mover para a esquerda</DropdownMenuItem>
         )}
