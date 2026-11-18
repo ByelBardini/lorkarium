@@ -133,6 +133,12 @@ A landing de `site/` ([`site.md`](site.md)) é outra Application do Coolify, no 
 - Smoke local: `docker build -f site/Dockerfile -t lorkarium-site --build-arg SITE_URL=http://localhost:8080 --build-arg PUBLIC_APP_URL=… --build-arg PUBLIC_CONTACT_EMAIL=… --build-arg LEGAL_DRAFTS_ALLOWED=true .`, `docker run -d --name lorkarium-site -p 8080:80 lorkarium-site` e `bash infra/docker/site-smoke.sh lorkarium-site http://localhost:8080`.
 - **Antes de publicar:** a primeira release do desktop no ar (sem ela a API responde 404 e todo download cai na página de versões, vazia); um e-mail de contato que alguém leia (é por ele que chegam os pedidos de convite).
 
+## Serviço de cobrança (outra Application)
+
+- O pagamento é outra aplicação no Coolify, de um repositório privado com o runbook, as envs e o papel do banco dela; nada daqui configura o serviço (ver [`billing.md`](billing.md)).
+- Aqui só importa o roteamento: no mesmo domínio, o prefixo `/api/billing` (inclusive `/api/billing/webhooks/mercadopago`, chamado pelo Mercado Pago) vai para o serviço de cobrança **antes** da regra que manda `/api` a este server (no Traefik do Coolify, uma regra `PathPrefix` de `/api/billing` com prioridade maior). Sem ela o server responde 404 e a tela de Planos mostra a falha.
+- A migração `0115_paid_plan` (colunas `users.paid_plan` e `users.paid_plan_until`) entra com o deploy deste server, antes de o serviço de cobrança subir: o papel do banco dele recebe `UPDATE` só nessas colunas. Este server não ganha env nova.
+
 ## Armadilhas
 
 - **`Host` preservado**: o handshake do Socket.IO exige o host do `Origin` igual ao `Host`. O Traefik do Coolify preserva por padrão; qualquer proxy a mais (Cloudflare laranja, outro nginx) também precisa. Sintoma: a página abre, mas a mesa não conecta (`connect_error`).

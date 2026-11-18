@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Lorkarium · Planos</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#0A0B0E}
+a{color:#C5A46D;text-decoration:none}a:hover{color:#E2C793}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #C5A46D;outline-offset:3px}
+.s-wrap{width:100%;max-width:1240px;margin:0 auto;box-sizing:border-box;padding:0 32px}
+.s-nav{font-size:14px;font-weight:500;color:#A9A497}
+.s-nav:hover{color:#EAE5DA}
+.s-nav.is-on{color:#EAE5DA;box-shadow:0 1px 0 #C5A46D}
+.s-cta{display:inline-flex;align-items:center;justify-content:center;gap:10px;height:48px;padding:0 22px;border:0;border-radius:11px;background:#C5A46D;color:#15130F;font:inherit;font-size:15px;font-weight:700;cursor:pointer;text-decoration:none;white-space:nowrap}
+.s-cta:hover{background:#D4B57E;color:#15130F}
+.s-cta.is-small{height:40px;padding:0 16px;font-size:14px;border-radius:10px}
+.s-kicker{font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#C5A46D}
+.s-seg{height:40px;padding:0 16px;border:0;border-radius:9px;background:transparent;color:#8C8F98;font:inherit;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.s-seg:hover{color:#EAE5DA}
+.s-seg.is-on{background:#23272E;color:#EAE5DA}
+.s-off{height:20px;padding:0 7px;border-radius:5px;background:rgba(143,179,154,.16);color:#A9D1B4;font-size:11px;font-weight:700;display:inline-flex;align-items:center}
+.s-col{position:relative;display:flex;flex-direction:column;padding:30px 28px 28px;background:#0E1013}
+.s-col.is-hi{background:linear-gradient(180deg,rgba(197,164,109,.08),rgba(197,164,109,0) 40%),#111317;box-shadow:inset 0 0 0 1px #C5A46D;z-index:1}
+.s-li{display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:1.55;color:#D5D0C4}
+.s-btn{height:46px;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #3A404A;border-radius:10px;background:transparent;color:#EAE5DA;font:inherit;font-size:14px;font-weight:700;cursor:pointer;text-decoration:none}
+.s-btn:hover{border-color:#C5A46D;color:#E2C793}
+.s-btn.is-gold{background:#C5A46D;border-color:#C5A46D;color:#15130F}
+.s-btn.is-gold:hover{background:#D4B57E;color:#15130F}
+.s-btn.is-done{border-color:rgba(143,179,154,.45);color:#A9D1B4;cursor:default}
+.s-rule{display:flex;flex-direction:column;gap:12px;padding:26px;border-radius:14px;background:#111317;border:1px solid #1F2329}
+.s-q{width:100%;display:flex;align-items:center;gap:16px;padding:22px 4px;border:0;background:transparent;color:#EAE5DA;font:inherit;font-size:17px;font-weight:600;text-align:left;cursor:pointer}
+.s-q:hover{color:#E2C793}
+.s-in{height:52px;flex:1;min-width:220px;box-sizing:border-box;padding:0 16px;border-radius:11px;border:1px solid #2A2F38;background:#0F1114;color:#EAE5DA;font:inherit;font-size:15px}
+.s-in::placeholder{color:#5E636D}
+.s-in:focus{outline:none;border-color:#C5A46D;box-shadow:0 0 0 3px rgba(197,164,109,.14)}
+.s-foot{font-size:13px;color:#8C8F98}
+.s-foot:hover{color:#EAE5DA}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #0A0B0E; color: #EAE5DA; font-family: 'Hanken Grotesk', system-ui, sans-serif; overflow-x: hidden">
+
+<header style="position: relative; z-index: 2; border-bottom: 1px solid #16191E">
+<div class="s-wrap" style="min-height: 72px; display: flex; align-items: center; gap: 28px; flex-wrap: wrap; padding-top: 10px; padding-bottom: 10px">
+<a href="Landing.dc.html" style="display: inline-flex; align-items: center; gap: 12px; text-decoration: none">
+<svg viewBox="0 0 120 120" width="32" height="32" fill="none" stroke="#C5A46D" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><g stroke-width="5"><path d="M60 9 L78 42 L60 99 L42 42 Z"></path><path d="M26 47 L41 57.5 L48.5 85 L29.5 66.5 Z"></path><path d="M94 47 L79 57.5 L71.5 85 L90.5 66.5 Z"></path></g><g stroke-width="3" stroke-opacity=".55"><path d="M60 9 V99"></path></g></svg>
+<span style="font-family: Cinzel, serif; font-size: 16px; font-weight: 600; letter-spacing: 0.3em; color: #EAE5DA">LORKARIUM</span>
+</a>
+<nav aria-label="Principal" style="display: flex; gap: 26px; flex-wrap: wrap">
+<a href="Landing.dc.html" class="s-nav">Recursos</a>
+<a href="Landing.dc.html" class="s-nav">Como funciona</a>
+<a href="#planos" class="s-nav is-on" aria-current="page">Planos</a>
+<a href="#perguntas" class="s-nav">Perguntas</a>
+</nav>
+<span style="flex: 1"></span>
+<a href="Main.dc.html" class="s-nav">Já tenho conta</a>
+<a href="#convite" class="s-cta is-small">Pedir convite</a>
+</div>
+</header>
+
+<section id="planos" style="position: relative; padding: 80px 0 40px">
+<svg viewBox="0 0 1440 600" preserveAspectRatio="xMidYMid slice" style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none" aria-hidden="true">
+<defs>
+<pattern id="sGrid" width="56" height="56" patternUnits="userSpaceOnUse"><path d="M56 0H0V56" fill="none" stroke="#C5A46D" stroke-opacity=".06"></path></pattern>
+<radialGradient id="sFade" cx="50%" cy="0%" r="70%"><stop offset="0" stop-color="#fff"></stop><stop offset="1" stop-color="#fff" stop-opacity="0"></stop></radialGradient>
+<mask id="sMask"><rect width="1440" height="600" fill="url(#sFade)"></rect></mask>
+</defs>
+<g mask="url(#sMask)"><rect width="1440" height="600" fill="url(#sGrid)"></rect>
+<g fill="none" stroke="#C5A46D" stroke-width="1.2"><path stroke-opacity=".1" d="M420 40 C600 -10 840 -10 1020 40 C1180 84 1200 200 1020 236 C840 272 600 272 420 236 C240 200 260 84 420 40 Z"></path><path stroke-opacity=".14" d="M520 70 C650 40 790 40 920 70 C1030 96 1040 170 920 194 C790 220 650 220 520 194 C400 170 410 96 520 70 Z"></path></g></g>
+</svg>
+<div class="s-wrap" style="position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 20px">
+<div style="display: flex; align-items: center; gap: 12px"><span style="width: 28px; height: 1px; background: #C5A46D"></span><span class="s-kicker">Planos</span><span style="width: 28px; height: 1px; background: #C5A46D"></span></div>
+<h1 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: clamp(44px, 5.4vw, 72px); line-height: 1; letter-spacing: -0.015em">Jogar é de graça.<br><em style="color: #C5A46D">O resto é pra mesa crescer.</em></h1>
+<p style="margin: 0; max-width: 620px; font-size: 18px; line-height: 1.6; color: #A9A497">Toda conta começa no Grátis e dá pra jogar uma campanha inteira com ele. Os planos pagos abrem depois do acesso antecipado. Quem estiver na lista fica sabendo primeiro.</p>
+<div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; margin-top: 8px">
+<div role="radiogroup" aria-label="Período de cobrança" style="display: flex; gap: 2px; padding: 4px; border-radius: 12px; border: 1px solid #262A31; background: #0F1114">
+<sc-for list="{{periods}}" as="p" hint-placeholder-count="3">
+<button type="button" role="radio" class="{{p.cls}}" aria-checked="{{p.on}}" onClick="{{p.pick}}">{{p.label}}<sc-if value="{{p.hasOff}}" hint-placeholder-val="{{ true }}"><span class="s-off">{{p.off}}</span></sc-if></button>
+</sc-for>
+</div>
+<span style="font-size: 13px; color: #6F7480">Cartão ou Pix</span>
+</div>
+</div>
+</section>
+
+<section aria-label="Comparação dos planos" style="padding: 24px 0 0">
+<div class="s-wrap">
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: #1F2329; border: 1px solid #1F2329; border-radius: 16px">
+<sc-for list="{{plans}}" as="c" hint-placeholder-count="4">
+<article class="{{c.cls}}" style="border-radius: {{c.radius}}">
+<div style="display: flex; align-items: center; gap: 8px; min-height: 20px">
+<span style="width: 6px; height: 6px; border-radius: 50%; background: {{c.stColor}}"></span>
+<span style="font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: {{c.stColor}}">{{c.status}}</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; margin-top: 16px">
+<svg width="30" height="30" viewBox="0 0 120 120" aria-hidden="true"><path d="M26 47 L41 57.5 L48.5 85 L29.5 66.5 Z" fill="{{c.f2}}" stroke="{{c.s2}}" stroke-width="4.5" stroke-linejoin="round"></path><path d="M94 47 L79 57.5 L71.5 85 L90.5 66.5 Z" fill="{{c.f3}}" stroke="{{c.s3}}" stroke-width="4.5" stroke-linejoin="round"></path><path d="M60 9 L78 42 L60 99 L42 42 Z" fill="{{c.f1}}" stroke="{{c.s1}}" stroke-width="4.5" stroke-linejoin="round"></path></svg>
+<h2 style="margin: 0; font-family: Cinzel, serif; font-size: 26px; font-weight: 600; letter-spacing: 0.04em; line-height: 1">{{c.nameUp}}</h2>
+</div>
+<p style="margin: 14px 0 0; min-height: 66px; font-size: 14px; line-height: 1.6; color: #A9A497">{{c.desc}}</p>
+
+<div style="margin-top: 18px; min-height: 104px; display: flex; flex-direction: column; gap: 4px">
+<span style="min-height: 18px; font-size: 13px; color: #6F7480; text-decoration: {{c.wasDeco}}">{{c.was}}</span>
+<div style="display: flex; align-items: baseline">
+<span style="font-size: 16px; font-weight: 600; color: #A9A497; margin-right: 6px">R$</span>
+<span style="font-family: 'Cormorant Garamond', serif; font-size: 58px; font-weight: 600; line-height: .9">{{c.int}}</span>
+<span style="font-size: 19px; font-weight: 700">{{c.dec}}</span>
+<span style="font-size: 14px; color: #8C8F98; margin-left: 5px">{{c.per}}</span>
+</div>
+<span style="font-size: 12px; line-height: 1.45; color: #8C8F98">{{c.billed}}<sc-if value="{{c.hasSave}}" hint-placeholder-val="{{ false }}"><span style="color: #A9D1B4"> · economiza {{c.save}}</span></sc-if></span>
+</div>
+
+<div style="margin-top: 18px">
+<sc-if value="{{c.isFree}}" hint-placeholder-val="{{ false }}"><a href="#convite" class="s-btn is-gold">Pedir convite</a></sc-if>
+<sc-if value="{{c.canNotify}}" hint-placeholder-val="{{ true }}"><button type="button" class="{{c.btnCls}}" onClick="{{c.notify}}" aria-pressed="{{c.notified}}">
+<sc-if value="{{c.isNotified}}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></sc-if>{{c.btnLabel}}</button></sc-if>
+</div>
+
+<div style="height: 1px; background: #1F2329; margin: 24px 0 20px"></div>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 13px">
+<sc-for list="{{c.feats}}" as="f" hint-placeholder-count="6">
+<li class="s-li"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" style="flex-shrink: 0; margin-top: 5px"><path d="M6 1 L11 6 L6 11 L1 6 Z" fill="none" stroke="{{c.bullet}}" stroke-width="1.4"></path></svg><span style="color: {{f.color}}">{{f.t}}</span></li>
+</sc-for>
+</ul>
+</article>
+</sc-for>
+</div>
+<p style="margin: 16px 0 0; font-size: 13px; color: #6F7480; text-align: center">Preços em reais, com impostos inclusos. Podem mudar até a abertura dos planos pagos.</p>
+</div>
+</section>
+
+<section aria-labelledby="s-lim" style="padding: 96px 0 0">
+<div class="s-wrap">
+<div style="display: flex; align-items: flex-end; gap: 24px; flex-wrap: wrap; margin-bottom: 28px">
+<div style="flex: 1 1 400px"><span class="s-kicker">Sem pegadinha</span><h2 id="s-lim" style="margin: 12px 0 0; font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 44px; line-height: 1.05">Como os limites funcionam</h2></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+<div class="s-rule">
+<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#C5A46D" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path></svg>
+<h3 style="margin: 0; font-size: 17px; font-weight: 700">A mesa segue o dono</h3>
+<p style="margin: 0; font-size: 14px; line-height: 1.6; color: #A9A497">Os limites de uma mesa seguem o plano de quem é dono dela e valem pra todo mundo que joga ali. Seus jogadores não precisam assinar nada.</p>
+</div>
+<div class="s-rule">
+<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#C5A46D" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>
+<h3 style="margin: 0; font-size: 17px; font-weight: 700">A conta segue você</h3>
+<p style="margin: 0; font-size: 14px; line-height: 1.6; color: #A9A497">A personalização da conta (cor, textura do dado, foto animada) segue o plano de cada pessoa, em qualquer mesa que ela entrar.</p>
+</div>
+<div class="s-rule">
+<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#C5A46D" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z"></path><path d="M9 12l2 2 4-4"></path></svg>
+<h3 style="margin: 0; font-size: 17px; font-weight: 700">Trocar de plano não apaga nada</h3>
+<p style="margin: 0; font-size: 14px; line-height: 1.6; color: #A9A497">O que você já criou continua na mesa e segue editável, mesmo se voltar pro Grátis.</p>
+</div>
+</div>
+</div>
+</section>
+
+<section id="perguntas" aria-labelledby="s-faq" style="padding: 96px 0 0">
+<div class="s-wrap" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr); gap: 56px">
+<div><span class="s-kicker">Perguntas</span><h2 id="s-faq" style="margin: 12px 0 0; font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 44px; line-height: 1.05">Antes de puxar a cadeira</h2><p style="margin: 14px 0 0; font-size: 15px; line-height: 1.6; color: #8C8F98">Não achou o que queria? Manda pra gente no <a href="#">Discord</a>.</p></div>
+<div style="border-bottom: 1px solid #1F2329">
+<sc-for list="{{faq}}" as="q" hint-placeholder-count="5">
+<div style="border-top: 1px solid #1F2329">
+<button type="button" class="s-q" aria-expanded="{{q.exp}}" onClick="{{q.toggle}}"><span style="flex: 1">{{q.q}}</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8C8F98" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="transform: rotate({{q.rot}}); transition: transform .15s"><path d="M12 5v14M5 12h14"></path></svg></button>
+<sc-if value="{{q.open}}" hint-placeholder-val="{{ false }}"><p style="margin: 0 4px 22px; max-width: 640px; font-size: 15px; line-height: 1.65; color: #A9A497">{{q.a}}</p></sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+</section>
+
+<section id="convite" aria-labelledby="s-inv" style="padding: 96px 0">
+<div class="s-wrap">
+<div style="position: relative; overflow: hidden; border-radius: 20px; border: 1px solid #2A2A24; background: radial-gradient(80% 120% at 0% 0%, rgba(197,164,109,.12), transparent 60%), #111317; padding: 48px; display: flex; gap: 40px; align-items: center; flex-wrap: wrap">
+<svg viewBox="0 0 120 120" width="240" height="240" fill="none" stroke="#C5A46D" stroke-linejoin="round" aria-hidden="true" style="position: absolute; right: -30px; bottom: -50px; opacity: .08"><g stroke-width="3"><path d="M60 9 L78 42 L60 99 L42 42 Z"></path><path d="M26 47 L41 57.5 L48.5 85 L29.5 66.5 Z"></path><path d="M94 47 L79 57.5 L71.5 85 L90.5 66.5 Z"></path></g></svg>
+<div style="flex: 1 1 380px; position: relative">
+<span class="s-kicker">Acesso antecipado</span>
+<h2 id="s-inv" style="margin: 12px 0 0; font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 44px; line-height: 1.05">Ainda não tem conta?</h2>
+<p style="margin: 12px 0 0; max-width: 460px; font-size: 16px; line-height: 1.6; color: #A9A497">Estamos abrindo aos poucos. Deixa seu e-mail e a gente manda o convite assim que tiver vaga.</p>
+</div>
+<div style="flex: 1 1 420px; position: relative">
+<sc-if value="{{notSent}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 10px; flex-wrap: wrap">
+<input class="s-in" type="email" placeholder="seu@email.com" aria-label="Seu e-mail" value="{{email}}" onChange="{{onEmail}}" onKeyDown="{{onEmailKey}}">
+<button type="button" class="s-cta" style="height: 52px" onClick="{{send}}">Pedir convite</button>
+</div>
+<span style="display: block; margin-top: 10px; font-size: 12px; color: {{emailHintColor}}">{{emailHint}}</span>
+</sc-if>
+<sc-if value="{{sent}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 14px; align-items: center; padding: 18px 20px; border-radius: 12px; background: rgba(143,179,154,.08); border: 1px solid rgba(143,179,154,.35)">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#A9D1B4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>
+<span style="font-size: 15px; line-height: 1.5; color: #D5D0C4">Tá na lista. O convite vai pra <strong style="color: #EAE5DA">{{email}}</strong>.</span>
+</div>
+</sc-if>
+</div>
+</div>
+</div>
+</section>
+
+<footer style="border-top: 1px solid #16191E; padding: 32px 0 40px">
+<div class="s-wrap" style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap">
+<span style="font-family: Cinzel, serif; font-size: 13px; font-weight: 600; letter-spacing: 0.3em; color: #8C8F98">LORKARIUM</span>
+<span style="font-size: 13px; color: #4F545E">Feito por quem joga.</span>
+<span style="flex: 1"></span>
+<a href="#" class="s-foot">Termos</a><a href="#" class="s-foot">Privacidade</a><a href="#" class="s-foot">Reembolso</a><a href="#" class="s-foot">Discord</a>
+</div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2400}}'>
+var S_PERIODS = [
+  { k: 'm', label: 'Mensal', n: 1 },
+  { k: 's', label: 'Semestral', n: 6 },
+  { k: 'a', label: 'Anual', n: 12 }
+];
+var S_PLANS = [
+  { k: 'gratis', name: 'Grátis', gems: 0, status: 'Disponível no acesso antecipado', live: true, price: { m: 0, s: 0, a: 0 },
+    desc: 'Para conhecer a mesa e jogar com um grupo pequeno. Toda conta nova começa aqui.',
+    feats: ['1 mesa como dono e 100 MB de imagens', '6 jogadores, 1 co-mestre e 2 espectadores por mesa', '5 grids, 1 mapa interativo e 1 modelo de ficha por mesa', '10 fichas de NPC por mesa', '2 barras e 2 formas por token', '15 luzes por cena e 5 abas por documento', '5 rolagens salvas e até 10 dados 3D por rolagem'] },
+  { k: 'apoiador', name: 'Apoiador', gems: 1, status: 'Ainda não disponível', price: { m: 490, s: 2690, a: 4690 },
+    desc: 'Para quem apoia o Lorkarium. As mesas seguem o Grátis; a sua conta ganha personalização.',
+    feats: ['Mesas com os limites do Grátis', 'Cor personalizada no perfil, nos dados e nas cores salvas', 'Textura própria para os seus dados', 'Foto de perfil em GIF animado'], firstMuted: true },
+  { k: 'narrador', name: 'Narrador', gems: 2, status: 'Ainda não disponível', hi: true, price: { m: 1490, s: 7990, a: 14290 },
+    desc: 'Para quem mestra mais de uma campanha e quer o tabuleiro completo.',
+    feats: ['5 mesas como dono e 2 GB de imagens', '10 jogadores, 2 co-mestres e 10 espectadores por mesa', '20 grids, 5 mapas interativos e 5 modelos de ficha por mesa', '8 barras e 8 formas por token', 'Patrulhas e tokens que bloqueiam a visão', 'Auras com efeito ou imagem e condições com imagem', 'Capa, banner e GIF na mesa, e mesa privada', 'Janelas de Chat e Imagens no app para Windows', 'A personalização da conta do Apoiador'], lastMuted: true },
+  { k: 'lenda', name: 'Lenda', gems: 3, status: 'Ainda não disponível', price: { m: 2490, s: 13390, a: 23890 },
+    desc: 'Para mesas grandes e campanhas longas, com o grupo inteiro e a plateia.',
+    feats: ['10 mesas como dono e 10 GB de imagens', '20 jogadores, 5 co-mestres e 50 espectadores por mesa', 'Grids, mapas, modelos e fichas de NPC sem limite no uso normal', '100 luzes por cena e 200 abas por documento', '30 patrulhas por grid e 50 bloqueadores de visão por cena', 'Tudo o que o Narrador libera'], lastMuted: true }
+];
+var S_FAQ = [
+  { q: 'Meus jogadores precisam pagar alguma coisa?', a: 'Não. Os limites de uma mesa seguem o plano de quem é dono dela e valem pra todo mundo que joga ali. Jogador e espectador entram de graça.' },
+  { q: 'Quando os planos pagos abrem?', a: 'Depois do acesso antecipado. Ainda não tem data fechada. Clica em "Me avisa" no plano que te interessa e a gente manda um e-mail quando abrir.' },
+  { q: 'Como vai funcionar o pagamento?', a: 'Cartão ou Pix. No cartão a assinatura renova sozinha e você cancela quando quiser. No Pix você paga o período inteiro de uma vez, sem renovação automática.' },
+  { q: 'Se eu voltar pro Grátis, perco minhas mesas?', a: 'Não. Trocar de plano não apaga nada: o que você já criou continua na mesa e segue editável.' },
+  { q: 'Precisa instalar alguma coisa?', a: 'Sim, o Lorkarium é um app para Windows 10 ou 11. O convite chega por e-mail com o link pra baixar.' }
+];
+var GOLD = '#C5A46D';
+function sBrl(c) { var s = (c / 100).toFixed(2).split('.'); return 'R$ ' + s[0] + ',' + s[1]; }
+function sGems(n) {
+  return { f1: n >= 1 ? 'rgba(197,164,109,.85)' : 'transparent', s1: n >= 1 ? GOLD : '#4A505B', f2: n >= 2 ? 'rgba(197,164,109,.5)' : 'transparent', s2: n >= 2 ? GOLD : '#3A404A', f3: n >= 3 ? 'rgba(197,164,109,.5)' : 'transparent', s3: n >= 3 ? GOLD : '#3A404A' };
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { period: 'a', notify: {}, faq: 0, email: '', sent: false, emailErr: false };
+  }
+  renderVals() {
+    var self = this, s = this.state;
+    var per = S_PERIODS.filter(function (p) { return p.k === s.period; })[0];
+    function offFor(k) {
+      var n = S_PERIODS.filter(function (p) { return p.k === k; })[0].n, best = 0;
+      S_PLANS.forEach(function (pl) { if (!pl.price.m) return; var pct = 100 * (1 - pl.price[k] / (pl.price.m * n)); if (pct > best) best = pct; });
+      return Math.floor(best);
+    }
+    var last = S_PLANS.length - 1;
+    var plans = S_PLANS.map(function (pl, i) {
+      var free = !pl.price.m, total = pl.price[per.k], monthly = Math.round(total / per.n), save = pl.price.m * per.n - total;
+      var parts = free ? { int: '0', dec: '' } : (function () { var x = (monthly / 100).toFixed(2).split('.'); return { int: x[0], dec: ',' + x[1] }; })();
+      var notified = !!s.notify[pl.k];
+      var billed = free ? 'Sem cartão, sem prazo.' : (per.k === 'm' ? 'Cobrado todo mês.' : sBrl(total) + (per.k === 's' ? ' a cada 6 meses' : ' por ano'));
+      return Object.assign({
+        nameUp: pl.name.toUpperCase(), desc: pl.desc, status: pl.status,
+        stColor: pl.live ? '#D9B86A' : '#6F7480',
+        cls: 's-col' + (pl.hi ? ' is-hi' : ''),
+        radius: i === 0 ? '15px 0 0 15px' : (i === last ? '0 15px 15px 0' : '0'),
+        int: parts.int, dec: parts.dec, per: free ? 'pra sempre' : '/mês',
+        was: (!free && per.k !== 'm') ? sBrl(pl.price.m) + '/mês' : (free ? 'Sem custo' : 'Preço previsto'), wasDeco: (!free && per.k !== 'm') ? 'line-through' : 'none',
+        billed: billed, hasSave: !free && save > 0, save: sBrl(save),
+        isFree: free, canNotify: !free, isNotified: notified, notified: notified ? 'true' : 'false',
+        btnLabel: notified ? 'Avisaremos você' : 'Me avisa quando abrir',
+        btnCls: 's-btn' + (notified ? ' is-done' : (pl.hi ? ' is-gold' : '')),
+        notify: function () { var n = Object.assign({}, self.state.notify); n[pl.k] = !n[pl.k]; self.setState({ notify: n }); },
+        bullet: free || pl.hi ? GOLD : '#8C7A57',
+        feats: pl.feats.map(function (f, j) { var muted = (pl.firstMuted && j === 0) || (pl.lastMuted && j === pl.feats.length - 1); return { t: f, color: muted ? '#8C8F98' : '#D5D0C4' }; })
+      }, sGems(pl.gems));
+    });
+    var emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.email.trim());
+    return {
+      periods: S_PERIODS.map(function (p) { var on = s.period === p.k, off = offFor(p.k); return { label: p.label, on: on ? 'true' : 'false', cls: 's-seg' + (on ? ' is-on' : ''), hasOff: off > 0, off: (p.k === 's' ? 'até ' : '') + off + '% off', pick: function () { self.setState({ period: p.k }); } }; }),
+      plans: plans,
+      faq: S_FAQ.map(function (f, i) { var open = s.faq === i; return { q: f.q, a: f.a, open: open, exp: open ? 'true' : 'false', rot: open ? '45deg' : '0deg', toggle: function () { self.setState({ faq: open ? -1 : i }); } }; }),
+      email: s.email, sent: s.sent, notSent: !s.sent,
+      onEmail: function (e) { self.setState({ email: e.target.value, emailErr: false }); },
+      onEmailKey: function (e) { if (e.key === 'Enter') send(); },
+      send: function () { send(); },
+      emailHint: s.emailErr ? 'Confere o e-mail, parece que faltou alguma coisa.' : 'Só usamos pra mandar o convite. Nada de spam.',
+      emailHintColor: s.emailErr ? '#E6A28F' : '#6F7480'
+    };
+    function send() { if (emailOk) self.setState({ sent: true }); else self.setState({ emailErr: true }); }
+  }
+}
+</script>
+</body>
+</html>

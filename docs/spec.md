@@ -308,6 +308,7 @@ Extensão aprovada em 11/11/2026. Cada conta tem **um plano só** — Grátis, A
 
 - **Quem define o limite.** Os limites da mesa seguem o plano do **dono** da mesa e valem para todos os membros: o jogador de uma mesa Grátis sente o Grátis, qualquer que seja o plano dele. As personalizações da conta seguem o plano da **própria pessoa**: cor personalizada no perfil, no número do dado e nas cores salvas, textura própria do dado e foto de perfil em GIF animado. Apoiador, Narrador, Lenda, Amigo do Dono, o admin e o Dono do Lorkarium as têm; o Grátis fica com a paleta, o dado na cor do perfil e a foto parada (o primeiro quadro).
 - **Admin, Dono do Lorkarium e Amigo do Dono.** O admin global não tem limite de plano: vale para ele, e para as mesas de que é dono, a grade do Amigo do Dono, que não tem teto de plano e segue só os tetos técnicos de sempre (500 tokens por cena, 100 luzes etc.). O mesmo vale para o **Dono do Lorkarium**, que não é plano: é a conta cujo @ a configuração do servidor aponta (vazia, ninguém), com as personalizações liberadas.
+- **Plano pago.** Além do plano do admin, a conta pode ter um plano comprado (Apoiador, Narrador ou Lenda) com data de fim, que já inclui 7 dias de carência. Vale o maior dos dois enquanto o pago estiver em vigor (comprar um plano pago maior não reembolsa o menor: o tempo que sobrava dele volta quando o maior acaba); vencido, sobra o do admin, sem apagar nada. Só o serviço de cobrança grava o plano pago, e o admin só o plano dele.
 - **Apoiador.** É o plano de quem apoia a casa: as mesas dele seguem a grade do Grátis (inclusive a paleta no conteúdo da mesa), e só a conta se abre (as personalizações acima).
 - **A grade.** — = sem teto de plano. Os números da Lenda com † são uso justo (a tela diz "ilimitado"). A coluna Grátis vale também para o Apoiador.
 
@@ -333,7 +334,7 @@ Extensão aprovada em 11/11/2026. Cada conta tem **um plano só** — Grátis, A
 - **Armazenamento.** A cota soma os arquivos das mesas de que a pessoa é dona; o arquivo que nenhum conteúdo usa mais é liberado, e excluir a mesa apaga os dela.
 - **Selos.** Cada conta mostra um selo só, o mais alto: Dono do Lorkarium (a logo, marfim), Admin (espada erguida, brasa), Amigo do Dono (cálice, rosa), Lenda (brasão, dourado), Narrador (pena, azul) e Apoiador (chama, violeta). São ícones próprios no traço da logo, só o símbolo, colado ao @ da pessoa em todo lugar que mostra o @ (ou ao nome, onde a tela não mostra o @), com o nome em palavras para leitor de tela e no tooltip; chegam às mesas abertas sem recarregar, também quando o backoffice troca o papel. O Grátis não tem selo. A conta mostra "Seu plano", com os limites e o uso.
 
-Contratos, regra efetiva, onde cada limite é conferido e provas: [context/plans.md](context/plans.md). Fora desta entrega: pagamento, preços na tela, cadastro aberto, modo só leitura de mesa e transferência de posse da mesa.
+Contratos, regra efetiva, onde cada limite é conferido e provas: [context/plans.md](context/plans.md). Pagamento e preços na tela: [context/billing.md](context/billing.md) (o serviço de cobrança é outra aplicação). Fora desta entrega: cadastro aberto, modo só leitura de mesa e transferência de posse da mesa.
 
 ---
 
@@ -577,7 +578,7 @@ Redis, filas distribuídas e múltiplas instâncias deverão ser considerados so
 
 Representa um usuário registrado.
 
-Campos principais: id, name, email, passwordHash ou identidade externa, plan (o plano da conta: free, apoiador, narrador, lenda ou amigo_do_dono; a conta nova nasce free), createdAt. O Dono do Lorkarium não é campo: vem da configuração do servidor, pelo @. Ver §3.11.
+Campos principais: id, name, email, passwordHash ou identidade externa, plan (o plano da conta: free, apoiador, narrador, lenda ou amigo_do_dono; a conta nova nasce free; o do admin), paidPlan e paidPlanUntil (o plano comprado e até quando vale, carência incluída; só o serviço de cobrança grava), createdAt. O Dono do Lorkarium não é campo: vem da configuração do servidor, pelo @. Ver §3.11.
 
 ### Campaign
 

@@ -104,6 +104,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | badges           | Insígnias: catálogo do admin, imagem 128, ordem, concessão por conta, card            | [`docs/context/badges.md`](docs/context/badges.md)                     |
 | saved-colors     | Cores salvas por conta: tabela, teto de 24, três rotas, trava da corrida              | [`docs/context/saved-colors.md`](docs/context/saved-colors.md)         |
 | plans            | Planos: grade, dono da mesa × conta, admin, Dono, Apoiador, `PLAN_LIMIT`, selo, cota  | [`docs/context/plans.md`](docs/context/plans.md)                       |
+| billing          | Cobrança: costura com o serviço de cobrança, plano pago, `/api/billing`, telas        | [`docs/context/billing.md`](docs/context/billing.md)                   |
 | combat           | Condições (lista, cor, stacks, imagem) e combate: entradas, turno, rodada             | [`docs/context/combat.md`](docs/context/combat.md)                     |
 | drawings         | Desenhos da cena: formas, cor, dono, camada própria, lote, precondição                | [`docs/context/drawings.md`](docs/context/drawings.md)                 |
 | effect-areas     | Áreas de efeito: formas, casas pintadas, autor, alças, versão                         | [`docs/context/effect-areas.md`](docs/context/effect-areas.md)         |
