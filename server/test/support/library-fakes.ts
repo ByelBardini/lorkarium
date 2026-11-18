@@ -68,14 +68,19 @@ export class LibraryCampaignsDaoFake implements Pick<
   }
 }
 
-/** The library's campaigns plus the owner's plan read without a lock (`findOwnerPlan`, nothing
- *  in the journal): what a list needs to mark `planLocked`. */
+/** The library's campaigns plus the owner's plan read without a lock (`findOwnerPlan` and
+ *  `findWithOwner`, nothing in the journal): what a list needs to mark `planLocked`. */
 export class OwnerPlanCampaignsDaoFake
   extends LibraryCampaignsDaoFake
-  implements Pick<CampaignsDao, 'findOwnerPlan'>
+  implements Pick<CampaignsDao, 'findOwnerPlan' | 'findWithOwner'>
 {
   async findOwnerPlan(campaignId: string): Promise<UserPlanPo | undefined> {
     return (await this.findById(campaignId)) && this.owner;
+  }
+
+  async findWithOwner(campaignId: string): Promise<CampaignWithOwnerPo | undefined> {
+    const row = await this.findById(campaignId);
+    return row && { ...row, owner: this.owner };
   }
 }
 

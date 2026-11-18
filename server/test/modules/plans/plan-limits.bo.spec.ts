@@ -242,6 +242,20 @@ describe('PlanLimitsBo.requireEditable', () => {
   });
 });
 
+describe('PlanLimitsBo.mayLock', () => {
+  it('a free table may lock grids: its ceiling is finite and below the technical one', () => {
+    expect(PlanLimitsBo.mayLock('scenes', PLAN_LIMITS.free)).toBe(true);
+  });
+
+  it('a null ceiling never locks, so the rank need not be read', () => {
+    expect(PlanLimitsBo.mayLock('scenes', PLAN_LIMITS.amigo_do_dono)).toBe(false);
+  });
+
+  it('a ceiling at the technical one never locks either', () => {
+    expect(PlanLimitsBo.mayLock('lights', PLAN_LIMITS.lenda)).toBe(false);
+  });
+});
+
 describe('PlanLimitsBo.isReadOnly', () => {
   it.each([
     [2, false],

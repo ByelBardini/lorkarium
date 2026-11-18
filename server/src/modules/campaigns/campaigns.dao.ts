@@ -43,16 +43,26 @@ export class CampaignsDao {
    *
    *  Example: `effectiveLimitsOf((await new CampaignsDao(tx).lockWithOwner(campaignId))!.owner)` */
   async lockWithOwner(campaignId: string): Promise<CampaignWithOwnerPo | undefined> {
-    const [row] = await this.db
-      .select({
-        campaign: campaigns,
-        owner: PLAN_ACCOUNT_COLUMNS,
-      })
+    const [row] = await this.withOwnerQuery(campaignId).for('no key update', { of: campaigns });
+    return row && { ...row.campaign, owner: row.owner };
+  }
+
+  /** The campaign row and its owner's plan in one statement, without a lock: what a read that
+   *  marks `planLocked` needs (the library list), one query where `findById` plus
+   *  `findOwnerPlan` were two.
+   *
+   *  Example: `effectiveLimitsOf((await new CampaignsDao(db).findWithOwner(campaignId))!.owner)` */
+  async findWithOwner(campaignId: string): Promise<CampaignWithOwnerPo | undefined> {
+    const [row] = await this.withOwnerQuery(campaignId);
+    return row && { ...row.campaign, owner: row.owner };
+  }
+
+  private withOwnerQuery(campaignId: string) {
+    return this.db
+      .select({ campaign: campaigns, owner: PLAN_ACCOUNT_COLUMNS })
       .from(campaigns)
       .innerJoin(users, eq(users.id, campaigns.ownerId))
-      .where(eq(campaigns.id, campaignId))
-      .for('no key update', { of: campaigns });
-    return row && { ...row.campaign, owner: row.owner };
+      .where(eq(campaigns.id, campaignId));
   }
 
   /** The owner's plan alone, without a lock: what a write that keeps nothing (a dice roll) reads

@@ -63,20 +63,23 @@ export async function requireEditableGrid(
   scenes: Pick<ScenesDao, 'rankOf'>,
   scene: Pick<AddressedSceneRow, 'id' | 'campaignId' | 'owner'>,
 ): Promise<void> {
-  const rank = await scenes.rankOf(scene.campaignId, scene.id);
-  PlanLimitsBo.requireEditable('scenes', rank, effectiveLimitsOf(scene.owner));
+  const limits = effectiveLimitsOf(scene.owner);
+  if (!PlanLimitsBo.mayLock('scenes', limits)) return;
+  PlanLimitsBo.requireEditable('scenes', await scenes.rankOf(scene.campaignId, scene.id), limits);
 }
 
 /** Whether the grid is past the owner's plan, ranked among its table's grids: the `planLocked`
- *  of the scene the room receives. One count, in the snapshot's or the write's transaction.
+ *  of the scene the room receives. One count, in the snapshot's or the write's transaction, and
+ *  none when the owner's plan locks no grid.
  *
  *  Example: `await gridPlanLockOf(daos.scenes, scene) // true for the 4th grid of a free table` */
 export async function gridPlanLockOf(
   scenes: Pick<ScenesDao, 'rankOf'>,
   scene: Pick<AddressedSceneRow, 'id' | 'campaignId' | 'owner'>,
 ): Promise<boolean> {
-  const rank = await scenes.rankOf(scene.campaignId, scene.id);
-  return PlanLimitsBo.isReadOnly('scenes', rank, effectiveLimitsOf(scene.owner));
+  const limits = effectiveLimitsOf(scene.owner);
+  if (!PlanLimitsBo.mayLock('scenes', limits)) return false;
+  return PlanLimitsBo.isReadOnly('scenes', await scenes.rankOf(scene.campaignId, scene.id), limits);
 }
 
 /** The grid read for an address, if the requester may act on it: the master any grid of the
