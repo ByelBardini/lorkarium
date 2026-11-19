@@ -86,7 +86,6 @@ export class SheetTemplatesService {
       const stored = await daos.templates.countOfCampaign(requester.campaignId);
       PlanLimitsBo.requireRoom('sheetTemplates', stored, 1, limits);
       const { files } = input;
-      rules.requireScriptsAllowed([], files, limits);
       const folderId = input.folderId ?? null;
       await this.requireFolder(daos, rules, requester, folderId);
       if (input.manifest) await requireManifestAssets(daos, requester, input.manifest);
@@ -113,7 +112,6 @@ export class SheetTemplatesService {
       const place = await placeOf(daos, found, limits);
       PlanLimitsBo.requireEditable('sheetTemplates', place.rank, limits);
       rules.requireVersion(found, input.expectedVersion);
-      if (input.files) rules.requireScriptsAllowed(found.files, input.files, limits);
       if (input.folderId !== undefined)
         await this.requireFolder(daos, rules, requester, input.folderId);
       if (input.manifest) await requireManifestAssets(daos, requester, input.manifest);
