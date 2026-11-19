@@ -89,7 +89,7 @@ describe('the editor warns, before saving, that the JS does not run on the plan 
     await openTormenta(PLAN_LIMITS.free);
     const notice = screen.getByRole('note', { name: SCRIPTS_NOTICE });
     expect(notice).toHaveTextContent(
-      'Os scripts deste modelo não rodam no plano Grátis. Disponível no Narrador',
+      'Os scripts deste modelo não rodam no plano Grátis. Disponível no plano Narrador',
     );
     expect(notice).toHaveTextContent('JS novo ou alterado não é salvo.');
     expect(screen.getByRole('button', { name: 'Salvar' })).toBeInTheDocument();

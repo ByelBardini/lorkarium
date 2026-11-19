@@ -14,9 +14,9 @@ export type PlanGate =
 /** The gate of everything the plan does not stop. */
 export const OPEN_GATE: PlanGate = { open: true, hint: null };
 
-/** "Disponível no Narrador": the cheapest plan on offer that has what `has` asks of a grid.
+/** "Disponível no plano Narrador": the cheapest plan on offer that has what `has` asks of a grid.
  *
- *  Example: `availableInText((limits) => limits.sceneCopy) // 'Disponível no Narrador'` */
+ *  Example: `availableInText((limits) => limits.sceneCopy) // 'Disponível no plano Narrador'` */
 export function availableInText(has: (limits: PlanLimits) => boolean): string {
   return `Disponível ${inPlanText(has)}`;
 }
@@ -43,7 +43,7 @@ export function countGate(
 
 /** Whether a feature of the grid is offered: open with no limits known or when `has` holds.
  *
- *  Example: `featureGate(PLAN_LIMITS.free, (limits) => limits.conditionImage).hint // 'Disponível no Narrador'` */
+ *  Example: `featureGate(PLAN_LIMITS.free, (limits) => limits.conditionImage).hint // 'Disponível no plano Narrador'` */
 export function featureGate(
   limits: PlanLimits | null,
   has: (limits: PlanLimits) => boolean,
@@ -76,11 +76,11 @@ function closed(hint: string): PlanGate {
 
 /** The account's own customizations (custom color, dice texture): open when it may customize.
  *
- *  Example: `customizationGate(false).hint // 'Disponível no Apoiador'` */
+ *  Example: `customizationGate(false).hint // 'Disponível no plano Apoiador'` */
 export function customizationGate(customization: boolean | null): PlanGate {
   if (customization !== false) return OPEN_GATE;
   // The account customizations are the one thing Apoiador unlocks, so it is the cheapest plan to name.
-  return closed(`Disponível no ${PLAN_NAMES.apoiador}`);
+  return closed(`Disponível no plano ${PLAN_NAMES.apoiador}`);
 }
 
 /** The `aria-describedby` of a control under a `PlanGateHint` with that `id`.

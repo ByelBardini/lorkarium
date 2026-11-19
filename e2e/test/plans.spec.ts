@@ -151,7 +151,7 @@ test.describe('plans', () => {
     await expect(gridCard).toHaveAccessibleDescription(sentence);
     const mapCard = newItemCardOf(bia, 'Mapa');
     await expect(mapCard).toBeDisabled();
-    await expect(mapCard).toHaveAccessibleDescription('Disponível no Narrador');
+    await expect(mapCard).toHaveAccessibleDescription('Disponível no plano Narrador');
 
     const refused = await createGridByApi(bia, campaignId);
     expect(refused.status()).toBe(403);
@@ -226,7 +226,7 @@ test.describe('plans', () => {
     await chooseFromTableMenu(bia, 'Configurações da mesa');
     const form = bia.getByRole('form', { name: 'Configurações da mesa' });
     const cover = form.getByRole('group', { name: 'Capa', exact: true });
-    await expect(cover).toContainText('A mesa usa a foto. Disponível no Narrador');
+    await expect(cover).toContainText('A mesa usa a foto. Disponível no plano Narrador');
     await expect(cover.locator('fieldset')).toHaveAttribute('disabled', '');
     const visibility = form.getByRole('radiogroup', { name: 'Visibilidade' });
     await expect(visibility.getByRole('radio', { name: 'Privada' })).toBeChecked();

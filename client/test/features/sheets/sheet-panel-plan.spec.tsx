@@ -24,7 +24,8 @@ import { BIA_AT_TABLE } from '../../support/table-session-fixtures';
 import { onTablePlan } from '../../support/table-plan';
 
 const TITLE = 'Ficha · Lyra de Vharn';
-const SCRIPTS_OFF = 'Os scripts deste modelo não rodam no plano Grátis. Disponível no Narrador';
+const SCRIPTS_OFF =
+  'Os scripts deste modelo não rodam no plano Grátis. Disponível no plano Narrador';
 const FILES = [
   { path: 'index.html', content: '<input data-lk="forca">' },
   { path: 'a.js', content: 'window.authorRan = true;' },

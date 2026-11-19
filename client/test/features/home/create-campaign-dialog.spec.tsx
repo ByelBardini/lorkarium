@@ -276,7 +276,7 @@ describe('CreateCampaignDialog', () => {
     expect(within(dialog).getByRole('radio', { name: 'Pública' })).toBeChecked();
     const privada = within(dialog).getByRole('radio', { name: 'Privada' });
     expect(privada).toBeDisabled();
-    expect(privada).toHaveAccessibleDescription('Disponível no Narrador');
+    expect(privada).toHaveAccessibleDescription('Disponível no plano Narrador');
     await typeName(dialog);
     await submit(dialog);
     await waitFor(() =>

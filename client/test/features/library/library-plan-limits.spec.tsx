@@ -40,7 +40,7 @@ describe('the library under the table plan', () => {
     expect(card(dialog, 'Grid')).toHaveAccessibleDescription(
       'Esta mesa usa o plano Grátis, que permite até 3 grids. O Narrador libera 15.',
     );
-    expect(card(dialog, 'Mapa')).toHaveAccessibleDescription('Disponível no Narrador');
+    expect(card(dialog, 'Mapa')).toHaveAccessibleDescription('Disponível no plano Narrador');
     expect(card(dialog, 'Modelo de ficha')).toHaveAccessibleDescription(
       /permite até 1 modelo de ficha\./,
     );
@@ -55,15 +55,15 @@ describe('the library under the table plan', () => {
     const dialog = await startHeaderNewItem('Pasta');
     for (const kind of ['Grid', 'Modelo de ficha']) expect(card(dialog, kind)).toBeEnabled();
     expect(card(dialog, 'Mapa')).toBeDisabled();
-    expect(card(dialog, 'Mapa')).toHaveAccessibleDescription('Disponível no Narrador');
+    expect(card(dialog, 'Mapa')).toHaveAccessibleDescription('Disponível no plano Narrador');
   });
 
-  it('a free table has no "Duplicar": off in the menu, with "Disponível no Narrador"', async () => {
+  it('a free table has no "Duplicar": off in the menu, with "Disponível no plano Narrador"', async () => {
     await openLibrary(deps, { limits: PLAN_LIMITS.free });
     const menu = await openTreeMenu(treeItem('Cena 1'));
     const duplicate = within(menu).getByRole('menuitem', { name: 'Duplicar' });
     expect(duplicate).toHaveAttribute('aria-disabled', 'true');
-    expect(duplicate).toHaveAccessibleDescription('Disponível no Narrador');
+    expect(duplicate).toHaveAccessibleDescription('Disponível no plano Narrador');
   });
 
   it('a Narrador table at 15 grids cannot duplicate either: no room for the copy', async () => {
