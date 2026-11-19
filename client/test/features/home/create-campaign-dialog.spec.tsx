@@ -283,4 +283,21 @@ describe('CreateCampaignDialog', () => {
       expect(deps.campaignsApi.callsOf('create')[0]).toMatchObject({ visibility: 'public' }),
     );
   });
+
+  it('on Apoiador the custom cover tone is off with the plan hint, though the account customizes', async () => {
+    const limits = { ...PLAN_LIMITS.apoiador, maxCampaigns: null };
+    deps.authApi.answerMeWith({ ...ANA, plan: 'apoiador', limits, customization: true });
+    const dialog = await openDialog();
+    const tile = within(dialog).getByRole('button', { name: /^Cor personalizada/ });
+    expect(tile).toBeDisabled();
+    expect(tile).toHaveAccessibleDescription('Disponível no plano Narrador');
+  });
+
+  it('on Narrador the custom cover tone is offered', async () => {
+    const limits = { ...PLAN_LIMITS.narrador, maxCampaigns: null };
+    deps.authApi.answerMeWith({ ...ANA, plan: 'narrador', limits, customization: true });
+    const dialog = await openDialog();
+    const tile = within(dialog).getByRole('button', { name: /^Cor personalizada/ });
+    expect(tile).toBeEnabled();
+  });
 });

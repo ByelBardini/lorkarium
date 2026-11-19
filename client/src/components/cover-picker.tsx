@@ -33,8 +33,9 @@ export type CoverPickerProps = Readonly<{
 }>;
 
 /** The campaign cover as two radio groups, a row of drawings and a row of tones (arrows move the
- *  choice). After the tones, a tile opens the custom color. With an image chosen, no drawing nor
- *  tone is checked; picking one goes back to the last drawn cover with that change.
+ *  choice). After the tones, a tile opens the custom color, offered by the table's plan (the
+ *  `table` scope of `CustomColorLocksContext`). With an image chosen, no drawing nor tone is
+ *  checked; picking one goes back to the last drawn cover with that change.
  *
  *  Example: `<CoverPicker value={draft.cover} onChange={(cover) => change({ cover })} />` */
 export function CoverPicker(props: CoverPickerProps): React.JSX.Element {
@@ -122,6 +123,7 @@ function ToneGroup(props: ToneGroupProps): React.JSX.Element {
         onPick={props.onPick}
         disabled={props.disabled}
         className="size-9 rounded-md"
+        scope="table"
       />
     </PickerGroup>
   );
