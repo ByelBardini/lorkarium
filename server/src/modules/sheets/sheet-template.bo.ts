@@ -1,7 +1,5 @@
-import { sheetTemplateFileKindOf, type PlanLimits } from '@lorkarium/contracts';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import { FolderNotFoundError } from '../library/library.error';
-import { PlanLimitsBo } from '../plans/plan-limits.bo';
 import { SheetTemplateInUseError, SheetTemplateVersionConflictError } from './sheets.error';
 
 /** What the rules read of a template: which one and the version it is at. */
@@ -34,32 +32,9 @@ export class SheetTemplateBo {
     throw new SheetTemplateInUseError(template.id, sheetCount);
   }
 
-  /** A table without `sheetScripts` writes no new nor changed `.js` (PLAN_LIMIT): the ones stored
-   *  and intact (same path, same text) stay, so the master still fixes the HTML and the code comes
-   *  back whole if the table goes up a plan. Creating passes `[]` as `stored`.
-   *
-   *  Example: `rules.requireScriptsAllowed(found.files, input.files, limits)` */
-  requireScriptsAllowed(
-    stored: readonly TemplateFile[],
-    next: readonly TemplateFile[],
-    limits: PlanLimits,
-  ): void {
-    if (limits.sheetScripts) return;
-    const intact = next.every((file) => !isScript(file) || isStoredIntact(file, stored));
-    PlanLimitsBo.requireFeature('sheetScripts', intact, limits);
-  }
-
   /** `null` is the root; any other id must be one of the table's folders. */
   requireFolder(folderIds: readonly string[], folderId: string | null): void {
     if (folderId === null || folderIds.includes(folderId)) return;
     throw new FolderNotFoundError(this.access.campaignIdOf(), folderId);
   }
-}
-
-function isScript(file: TemplateFile): boolean {
-  return sheetTemplateFileKindOf(file.path) === 'js';
-}
-
-function isStoredIntact(file: TemplateFile, stored: readonly TemplateFile[]): boolean {
-  return stored.some(({ path, content }) => path === file.path && content === file.content);
 }

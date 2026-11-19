@@ -91,7 +91,7 @@ describe('the editor warns, before saving, that the JS does not run on the plan 
     expect(notice).toHaveTextContent(
       'Os scripts deste modelo não rodam no plano Grátis. Disponível no plano Narrador',
     );
-    expect(notice).toHaveTextContent('JS novo ou alterado não é salvo.');
+    expect(notice).toHaveTextContent('O JS é salvo e roda quando a mesa tiver o plano.');
     expect(screen.getByRole('button', { name: 'Salvar' })).toBeInTheDocument();
   });
 
