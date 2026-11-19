@@ -8,13 +8,13 @@ import { onTablePlan } from '../../support/table-plan';
 describe('sheetScriptsNotice', () => {
   it('on a Grátis table it says the scripts do not run and where they do', () => {
     expect(sheetScriptsNotice(PLAN_LIMITS.free)).toBe(
-      'Os scripts deste modelo não rodam no plano Grátis. Disponível no Narrador',
+      'Os scripts deste modelo não rodam no plano Grátis. Disponível no plano Narrador',
     );
   });
 
   it('on an Apoiador table it names that plan', () => {
     expect(sheetScriptsNotice(PLAN_LIMITS.apoiador)).toBe(
-      'Os scripts deste modelo não rodam no plano Apoiador. Disponível no Narrador',
+      'Os scripts deste modelo não rodam no plano Apoiador. Disponível no plano Narrador',
     );
   });
 
@@ -42,7 +42,7 @@ describe('useSheetScriptsNotice', () => {
 
   it('a template with JS on a Grátis table gets the notice', () => {
     expect(noticeOf(PLAN_LIMITS.free, WITH_JS)).toBe(
-      'Os scripts deste modelo não rodam no plano Grátis. Disponível no Narrador',
+      'Os scripts deste modelo não rodam no plano Grátis. Disponível no plano Narrador',
     );
   });
 

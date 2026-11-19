@@ -76,7 +76,10 @@ describe('items past the plan ceiling in the library', () => {
     expect(within(panel).getByRole('textbox', { name: 'Nome' })).toHaveAccessibleDescription(
       GRID_LOCKED,
     );
-    expect(within(panel).getByRole('button', { name: 'Duplicar' })).toBeDisabled();
+    expect(within(panel).getByRole('button', { name: 'Duplicar' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     expect(within(panel).getByRole('button', { name: 'Excluir' })).toBeEnabled();
     expect(within(panel).getByRole('button', { name: 'Abrir pra preparar' })).toBeEnabled();
     expect(within(panel).getByRole('radio', { name: 'Público' })).toBeEnabled();

@@ -81,6 +81,7 @@ import type { TablePresenceStore } from '@/stores/table-presence-store';
 import { BoardArea } from './board-area';
 import { DeleteSelectionDialog, type SelectionToDelete } from './delete-selection-dialog';
 import { tokenCommandFailureMessage } from './board-messages';
+import { BoardRefusalBalloon } from './board-refusal-balloon';
 import { BoardStatusLine } from './board-status-line';
 import { RoomToolbar } from './room-toolbar';
 import { LibraryDrawerSlot } from './library-drawer-slot';
@@ -445,6 +446,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
               />
             )}
             <BoardStatusLine table={table} interaction={interaction} />
+            <BoardRefusalBalloon interaction={interaction} />
             <DiceRollNotice
               campaignId={campaign.id}
               openTables={openTables}

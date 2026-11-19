@@ -31,7 +31,7 @@ describe('countGate', () => {
   });
 
   it('a ceiling of 0 names the cheapest plan that has it', () => {
-    expect(countGate(PLAN_LIMITS.free, 'patrols', 0).hint).toBe('Disponível no Narrador');
+    expect(countGate(PLAN_LIMITS.free, 'patrols', 0).hint).toBe('Disponível no plano Narrador');
   });
 
   it('Amigo do Dono has no ceiling: open whatever the count', () => {
@@ -48,10 +48,10 @@ describe('countGate', () => {
 });
 
 describe('featureGate', () => {
-  it('a feature the plan lacks says where it is: "Disponível no Narrador"', () => {
+  it('a feature the plan lacks says where it is: "Disponível no plano Narrador"', () => {
     expect(featureGate(PLAN_LIMITS.free, (limits) => limits.sceneCopy)).toEqual({
       open: false,
-      hint: 'Disponível no Narrador',
+      hint: 'Disponível no plano Narrador',
     });
   });
 
@@ -66,13 +66,13 @@ describe('featureGate', () => {
 
 describe('availableInText', () => {
   it('says "na Lenda" when only Lenda has it', () => {
-    expect(availableInText((limits) => limits.maxPatrols >= 30)).toBe('Disponível na Lenda');
+    expect(availableInText((limits) => limits.maxPatrols >= 30)).toBe('Disponível no plano Lenda');
   });
 
   it.each([
-    ['desktopWindows', 'Disponível na Lenda'],
-    ['animatedCampaignArt', 'Disponível na Lenda'],
-    ['sheetScripts', 'Disponível no Narrador'],
+    ['desktopWindows', 'Disponível no plano Lenda'],
+    ['animatedCampaignArt', 'Disponível no plano Lenda'],
+    ['sheetScripts', 'Disponível no plano Narrador'],
   ] as const)('the %s feature reads "%s"', (feature, text) => {
     expect(availableInText((limits) => limits[feature])).toBe(text);
   });
@@ -113,7 +113,7 @@ describe('planLockGate', () => {
 
 describe('customizationGate', () => {
   it('an account that may not customize gets the hint', () => {
-    expect(customizationGate(false)).toEqual({ open: false, hint: 'Disponível no Apoiador' });
+    expect(customizationGate(false)).toEqual({ open: false, hint: 'Disponível no plano Apoiador' });
   });
 
   it.each([true, null])('customization %s is open', (customization) => {

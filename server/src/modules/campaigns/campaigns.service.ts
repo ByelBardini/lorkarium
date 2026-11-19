@@ -18,7 +18,7 @@ import type { CampaignCodePort } from './campaign-code.port';
 import { seesPrivateInExplore } from './campaign-join.bo';
 import type { ExploreReader } from './campaign-join.service';
 import type { CampaignMemberRow, CampaignMembersDao } from './campaign-members.dao';
-import { creationVisibilityOf } from './campaign-plan.bo';
+import { creationVisibilityOf, requireCreationCoverTone } from './campaign-plan.bo';
 import type { CampaignsDao } from './campaigns.dao';
 import { CampaignCodeExhaustedError } from './campaigns.error';
 import {
@@ -149,6 +149,7 @@ export class CampaignsService {
       return await this.deps.transaction(async (daos) => {
         const limits = await requireRoomForAnotherTable(daos, userId);
         const visibility = creationVisibilityOf(input.visibility, limits);
+        requireCreationCoverTone(input.cover, limits);
         const campaign = await daos.campaigns.insert({ ...row, visibility });
         const joinedAt = this.deps.clock.now();
         await daos.members.insert({ campaignId: campaign.id, userId, role: 'master', joinedAt });

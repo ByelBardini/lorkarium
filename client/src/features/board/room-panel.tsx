@@ -1,9 +1,8 @@
-import { ExternalLinkIcon } from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { ChatWindowSlot } from '@/features/chat/chat-window-slot';
+import { OpenWindowButton, type ChatWindowSlot } from '@/features/chat/chat-window-slot';
 import { CombatPanel } from '@/features/combat/combat-panel';
 import { DicePanel, type DicePanelProps } from '@/features/dice/dice-panel';
 import { SessionPresencePanel } from '@/features/sessions/session-presence-panel';
@@ -139,16 +138,11 @@ function RoomPanelTabs(props: PanelTabsProps): React.JSX.Element {
           </h2>
         )}
         {tab === 'dice' && props.diceWindow?.kind === 'docked' && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Abrir em outra janela"
+          <OpenWindowButton
+            slot={props.diceWindow}
             title="Abrir Dados em outra janela"
-            onClick={props.diceWindow.open}
-            className="shrink-0 text-muted-foreground"
-          >
-            <ExternalLinkIcon aria-hidden="true" className="size-3.5" />
-          </Button>
+            className="shrink-0 text-muted-foreground [&_svg]:size-3.5"
+          />
         )}
       </div>
       <TabsContent value="combat" aria-label={ROOM_TAB_NAME.combat} className="flex flex-col py-4">
@@ -202,16 +196,7 @@ function RoomDice({ dice, table, diceWindow }: RoomPanelProps): React.JSX.Elemen
         </Button>
       </section>
     );
-  return (
-    <>
-      {diceWindow?.kind === 'docked' && diceWindow.notice && (
-        <p role="status" className="mb-3 text-xs text-muted-foreground">
-          {diceWindow.notice}
-        </p>
-      )}
-      <DicePanel {...dice} presence={table?.presence ?? null} />
-    </>
-  );
+  return <DicePanel {...dice} presence={table?.presence ?? null} />;
 }
 
 // On the phone's sheet, like the online pill: for the eye (the tab's name stays "Dados").

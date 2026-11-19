@@ -7,7 +7,7 @@ import { hasAuthorScripts, type SheetSource } from '@/sheet-sandbox/sheet-srcdoc
 /** Why the template's JS does not run on this table, or `null` when it runs (or the limits are
  *  not known). The table's plan decides: the frame is built without the JS and the console says it.
  *
- *  Example: `sheetScriptsNotice(PLAN_LIMITS.free) // 'Os scripts deste modelo não rodam no plano Grátis. Disponível no Narrador'` */
+ *  Example: `sheetScriptsNotice(PLAN_LIMITS.free) // 'Os scripts deste modelo não rodam no plano Grátis. Disponível no plano Narrador'` */
 export function sheetScriptsNotice(limits: PlanLimits | null): string | null {
   const gate = featureGate(limits, (offer) => offer.sheetScripts);
   if (gate.open || limits === null) return null;

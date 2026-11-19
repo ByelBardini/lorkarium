@@ -150,14 +150,14 @@ describe('TokenContextMenu, "Patrulha…" and "Patrulhando" (master)', () => {
   });
 
   describe('on a free table (no patrol in the plan)', () => {
-    it('a token with no route has "Patrulha…" and "Patrulhando" off, with "Disponível no Narrador"', () => {
+    it('a token with no route has "Patrulha…" and "Patrulhando" off, with "Disponível no plano Narrador"', () => {
       openOn(KAEL_ID, [kael()], vharnBoard().viewer, PLAN_LIMITS.free);
 
       const draw = screen.getByRole('menuitem', { name: 'Patrulha…' });
       expect(draw).toHaveAttribute('aria-disabled', 'true');
-      expect(draw).toHaveAccessibleDescription('Disponível no Narrador');
+      expect(draw).toHaveAccessibleDescription('Disponível no plano Narrador');
       expect(patrolling()).toHaveAttribute('aria-disabled', 'true');
-      expect(patrolling()).toHaveAccessibleDescription('Disponível no Narrador');
+      expect(patrolling()).toHaveAccessibleDescription('Disponível no plano Narrador');
     });
 
     it('a route kept from a paid plan cannot start, but still opens in the editor', () => {

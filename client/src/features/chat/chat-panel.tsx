@@ -27,12 +27,7 @@ import { ChatFeed } from './chat-feed';
 import { ChatShortcutsButton } from './chat-shortcuts-button';
 import { TABLE_CONVERSATION_NAME } from './chat-messages';
 import { ConversationStrip } from './conversation-strip';
-import {
-  DetachedChat,
-  OpenWindowButton,
-  WindowNotice,
-  type ChatWindowSlot,
-} from './chat-window-slot';
+import { DetachedChat, OpenWindowButton, type ChatWindowSlot } from './chat-window-slot';
 import { NewConversationDialog } from './new-conversation-dialog';
 import { useChatPeople, useOpenTableOf, type ChatPeople } from './use-chat-people';
 import { useChatReply, type ChatReplyState } from './use-chat-reply';
@@ -113,7 +108,6 @@ function OpenChat(props: OpenChatProps): React.JSX.Element {
         {props.window?.kind === 'docked' && <OpenWindowButton slot={props.window} />}
         {props.headerEnd}
       </div>
-      <WindowNotice slot={props.window} />
       <ConversationFeed
         {...props}
         shown={shown}

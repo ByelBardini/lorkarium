@@ -355,19 +355,18 @@ describe('SheetTemplatesService', () => {
       expect(saved.name).toBe('Tormenta 2');
     });
 
-    const scriptsLimit = { code: 'PLAN_LIMIT', resource: 'sheetScripts', limit: 0, plan: 'free' };
-
-    it('a free table creating a template with script.js (a .lksheet or a copy too) is PLAN_LIMIT sheetScripts, writing nothing', async () => {
+    // The JS of a free table is kept, it only does not run there (the client leaves it out).
+    it('a free table creates a template with script.js (a .lksheet or a copy too)', async () => {
       const harness = new SheetTemplatesHarness();
       harness.campaigns.owner = FREE;
 
-      const create = new SheetTemplatesService(harness.deps).create(
+      const created = await new SheetTemplatesService(harness.deps).create(
         harness.requester,
         SHEET_TEMPLATE_CODE,
       );
 
-      await expect(create).rejects.toMatchObject(scriptsLimit);
-      expect(harness.journal).toEqual(['lock']);
+      expect(created.files).toEqual(SHEET_TEMPLATE_CODE.files);
+      expect(harness.journal).toEqual(['lock', 'insert', 'commit', 'publish']);
     });
 
     it('a narrador table creates a template with script.js', async () => {
@@ -395,18 +394,18 @@ describe('SheetTemplatesService', () => {
       expect(saved).toMatchObject({ version: 3, files });
     });
 
-    it('a free table changing its stored script.js is PLAN_LIMIT sheetScripts, writing nothing', async () => {
+    it('a free table changes its stored script.js', async () => {
       const harness = withTormenta();
       harness.campaigns.owner = FREE;
       const files = [...WITHOUT_SCRIPTS.files, { path: 'script.js', content: 'go();' }];
 
-      const save = new SheetTemplatesService(harness.deps).update(harness.requester, TORMENTA_ID, {
-        expectedVersion: 2,
-        files,
-      });
+      const saved = await new SheetTemplatesService(harness.deps).update(
+        harness.requester,
+        TORMENTA_ID,
+        { expectedVersion: 2, files },
+      );
 
-      await expect(save).rejects.toMatchObject(scriptsLimit);
-      expect(harness.journal).toEqual(['lock']);
+      expect(saved).toMatchObject({ version: 3, files });
     });
   });
 });

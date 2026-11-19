@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildRoutes } from '@/app/router';
+import { takePaidPlanBeforeCheckout } from '@/features/billing/checkout-departure';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
 import { CHECKOUT_URL } from '../../support/billing-api-fake';
@@ -91,6 +92,20 @@ describe('the plans page (/planos)', () => {
       { priceKey: 'lenda_annual', method: 'pix' },
     ]);
     expect(deps.checkoutNavigation.visited).toEqual([CHECKOUT_URL]);
+  });
+
+  it('leaving for the checkout holds the paid end the account had, for the return page', async () => {
+    const page = await openPlans();
+    const dialog = await subscribe(page, 'Lenda');
+
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Continuar no Mercado Pago' }),
+    );
+
+    expect(takePaidPlanBeforeCheckout(deps.checkoutStorage)).toEqual({
+      known: true,
+      paidPlanUntil: null,
+    });
   });
 
   it('a monthly card subscription has no discount line and says the next charge', async () => {

@@ -15,6 +15,7 @@ import { SceneThumbnail } from './scene-thumbnail';
 import type { LibrarySubmit } from './use-library-submit';
 import { PlanGateHint } from '@/features/plans/plan-gate-hint';
 import { planHintIdOf } from '@/features/plans/plan-gate';
+import { PlanGated } from '@/features/plans/plan-gated';
 import { PlanLockSeal } from '@/features/plans/plan-lock-seal';
 import { usePlanLock } from '@/features/plans/use-plan-limits';
 import { useLibraryPlanGates } from './library-plan-gates';
@@ -189,16 +190,22 @@ function MasterActions(props: PickedProps & Readonly<{ isGroup: boolean }>): Rea
         Abrir pra preparar
       </Button>
       <div className="flex gap-1.5">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="flex-1"
-          disabled={!live || !copy.open}
-          aria-describedby={planHintIdOf(copy, copyHintId)}
-          onClick={() => void submit({ intent: 'duplicateScene', sceneId: scene.id })}
-        >
-          Duplicar
-        </Button>
+        <PlanGated gate={copy}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex-1"
+            disabled={!live}
+            aria-describedby={planHintIdOf(copy, copyHintId)}
+            onClick={
+              copy.open
+                ? () => void submit({ intent: 'duplicateScene', sceneId: scene.id })
+                : undefined
+            }
+          >
+            Duplicar
+          </Button>
+        </PlanGated>
         <Button
           variant="ghost"
           size="sm"
@@ -214,7 +221,7 @@ function MasterActions(props: PickedProps & Readonly<{ isGroup: boolean }>): Rea
           Leva o grupo pra outro grid antes de excluir este.
         </span>
       )}
-      <PlanGateHint id={copyHintId} gate={copy} className="text-center" />
+      <PlanGateHint id={copyHintId} gate={copy} />
       {confirming && (
         <DeleteConfirmDialog
           title={`Excluir ${scene.name}?`}

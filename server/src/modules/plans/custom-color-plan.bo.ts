@@ -5,9 +5,9 @@ import { PlanLimitsBo } from './plan-limits.bo';
 export type SentColor = string | null | undefined;
 
 /** The custom color (`#rrggbb`) on the table's content — drawings, effect areas, auras, bars,
- *  lights and conditions — follows the plan of the table's owner (`limits.customColor`); a name
- *  of the palette passes on every plan. Map places, document text and the cover tone have no
- *  palette, so they never come here.
+ *  lights, conditions and the cover tone — follows the plan of the table's owner
+ *  (`limits.customColor`); a name of the palette passes on every plan. Map places and document
+ *  text have no palette, so they never come here.
  *
  *  Example: `CustomColorPlanBo.requirePaletteUnlessAllowed(shape.stroke, limits)` */
 export class CustomColorPlanBo {

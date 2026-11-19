@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildRoutes } from '@/app/router';
+import { rememberPaidPlanBeforeCheckout } from '@/features/billing/checkout-departure';
 import { testDependencies, type TestDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
 
@@ -66,6 +67,25 @@ describe('the return from the checkout (/planos/retorno)', () => {
 
     expect(await screen.findByText('Lenda ativo.')).toBeVisible();
     expect(screen.queryByText(/23\/12\/2026/)).toBeNull();
+  });
+
+  // The return is a fresh load: the boot's /me can already bring the plan the webhook granted
+  // while the buyer paid in the bank's app (production, 2026-11-19).
+  it('coming back after the webhook already granted the plan, confirms it at once', async () => {
+    deps.billingApi.status_ = PAID_STATUS;
+    rememberPaidPlanBeforeCheckout(deps.checkoutStorage, null);
+    deps.authApi.answerMeWith(paidAna());
+    openReturn();
+
+    expect(await screen.findByText('Lenda ativo até 16/12/2026')).toBeVisible();
+  });
+
+  it('a renewal keeps waiting while the end is still the one held before the checkout', async () => {
+    rememberPaidPlanBeforeCheckout(deps.checkoutStorage, UNTIL);
+    deps.authApi.answerMeWith(paidAna());
+    openReturn();
+
+    expect(await screen.findByText(/O Mercado Pago ainda não confirmou/)).toBeVisible();
   });
 
   it('without a confirmation after the checks, says the plan comes in by itself', async () => {

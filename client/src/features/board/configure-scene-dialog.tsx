@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlanGateHint } from '@/features/plans/plan-gate-hint';
 import { planHintIdOf, type PlanGate } from '@/features/plans/plan-gate';
 import { PlanLockSeal } from '@/features/plans/plan-lock-seal';
 import { usePlanLock } from '@/features/plans/use-plan-limits';
@@ -248,7 +247,9 @@ function SetupLockNotice({ id, lock }: SetupLockNoticeProps): React.JSX.Element 
   return (
     <div className="flex items-start gap-2">
       <PlanLockSeal gate={lock} className="pt-0.5 [&_svg]:size-3.5" />
-      <PlanGateHint id={id} gate={lock} />
+      <p id={id} className="text-xs text-muted-foreground">
+        {lock.hint}
+      </p>
     </div>
   );
 }

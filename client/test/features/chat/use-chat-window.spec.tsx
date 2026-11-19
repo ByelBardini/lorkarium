@@ -338,7 +338,7 @@ describe('useChatWindow', () => {
         act(() => result.current.open());
         expect(host.calls).toEqual([]);
         expect(result.current.status).toBe('docked');
-        expect(result.current.planHint).toBe('Disponível na Lenda');
+        expect(result.current.planHint).toBe('Disponível no plano Lenda');
       },
     );
 
@@ -347,7 +347,7 @@ describe('useChatWindow', () => {
       const { result } = renderOnTable(host, PLAN_LIMITS.narrador, 'chat');
       act(() => result.current.open());
       expect(host.calls).toEqual([]);
-      expect(result.current.planHint).toBe('Disponível na Lenda');
+      expect(result.current.planHint).toBe('Disponível no plano Lenda');
     });
 
     it('on a free table the dice window opens, as on every plan', () => {

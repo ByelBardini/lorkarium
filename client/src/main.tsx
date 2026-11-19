@@ -163,6 +163,7 @@ const router = createBrowserRouter(
     accountPlanApi: new HttpAccountPlanApi(transport),
     billingApi: new HttpBillingApi(transport),
     goToCheckout: (url) => window.location.assign(url),
+    checkoutStorage: tabStorage,
     waitBeforeBillingCheck: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     userAdminApi: new HttpUserAdminApi(transport),
     userReportsApi: new HttpUserReportsApi(transport),

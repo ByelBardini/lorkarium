@@ -71,7 +71,7 @@ describe('HomePage', () => {
     it('a free account owning 1 table gets "Nova mesa" off, with the plan sentence', async () => {
       renderHome([{ ...VHARN, ownerId: ANA.id }], FREE_ANA);
       const create = await screen.findByRole('button', { name: 'Nova mesa' });
-      expect(create).toBeDisabled();
+      expect(create).toHaveAttribute('aria-disabled', 'true');
       expect(create).toHaveAccessibleDescription(
         /^Seu plano Grátis permite até 1 mesa como dono\./,
       );

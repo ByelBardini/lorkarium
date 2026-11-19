@@ -390,18 +390,21 @@ describe('ChatDock', () => {
       expect(slot.broughtBack).toBe(1);
     });
 
-    it('blocked by the browser: the drawer says so beside "Abrir em outra janela"', async () => {
+    it('blocked by the browser: a click on "Abrir em outra janela" says so in a balloon beside it', async () => {
       renderDock({ window: slot.docked('O navegador bloqueou a janela do chat.') });
       await user.click(openButton());
-      expect(drawer()).toHaveTextContent('O navegador bloqueou a janela do chat.');
+      expect(drawer()).not.toHaveTextContent('O navegador bloqueou a janela do chat.');
       await user.click(within(drawer()).getByRole('button', { name: 'Abrir em outra janela' }));
       expect(slot.opened).toBe(1);
+      expect(await screen.findByText('O navegador bloqueou a janela do chat.')).toBeVisible();
     });
 
-    it('a plan without separate windows: the drawer says "Disponível no Narrador"', async () => {
-      renderDock({ window: slot.docked('Disponível no Narrador') });
+    it('a plan without separate windows: the balloon says "Disponível no plano Narrador" only after the click', async () => {
+      renderDock({ window: slot.docked('Disponível no plano Narrador') });
       await user.click(openButton());
-      expect(drawer()).toHaveTextContent('Disponível no Narrador');
+      expect(screen.queryByText('Disponível no plano Narrador')).toBeNull();
+      await user.click(within(drawer()).getByRole('button', { name: 'Abrir em outra janela' }));
+      expect(await screen.findByText('Disponível no plano Narrador')).toBeVisible();
     });
   });
 
