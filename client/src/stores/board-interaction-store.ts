@@ -1,4 +1,5 @@
 import type { BoardScope } from '@/services/board-command-sender';
+import { markingRefusals, type BoardRefusal } from './board-refusal-mark';
 import type {
   BarChangeDto,
   DoorStateDto,
@@ -94,14 +95,14 @@ export type DragGroup = Readonly<{
 export type TokenDrag = DragGroup &
   Readonly<{ anchorId: string; route: TokenRoute; landing: readonly GroupPlacement[] | null }>;
 
-/** What only this viewer does on the board: tools, selection and the move waiting for the
- *  server. `notice` is the status line text (a tool hint, or why the server refused). */
+/** This viewer's side of the board: tools, selection, the move waiting, the status line. */
 export type BoardInteractionState = Readonly<{
   tool: BoardTool;
   localGridVisible: boolean;
   ruler: RulerState | null;
   measuring: boolean;
   notice: string | null;
+  refusal: BoardRefusal | null;
   zoom: number;
   selectedTokenIds: readonly string[];
   /** Drawings in the selection, beside the tokens. */
@@ -278,9 +279,10 @@ type SetInteraction = StoreApi<BoardInteractionStore>['setState'];
  *
  *  Example: `const [interaction] = useState(() => createBoardInteractionStore({ scopeOf, commands, describeRefusal }))` */
 export function createBoardInteractionStore(
-  deps: BoardInteractionDeps,
+  given: BoardInteractionDeps,
 ): StoreApi<BoardInteractionStore> {
   return createStore<BoardInteractionStore>()((set, get) => {
+    const deps = markingRefusals(given, set, get);
     const store = { getState: get, setState: set };
     const drags = new TokenDragFlow(deps, store, (result) => sayIfRefused(deps, set, result));
     const change = (patch: Partial<BoardInteractionState>): void => {
@@ -293,6 +295,7 @@ export function createBoardInteractionStore(
       ruler: null,
       measuring: false,
       notice: null,
+      refusal: null,
       zoom: 1,
       selectedTokenIds: [],
       selectedDrawingIds: [],
