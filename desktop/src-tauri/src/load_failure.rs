@@ -16,7 +16,7 @@ pub struct CompletedLoad<'a> {
 
 /// Which splash view a failed load of the app sends the window back to; `None` keeps the page.
 ///
-/// Example: `load_failure_of(&CompletedLoad { uri: "https://lorkarium.app/", success: false, canceled: false, http_status: 502 }, &origins) // Some(ServerUnavailable)`
+/// Example: `load_failure_of(&CompletedLoad { uri: "https://app.lorkarium.com.br/", success: false, canceled: false, http_status: 502 }, &origins) // Some(ServerUnavailable)`
 pub fn load_failure_of(load: &CompletedLoad<'_>, origins: &ShellOrigins) -> Option<StartupEvent> {
     let url = Url::parse(load.uri).ok()?;
     if load.canceled || !origins.app.contains(&url) {
@@ -36,11 +36,11 @@ mod tests {
     use super::*;
     use crate::app_origin::{AppOrigin, BuildProfile};
 
-    const APP_PAGE: &str = "https://lorkarium.app/campaigns/1";
+    const APP_PAGE: &str = "https://app.lorkarium.com.br/campaigns/1";
 
     fn origins() -> ShellOrigins {
         ShellOrigins {
-            app: AppOrigin::parse("https://lorkarium.app", BuildProfile::Release).unwrap(),
+            app: AppOrigin::parse("https://app.lorkarium.com.br", BuildProfile::Release).unwrap(),
             splash: Url::parse("http://tauri.localhost/").unwrap(),
         }
     }
