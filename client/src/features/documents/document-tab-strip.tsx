@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { countGate, planHintIdOf } from '@/features/plans/plan-gate';
+import { PlanGated } from '@/features/plans/plan-gated';
 import { PlanGateHint } from '@/features/plans/plan-gate-hint';
 import { PlanLockSeal } from '@/features/plans/plan-lock-seal';
 import { usePlanLimits, usePlanLock } from '@/features/plans/use-plan-limits';
@@ -118,21 +119,22 @@ export function DocumentTabStrip(props: DocumentTabStripProps): React.JSX.Elemen
           />
         )}
         {canEdit && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Nova aba"
-            title={newTabGate.hint ?? 'Nova aba'}
-            className="shrink-0 text-muted-foreground"
-            disabled={!newTabGate.open}
-            aria-describedby={planHintIdOf(newTabGate, newTabHintId)}
-            onClick={() => void create()}
-          >
-            <PlusIcon aria-hidden="true" />
-          </Button>
+          <PlanGated gate={newTabGate}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Nova aba"
+              title="Nova aba"
+              className="shrink-0 text-muted-foreground"
+              aria-describedby={planHintIdOf(newTabGate, newTabHintId)}
+              onClick={newTabGate.open ? () => void create() : undefined}
+            >
+              <PlusIcon aria-hidden="true" />
+            </Button>
+          </PlanGated>
         )}
       </div>
-      {canEdit && <PlanGateHint id={newTabHintId} gate={newTabGate} className="pb-2" />}
+      {canEdit && <PlanGateHint id={newTabHintId} gate={newTabGate} />}
       {problem && (
         <p role="alert" className="pb-2 text-xs text-destructive-text">
           {problem}

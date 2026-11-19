@@ -40,6 +40,7 @@ import { safeRedirectTarget } from '@/lib/safe-redirect';
 import type { AccountLinksApi } from '@/services/account-links-api';
 import type { AccountPlanApi } from '@/services/account-plan-api';
 import type { BillingApi } from '@/services/billing-api';
+import type { TabStorage } from '@/stores/scene-tabs-storage';
 import type { AccountSecurityApi } from '@/services/account-security-api';
 import type { UserAdminApi } from '@/services/user-admin-api';
 import type { UserReportsApi } from '@/services/user-reports-api';
@@ -114,6 +115,8 @@ export type AppDependencies = Readonly<{
   billingApi: BillingApi;
   /** Leaves the app for the hosted checkout of the Mercado Pago; `location.assign` in the app. */
   goToCheckout: (url: string) => void;
+  /** The `sessionStorage` that carries the paid end across the checkout and back. */
+  checkoutStorage: TabStorage;
   /** The pause between two checks of a payment coming back from the checkout. */
   waitBeforeBillingCheck: (ms: number) => Promise<void>;
   /** The backoffice over the accounts and the invitations (admins only). */

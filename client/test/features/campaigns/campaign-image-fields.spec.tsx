@@ -225,8 +225,8 @@ describe('CampaignImageFields · photo, cover and banner', () => {
       expect(pickerOf('Capa')).toBeDisabled();
       expect(pickerOf('Banner')).toBeDisabled();
       expect(pickerOf('Foto')).toBeEnabled();
-      expect(field('Capa')).toHaveTextContent('A mesa usa a foto. Disponível no Narrador');
-      expect(field('Banner')).toHaveTextContent('A mesa usa a foto. Disponível no Narrador');
+      expect(field('Capa')).toHaveTextContent('A mesa usa a foto. Disponível no plano Narrador');
+      expect(field('Banner')).toHaveTextContent('A mesa usa a foto. Disponível no plano Narrador');
     });
 
     it('with a photo, the cover and banner previews show the photo', () => {

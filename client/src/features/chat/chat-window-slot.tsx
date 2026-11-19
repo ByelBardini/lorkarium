@@ -1,5 +1,7 @@
 import { ExternalLinkIcon } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 
 /** Where the chat of the room lives (phase 11, the separate window, fills it in):
  *  - `docked`: here, with "Abrir em outra janela" (`open`) and, when the browser blocked the
@@ -27,36 +29,41 @@ export function DetachedChat({ bringBack }: Readonly<{ bringBack: () => void }>)
   );
 }
 
-/** "Abrir em outra janela" as an icon of the chat's header line (its refusal is the panel's
- *  `WindowNotice`).
+type OpenWindowButtonProps = Readonly<{
+  slot: Extract<ChatWindowSlot, { kind: 'docked' }>;
+  /** The tooltip; the accessible name stays "Abrir em outra janela". */
+  title?: string;
+  className?: string;
+}>;
+
+/** "Abrir em outra janela" as an icon of a panel's header line. When the click does not open it
+ *  (the plan lacks it, the browser blocked it), the reason shows in a balloon beside the button.
  *
  *  Example: `<OpenWindowButton slot={{ kind: 'docked', open, notice: null }} />` */
-export function OpenWindowButton({
-  slot,
-}: Readonly<{ slot: Extract<ChatWindowSlot, { kind: 'docked' }> }>): React.JSX.Element {
+export function OpenWindowButton(props: OpenWindowButtonProps): React.JSX.Element {
+  const { slot } = props;
+  const [clicked, setClicked] = useState(false);
+  const click = (): void => {
+    setClicked(true);
+    slot.open();
+  };
   return (
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      aria-label="Abrir em outra janela"
-      title="Abrir em outra janela"
-      onClick={slot.open}
-      className="text-muted-foreground"
-    >
-      <ExternalLinkIcon aria-hidden="true" />
-    </Button>
-  );
-}
-
-/** Why "Abrir em outra janela" did not open (the browser blocked it, the plan lacks it), under
- *  the chat's header line; nothing without a notice.
- *
- *  Example: `<WindowNotice slot={{ kind: 'docked', open, notice: 'Disponível no Narrador' }} />` */
-export function WindowNotice({ slot }: Readonly<{ slot: ChatWindowSlot | null | undefined }>) {
-  if (slot?.kind !== 'docked' || slot.notice === null) return null;
-  return (
-    <p role="status" className="pt-1.5 text-xs text-muted-foreground">
-      {slot.notice}
-    </p>
+    <Popover open={clicked && slot.notice !== null} onOpenChange={setClicked}>
+      <PopoverAnchor asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Abrir em outra janela"
+          title={props.title ?? 'Abrir em outra janela'}
+          onClick={click}
+          className={props.className ?? 'text-muted-foreground'}
+        >
+          <ExternalLinkIcon aria-hidden="true" />
+        </Button>
+      </PopoverAnchor>
+      <PopoverContent role="status" align="end" className="w-auto max-w-72 text-xs">
+        {slot.notice}
+      </PopoverContent>
+    </Popover>
   );
 }

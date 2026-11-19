@@ -65,7 +65,7 @@ describe('the custom color locks given by the plans', () => {
         <Locks />
       </Around>,
     );
-    expect(screen.getByText('conta: Disponível no Apoiador')).toBeInTheDocument();
+    expect(screen.getByText('conta: Disponível no plano Apoiador')).toBeInTheDocument();
     expect(screen.getByText('mesa: livre')).toBeInTheDocument();
   });
 
@@ -76,6 +76,6 @@ describe('the custom color locks given by the plans', () => {
       </Around>,
     );
     expect(screen.getByText('conta: livre')).toBeInTheDocument();
-    expect(screen.getByText('mesa: Disponível no Narrador')).toBeInTheDocument();
+    expect(screen.getByText('mesa: Disponível no plano Narrador')).toBeInTheDocument();
   });
 });

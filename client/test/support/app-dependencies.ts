@@ -74,6 +74,8 @@ export type TestDependencies = AppDependencies & {
   accountPlanApi: AccountPlanApiFake;
   billingApi: BillingApiFake;
   checkoutNavigation: CheckoutNavigationFake;
+  /** The `sessionStorage` under `checkoutStorage`. */
+  checkoutStorage: StorageFake;
   billingWaits: BillingWaitsFake;
   userAdminApi: UserAdminApiFake;
   userReportsApi: UserReportsApiFake;
@@ -228,6 +230,7 @@ export function testDependencies(): TestDependencies {
     billingApi: new BillingApiFake(),
     checkoutNavigation,
     goToCheckout: checkoutNavigation.goTo,
+    checkoutStorage: new StorageFake(),
     billingWaits,
     waitBeforeBillingCheck: billingWaits.wait,
     userAdminApi: new UserAdminApiFake(TEST_NOW),

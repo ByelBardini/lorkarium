@@ -503,7 +503,7 @@ describe('campaign settings page', () => {
       expect(within(visibility).getByRole('radio', { name: 'Privada' })).toBeDisabled();
       expect(
         within(visibility).getByRole('radio', { name: 'Privada' }),
-      ).toHaveAccessibleDescription(/Disponível no Narrador/);
+      ).toHaveAccessibleDescription(/Disponível no plano Narrador/);
     });
 
     it('a table already private keeps "Privada" checked and can still go public', async () => {

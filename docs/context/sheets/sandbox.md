@@ -42,7 +42,7 @@ Sem rede nenhuma: `fetch`, imagem, fonte, `<link>` e `import()` externos são bl
 
 ## JS fora do plano (`sheetScripts`)
 
-Mesa sem `sheetScripts` (Grátis, Apoiador): `scripts: false` tira todo `<script>` do autor e o CSP fica só com o hash do bootstrap; bootstrap, `data-lk*`, HTML e CSS ficam (HTML vazio monta `<body></body>`). Quem corta e avisa é o client; o server só recusa gravar JS novo ou alterado. Frase, sala, prévia e editor: [`../client/sheet-template-editor.md`](../client/sheet-template-editor.md) (JS fora do plano).
+Mesa sem `sheetScripts` (Grátis, Apoiador): `scripts: false` tira todo `<script>` do autor e o CSP fica só com o hash do bootstrap; bootstrap, `data-lk*`, HTML e CSS ficam (HTML vazio monta `<body></body>`). Quem corta e avisa é o client; o server grava o JS em todo plano. Frase, sala, prévia e editor: [`../client/sheet-template-editor.md`](../client/sheet-template-editor.md) (JS fora do plano).
 
 ## Bootstrap e SDK (`window.lorkarium`)
 

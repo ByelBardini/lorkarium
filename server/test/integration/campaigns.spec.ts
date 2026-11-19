@@ -12,6 +12,7 @@ import { readEnv, type Env } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
 import { ConditionsDao } from '../../src/modules/conditions/conditions.dao';
 import { ScenesDao } from '../../src/modules/scenes/scenes.dao';
+import { setAccountPlan } from '../support/account-plans';
 import { signUpAndLogin } from '../support/sign-in';
 import { joinAsSpectator } from '../support/tables';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
@@ -193,6 +194,8 @@ describe('campaigns HTTP edge', () => {
     });
 
     it('a new campaign keeps a custom cover tone, read back from the database', async () => {
+      // The custom tone is a paid plan's: Ana goes to Narrador.
+      await setAccountPlan(connection.db, anaId, 'narrador');
       const cover = { kind: 'drawn', drawing: 1, tone: '#336699' } as const;
       const created = await createCampaign(ana, { cover });
       const response = await call('GET', `/campaigns/${created.id}`, ana);

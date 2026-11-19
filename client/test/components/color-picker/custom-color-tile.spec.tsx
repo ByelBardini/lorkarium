@@ -307,7 +307,7 @@ describe('CustomColorTile', () => {
   });
 
   describe('the plan', () => {
-    const HINT = 'Disponível no Narrador';
+    const HINT = 'Disponível no plano Narrador';
 
     function renderLocked(locks: CustomColorLocks, scope?: CustomColorScope): void {
       render(

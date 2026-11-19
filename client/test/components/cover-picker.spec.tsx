@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { CampaignCoverDto } from '@lorkarium/contracts';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
+import { CustomColorLocksContext } from '@/components/color-picker/custom-color-locks';
 import { CoverPicker } from '@/components/cover-picker';
 
 function Harness({ initial }: Readonly<{ initial: CampaignCoverDto }>) {
@@ -96,6 +97,30 @@ describe('CoverPicker', () => {
 
   describe('the custom tone', () => {
     const CUSTOM = { kind: 'drawn', drawing: 1, tone: '#336699' } as const;
+
+    it('the table plan lock turns the tile off with its hint, the fixed tones stay on', () => {
+      const locks = { account: 'Conta sem cor', table: 'Disponível no plano Narrador' };
+      render(
+        <CustomColorLocksContext value={locks}>
+          <Harness initial={{ kind: 'drawn', drawing: 0, tone: 1 }} />
+        </CustomColorLocksContext>,
+      );
+
+      expect(customTile()).toBeDisabled();
+      expect(customTile()).toHaveAccessibleDescription('Disponível no plano Narrador');
+      expect(within(tones()).getByRole('radio', { name: 'Aço' })).toBeEnabled();
+    });
+
+    it('only the account locked leaves the tile on', () => {
+      const locks = { account: 'Conta sem cor', table: null };
+      render(
+        <CustomColorLocksContext value={locks}>
+          <Harness initial={{ kind: 'drawn', drawing: 0, tone: 1 }} />
+        </CustomColorLocksContext>,
+      );
+
+      expect(customTile()).toBeEnabled();
+    });
 
     it('a numeric tone checks its radio and leaves the tile unmarked', () => {
       render(<Harness initial={{ kind: 'drawn', drawing: 1, tone: 3 }} />);

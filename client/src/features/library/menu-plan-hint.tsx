@@ -1,15 +1,48 @@
-import { ContextMenuLabel } from '@/components/ui/context-menu';
-import type { PlanGate } from '@/features/plans/plan-gate';
+import { useId, useState } from 'react';
+import { ContextMenuItem, ContextMenuLabel } from '@/components/ui/context-menu';
+import { planHintIdOf, type PlanGate } from '@/features/plans/plan-gate';
 
-/** The plan's sentence under the items of a tree menu it keeps off (they point at it by
- *  `aria-describedby`); nothing while the gate is open.
+type PlanGatedMenuItemProps = Readonly<{
+  gate: PlanGate;
+  /** Off for a reason other than the plan (the table not live). */
+  disabled?: boolean;
+  onSelect: () => void;
+  children: React.ReactNode;
+}>;
+
+/** A tree menu item the plan may keep off: closed, it looks off and choosing it keeps the menu
+ *  open and shows the plan's sentence under it, instead of a line always there.
  *
- *  Example: `<MenuPlanHint id={hintId} gate={lock} />` */
-export function MenuPlanHint({ id, gate }: Readonly<{ id: string; gate: PlanGate }>) {
-  if (gate.open) return null;
+ *  Example: `<PlanGatedMenuItem gate={copy} onSelect={duplicate}>Duplicar</PlanGatedMenuItem>` */
+export function PlanGatedMenuItem(props: PlanGatedMenuItemProps): React.JSX.Element {
+  const { gate } = props;
+  const [shown, setShown] = useState(false);
+  const hintId = useId();
+  const choose = (event: Event): void => {
+    if (gate.open) return props.onSelect();
+    event.preventDefault();
+    setShown(true);
+  };
   return (
-    <ContextMenuLabel id={id} className="max-w-56 text-xs font-normal">
-      {gate.hint}
-    </ContextMenuLabel>
+    <>
+      <ContextMenuItem
+        disabled={props.disabled}
+        aria-disabled={!gate.open || props.disabled === true || undefined}
+        aria-describedby={planHintIdOf(gate, hintId)}
+        className={gate.open ? undefined : 'opacity-50'}
+        onSelect={choose}
+      >
+        {props.children}
+      </ContextMenuItem>
+      {!gate.open && (
+        <ContextMenuLabel
+          id={hintId}
+          role="status"
+          className={shown ? 'max-w-56 text-xs font-normal' : 'sr-only'}
+        >
+          {gate.hint}
+        </ContextMenuLabel>
+      )}
+    </>
   );
 }

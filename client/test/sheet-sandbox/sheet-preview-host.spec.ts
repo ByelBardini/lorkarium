@@ -108,7 +108,8 @@ describe('sheet preview host', () => {
   it('a notice is written to the console as the frame connects, unanswered', () => {
     const port = new SheetHostPortFake();
     const lines: unknown[] = [];
-    const notice = 'Os scripts deste modelo não rodam no plano Grátis. Disponível no Narrador';
+    const notice =
+      'Os scripts deste modelo não rodam no plano Grátis. Disponível no plano Narrador';
     createSheetPreviewHost(port, { onConsole: (line) => lines.push(line), notice });
     expect({ lines, sent: port.sent }).toEqual({
       lines: [{ type: 'console', level: 'warn', message: notice, at: [] }],

@@ -72,9 +72,8 @@ function handlersOfFiles(files: readonly TemplateFile[]): FileInlineHandlers[] {
     .map(({ path, content }) => ({ path, handlers: findInlineHandlers(content) }));
 }
 
-/** The warning, before saving, of a draft with JS on a table whose plan has no `sheetScripts`:
- *  the JS does not run there and the server refuses new or changed JS (the HTML and CSS still
- *  save). Nothing when the JS runs or the draft has none.
+/** The warning of a draft with JS on a table whose plan has no `sheetScripts`: the JS is saved
+ *  but does not run there. Nothing when the JS runs or the draft has none.
  *
  *  Example: `<ScriptsPlanNotice files={model.draft.files} />` */
 export function ScriptsPlanNotice({
@@ -91,7 +90,9 @@ export function ScriptsPlanNotice({
     >
       <TriangleAlertIcon aria-hidden="true" className="size-4 shrink-0" />
       <span>{notice}</span>
-      <span className="text-muted-foreground">JS novo ou alterado não é salvo.</span>
+      <span className="text-muted-foreground">
+        O JS é salvo e roda quando a mesa tiver o plano.
+      </span>
     </p>
   );
 }

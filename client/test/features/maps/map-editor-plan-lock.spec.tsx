@@ -22,9 +22,8 @@ describe('the map editor of a map past the plan ceiling', () => {
     await onFreeTable(true);
 
     const edit = screen.getByRole('button', { name: 'Editar mapa' });
-    expect(edit).toBeDisabled();
+    expect(edit).toHaveAttribute('aria-disabled', 'true');
     expect(edit).toHaveAccessibleDescription(MAP_LOCKED);
-    expect(screen.getByText(MAP_LOCKED)).toBeInTheDocument();
   });
 
   it('"Editar lugar" on the card is disabled; "Mostrar a todos" stays', async () => {

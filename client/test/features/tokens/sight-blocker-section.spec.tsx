@@ -174,7 +174,7 @@ describe('SightBlockerSection on a free table (no blocker in the plan)', () => {
     await act(() => Promise.resolve());
 
     expect(blockerSwitch()).toBeDisabled();
-    expect(blockerSwitch()).toHaveAccessibleDescription('Disponível no Narrador');
+    expect(blockerSwitch()).toHaveAccessibleDescription('Disponível no plano Narrador');
   });
 
   it('a blocker kept from a paid plan can still be switched off', async () => {
