@@ -210,7 +210,7 @@ describe('document tab strip', () => {
     it('a free table at 3 tabs turns "Nova aba" off, with the plan sentence', async () => {
       await strip('master', threeTabs(), PLAN_LIMITS.free);
       const create = screen.getByRole('button', { name: 'Nova aba' });
-      expect(create).toBeDisabled();
+      expect(create).toHaveAttribute('aria-disabled', 'true');
       expect(create).toHaveAccessibleDescription(
         'Esta mesa usa o plano Grátis, que permite até 3 abas por documento. O Narrador libera 10.',
       );

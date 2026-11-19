@@ -35,10 +35,9 @@ import type { SheetPlayer } from './use-sheet-holder-names';
 import { sceneIdOf, sceneKey } from './library-view';
 import { MoveFolderDialog } from './move-folder-dialog';
 import type { LibrarySubmit } from './use-library-submit';
-import { planHintIdOf } from '@/features/plans/plan-gate';
 import { usePlanLock } from '@/features/plans/use-plan-limits';
 import { useLibraryPlanGates } from './library-plan-gates';
-import { MenuPlanHint } from './menu-plan-hint';
+import { PlanGatedMenuItem } from './menu-plan-hint';
 
 /** What the master can do in the tree; a player's tree has none of it. */
 export type TreeMaster = Readonly<{
@@ -198,7 +197,6 @@ function FolderItems(props: MenuActions & Readonly<{ folder: SceneFolderDto }>) 
 function SceneItems(props: MenuActions & Readonly<{ scene: LibrarySceneDto }>) {
   const { master, scene } = props;
   const reasonId = useId();
-  const hintId = useId();
   const gates = useLibraryPlanGates();
   const lock = usePlanLock('scenes', scene);
   // A locked grid is read only first: its sentence wins over the plan's copy and count.
@@ -208,21 +206,16 @@ function SceneItems(props: MenuActions & Readonly<{ scene: LibrarySceneDto }>) {
   const duplicate = (): void => void master.submit({ intent: 'duplicateScene', sceneId: scene.id });
   return (
     <>
-      <ContextMenuItem
-        disabled={off || !lock.open}
-        aria-describedby={planHintIdOf(lock, hintId)}
+      <PlanGatedMenuItem
+        gate={lock}
+        disabled={off}
         onSelect={() => props.startRename(sceneKey(scene.id))}
       >
         Renomear
-      </ContextMenuItem>
-      <ContextMenuItem
-        disabled={off || !copy.open}
-        aria-describedby={planHintIdOf(copy, hintId)}
-        onSelect={duplicate}
-      >
+      </PlanGatedMenuItem>
+      <PlanGatedMenuItem gate={copy} disabled={off} onSelect={duplicate}>
         Duplicar
-      </ContextMenuItem>
-      <MenuPlanHint id={hintId} gate={copy} />
+      </PlanGatedMenuItem>
       <ContextMenuSeparator />
       <ContextMenuItem
         variant="destructive"
