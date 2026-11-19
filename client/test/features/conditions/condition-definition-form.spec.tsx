@@ -447,10 +447,10 @@ describe('ConditionDefinitionForm image on a free table (no condition image in t
     );
   }
 
-  it('"Imagem" is off, with "Disponível no Narrador"', () => {
+  it('"Imagem" is off, with "Disponível no plano Narrador"', () => {
     renderOnFree(ENVENENADO);
     expect(screen.getByRole('group', { name: 'Imagem' })).toBeDisabled();
-    expect(screen.getByText('Disponível no Narrador', { selector: 'p' })).toBeInTheDocument();
+    expect(screen.getByText('Disponível no plano Narrador', { selector: 'p' })).toBeInTheDocument();
   });
 
   it('a condition that kept its image may still go back to the icon', async () => {

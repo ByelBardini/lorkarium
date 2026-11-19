@@ -49,7 +49,7 @@ describe('BannerField', () => {
 
     expect(within(field()).getByRole('img', { name: 'Apoiador' })).toBeVisible();
     expect(within(field()).getByText('Banner de perfil está nos planos pagos.')).toBeVisible();
-    expect(within(field()).getByText('Disponível no Apoiador')).toBeVisible();
+    expect(within(field()).getByText('Disponível no plano Apoiador')).toBeVisible();
     expect(within(field()).queryByLabelText('Arquivo de imagem')).toBeNull();
     expect(within(field()).queryByRole('button', { name: /imagem/ })).toBeNull();
   });

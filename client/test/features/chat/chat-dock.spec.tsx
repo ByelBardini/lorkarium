@@ -398,10 +398,10 @@ describe('ChatDock', () => {
       expect(slot.opened).toBe(1);
     });
 
-    it('a plan without separate windows: the drawer says "Disponível no Narrador"', async () => {
-      renderDock({ window: slot.docked('Disponível no Narrador') });
+    it('a plan without separate windows: the drawer says "Disponível no plano Narrador"', async () => {
+      renderDock({ window: slot.docked('Disponível no plano Narrador') });
       await user.click(openButton());
-      expect(drawer()).toHaveTextContent('Disponível no Narrador');
+      expect(drawer()).toHaveTextContent('Disponível no plano Narrador');
     });
   });
 

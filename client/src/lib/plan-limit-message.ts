@@ -29,8 +29,8 @@ const PLAN_WITH_ARTICLE: Readonly<Record<UserPlan, string>> = {
 const PLANS_ON_OFFER = ['narrador', 'lenda'] as const satisfies readonly UserPlan[];
 
 const IN_PLAN: Readonly<Record<(typeof PLANS_ON_OFFER)[number], string>> = {
-  narrador: 'no Narrador',
-  lenda: 'na Lenda',
+  narrador: 'no plano Narrador',
+  lenda: 'no plano Lenda',
 };
 
 /** How a counted resource is named: one, many, and the whole sentence when the plan has none.
@@ -75,7 +75,7 @@ export const PLAN_COUNT_LABEL: Readonly<Record<PlanCountResource, PlanCountLabel
   ),
 };
 
-/** The pt-BR name of every feature a plan may lack, as the subject of "está no Narrador". */
+/** The pt-BR name of every feature a plan may lack, as the subject of "está no plano Narrador". */
 export const PLAN_FEATURE_LABEL: Readonly<Record<PlanFeatureResource, string>> = {
   sceneCopy: 'Duplicar grid está',
   conditionImage: 'Condição com imagem própria está',
@@ -180,7 +180,7 @@ function readOnlyLabel(item: string, free: string | null, release: string): Read
 /** Where a table feature is, for the end of a sentence: "no Narrador", "na Lenda", or "nos planos
  *  pagos" when no plan on offer has it.
  *
- *  Example: `inPlanText((limits) => limits.desktopWindows) // 'na Lenda'` */
+ *  Example: `inPlanText((limits) => limits.desktopWindows) // 'no plano Lenda'` */
 export function inPlanText(has: (limits: PlanLimits) => boolean): string {
   const plan = PLANS_ON_OFFER.find((offer) => has(PLAN_LIMITS[offer]));
   return plan === undefined ? 'nos planos pagos' : IN_PLAN[plan];
@@ -224,10 +224,10 @@ export function amountText(resource: PlanCountResource, amount: number): string 
   return `${amount} ${amount === 1 ? label.one : label.many}`;
 }
 
-/** The refusal of a feature the plan lacks: "Duplicar grid está no Narrador.", "Banner de perfil
+/** The refusal of a feature the plan lacks: "Duplicar grid está no plano Narrador.", "Banner de perfil
  *  está nos planos pagos." (an account customization).
  *
- *  Example: `featureRefusalText('desktopWindows') // 'As janelas de Chat e Imagens estão na Lenda.'` */
+ *  Example: `featureRefusalText('desktopWindows') // 'As janelas de Chat e Imagens estão no plano Lenda.'` */
 export function featureRefusalText(resource: PlanFeatureResource): string {
   const has = FEATURE_IN_GRID[resource];
   const where = has === undefined ? 'nos planos pagos' : inPlanText(has);

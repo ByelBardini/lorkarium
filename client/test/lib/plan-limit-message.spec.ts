@@ -41,13 +41,13 @@ describe('planLimitMessage', () => {
 
   it('says a feature the plan lacks is in the cheapest plan that has it', () => {
     expect(planLimitMessage({ resource: 'auraKind', limit: 0, plan: 'free' })).toBe(
-      'Aura com efeito ou imagem está na Lenda.',
+      'Aura com efeito ou imagem está no plano Lenda.',
     );
   });
 
   it.each([
-    ['sheetScripts', 'Scripts no modelo de ficha estão no Narrador.'],
-    ['animatedCampaignArt', 'Imagens animadas da mesa estão na Lenda.'],
+    ['sheetScripts', 'Scripts no modelo de ficha estão no plano Narrador.'],
+    ['animatedCampaignArt', 'Imagens animadas da mesa estão no plano Lenda.'],
   ] as const)(
     'the %s refusal is the sentence of a missing feature, never a ceiling',
     (resource, sentence) => {
@@ -89,10 +89,10 @@ describe('planLimitMessage', () => {
   });
 
   it.each([
-    ['desktopWindows', 'narrador', 'As janelas de Chat e Imagens estão na Lenda.'],
-    ['auraKind', 'narrador', 'Aura com efeito ou imagem está na Lenda.'],
-    ['animatedCampaignArt', 'narrador', 'Imagens animadas da mesa estão na Lenda.'],
-    ['sceneCopy', 'free', 'Duplicar grid está no Narrador.'],
+    ['desktopWindows', 'narrador', 'As janelas de Chat e Imagens estão no plano Lenda.'],
+    ['auraKind', 'narrador', 'Aura com efeito ou imagem está no plano Lenda.'],
+    ['animatedCampaignArt', 'narrador', 'Imagens animadas da mesa estão no plano Lenda.'],
+    ['sceneCopy', 'free', 'Duplicar grid está no plano Narrador.'],
   ] as const)(
     'a %s refusal on %s names the cheapest plan that has it',
     (resource, plan, sentence) => {
@@ -109,7 +109,7 @@ describe('planLimitMessage', () => {
   it('has a sentence for every resource of the contract', () => {
     for (const resource of [...PLAN_COUNT_RESOURCES, ...PLAN_FEATURE_RESOURCES]) {
       expect(planLimitMessage({ resource, limit: 0, plan: 'free' })).toMatch(
-        /(planos pagos|no Narrador|na Lenda)\.$/,
+        /(planos pagos|no plano Narrador|no plano Lenda)\.$/,
       );
     }
   });

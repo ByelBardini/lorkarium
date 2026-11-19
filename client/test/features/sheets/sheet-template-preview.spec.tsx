@@ -196,7 +196,7 @@ describe('the preview follows the plan of the table', () => {
     const lines = renderOnPlan(PLAN_LIMITS.free);
     expect(previewSrcdoc()).not.toContain('window.authorRan');
     expect(lines.map(({ level, text }) => [level, text])).toEqual([
-      ['warn', 'Os scripts deste modelo não rodam no plano Grátis. Disponível no Narrador'],
+      ['warn', 'Os scripts deste modelo não rodam no plano Grátis. Disponível no plano Narrador'],
     ]);
   });
 
