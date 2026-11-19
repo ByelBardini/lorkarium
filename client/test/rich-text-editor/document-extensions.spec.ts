@@ -17,6 +17,11 @@ function editingLetter(): Editor {
 }
 afterEach(() => editors.splice(0).forEach((editor) => editor.destroy()));
 
+// The quotes around a family are serialization, not value: jsdom 31 drops them, browsers keep them.
+function familiesOf(cssFamily: string): string[] {
+  return cssFamily.split(',').map((family) => family.trim().replace(/^["']|["']$/g, ''));
+}
+
 describe('documentExtensions', () => {
   it('formats only selected text with the supported font size color and bold', () => {
     const editor = editingLetter();
@@ -63,9 +68,11 @@ describe('documentExtensions', () => {
     expect(documentContentFromEditor(editor.getJSON()).content[0]?.content?.[0]?.marks).toEqual([
       { type: 'textStyle', attrs: { fontFamily: 'Hanken Grotesk' } },
     ]);
-    expect(editor.view.dom.querySelector('span')?.style.fontFamily).toBe(
-      '"Hanken Grotesk Variable", "Hanken Grotesk", sans-serif',
-    );
+    expect(familiesOf(editor.view.dom.querySelector('span')?.style.fontFamily ?? '')).toEqual([
+      'Hanken Grotesk Variable',
+      'Hanken Grotesk',
+      'sans-serif',
+    ]);
   });
   it('keeps a pasted known font and drops an unknown one', () => {
     const editor = editingLetter();
