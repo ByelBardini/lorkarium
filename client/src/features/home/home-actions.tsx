@@ -1,6 +1,7 @@
 import { KeyRoundIcon, PlusIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { OPEN_GATE, type PlanGate, planHintIdOf } from '@/features/plans/plan-gate';
+import { PlanGated } from '@/features/plans/plan-gated';
 import { PlanGateHint } from '@/features/plans/plan-gate-hint';
 
 export type HomeActionsProps = Readonly<{
@@ -28,17 +29,18 @@ export function HomeActions({
           <KeyRoundIcon aria-hidden="true" />
           Entrar com código
         </Button>
-        <Button
-          size="lg"
-          onClick={onCreate}
-          disabled={!createGate.open}
-          aria-describedby={planHintIdOf(createGate, CREATE_HINT_ID)}
-        >
-          <PlusIcon aria-hidden="true" />
-          Nova mesa
-        </Button>
+        <PlanGated gate={createGate}>
+          <Button
+            size="lg"
+            onClick={createGate.open ? onCreate : undefined}
+            aria-describedby={planHintIdOf(createGate, CREATE_HINT_ID)}
+          >
+            <PlusIcon aria-hidden="true" />
+            Nova mesa
+          </Button>
+        </PlanGated>
       </div>
-      <PlanGateHint id={CREATE_HINT_ID} gate={createGate} className="text-right" />
+      <PlanGateHint id={CREATE_HINT_ID} gate={createGate} />
     </div>
   );
 }

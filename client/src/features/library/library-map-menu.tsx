@@ -1,12 +1,10 @@
 import type { LibraryMapSummaryDto } from '@lorkarium/contracts';
-import { useId } from 'react';
 import { ContextMenuItem, ContextMenuSeparator } from '@/components/ui/context-menu';
-import { planHintIdOf } from '@/features/plans/plan-gate';
 import { usePlanLock } from '@/features/plans/use-plan-limits';
 import { mapKey } from '@/lib/library-entries';
 import { DeleteConfirmDialog } from './delete-scene-dialog';
 import type { TreeMaster } from './library-tree-menu';
-import { MenuPlanHint } from './menu-plan-hint';
+import { PlanGatedMenuItem } from './menu-plan-hint';
 import type { LibrarySubmit } from './use-library-submit';
 
 type MapTreeItemsProps = Readonly<{
@@ -23,20 +21,14 @@ type MapTreeItemsProps = Readonly<{
 export function MapTreeItems({ master, map, startRename, askDelete }: MapTreeItemsProps) {
   const off = !master.live;
   const lock = usePlanLock('libraryMaps', map);
-  const lockHintId = useId();
   const toggleMain = (): void =>
     void master.submit({ intent: map.isMain ? 'unsetMainMap' : 'setMainMap', mapId: map.id });
   return (
     <>
       <ContextMenuItem onSelect={() => master.openMap(map)}>Abrir</ContextMenuItem>
-      <ContextMenuItem
-        disabled={off || !lock.open}
-        aria-describedby={planHintIdOf(lock, lockHintId)}
-        onSelect={() => startRename(mapKey(map.id))}
-      >
+      <PlanGatedMenuItem gate={lock} disabled={off} onSelect={() => startRename(mapKey(map.id))}>
         Renomear
-      </ContextMenuItem>
-      <MenuPlanHint id={lockHintId} gate={lock} />
+      </PlanGatedMenuItem>
       <ContextMenuItem disabled={off} onSelect={toggleMain}>
         {map.isMain ? 'Deixar de ser principal' : 'Marcar como principal'}
       </ContextMenuItem>

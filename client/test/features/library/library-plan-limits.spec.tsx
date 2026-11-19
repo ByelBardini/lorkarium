@@ -36,7 +36,7 @@ describe('the library under the table plan', () => {
     deps.libraryApi.answer('list', { ok: true, value: AT_FREE_CEILING });
     await openLibrary(deps, { limits: PLAN_LIMITS.free });
     const dialog = await startHeaderNewItem('Pasta');
-    expect(card(dialog, 'Grid')).toBeDisabled();
+    expect(card(dialog, 'Grid')).toHaveAttribute('aria-disabled', 'true');
     expect(card(dialog, 'Grid')).toHaveAccessibleDescription(
       'Esta mesa usa o plano Grátis, que permite até 3 grids. O Narrador libera 15.',
     );
@@ -44,8 +44,8 @@ describe('the library under the table plan', () => {
     expect(card(dialog, 'Modelo de ficha')).toHaveAccessibleDescription(
       /permite até 1 modelo de ficha\./,
     );
-    expect(card(dialog, 'Mapa')).toBeDisabled();
-    expect(card(dialog, 'Modelo de ficha')).toBeDisabled();
+    expect(card(dialog, 'Mapa')).toHaveAttribute('aria-disabled', 'true');
+    expect(card(dialog, 'Modelo de ficha')).toHaveAttribute('aria-disabled', 'true');
     expect(card(dialog, 'Documento')).toBeEnabled();
   });
 
@@ -54,7 +54,7 @@ describe('the library under the table plan', () => {
     await openLibrary(deps, { limits: PLAN_LIMITS.free });
     const dialog = await startHeaderNewItem('Pasta');
     for (const kind of ['Grid', 'Modelo de ficha']) expect(card(dialog, kind)).toBeEnabled();
-    expect(card(dialog, 'Mapa')).toBeDisabled();
+    expect(card(dialog, 'Mapa')).toHaveAttribute('aria-disabled', 'true');
     expect(card(dialog, 'Mapa')).toHaveAccessibleDescription('Disponível no plano Narrador');
   });
 
