@@ -24,7 +24,7 @@
     "@lorkarium/tsconfig": "workspace:*",
     "@types/jsdom": "^30.0.0",
     "@types/node": "^26.6.6",
-    "jsdom": "^30.1.3",
+    "jsdom": "^31.0.0",
     "typescript": "^6.0.3"
   }
 }
