@@ -120,7 +120,7 @@ mod tests {
     fn allowed(requester: &str, target: &str, raw: &str) -> bool {
         chat_control_allowed(
             requester,
-            &Url::parse("https://lorkarium.app/campaigns/1/play").unwrap(),
+            &Url::parse("https://app.lorkarium.com.br/campaigns/1/play").unwrap(),
             target,
             &Url::parse(raw).unwrap(),
         )
@@ -131,7 +131,7 @@ mod tests {
         assert!(allowed(
             "main",
             "chat-12",
-            "https://lorkarium.app/chat-window.html"
+            "https://app.lorkarium.com.br/chat-window.html"
         ));
     }
 
@@ -141,7 +141,7 @@ mod tests {
             assert!(!allowed(
                 "main",
                 label,
-                "https://lorkarium.app/chat-window.html"
+                "https://app.lorkarium.com.br/chat-window.html"
             ));
         }
     }
@@ -151,7 +151,7 @@ mod tests {
         assert!(!allowed(
             "chat-1",
             "chat-2",
-            "https://lorkarium.app/chat-window.html"
+            "https://app.lorkarium.com.br/chat-window.html"
         ));
     }
 
@@ -159,9 +159,9 @@ mod tests {
     fn target_must_be_the_chat_page_on_the_same_origin() {
         for raw in [
             "https://elsewhere.app/chat-window.html",
-            "https://lorkarium.app:8443/chat-window.html",
-            "http://lorkarium.app/chat-window.html",
-            "https://lorkarium.app/campaigns/1",
+            "https://app.lorkarium.com.br:8443/chat-window.html",
+            "http://app.lorkarium.com.br/chat-window.html",
+            "https://app.lorkarium.com.br/campaigns/1",
         ] {
             assert!(
                 !allowed("main", "chat-1", raw),
@@ -194,7 +194,7 @@ mod tests {
         assert!(allowed(
             "main",
             "chat-9",
-            "https://lorkarium.app/chat-window.html?panel=dice"
+            "https://app.lorkarium.com.br/chat-window.html?panel=dice"
         ));
     }
 }

@@ -41,7 +41,7 @@ pub fn navigation_decision(url: &Url, origins: &ShellOrigins) -> Navigation {
 /// hash; the path is exact and case-sensitive); the app's other pages and other sites go to the default browser,
 /// where the site works as well; the splash and unsafe schemes go nowhere.
 ///
-/// Example: `new_window_decision(&Url::parse("https://lorkarium.app/chat-window.html")?, &origins) // ChatWindow`
+/// Example: `new_window_decision(&Url::parse("https://app.lorkarium.com.br/chat-window.html")?, &origins) // ChatWindow`
 pub fn new_window_decision(url: &Url, origins: &ShellOrigins) -> Navigation {
     if origins.app.contains(url) && url.path() == CHAT_WINDOW_PATH {
         return Navigation::ChatWindow;
@@ -60,7 +60,7 @@ mod tests {
 
     fn origins() -> ShellOrigins {
         ShellOrigins {
-            app: AppOrigin::parse("https://lorkarium.app", BuildProfile::Release).unwrap(),
+            app: AppOrigin::parse("https://app.lorkarium.com.br", BuildProfile::Release).unwrap(),
             splash: Url::parse("http://tauri.localhost/").unwrap(),
         }
     }
@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn page_of_the_app_stays_in_the_window() {
         assert_eq!(
-            decision_for("https://lorkarium.app/campaigns/1"),
+            decision_for("https://app.lorkarium.com.br/campaigns/1"),
             Navigation::Stay
         );
     }
@@ -93,7 +93,7 @@ mod tests {
     #[test]
     fn host_that_only_starts_with_the_app_host_is_external() {
         assert_eq!(
-            decision_for("https://lorkarium.app.evil.com/"),
+            decision_for("https://app.lorkarium.com.br.evil.com/"),
             Navigation::OpenExternal
         );
     }
@@ -101,7 +101,7 @@ mod tests {
     #[test]
     fn app_url_inside_the_query_of_another_site_is_external() {
         assert_eq!(
-            decision_for("https://evil.com/?r=https://lorkarium.app"),
+            decision_for("https://evil.com/?r=https://app.lorkarium.com.br"),
             Navigation::OpenExternal
         );
     }
@@ -109,7 +109,7 @@ mod tests {
     #[test]
     fn another_port_is_another_origin() {
         assert_eq!(
-            decision_for("https://lorkarium.app:8443/"),
+            decision_for("https://app.lorkarium.com.br:8443/"),
             Navigation::OpenExternal
         );
     }
@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn plain_http_on_the_app_host_is_another_origin() {
         assert_eq!(
-            decision_for("http://lorkarium.app/"),
+            decision_for("http://app.lorkarium.com.br/"),
             Navigation::OpenExternal
         );
     }
@@ -149,7 +149,7 @@ mod tests {
     #[test]
     fn new_window_of_the_app_opens_in_the_browser() {
         assert_eq!(
-            new_window_for("https://lorkarium.app/campaigns/1"),
+            new_window_for("https://app.lorkarium.com.br/campaigns/1"),
             Navigation::OpenExternal
         );
     }
@@ -175,7 +175,7 @@ mod tests {
     #[test]
     fn new_window_of_the_chat_page_becomes_the_chat_window() {
         assert_eq!(
-            new_window_for("https://lorkarium.app/chat-window.html"),
+            new_window_for("https://app.lorkarium.com.br/chat-window.html"),
             Navigation::ChatWindow
         );
     }
@@ -183,7 +183,7 @@ mod tests {
     #[test]
     fn chat_page_with_query_and_hash_still_becomes_the_chat_window() {
         assert_eq!(
-            new_window_for("https://lorkarium.app/chat-window.html?campaign=7#feed"),
+            new_window_for("https://app.lorkarium.com.br/chat-window.html?campaign=7#feed"),
             Navigation::ChatWindow
         );
     }
@@ -199,7 +199,7 @@ mod tests {
     #[test]
     fn chat_page_on_plain_http_of_the_app_host_opens_in_the_browser() {
         assert_eq!(
-            new_window_for("http://lorkarium.app/chat-window.html"),
+            new_window_for("http://app.lorkarium.com.br/chat-window.html"),
             Navigation::OpenExternal
         );
     }
@@ -207,7 +207,7 @@ mod tests {
     #[test]
     fn chat_page_on_another_port_of_the_app_host_opens_in_the_browser() {
         assert_eq!(
-            new_window_for("https://lorkarium.app:8443/chat-window.html"),
+            new_window_for("https://app.lorkarium.com.br:8443/chat-window.html"),
             Navigation::OpenExternal
         );
     }
@@ -215,7 +215,7 @@ mod tests {
     #[test]
     fn chat_page_inside_another_path_of_the_app_opens_in_the_browser() {
         assert_eq!(
-            new_window_for("https://lorkarium.app/campaigns/chat-window.html"),
+            new_window_for("https://app.lorkarium.com.br/campaigns/chat-window.html"),
             Navigation::OpenExternal
         );
     }
@@ -223,7 +223,7 @@ mod tests {
     #[test]
     fn page_that_only_starts_with_the_chat_page_opens_in_the_browser() {
         assert_eq!(
-            new_window_for("https://lorkarium.app/chat-window.html.evil"),
+            new_window_for("https://app.lorkarium.com.br/chat-window.html.evil"),
             Navigation::OpenExternal
         );
     }
@@ -231,7 +231,7 @@ mod tests {
     #[test]
     fn chat_page_in_another_case_opens_in_the_browser() {
         assert_eq!(
-            new_window_for("https://lorkarium.app/Chat-Window.html"),
+            new_window_for("https://app.lorkarium.com.br/Chat-Window.html"),
             Navigation::OpenExternal
         );
     }
@@ -239,7 +239,7 @@ mod tests {
     #[test]
     fn navigating_to_the_chat_page_stays_in_the_window() {
         assert_eq!(
-            decision_for("https://lorkarium.app/chat-window.html"),
+            decision_for("https://app.lorkarium.com.br/chat-window.html"),
             Navigation::Stay
         );
     }
@@ -247,7 +247,7 @@ mod tests {
     #[test]
     fn blob_of_the_app_stays_in_the_window() {
         assert_eq!(
-            decision_for("blob:https://lorkarium.app/0b8f6d2e-1c3a-4e7b-9f00-1a2b3c4d5e6f"),
+            decision_for("blob:https://app.lorkarium.com.br/0b8f6d2e-1c3a-4e7b-9f00-1a2b3c4d5e6f"),
             Navigation::Stay
         );
     }

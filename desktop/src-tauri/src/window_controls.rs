@@ -21,7 +21,7 @@ pub const REMOTE_WINDOW_PERMISSIONS: [&str; 7] = [
 
 /// The URLPattern a remote capability takes for every page of the app's origin.
 ///
-/// Example: `remote_url_pattern(&origin) // "https://lorkarium.app/*"`
+/// Example: `remote_url_pattern(&origin) // "https://app.lorkarium.com.br/*"`
 pub fn remote_url_pattern(app: &AppOrigin) -> String {
     format!("{}*", app.url())
 }
@@ -48,9 +48,9 @@ mod tests {
 
     #[test]
     fn pattern_covers_every_page_of_the_app_origin() {
-        let origin = AppOrigin::parse("https://lorkarium.app", BuildProfile::Release).unwrap();
+        let origin = AppOrigin::parse("https://app.lorkarium.com.br", BuildProfile::Release).unwrap();
 
-        assert_eq!(remote_url_pattern(&origin), "https://lorkarium.app/*");
+        assert_eq!(remote_url_pattern(&origin), "https://app.lorkarium.com.br/*");
     }
 
     #[test]
