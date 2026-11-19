@@ -66,6 +66,22 @@ describe('creating a table against the owner plan', () => {
     expect((await createTable(live.bia, 'Outra')).statusCode).toBe(403);
   });
 
+  it('Bia on free asking a custom cover tone is refused 403 customColor, and no table is left', async () => {
+    const cover = { kind: 'drawn', drawing: 0, tone: '#336699' };
+    const response = await live.http(live.bia, {
+      method: 'POST',
+      url: '/api/campaigns',
+      payload: { name: 'A Torre', cover },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(apiErrorDto.parse(response.json())).toMatchObject({
+      code: 'PLAN_LIMIT',
+      planLimit: { resource: 'customColor', limit: 0, plan: 'free' },
+    });
+    expect(await ownedBy(live.bia)).toBe(0);
+  });
+
   it('Caio on amigo_do_dono and an admin on free have no ceiling of tables', async () => {
     await setPlan(live.caio, 'amigo_do_dono');
     await setPlan(live.ana, 'free', 'admin');

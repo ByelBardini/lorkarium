@@ -1,5 +1,7 @@
 import { Loader2Icon } from 'lucide-react';
+import { useContext, useMemo } from 'react';
 import { CampaignPreviewCard, type CampaignPreview } from '@/components/campaign-preview-card';
+import { CustomColorLocksContext } from '@/components/color-picker/custom-color-locks';
 import { CoverPicker } from '@/components/cover-picker';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -50,7 +52,7 @@ export function CreateCampaignForm(props: CreateCampaignFormProps): React.JSX.El
         <CreateFields form={form} privateLock={gates.private.hint} />
       </div>
       <aside className="flex flex-col gap-6 md:col-start-1 md:row-span-2 md:row-start-1">
-        <CoverChoice form={form} art={gates.art} />
+        <CoverChoice form={form} art={gates.art} color={gates.color} />
         <CampaignPreviewCard campaign={previewOf(form.values)} className="md:order-first" />
       </aside>
       <FormButtons submitting={props.submitting} onCancel={props.onCancel} />
@@ -58,7 +60,7 @@ export function CreateCampaignForm(props: CreateCampaignFormProps): React.JSX.El
   );
 }
 
-type CreatePlanGates = Readonly<{ private: PlanGate; art: PlanGate }>;
+type CreatePlanGates = Readonly<{ private: PlanGate; art: PlanGate; color: PlanGate }>;
 
 // The creator becomes the owner: the table's limits are the creator's own.
 function useCreatePlanGates(): CreatePlanGates {
@@ -66,6 +68,7 @@ function useCreatePlanGates(): CreatePlanGates {
   return {
     private: featureGate(limits, (granted) => granted.privateCampaign),
     art: featureGate(limits, (granted) => granted.campaignArt),
+    color: featureGate(limits, (granted) => granted.customColor),
   };
 }
 
@@ -95,17 +98,26 @@ function CreateFields({ form, privateLock }: CreateFieldsProps): React.JSX.Eleme
   );
 }
 
-type CoverChoiceProps = Readonly<{ form: CreateCampaignFormState; art: PlanGate }>;
+type CoverChoiceProps = Readonly<{
+  form: CreateCampaignFormState;
+  art: PlanGate;
+  color: PlanGate;
+}>;
 
-function CoverChoice({ form, art }: CoverChoiceProps): React.JSX.Element {
+// No table yet: the cover's custom tone follows the creator's plan, given as the table's lock.
+function CoverChoice({ form, art, color }: CoverChoiceProps): React.JSX.Element {
+  const outer = useContext(CustomColorLocksContext);
+  const locks = useMemo(() => ({ ...outer, table: color.hint }), [outer, color.hint]);
   return (
     <div className="flex flex-col gap-2">
       <span className="text-[13px] font-semibold text-label">Capa</span>
-      <CoverPicker
-        value={form.values.cover}
-        onChange={(cover) => cover.kind === 'drawn' && form.change({ cover })}
-        hint={art.open ? COVER_LATER_HINT : PHOTO_LATER_HINT}
-      />
+      <CustomColorLocksContext value={locks}>
+        <CoverPicker
+          value={form.values.cover}
+          onChange={(cover) => cover.kind === 'drawn' && form.change({ cover })}
+          hint={art.open ? COVER_LATER_HINT : PHOTO_LATER_HINT}
+        />
+      </CustomColorLocksContext>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   creationVisibilityOf,
   requireCampaignPlanFor,
+  requireCreationCoverTone,
   type CampaignPlanStored,
 } from '../../../src/modules/campaigns/campaign-plan.bo';
 import { PlanLimitError } from '../../../src/modules/plans/plans.error';
@@ -16,9 +17,15 @@ const STORED_COVER = '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
 const STORED_BANNER = '6f5e4d3c-2b1a-4f0e-9d8c-7b6a5f4e3d2c';
 const NEW_IMAGE = '7d6c5b4a-3f2e-4d1c-8b0a-9f8e7d6c5b4a';
 
-const BARE: CampaignPlanStored = { coverAssetId: null, bannerAssetId: null, visibility: 'public' };
+const BARE: CampaignPlanStored = {
+  coverAssetId: null,
+  coverTone: null,
+  bannerAssetId: null,
+  visibility: 'public',
+};
 const GRANDFATHERED: CampaignPlanStored = {
   coverAssetId: STORED_COVER,
+  coverTone: null,
   bannerAssetId: STORED_BANNER,
   visibility: 'private',
 };
@@ -63,7 +70,55 @@ describe('creationVisibilityOf', () => {
   });
 });
 
+function drawnIn(tone: number | `#${string}`) {
+  return { kind: 'drawn', drawing: 0, tone } as const;
+}
+
+describe('requireCreationCoverTone', () => {
+  it('a custom tone on Grátis and Apoiador is refused with customColor', () => {
+    const free = refusalOf(() => requireCreationCoverTone(drawnIn('#336699'), PLAN_LIMITS.free));
+    const backer = refusalOf(() =>
+      requireCreationCoverTone(drawnIn('#336699'), PLAN_LIMITS.apoiador),
+    );
+    expect(free).toMatchObject({ resource: 'customColor', limit: 0, plan: 'free' });
+    expect(backer).toMatchObject({ resource: 'customColor', plan: 'apoiador' });
+  });
+
+  it('a palette tone, no cover and an image cover pass on Grátis', () => {
+    const image = { kind: 'image', assetId: NEW_IMAGE } as const;
+    expect(refusalOf(() => requireCreationCoverTone(drawnIn(3), PLAN_LIMITS.free))).toBeNull();
+    expect(refusalOf(() => requireCreationCoverTone(undefined, PLAN_LIMITS.free))).toBeNull();
+    expect(refusalOf(() => requireCreationCoverTone(image, PLAN_LIMITS.free))).toBeNull();
+  });
+
+  it('a custom tone passes on Narrador', () => {
+    const tone = drawnIn('#336699');
+    expect(refusalOf(() => requireCreationCoverTone(tone, PLAN_LIMITS.narrador))).toBeNull();
+  });
+});
+
 describe('requireCampaignPlanFor', () => {
+  it('a new custom cover tone on Grátis is refused with customColor', () => {
+    const refusal = gate(BARE, { cover: { kind: 'drawn', drawing: 1, tone: '#336699' } });
+    expect(refusal).toMatchObject({ resource: 'customColor', limit: 0, plan: 'free' });
+  });
+
+  it('the custom tone the table already holds passes on Grátis, with another drawing', () => {
+    const held = { ...BARE, coverTone: '#336699' };
+    expect(gate(held, { cover: { kind: 'drawn', drawing: 2, tone: '#336699' } })).toBeNull();
+  });
+
+  it('another custom tone over a held one is refused on Grátis', () => {
+    const held = { ...BARE, coverTone: '#336699' };
+    const refusal = gate(held, { cover: { kind: 'drawn', drawing: 2, tone: '#abcdef' } });
+    expect(refusal).toMatchObject({ resource: 'customColor' });
+  });
+
+  it('a new custom cover tone passes on Narrador', () => {
+    const body = { cover: { kind: 'drawn', drawing: 1, tone: '#336699' } } as const;
+    expect(gate(BARE, body, 'narrador')).toBeNull();
+  });
+
   it('a new cover image on Grátis is refused with campaignArt', () => {
     const refusal = gate(BARE, { cover: { kind: 'image', assetId: NEW_IMAGE } });
     expect(refusal).toMatchObject({ resource: 'campaignArt', plan: 'free' });

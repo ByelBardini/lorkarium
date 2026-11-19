@@ -17,7 +17,7 @@ export type CustomColorTileProps = Readonly<{
   /** Another size, when the row around has larger or smaller swatches than `size-7`. */
   className?: string;
   /** Whose plan offers the custom color here (`CustomColorLocksContext`); none = always offered
-   *  (a cover tone, a map place). */
+   *  (a map place). */
   scope?: CustomColorScope;
 }>;
 
