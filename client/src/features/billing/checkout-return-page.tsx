@@ -6,12 +6,16 @@ import { dayOf } from '@/lib/paid-plan-text';
 import { PLAN_NAMES } from '@/lib/plan-seal';
 import type { AuthApi } from '@/services/auth-api';
 import type { BillingApi } from '@/services/billing-api';
+import type { TabStorage } from '@/stores/scene-tabs-storage';
 import type { SessionStore } from '@/stores/session-store';
+import { takePaidPlanBeforeCheckout } from './checkout-departure';
 
 export type CheckoutReturnPageProps = Readonly<{
   authApi: Pick<AuthApi, 'me'>;
   billingApi: Pick<BillingApi, 'status'>;
   sessionStore: StoreApi<SessionStore>;
+  /** Holds the paid end the account left with (`rememberPaidPlanBeforeCheckout`). */
+  checkoutStorage: TabStorage;
   wait: (ms: number) => Promise<void>;
 }>;
 
@@ -25,10 +29,11 @@ type ReturnState =
   | Readonly<{ kind: 'not_yet' }>;
 
 /** The page the Mercado Pago sends the browser back to: only the webhook grants the plan, so it
- *  asks `/me` until the paid plan (or its new end) shows, then updates the session (the seal)
- *  and says until when the paid period goes.
+ *  asks `/me` until the paid plan shows with an end other than the one held when the browser
+ *  left (the session's, if nothing was held), then updates the session (the seal) and says until
+ *  when the paid period goes.
  *
- *  Example: `<CheckoutReturnPage authApi={authApi} billingApi={billingApi} sessionStore={sessionStore} wait={sleep} />` */
+ *  Example: `<CheckoutReturnPage authApi={authApi} billingApi={billingApi} sessionStore={sessionStore} checkoutStorage={tabStorage} wait={sleep} />` */
 export function CheckoutReturnPage(props: CheckoutReturnPageProps): React.JSX.Element {
   const state = usePaymentConfirmation(props);
   return (
@@ -80,11 +85,14 @@ function usePaymentConfirmation({
   authApi,
   billingApi,
   sessionStore,
+  checkoutStorage,
   wait,
 }: CheckoutReturnPageProps): ReturnState {
   const [state, setState] = useState<ReturnState>({ kind: 'confirming' });
+  // Read once, at the first render: the effect may run twice (StrictMode) and the take drops it.
+  const [held] = useState(() => takePaidPlanBeforeCheckout(checkoutStorage));
   useEffect(() => {
-    const before = untilOf(sessionStore.getState());
+    const before = held.known ? held.paidPlanUntil : untilOf(sessionStore.getState());
     let alive = true;
     void (async () => {
       for (let check = 0; check < CHECKS && alive; check += 1) {
@@ -103,7 +111,7 @@ function usePaymentConfirmation({
     return () => {
       alive = false;
     };
-  }, [authApi, billingApi, sessionStore, wait]);
+  }, [authApi, billingApi, sessionStore, held, wait]);
   return state;
 }
 

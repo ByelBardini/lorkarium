@@ -4,6 +4,7 @@ import { useLoaderData, type RouteObject } from 'react-router';
 import type { AppDependencies } from '@/app/router';
 import type { BillingResult } from '@/services/billing-api';
 import { useSession } from '@/stores/session-store';
+import { rememberPaidPlanBeforeCheckout } from './checkout-departure';
 import { CheckoutReturnPage } from './checkout-return-page';
 import { PlansPage } from './plans-page';
 
@@ -24,12 +25,16 @@ export function plansRoute(deps: AppDependencies): RouteObject {
       // The shell's guard lets only a signed-in account in.
       if (session.status !== 'authenticated') return null;
       const user = session.user;
+      const leaveForCheckout = (url: string): void => {
+        rememberPaidPlanBeforeCheckout(deps.checkoutStorage, user.paidPlanUntil);
+        deps.goToCheckout(url);
+      };
       return (
         <PlansPage
           prices={prices}
           account={user}
           billingApi={deps.billingApi}
-          goToCheckout={deps.goToCheckout}
+          goToCheckout={leaveForCheckout}
           now={now}
         />
       );
@@ -50,6 +55,7 @@ export function checkoutReturnRoute(deps: AppDependencies): RouteObject {
           authApi={deps.authApi}
           billingApi={deps.billingApi}
           sessionStore={deps.sessionStore}
+          checkoutStorage={deps.checkoutStorage}
           wait={deps.waitBeforeBillingCheck}
         />
       );
