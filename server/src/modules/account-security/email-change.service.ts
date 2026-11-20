@@ -6,6 +6,8 @@ import type { DataCipherPort } from '../auth/data-cipher.port';
 import type { SessionTokenPort } from '../auth/session-token.port';
 import type { UsersDao } from '../auth/users.dao';
 import type { UserPo } from '../auth/users.po';
+import { banLapseCutOf } from '../sanctions/account-sanction.bo';
+import type { BannedEmailIndexesDao } from '../sanctions/banned-email-indexes.dao';
 import { EmailTakenError, EmailTokenInvalidError } from './account-security.error';
 import type { CurrentPasswordService } from './current-password.service';
 import { EmailChangeBo, maskEmail, PendingEmailBo } from './email-change.bo';
@@ -37,6 +39,8 @@ export type EmailChangeDeps = Readonly<{
   appPublicUrl: string;
   /** Issues the "Não fui eu" link of the notices to the old address. */
   recovery: Pick<AccountRecoveryService, 'issue'>;
+  /** An address banned in the last 5 years cannot be taken back by a change (Termos §8). */
+  bannedEmails: Pick<BannedEmailIndexesDao, 'isBannedSince'>;
 }>;
 
 /** E-mail change with the current password, a one-time 30-minute link to the new address and a
@@ -103,9 +107,15 @@ export class EmailChangeService {
     return { person, origin, recoveryLink, publicUrl: this.deps.appPublicUrl };
   }
 
+  // A banned address answers as a taken one: the change form must not reveal a ban.
   private async requireFree(email: string): Promise<void> {
-    const owner = await this.deps.users.findByEmailIndex(emailIndexOf(this.deps.cipher, email));
+    const emailIndex = emailIndexOf(this.deps.cipher, email);
+    const owner = await this.deps.users.findByEmailIndex(emailIndex);
     if (owner) throw new EmailTakenError(email);
+    const lapse = banLapseCutOf(this.deps.clock.now());
+    if (await this.deps.bannedEmails.isBannedSince(emailIndex, lapse)) {
+      throw new EmailTakenError(email);
+    }
   }
 
   private async swapEmail(userId: string, email: string): Promise<void> {
