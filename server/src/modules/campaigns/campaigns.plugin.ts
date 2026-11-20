@@ -27,6 +27,7 @@ import type { MemberRoleChangedPort } from './member-role-changed.port';
 import { MemberRoleService, type MemberRoleTransactionRunner } from './member-role.service';
 import type { MemberSeatPort } from './member-seat.port';
 import type { PresenceReaderPort } from './presence-reader.port';
+import type { AccountVisibilityPort } from './account-visibility.port';
 
 export type CampaignsModuleOptions = Readonly<{
   db: Database;
@@ -34,6 +35,7 @@ export type CampaignsModuleOptions = Readonly<{
   codes: CampaignCodePort;
   clock: ClockPort;
   presence: PresenceReaderPort;
+  visibility: AccountVisibilityPort;
 }>;
 
 /** What the live table is told after each saved change. */
@@ -67,9 +69,9 @@ export function createCampaignsModule(options: CampaignsModuleOptions): Campaign
   const campaigns = new CampaignsDao(options.db);
   const members = new CampaignMembersDao(options.db);
   const transaction = transactionOver(options.db);
-  const { hasher, codes, clock, presence } = options;
+  const { hasher, codes, clock, presence, visibility } = options;
   const memberships = new CachedMemberships(members);
-  const readDeps = { campaigns, members, memberships, presence };
+  const readDeps = { campaigns, members, memberships, presence, visibility };
   const service = new CampaignsService({ ...readDeps, transaction, codes, hasher, clock });
   const joinDeps = { campaigns, members, hasher, clock, blocks: new UserBlocksDao(options.db) };
   const join = new CampaignJoinService({

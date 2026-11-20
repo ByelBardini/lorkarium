@@ -3,7 +3,7 @@ import { CampaignsService } from '../../../src/modules/campaigns/campaigns.servi
 import { PlanLimitError } from '../../../src/modules/plans/plans.error';
 import { ClockFake, PasswordHasherFake } from '../../support/auth-fakes';
 import { ANA_ID } from '../../support/auth-factories';
-import { PresenceReaderFake } from '../../support/campaign-settings-fakes';
+import { AccountVisibilityFake, PresenceReaderFake } from '../../support/campaign-settings-fakes';
 import { campaignPo } from '../../support/campaigns-factories';
 import {
   CampaignCodeFake,
@@ -51,6 +51,7 @@ describe('CampaignsService.create against the owner plan', () => {
       members,
       memberships: members,
       presence: new PresenceReaderFake(),
+      visibility: new AccountVisibilityFake(),
       transaction: runner.run,
       codes: new CampaignCodeFake(['VHRN7K2Q', 'PNTN2345']),
       hasher: new PasswordHasherFake(),

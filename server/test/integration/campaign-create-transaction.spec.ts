@@ -16,7 +16,7 @@ import { ClockFake, PasswordHasherFake } from '../support/auth-fakes';
 import { newUserPo } from '../support/auth-factories';
 import { CampaignCodeFake } from '../support/campaigns-fakes';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
-import { PresenceReaderFake } from '../support/campaign-settings-fakes';
+import { AccountVisibilityFake, PresenceReaderFake } from '../support/campaign-settings-fakes';
 
 const NEW_CAMPAIGN = {
   name: 'Vharn',
@@ -65,6 +65,7 @@ describe('creating a campaign on Postgres', () => {
       members: new CampaignMembersDao(db),
       memberships: new CampaignMembersDao(db),
       presence: new PresenceReaderFake(),
+      visibility: new AccountVisibilityFake(),
       transaction,
       codes: new CampaignCodeFake(['VHRN7K2Q']),
       hasher: new PasswordHasherFake(),
