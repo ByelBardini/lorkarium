@@ -14,10 +14,20 @@ export class SecurityNoticesService {
   ) {}
 
   async send(message: MailMessage): Promise<void> {
+    await this.deliver(message);
+  }
+
+  /** The same best effort, saying whether the e-mail left: a caller that must tell the person
+   *  (a measure) records it and tries again later.
+   *
+   *  Example: `if (await notices.deliver(mail)) await sanctions.markNotified(id, now)` */
+  async deliver(message: MailMessage): Promise<boolean> {
     try {
       await this.mailer.send(message);
+      return true;
     } catch (error) {
       this.reportFailure(error, message.subject);
+      return false;
     }
   }
 }

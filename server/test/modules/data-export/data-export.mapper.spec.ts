@@ -177,6 +177,7 @@ describe('toDataExportDto', () => {
       appealOutcome: 'upheld' as const,
       appealNote: 'Mantida.',
       appealDecidedAt: NOW,
+      deletionDueAt: null,
     };
 
     const [exported] = toDataExportDto(
@@ -192,6 +193,22 @@ describe('toDataExportDto', () => {
       appealReceivedAt: '2026-11-02T09:00:00.000Z',
       appealDecidedAt: '2026-11-19T14:30:00.000Z',
     });
+  });
+
+  it("a ban received carries the date of the account's deletion", () => {
+    const ban = {
+      ...{ kind: 'ban' as const, rule: 'harassment' as const, statement: 'x', until: null },
+      ...{ issuedAt: AT, appealReceivedAt: null, appealOutcome: null, appealNote: null },
+      ...{ appealDecidedAt: null, deletionDueAt: NOW },
+    };
+
+    const [exported] = toDataExportDto(
+      emptyExportParts({ sanctions: [ban] }),
+      cipher,
+      NOW,
+    ).sanctions;
+
+    expect(exported?.deletionDueAt).toBe('2026-11-19T14:30:00.000Z');
   });
 
   it('each character carries only its own bars, in the order read', () => {

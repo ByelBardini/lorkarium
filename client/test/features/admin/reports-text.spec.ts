@@ -1,5 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { reportPartyLabel, reportShotsLabel } from '@/features/admin/reports-text';
+import {
+  reportMeasureDraft,
+  reportPartyLabel,
+  reportShotsLabel,
+} from '@/features/admin/reports-text';
+
+describe('reportMeasureDraft', () => {
+  const id = '7e700000-0000-4000-8000-000000000003';
+
+  it('a report of someone under 18 opens the age removal, tied to the report', () => {
+    expect(reportMeasureDraft({ id, reason: 'underage' })).toEqual({
+      kind: 'ban',
+      rule: 'minimum_age',
+      reportId: id,
+    });
+  });
+
+  it('any other reason opens the measure only tied to the report', () => {
+    expect(reportMeasureDraft({ id, reason: 'spam' })).toEqual({ reportId: id });
+  });
+});
 
 describe('reportPartyLabel', () => {
   it('a living account is its @', () => {

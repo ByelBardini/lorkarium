@@ -20,6 +20,7 @@ export function biaWarning(now: Date): AccountSanctionDto {
     rule: 'spam',
     statement: 'Mandou propaganda a quem não é amigo.',
     until: null,
+    deletionDueAt: null,
     reportId: null,
     issuedBy: 'lucas',
     issuedAt: new Date(now.getTime() - 2 * DAY_MS).toISOString(),
@@ -28,14 +29,15 @@ export function biaWarning(now: Date): AccountSanctionDto {
 }
 
 type Answers = {
-  issue: UserAdminResult<SanctionResponseDto | null>;
+  issue: UserAdminResult<SanctionResponseDto>;
   history: UserAdminResult<AccountSanctionDto[]>;
   recordAppeal: UserAdminResult<SanctionResponseDto>;
 };
 
 /** A `SanctionsApi` that keeps each account's measures like the server would and changes the
- *  directory of the `UserAdminApiFake` with them (a suspension, a ban, a reverted appeal); any
- *  method can be scripted by `answers`. Bia starts with one warning (`biaWarning`). */
+ *  directory of the `UserAdminApiFake` with them (a suspension, a ban that suspends and dates its
+ *  deletion 15 days ahead, a reverted appeal); any method can be scripted by `answers`. Bia starts
+ *  with one warning (`biaWarning`). */
 export class SanctionsApiFake implements SanctionsApi {
   readonly answers = new ScriptedAnswers<Answers>();
   readonly measures = new Map<string, AccountSanctionDto[]>();
@@ -52,12 +54,9 @@ export class SanctionsApiFake implements SanctionsApi {
     return this.answers.reply('issue', { userId, body }, () => {
       const user = this.directory.users.find((each) => each.id === userId);
       if (!user) return { ok: false, failure: { kind: 'not_found' } };
-      if (body.kind === 'ban') {
-        this.directory.users = this.directory.users.filter((each) => each.id !== userId);
-        return { ok: true, value: null };
-      }
       const sanction = this.stored(userId, body);
-      const status = body.kind === 'suspension' ? 'suspended' : user.status;
+      const suspends = body.kind === 'suspension' || body.kind === 'ban';
+      const status = suspends ? 'suspended' : user.status;
       return { ok: true, value: { sanction, user: this.patch(user, status) } };
     });
   }
@@ -77,7 +76,8 @@ export class SanctionsApiFake implements SanctionsApi {
       const user = this.directory.users.find((each) => each.id === owner?.[0]);
       if (!owner || !user) return { ok: false, failure: { kind: 'not_found' } };
       const sanction = this.appealed(owner[1], sanctionId, body);
-      const lifted = body.outcome === 'reverted' && sanction.kind === 'suspension';
+      const suspending = sanction.kind === 'suspension' || sanction.kind === 'ban';
+      const lifted = body.outcome === 'reverted' && suspending;
       return {
         ok: true,
         value: { sanction, user: this.patch(user, lifted ? 'active' : user.status) },
@@ -92,6 +92,8 @@ export class SanctionsApiFake implements SanctionsApi {
       rule: body.rule,
       statement: body.statement,
       until: body.until ?? null,
+      deletionDueAt:
+        body.kind === 'ban' ? new Date(this.now.getTime() + 15 * DAY_MS).toISOString() : null,
       reportId: body.reportId ?? null,
       issuedBy: 'lucas',
       issuedAt: this.now.toISOString(),
@@ -118,7 +120,8 @@ export class SanctionsApiFake implements SanctionsApi {
             decidedBy: 'lucas',
             decidedAt: this.now.toISOString(),
           };
-    const changed = { ...found, appeal: { receivedAt, ...decided } };
+    const cancelled = body.outcome === 'reverted' ? { deletionDueAt: null } : {};
+    const changed = { ...found, ...cancelled, appeal: { receivedAt, ...decided } };
     list[at] = changed;
     return changed;
   }

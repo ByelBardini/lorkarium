@@ -26,10 +26,10 @@ describe('MailPreviewService', () => {
       mailer,
       new ClockFake(new Date('2026-10-24T16:37:00Z')),
     ).send('development', TO, URLS);
-    expect(mailer.sent).toHaveLength(20);
+    expect(mailer.sent).toHaveLength(21);
     expect(new Set(mailer.sent.map((mail) => mail.to))).toEqual(new Set([TO]));
     expect(mailer.sent[0]?.subject).toBe('Confirme seu novo e-mail no Lorkarium');
-    expect(sent).toBe(20);
+    expect(sent).toBe(21);
   });
 
   it('a failure stops at the item and names its subject', async () => {

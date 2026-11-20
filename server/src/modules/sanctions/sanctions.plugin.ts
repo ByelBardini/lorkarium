@@ -8,20 +8,21 @@ import type { ClockPort } from '../auth/clock.port';
 import type { DataCipherPort } from '../auth/data-cipher.port';
 import type { SessionEndedPort } from '../auth/session-ended.port';
 import { UserAdminDao } from '../user-admin/user-admin.dao';
+import type { UserAdminService } from '../user-admin/user-admin.service';
 import { AccountSanctionsDao } from './account-sanctions.dao';
+import { SanctionFollowUpService, type SanctionFollowUpLog } from './sanction-follow-up.service';
+import { SanctionNoticeService } from './sanction-notice.service';
 import { sanctionsRoutes } from './sanctions.routes';
-import {
-  SanctionsService,
-  type AccountDeletion,
-  type SanctionTransactionRunner,
-} from './sanctions.service';
+import { SanctionsService, type SanctionTransactionRunner } from './sanctions.service';
 
 export type SanctionsModuleOptions = Readonly<{
   db: Database;
-  /** The user-admin module's service: a ban goes through its deletion. */
-  deletion: AccountDeletion;
+  /** The user-admin module's service: a ban checks its deletion now and runs it when due. */
+  deletion: Pick<UserAdminService, 'deletionCheck' | 'executeDeletion'>;
   sessionEnded: SessionEndedPort;
-  notices: Pick<SecurityNoticesService, 'send'>;
+  notices: Pick<SecurityNoticesService, 'send' | 'deliver'>;
+  /** Where a due ban that could not delete is reported (`app.log`). */
+  log: SanctionFollowUpLog;
   cipher: DataCipherPort;
   clock: ClockPort;
   appPublicUrl: string;
@@ -34,9 +35,11 @@ export type SanctionsModuleOptions = Readonly<{
  *  Needs `app.authGuards`.
  *
  *  Example: `await app.register(createSanctionsModule(options).plugin, { prefix: '/api' })` */
-export function createSanctionsModule(
-  options: SanctionsModuleOptions,
-): Readonly<{ plugin: (app: FastifyInstance) => Promise<void> }> {
+export function createSanctionsModule(options: SanctionsModuleOptions): Readonly<{
+  plugin: (app: FastifyInstance) => Promise<void>;
+  /** For the hourly housekeeping: missed e-mails again, then the bans that are due. */
+  followUp: SanctionFollowUpService;
+}> {
   const transaction: SanctionTransactionRunner = (work) =>
     runInTransaction(options.db, (tx) =>
       work({
@@ -46,12 +49,26 @@ export function createSanctionsModule(
         passwordResets: new PasswordResetsDao(tx),
       }),
     );
-  const { db, ...rest } = options;
-  const service = new SanctionsService({
-    ...rest,
-    accounts: new UserAdminDao(db),
-    sanctions: new AccountSanctionsDao(db),
-    transaction,
+  const { db, deletion, sessionEnded, notices, cipher, clock, appPublicUrl } = options;
+  const accounts = new UserAdminDao(db);
+  const sanctions = new AccountSanctionsDao(db);
+  const mailing = { cipher, clock, appPublicUrl, sitePublicUrl: options.sitePublicUrl };
+  const notice = new SanctionNoticeService({
+    ...{ notices, sanctions, replyTo: options.replyTo },
+    ...mailing,
   });
-  return { plugin: sanctionsRoutes(service) };
+  const service = new SanctionsService({
+    ...{ accounts, sanctions, transaction, deletion, sessionEnded, notice, notices },
+    ...{ cipher, clock, appPublicUrl },
+  });
+  const log = options.log;
+  const followUp = new SanctionFollowUpService({
+    sanctions,
+    accounts,
+    notice,
+    deletion,
+    clock,
+    log,
+  });
+  return { plugin: sanctionsRoutes(service), followUp };
 }

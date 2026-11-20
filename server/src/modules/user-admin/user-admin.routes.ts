@@ -1,6 +1,7 @@
 import rateLimit from '@fastify/rate-limit';
 import {
   adminUserParamsDto,
+  deleteUserQueryDto,
   mailSampleParamsDto,
   sendMailSampleRequestDto,
   type MailSamplesResponseDto,
@@ -106,7 +107,9 @@ function registerDeletionRoutes(app: FastifyInstance, service: UserAdminService)
   });
   app.delete('/admin/users/:userId', admin, async (request, reply) => {
     const { actor, userId } = audited(app, request, 'delete');
-    await service.delete(actor, userId);
+    const query = deleteUserQueryDto.parse(request.query);
+    const includeSharedCampaigns = query.includeSharedCampaigns ?? false;
+    await service.delete(actor, userId, { ban: null, includeSharedCampaigns });
     return reply.code(204).send();
   });
 }

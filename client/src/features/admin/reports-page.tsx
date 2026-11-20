@@ -8,6 +8,7 @@ import type { ResolveReportIntent, ResolveReportResult } from './reports-action'
 import { ReportDetailDialog } from './reports-detail-dialog';
 import { ReportResolveDialog } from './reports-resolve-dialog';
 import { ReportsTable, type ReportsTableProps } from './reports-table';
+import { reportMeasureDraft } from './reports-text';
 import { UsersDialog, type OpenDialog, type UsersDialogProps } from './users-dialog';
 
 /** What "Aplicar medida" needs: the accounts as the backoffice lists them (the reported one is
@@ -53,7 +54,7 @@ export function ReportsPage({ page, targetOf, measure }: ReportsPageProps): Reac
   const measureOf = (report: UserReportDto): (() => void) | null => {
     const user = measure.users.find((each) => each.id === report.target.id);
     if (!user) return null;
-    const dialog: OpenDialog = { kind: 'sanction', user, draft: { reportId: report.id } };
+    const dialog: OpenDialog = { kind: 'sanction', user, draft: reportMeasureDraft(report) };
     return () => setOpen({ kind: 'measure', dialog });
   };
   return (

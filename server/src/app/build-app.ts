@@ -173,9 +173,6 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const storage = wireAssetStorage(app, deps.env, clock);
   // After the asset bucket is ensured: dev and CI keep the access log in that same bucket.
   const accessLog = wireAccessLog(app, { env, clock, archive: deps.accessLogArchive });
-  const restoredNotice = { notices: security.notices, cipher, appPublicUrl };
-  const suspensionEnded = new SuspensionEndedNoticeService(restoredNotice);
-  wireHousekeeping(app, { db: deps.db, clock, scheduler: new TimerScheduler(), suspensionEnded });
   const processor = new SharpImageProcessor();
   const fetcher = new GuardedImageFetcher();
   // The membership the asset read already warmed: a policy does not read it again.
@@ -309,9 +306,21 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   };
   const juggernauts = campaigns.juggernaut();
   const planOutlets = { profiles: profileChanged, ownedTables: campaigns.settings() };
-  const backoffice = { ...links, memberships, juggernauts, ...planOutlets, mailer };
+  const backoffice = {
+    ...links,
+    memberships,
+    juggernauts,
+    ...planOutlets,
+    mailer,
+    tables: changed,
+  };
   const measuresMailing = { sitePublicUrl: env.sitePublicUrl, mailReplyTo: env.mailReplyTo };
-  await wireBackoffice(app, { ...backoffice, ...measuresMailing, badges }, API_PREFIX);
+  const backofficeWiring = { ...backoffice, ...measuresMailing, badges };
+  const { sanctionFollowUp } = await wireBackoffice(app, backofficeWiring, API_PREFIX);
+  const restoredNotice = { notices: security.notices, cipher, appPublicUrl };
+  const suspensionEnded = new SuspensionEndedNoticeService(restoredNotice);
+  const scheduler = new TimerScheduler();
+  wireHousekeeping(app, { db: deps.db, clock, scheduler, suspensionEnded, sanctionFollowUp });
   const replyTo = env.mailReplyTo;
   const broadcastMailing = { db: deps.db, cipher, mailer, clock, appPublicUrl, replyTo };
   await wireBroadcasts(app, { ...broadcastMailing, twoFactor: auth.twoFactorCheck }, API_PREFIX);

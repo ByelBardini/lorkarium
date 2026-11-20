@@ -220,8 +220,9 @@ export class UserAdminApiFake implements UserAdminApi {
     });
   }
 
-  deleteUser(userId: string): Promise<Answers['deleteUser']> {
-    return this.answers.reply('deleteUser', userId, () => {
+  deleteUser(userId: string, includeSharedCampaigns = false): Promise<Answers['deleteUser']> {
+    const call = includeSharedCampaigns ? { userId, includeSharedCampaigns } : userId;
+    return this.answers.reply('deleteUser', call, () => {
       this.users = this.users.filter((user) => user.id !== userId);
       return ok(null);
     });

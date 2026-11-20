@@ -6,6 +6,7 @@ import { ConfirmCommandDialog } from './confirm-command-dialog';
 import { DeleteUserDialog, type DeleteUserDialogProps } from './delete-user-dialog';
 import { LinkResultDialog } from './link-result-dialog';
 import { SanctionDialog, type BanMeasure, type SanctionDraft } from './sanction-dialog';
+import { banNotice } from './sanction-messages';
 import { SanctionsHistoryDialog } from './sanctions-history-dialog';
 import { UserBadgesDialog } from './user-badges-dialog';
 import { UserBillingDialog, type UserBillingDialogProps } from './user-billing-dialog';
@@ -149,7 +150,13 @@ function MeasureDialog({
       measure={measure}
       billingApi={billingApi}
       twoFactorOn={twoFactorOn}
-      onDeleted={() => onDone(`A conta @${user.username} foi excluída.`)}
+      onDeleted={(deletionDueAt) =>
+        onDone(
+          deletionDueAt
+            ? banNotice(user.username, deletionDueAt)
+            : `A conta @${user.username} foi excluída.`,
+        )
+      }
       onSuspendInstead={() =>
         onSwitch({ kind: 'sanction', user, draft: { ...measure, kind: 'suspension' } })
       }

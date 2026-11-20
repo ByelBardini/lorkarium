@@ -16,12 +16,14 @@ import type { DataCipherPort } from '../auth/data-cipher.port';
 import type { FeedbackAttachmentsDao } from '../feedback/feedback-attachments.dao';
 import type { SessionEndedPort } from '../auth/session-ended.port';
 import type { UserPo } from '../auth/users.po';
+import type { CampaignChangedPort } from '../campaigns/campaign-changed.port';
 import type { CampaignMembersDao, RevokedAdminSeat } from '../campaigns/campaign-members.dao';
 import type { ProfileChangedPort } from '../profiles/profile-changed.port';
 import { avatarKeyOf, bannerKeyOf, diceTextureKeyOf } from '../profiles/profiles.mapper';
 import type { OwnerLimitsPort } from './owner-limits.port';
 import type { RevokedSeatsPort } from './revoked-seats.port';
 import { deletionVerdict, requireOtherAccount } from './user-admin.bo';
+import type { AccountSanctionsDao } from '../sanctions/account-sanctions.dao';
 import type { BannedEmailIndexesDao } from '../sanctions/banned-email-indexes.dao';
 import type { AccountListingRow, UserAdminDao } from './user-admin.dao';
 import { OwnsSharedCampaignsError, UserNotFoundError } from './user-admin.error';
@@ -49,10 +51,23 @@ export type UserAdminWriteDaos = Readonly<{
   bannedEmails: Pick<BannedEmailIndexesDao, 'ban'>;
   /** The screenshots the account sent with a bug report or a suggestion (they go by cascade). */
   feedbackShots: Pick<FeedbackAttachmentsDao, 'storageKeysOfUploader'>;
+  /** "Reativar acesso" also lifts a ban's pending deletion. */
+  scheduledBans: Pick<AccountSanctionsDao, 'cancelDeletionsOf'>;
 }>;
 
 /** A deletion that is a measure (a ban): the e-mail's index is kept so it is not invited again. */
 export type AccountBan = Readonly<{ bannedAt: Date }>;
+
+/** How an account goes: `ban` keeps the e-mail's index; `includeSharedCampaigns` lets the deletion
+ *  take the tables the account owns with other members (agreed with the person first). */
+export type AccountDeletionOptions = Readonly<{
+  ban: AccountBan | null;
+  includeSharedCampaigns: boolean;
+}>;
+
+const PLAIN_DELETION: AccountDeletionOptions = { ban: null, includeSharedCampaigns: false };
+
+type DeletionOutcome = Readonly<{ ended: string[]; sharedCampaignIds: string[] }>;
 
 export type UserAdminTransactionRunner = <T>(
   work: (daos: UserAdminWriteDaos) => Promise<T>,
@@ -66,8 +81,10 @@ export type UserAdminDeps = Readonly<{
   invitations: Readonly<{ listPending(): Promise<AdminInvitationDto[]> }>;
   transaction: UserAdminTransactionRunner;
   sessionEnded: SessionEndedPort;
-  /** Forgets every membership of a deleted account (`CachedMemberships.forgetUser`). */
-  memberships: Readonly<{ forgetUser(userId: string): void }>;
+  /** Forgets the memberships of a deleted account and of the tables that went with it. */
+  memberships: Readonly<{ forgetUser(userId: string): void; forgetCampaign(id: string): void }>;
+  /** The live session: the members of a shared table that went with its owner leave it. */
+  tables: Pick<CampaignChangedPort, 'campaignDeleted'>;
   /** The tables hear about the seats an account lost with the admin role, after the commit. */
   juggernauts: RevokedSeatsPort;
   /** Every live table of the account hears its new seals (`session:memberUpdated`). */
@@ -140,13 +157,15 @@ export class UserAdminService {
 
   // Suspending is a measure with a rule and reasons: the sanctions module does it.
 
-  /** Lifts a suspension early (and its end). Idempotent: an active account stays as it is. */
+  /** Lifts a suspension early (and its end, and a ban's pending deletion). Idempotent: an active
+   *  account stays as it is. */
   async reactivate(actor: AdminActor, userId: string): Promise<AdminUserDto> {
     requireOtherAccount(actor.id, userId, 'reactivate');
-    const outcome = await this.deps.transaction(async ({ accounts }) => {
+    const outcome = await this.deps.transaction(async ({ accounts, scheduledBans }) => {
       const found = await this.requireAccount(accounts, userId);
       if (found.suspendedAt === null) return { row: found, changed: false };
       await accounts.setSuspendedAt(userId, null);
+      await scheduledBans.cancelDeletionsOf(userId);
       return { row: { ...found, suspendedAt: null, suspendedUntil: null }, changed: true };
     });
     if (outcome.changed) await this.tellAccount(outcome.row, accessRestoredMail);
@@ -161,28 +180,52 @@ export class UserAdminService {
     return toDeletionCheckDto(deletionVerdict(owned));
   }
 
-  /** Deletes the account; `ban` (a deletion that is a measure) also keeps the e-mail's index in
-   *  the same transaction. */
-  async delete(actor: AdminActor, userId: string, ban: AccountBan | null = null): Promise<void> {
+  /** An admin deletes another account (`options`: see `AccountDeletionOptions`). */
+  async delete(
+    actor: AdminActor,
+    userId: string,
+    options: AccountDeletionOptions = PLAIN_DELETION,
+  ): Promise<void> {
     requireOtherAccount(actor.id, userId, 'delete');
-    const { ended } = await this.deps.transaction(async (daos) => {
-      const found = await this.requireAccount(daos.accounts, userId);
-      const verdict = deletionVerdict(await daos.accounts.lockOwnedCampaigns(userId));
-      if (verdict.kind === 'blocked')
-        throw new OwnsSharedCampaignsError(userId, verdict.blockingCampaigns);
-      if (ban) await daos.bannedEmails.ban(found.emailIndex, ban.bannedAt);
-      // Read under the lock, before the cascade takes the rows: an upload in flight finished first.
-      const tableKeys = await daos.accounts.storageKeysOfOwnedCampaigns(userId);
-      const shotKeys = await daos.feedbackShots.storageKeysOfUploader(userId);
-      await daos.deletions.enqueue([...tableKeys, ...accountImageKeysOf(found), ...shotKeys]);
-      const sessions = await daos.sessions.deleteAllOf(userId);
-      // Before the row goes: its foreign key would null who issued them.
-      await daos.invitations.deleteAdminRoleIssuedBy(userId);
-      await daos.accounts.delete(userId);
-      return { ended: sessions };
-    });
-    for (const sessionId of ended) this.deps.sessionEnded.sessionEnded(sessionId);
+    await this.executeDeletion(userId, options);
+  }
+
+  /** The deletion itself, with no admin at the keyboard: the hourly sweep runs a due ban through
+   *  it. A ban keeps the e-mail's index in the same transaction; the shared tables that go along
+   *  are told to their members after the commit.
+   *
+   *  Example: `await userAdmin.executeDeletion(caioId, { ban: { bannedAt: now }, includeSharedCampaigns: false })` */
+  async executeDeletion(userId: string, options: AccountDeletionOptions): Promise<void> {
+    const outcome = await this.deps.transaction((daos) => this.deleteIn(daos, userId, options));
+    for (const sessionId of outcome.ended) this.deps.sessionEnded.sessionEnded(sessionId);
     this.deps.memberships.forgetUser(userId);
+    for (const campaignId of outcome.sharedCampaignIds) {
+      this.deps.memberships.forgetCampaign(campaignId);
+      await this.deps.tables.campaignDeleted(campaignId);
+    }
+  }
+
+  private async deleteIn(
+    daos: UserAdminWriteDaos,
+    userId: string,
+    options: AccountDeletionOptions,
+  ): Promise<DeletionOutcome> {
+    const found = await this.requireAccount(daos.accounts, userId);
+    const owned = await daos.accounts.lockOwnedCampaigns(userId);
+    const verdict = deletionVerdict(owned);
+    if (verdict.kind === 'blocked' && !options.includeSharedCampaigns)
+      throw new OwnsSharedCampaignsError(userId, verdict.blockingCampaigns);
+    if (options.ban) await daos.bannedEmails.ban(found.emailIndex, options.ban.bannedAt);
+    // Read under the lock, before the cascade takes the rows: an upload in flight finished first.
+    const tableKeys = await daos.accounts.storageKeysOfOwnedCampaigns(userId);
+    const shotKeys = await daos.feedbackShots.storageKeysOfUploader(userId);
+    await daos.deletions.enqueue([...tableKeys, ...accountImageKeysOf(found), ...shotKeys]);
+    const ended = await daos.sessions.deleteAllOf(userId);
+    // Before the row goes: its foreign key would null who issued them.
+    await daos.invitations.deleteAdminRoleIssuedBy(userId);
+    await daos.accounts.delete(userId);
+    const shared = owned.filter((campaign) => campaign.otherMembers > 0);
+    return { ended, sharedCampaignIds: shared.map((campaign) => campaign.id) };
   }
 
   private async requireAccount(

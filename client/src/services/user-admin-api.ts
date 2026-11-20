@@ -58,7 +58,8 @@ export interface UserAdminApi {
   reactivate(userId: string): Promise<UserAdminResult<AdminUserDto>>;
   sendPasswordLink(userId: string): Promise<UserAdminResult<PasswordResetLinkResponseDto>>;
   deletionCheck(userId: string): Promise<UserAdminResult<UserDeletionCheckDto>>;
-  deleteUser(userId: string): Promise<UserAdminResult<null>>;
+  /** `includeSharedCampaigns` also deletes the tables the account owns with other members. */
+  deleteUser(userId: string, includeSharedCampaigns?: boolean): Promise<UserAdminResult<null>>;
   /** Every system e-mail the backoffice can send as a test. */
   mailSamples(): Promise<UserAdminResult<MailSampleDto[]>>;
   sendMailSample(sampleId: string, to: string): Promise<UserAdminResult<SendMailSampleResponseDto>>;
@@ -136,8 +137,9 @@ export class HttpUserAdminApi implements UserAdminApi {
     return answerOf(call, userDeletionCheckDto, (body) => body);
   }
 
-  async deleteUser(userId: string): Promise<UserAdminResult<null>> {
-    return doneOf(await callApi(this.transport, 'DELETE', userPath(userId)));
+  async deleteUser(userId: string, includeSharedCampaigns = false): Promise<UserAdminResult<null>> {
+    const query = includeSharedCampaigns ? '?includeSharedCampaigns=true' : '';
+    return doneOf(await callApi(this.transport, 'DELETE', `${userPath(userId)}${query}`));
   }
 
   async mailSamples(): Promise<UserAdminResult<MailSampleDto[]>> {

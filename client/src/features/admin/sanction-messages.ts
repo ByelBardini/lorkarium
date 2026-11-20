@@ -85,8 +85,28 @@ export function previewLines(measure: MeasurePreview): string[] {
 export function measureNotice(kind: SanctionKind, username: string): string {
   if (kind === 'warning') return `@${username} recebeu um aviso.`;
   if (kind === 'content_removal') return `A remoção de conteúdo de @${username} foi registrada.`;
-  if (kind === 'suspension') return `O acesso de @${username} foi suspenso.`;
-  return `A conta @${username} foi excluída.`;
+  return `O acesso de @${username} foi suspenso.`;
+}
+
+/** The notice of a ban: the account is suspended now and deleted on the date, unless appealed.
+ *
+ *  Example: `banNotice('bia', '2026-12-05T12:00:00.000Z') // 'O acesso de @bia foi suspenso e a conta será excluída em 05/12/2026.'` */
+export function banNotice(username: string, deletionDueAt: string): string {
+  return `O acesso de @${username} foi suspenso e a conta será excluída em ${dateLabel(deletionDueAt)}.`;
+}
+
+/** What a ban does, in the deletion dialog: the minimum age keeps no e-mail out and is refunded.
+ *
+ *  Example: `banConsequence('spam').startsWith('A exclusão é uma medida') // true` */
+export function banConsequence(rule: SanctionRule): string {
+  if (rule === 'minimum_age')
+    return 'Exclusão por idade: a conta é suspensa agora e excluída em 15 dias, se a pessoa não provar pela contestação que tem 18 anos ou mais. O e-mail dela não é bloqueado. Se houver plano pago, reembolse o valor integral em Cobrança.';
+  return 'A exclusão é uma medida por violar a Política de uso: a conta é suspensa agora e excluída em 15 dias, se a pessoa não contestar. Ela recebe o e-mail com o motivo e a data, e o e-mail dela não pode criar outra conta por 5 anos.';
+}
+
+/** Where a ban's deletion stands. Example: `deletionLabel(null) // 'Exclusão cancelada'` */
+export function deletionLabel(deletionDueAt: string | null): string {
+  return deletionDueAt ? `Exclusão em ${dateLabel(deletionDueAt)}` : 'Exclusão cancelada';
 }
 
 /** Where an appeal stands, in one line. Example: `appealLabel(null) // 'Sem contestação'` */

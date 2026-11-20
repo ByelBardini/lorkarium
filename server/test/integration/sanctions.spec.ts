@@ -11,6 +11,7 @@ import { readEnv } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
 import { users } from '../../src/modules/auth/users.po';
 import { HousekeepingDao } from '../../src/modules/housekeeping/housekeeping.dao';
+import { accountSanctions } from '../../src/modules/sanctions/account-sanctions.po';
 import { bannedEmailIndexes } from '../../src/modules/sanctions/banned-email-indexes.po';
 import { MailerFake } from '../support/account-security-fakes';
 import { connectRealtime, disconnectionOf, type RealtimeClient } from '../support/realtime-client';
@@ -170,24 +171,31 @@ describe('measures against an account (/api/admin/users/:userId/sanctions)', () 
   });
 
   describe('ban', () => {
-    it('is 204: the e-mail goes, the account is gone and its e-mail cannot be invited again (409)', async () => {
+    it('is 201: suspends now, e-mails the deletion date and keeps the account until it is due', async () => {
+      const before = Date.now();
       const response = await issue(caio.id, { kind: 'ban', ...HARASSMENT });
 
-      expect(response.statusCode).toBe(204);
+      expect(response.statusCode).toBe(201);
+      const { sanction, user } = sanctionResponseDto.parse(response.json());
+      expect(user.status).toBe('suspended');
+      const due = new Date(sanction.deletionDueAt ?? 0).getTime();
+      expect(due - before).toBeGreaterThanOrEqual(15 * 86_400_000);
+      expect(due - before).toBeLessThan(15 * 86_400_000 + 60_000);
       expect(mailer.to('caio@mesa.com').map((mail) => mail.subject)).toEqual([
-        'Sua conta no Lorkarium foi excluída',
+        'Sua conta no Lorkarium será excluída',
       ]);
-      expect(await connection.db.select().from(users).where(eq(users.id, caio.id))).toEqual([]);
-      const invite = await call('POST', '/admin/invitations', admin.token, {
-        email: 'Caio@Mesa.com',
-        role: 'user',
+      expect(await connection.db.select().from(users).where(eq(users.id, caio.id))).toHaveLength(1);
+      expect(await connection.db.select().from(bannedEmailIndexes)).toEqual([]);
+      const [row] = await connection.db.select().from(accountSanctions);
+      expect(row?.notifiedAt).not.toBeNull();
+      const login = await call('POST', '/auth/login', undefined, {
+        identifier: 'caio@mesa.com',
+        password: PASSWORD,
       });
-      expect(invite.statusCode).toBe(409);
-      expect(invite.json()).toMatchObject({ code: 'EMAIL_BANNED' });
-      expect(invite.body).not.toContain('caio@mesa.com');
+      expect(codeOf(login)).toBe('ACCOUNT_SUSPENDED');
     });
 
-    it('owning a table where others play is 409 OWNS_SHARED_CAMPAIGNS: no e-mail, no ban', async () => {
+    it('owning a table where others play is 409 OWNS_SHARED_CAMPAIGNS: no e-mail, nothing stored', async () => {
       const table = await createTable(app, caio, 'Vharn');
       await joinByCode(app, bia, table);
 
@@ -195,7 +203,45 @@ describe('measures against an account (/api/admin/users/:userId/sanctions)', () 
 
       expect(codeOf(response)).toBe('OWNS_SHARED_CAMPAIGNS');
       expect(mailer.to('caio@mesa.com')).toEqual([]);
-      expect(await connection.db.select().from(bannedEmailIndexes)).toEqual([]);
+      expect(await connection.db.select().from(accountSanctions)).toEqual([]);
+    });
+
+    it('taking the shared tables along is 201 and stored for the deletion', async () => {
+      const table = await createTable(app, caio, 'Vharn');
+      await joinByCode(app, bia, table);
+
+      const response = await issue(caio.id, {
+        kind: 'ban',
+        ...HARASSMENT,
+        includeSharedCampaigns: true,
+      });
+
+      expect(response.statusCode).toBe(201);
+      const [row] = await connection.db.select().from(accountSanctions);
+      expect(row?.deleteSharedCampaigns).toBe(true);
+    });
+
+    it('reverting the ban lets the login in and cancels the deletion', async () => {
+      const banned = await issue(caio.id, { kind: 'ban', ...HARASSMENT });
+      const { sanction } = sanctionResponseDto.parse(banned.json());
+
+      const decided = await call('PUT', `/admin/sanctions/${sanction.id}/appeal`, admin.token, {
+        outcome: 'reverted',
+        note: 'Era outra pessoa na conta.',
+      });
+
+      const answer = sanctionResponseDto.parse(decided.json());
+      expect(answer.user.status).toBe('active');
+      expect(answer.sanction.deletionDueAt).toBeNull();
+    });
+
+    it('"Reativar acesso" also cancels the deletion', async () => {
+      await issue(caio.id, { kind: 'ban', ...HARASSMENT });
+
+      await call('POST', `/admin/users/${caio.id}/reactivate`, admin.token);
+
+      const [row] = await connection.db.select().from(accountSanctions);
+      expect(row?.deletionDueAt).toBeNull();
     });
 
     it('the housekeeping drops a ban older than 5 years and keeps a recent one', async () => {

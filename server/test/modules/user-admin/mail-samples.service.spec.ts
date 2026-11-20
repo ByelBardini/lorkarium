@@ -19,7 +19,7 @@ function serviceWith(mailer: MailerFake): MailSamplesService {
 describe('MailSamplesService', () => {
   it('lists every system e-mail with its id, name and subject, in the catalog order', () => {
     const samples = serviceWith(new MailerFake()).list();
-    expect(samples).toHaveLength(20);
+    expect(samples).toHaveLength(21);
     expect(samples[0]).toEqual({
       id: 'email-confirmation',
       name: 'Confirmação do novo e-mail',

@@ -32,10 +32,15 @@ describe('HttpSanctionsApi', () => {
     });
   });
 
-  it('a ban answered 204 is done with no account left (null)', async () => {
-    transport.respondWith(204, null);
+  it('a ban is 201 too: the account suspended and the date of its deletion', async () => {
+    const ban = { ...WARNING, kind: 'ban', deletionDueAt: '2026-12-05T12:00:00.000Z' } as const;
+    const suspended = { ...BIA, status: 'suspended' } as const;
+    transport.respondWith(201, { sanction: ban, user: suspended });
 
-    expect(await api.issue(BIA.id, { ...BODY, kind: 'ban' })).toEqual({ ok: true, value: null });
+    expect(await api.issue(BIA.id, { ...BODY, kind: 'ban' })).toEqual({
+      ok: true,
+      value: { sanction: ban, user: suspended },
+    });
   });
 
   it('a body the DTO refuses never leaves: invalid', async () => {

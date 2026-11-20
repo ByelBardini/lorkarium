@@ -27,7 +27,11 @@ const usersIntentDto = z.discriminatedUnion('intent', [
   z.strictObject({ intent: z.literal('reactivate'), ...target }),
   z.strictObject({ intent: z.literal('password-reset'), ...target }),
   z.strictObject({ intent: z.literal('deletion-check'), ...target }),
-  z.strictObject({ intent: z.literal('delete'), ...target }),
+  z.strictObject({
+    intent: z.literal('delete'),
+    ...target,
+    includeSharedCampaigns: z.boolean().optional(),
+  }),
   z.strictObject({ intent: z.literal('sanction'), ...target, sanction: issueSanctionRequestDto }),
   z.strictObject({
     intent: z.literal('appeal'),
@@ -38,7 +42,7 @@ const usersIntentDto = z.discriminatedUnion('intent', [
 
 export type UsersIntent = z.input<typeof usersIntentDto>;
 export type UsersIntentName = UsersIntent['intent'];
-type UserIntentName = 'role' | 'plan' | 'reactivate' | 'sanction';
+type UserIntentName = 'role' | 'plan' | 'reactivate';
 
 export type UsersActionResult =
   | Readonly<{
@@ -46,8 +50,10 @@ export type UsersActionResult =
       invitation: AdminInvitationDto;
       link: string;
     }>
-  | Readonly<{ intent: 'invitation-cancel' | 'delete' | 'sanction'; done: true }>
+  | Readonly<{ intent: 'invitation-cancel' | 'delete'; done: true }>
   | Readonly<{ intent: UserIntentName; user: AdminUserDto }>
+  // A ban suspends now and deletes at `deletionDueAt`; the other measures have none.
+  | Readonly<{ intent: 'sanction'; user: AdminUserDto; deletionDueAt: string | null }>
   | Readonly<{ intent: 'password-reset'; link: string }>
   | Readonly<{ intent: 'deletion-check'; check: UserDeletionCheckDto }>
   | Readonly<{ intent: 'appeal'; sanction: AccountSanctionDto; user: AdminUserDto }>
@@ -122,7 +128,10 @@ async function run(
     case 'deletion-check':
       return checkResult(await api.deletionCheck(input.userId));
     case 'delete':
-      return doneResult(input.intent, await api.deleteUser(input.userId));
+      return doneResult(
+        input.intent,
+        await api.deleteUser(input.userId, input.includeSharedCampaigns ?? false),
+      );
     case 'sanction':
       return sanctionResult(await sanctionsApi.issue(input.userId, input.sanction));
     case 'appeal':
@@ -169,11 +178,10 @@ function checkResult(result: UserAdminResult<UserDeletionCheckDto>): UsersAction
     : failed('deletion-check', result.failure);
 }
 
-// A ban answers no account (it is gone): the dialog reads it as done, like a deletion.
-function sanctionResult(result: UserAdminResult<SanctionResponseDto | null>): UsersActionResult {
+function sanctionResult(result: UserAdminResult<SanctionResponseDto>): UsersActionResult {
   if (!result.ok) return failed('sanction', result.failure);
-  if (result.value === null) return { intent: 'sanction', done: true };
-  return { intent: 'sanction', user: result.value.user };
+  const { user, sanction } = result.value;
+  return { intent: 'sanction', user, deletionDueAt: sanction.deletionDueAt };
 }
 
 function appealResult(result: UserAdminResult<SanctionResponseDto>): UsersActionResult {

@@ -19,7 +19,11 @@ import { sheetActions } from '../../src/modules/sheets/sheets.po';
 import { ClockFake } from '../support/auth-fakes';
 import { newUserPo } from '../support/auth-factories';
 import { newCampaignPo } from '../support/campaigns-factories';
-import { HousekeepingFailureLogFake, SuspensionEndedFake } from '../support/housekeeping-fakes';
+import {
+  HousekeepingFailureLogFake,
+  SanctionFollowUpFake,
+  SuspensionEndedFake,
+} from '../support/housekeeping-fakes';
 import { SchedulerFake } from '../support/sessions-fakes';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
@@ -52,6 +56,7 @@ describe('the housekeeping on Postgres', () => {
       dao,
       expired: dao,
       suspensionEnded,
+      sanctionFollowUp: new SanctionFollowUpFake(),
       reportRetention: createReportRetention(connection.db, deps.clock),
       feedbackRetention: createFeedbackRetention(connection.db, deps.clock),
       log,

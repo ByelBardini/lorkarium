@@ -71,6 +71,27 @@ describe('issueSanctionRequestDto', () => {
     expect(result.error?.issues[0]?.message).toMatch(/"bad_vibes".*harassment/);
   });
 
+  it('a ban may take the shared tables of the account along', () => {
+    const body = { kind: 'ban', rule: 'harassment', statement: 'x', includeSharedCampaigns: true };
+    expect(issueSanctionRequestDto.parse(body)).toEqual(body);
+  });
+
+  it.each(['warning', 'content_removal', 'suspension'])(
+    'includeSharedCampaigns on a %s is refused citing the field',
+    (kind) => {
+      const body = { kind, rule: 'spam', statement: 'x', includeSharedCampaigns: false };
+      const result = issueSanctionRequestDto.safeParse(body);
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]?.path).toEqual(['includeSharedCampaigns']);
+      expect(result.error?.issues[0]?.message).toMatch(/only with a ban/);
+    },
+  );
+
+  it('the minimum age is a rule a measure can cite', () => {
+    const body = { kind: 'ban', rule: 'minimum_age', statement: 'Tem 15 anos.' };
+    expect(issueSanctionRequestDto.parse(body).rule).toBe('minimum_age');
+  });
+
   it('a forged target or author in the body is refused (strict)', () => {
     const body = { kind: 'warning', rule: 'spam', statement: 'x', issuedBy: 'someone' };
     expect(issueSanctionRequestDto.safeParse(body).success).toBe(false);
@@ -85,6 +106,14 @@ describe('SANCTION_RULE_SECTIONS', () => {
       anchor: '2-respeito-às-pessoas',
     });
     expect(Object.keys(SANCTION_RULE_SECTIONS)).toEqual([...SANCTION_RULES]);
+  });
+
+  it('the minimum age points at the accounts section, where the 18+ rule is', () => {
+    expect(SANCTION_RULE_SECTIONS.minimum_age).toEqual({
+      section: 8,
+      title: 'Idade mínima',
+      anchor: '8-contas',
+    });
   });
 });
 

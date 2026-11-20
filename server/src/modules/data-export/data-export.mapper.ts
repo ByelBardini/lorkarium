@@ -232,6 +232,7 @@ function sanctionOf(row: ReceivedSanctionRow): DataExportDto['sanctions'][number
     appealOutcome: row.appealOutcome,
     appealNote: row.appealNote,
     appealDecidedAt: isoOrNull(row.appealDecidedAt),
+    deletionDueAt: isoOrNull(row.deletionDueAt),
   };
 }
 

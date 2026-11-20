@@ -100,12 +100,34 @@ export class BannedEmailsFake implements Pick<BannedEmailIndexesDao, 'ban' | 'is
   }
 }
 
-/** Records every account whose memberships were forgotten. */
+/** Records every account whose memberships were forgotten, and every table (`table <id>`). */
 export class MembershipsForgetFake {
   readonly forgotten: string[] = [];
 
   forgetUser(userId: string): void {
     this.forgotten.push(userId);
+  }
+
+  forgetCampaign(campaignId: string): void {
+    this.forgotten.push(`table ${campaignId}`);
+  }
+}
+
+/** The live session told that a table is gone; writes `table gone <id>` to `journal`. */
+export class TablesGoneFake {
+  constructor(private readonly journal: string[]) {}
+
+  async campaignDeleted(campaignId: string): Promise<void> {
+    this.journal.push(`table gone ${campaignId}`);
+  }
+}
+
+/** The pending deletions of bans that "Reativar acesso" lifts; writes `cancel bans <id>`. */
+export class ScheduledBansFake {
+  constructor(private readonly journal: string[]) {}
+
+  async cancelDeletionsOf(userId: string): Promise<void> {
+    this.journal.push(`cancel bans ${userId}`);
   }
 }
 

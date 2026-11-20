@@ -10,6 +10,7 @@ import {
   ExpiredSuspensionsDaoFake,
   HousekeepingDaoFake,
   HousekeepingFailureLogFake,
+  SanctionFollowUpFake,
   SuspensionEndedFake,
 } from '../../support/housekeeping-fakes';
 import { FeedbackRetentionFake } from '../../support/feedback-fakes';
@@ -42,7 +43,8 @@ describe('HousekeepingService', () => {
     const reportRetention = new ReportRetentionFake();
     const feedbackRetention = new FeedbackRetentionFake();
     const deps = { dao, expired, suspensionEnded, reportRetention, feedbackRetention };
-    service = new HousekeepingService({ ...deps, clock, scheduler, log });
+    const sanctionFollowUp = new SanctionFollowUpFake();
+    service = new HousekeepingService({ ...deps, sanctionFollowUp, clock, scheduler, log });
   });
 
   async function hourPasses(): Promise<void> {
@@ -153,6 +155,7 @@ describe('HousekeepingService, suspensions past their end', () => {
       ...deps,
       expired,
       suspensionEnded,
+      sanctionFollowUp: new SanctionFollowUpFake(),
       reportRetention,
       feedbackRetention: new FeedbackRetentionFake(),
       scheduler,
@@ -203,12 +206,14 @@ describe('HousekeepingService, suspensions past their end', () => {
 });
 
 describe("HousekeepingService, the reports' and the feedback's retention", () => {
+  let sanctionFollowUp: SanctionFollowUpFake;
   let reportRetention: ReportRetentionFake;
   let feedbackRetention: FeedbackRetentionFake;
   let log: HousekeepingFailureLogFake;
   let service: HousekeepingService;
 
   beforeEach(() => {
+    sanctionFollowUp = new SanctionFollowUpFake();
     reportRetention = new ReportRetentionFake();
     feedbackRetention = new FeedbackRetentionFake();
     log = new HousekeepingFailureLogFake();
@@ -216,6 +221,7 @@ describe("HousekeepingService, the reports' and the feedback's retention", () =>
       dao: new HousekeepingDaoFake(),
       expired: new ExpiredSuspensionsDaoFake(),
       suspensionEnded: new SuspensionEndedFake(),
+      sanctionFollowUp,
       reportRetention,
       feedbackRetention,
       clock: new ClockFake(NOW),
@@ -229,6 +235,22 @@ describe("HousekeepingService, the reports' and the feedback's retention", () =>
 
     expect(reportRetention.purges).toBe(1);
     expect(feedbackRetention.purges).toBe(1);
+  });
+
+  it("each sweep runs the measures' follow-up once (missed e-mails, due bans)", async () => {
+    await service.sweep();
+
+    expect(sanctionFollowUp.sweeps).toBe(1);
+  });
+
+  it('a follow-up that fails is logged and the sweep does not reject', async () => {
+    sanctionFollowUp.failure = new Error('smtp down');
+
+    await expect(service.sweep()).resolves.toBeUndefined();
+
+    expect(log.errors.map((entry) => entry.message)).toEqual([
+      'housekeeping sweep failed; retrying in an hour',
+    ]);
   });
 
   it("a feedback purge that fails is logged after the reports' one ran", async () => {

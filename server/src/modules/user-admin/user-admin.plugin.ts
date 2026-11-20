@@ -18,7 +18,9 @@ import { MailSamplesService } from './mail-samples.service';
 import type { OwnerLimitsPort } from './owner-limits.port';
 import type { RevokedSeatsPort } from './revoked-seats.port';
 import { UserAdminDao } from './user-admin.dao';
+import { AccountSanctionsDao } from '../sanctions/account-sanctions.dao';
 import { BannedEmailIndexesDao } from '../sanctions/banned-email-indexes.dao';
+import type { CampaignChangedPort } from '../campaigns/campaign-changed.port';
 import { userAdminRoutes } from './user-admin.routes';
 import { UserAdminService, type UserAdminTransactionRunner } from './user-admin.service';
 
@@ -27,7 +29,9 @@ export type UserAdminModuleOptions = Readonly<{
   /** The pending invitations, listed by the account-links module. */
   invitations: Readonly<{ listPending(): Promise<AdminInvitationDto[]> }>;
   sessionEnded: SessionEndedPort;
-  memberships: Readonly<{ forgetUser(userId: string): void }>;
+  memberships: Readonly<{ forgetUser(userId: string): void; forgetCampaign(id: string): void }>;
+  /** The live session: a shared table deleted with its owner sends its members away. */
+  tables: Pick<CampaignChangedPort, 'campaignDeleted'>;
   /** The campaigns module's `JuggernautService`: tells the tables what the demotion revoked. */
   juggernauts: RevokedSeatsPort;
   /** The live session service: a changed plan or role reaches the tables' rosters. */
@@ -65,6 +69,7 @@ export function createUserAdminModule(options: UserAdminModuleOptions): UserAdmi
         deletions: new StorageDeletionsDao(tx),
         bannedEmails: new BannedEmailIndexesDao(tx),
         feedbackShots: new FeedbackAttachmentsDao(tx),
+        scheduledBans: new AccountSanctionsDao(tx),
       }),
     );
   const { db, mailer, sitePublicUrl, ...rest } = options;

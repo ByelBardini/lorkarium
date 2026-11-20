@@ -169,6 +169,29 @@ describe('actions of each account', () => {
       expect(within(measure).getByRole('radio', { name: 'Suspensão' })).toBeChecked();
     });
 
+    it('blocked, but the admin marks that the tables go too: "Excluir" deletes them with the account', async () => {
+      deps.userAdminApi.answers.answer('deletionCheck', {
+        ok: true,
+        value: { blockingCampaigns: [VHARN], soloCampaigns: 0 },
+      });
+      await choose('Bia', 'Excluir usuário');
+      const dialog = await screen.findByRole('alertdialog', { name: 'Excluir @biaflor?' });
+      await userEvent.click(
+        await within(dialog).findByLabelText('Apagar também estas mesas (combinado com a pessoa)'),
+      );
+      expect(within(dialog).queryByRole('button', { name: 'Suspender em vez disso' })).toBeNull();
+      await userEvent.type(
+        within(dialog).getByLabelText('Digite @biaflor para confirmar'),
+        '@biaflor',
+      );
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Excluir' }));
+
+      expect(await screen.findByText('A conta @biaflor foi excluída.')).toBeInTheDocument();
+      expect(deps.userAdminApi.answers.callsOf('deleteUser')).toEqual([
+        { userId: bia(new Date()).id, includeSharedCampaigns: true },
+      ]);
+    });
+
     it('free: says what goes, unlocks "Excluir" by the @ and the row leaves', async () => {
       await choose('Bia', 'Excluir usuário');
       const dialog = await screen.findByRole('alertdialog', { name: 'Excluir @biaflor?' });

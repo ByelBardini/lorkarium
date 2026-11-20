@@ -22,6 +22,8 @@ import {
   MembershipsForgetFake,
   OwnerLimitsFake,
   RevokedSeatsFake,
+  ScheduledBansFake,
+  TablesGoneFake,
   UserAdminDaoFake,
 } from '../../support/user-admin-fakes';
 
@@ -89,6 +91,7 @@ describe('UserAdminService', () => {
       deletions,
       bannedEmails,
       feedbackShots,
+      scheduledBans: new ScheduledBansFake(journal),
     };
     service = new UserAdminService({
       accounts,
@@ -101,6 +104,7 @@ describe('UserAdminService', () => {
         }),
       sessionEnded,
       memberships,
+      tables: new TablesGoneFake(journal),
       juggernauts,
       profiles,
       ownedTables,
@@ -153,9 +157,18 @@ describe('UserAdminService', () => {
       expect(mailer.sent.at(-1)?.subject).toBe('Seu acesso ao Lorkarium voltou');
     });
 
+    it("lifts a ban's pending deletion in the same transaction", async () => {
+      await accounts.setSuspendedAt(BIA_ID, NOW, null);
+
+      await service.reactivate(ADMIN, BIA_ID);
+
+      expect(journal).toEqual([`cancel bans ${BIA_ID}`, 'commit']);
+    });
+
     it('an active account stays and nobody is told', async () => {
       await service.reactivate(ADMIN, BIA_ID);
       expect(mailer.sent).toEqual([]);
+      expect(journal).toEqual(['commit']);
     });
   });
 
@@ -311,7 +324,10 @@ describe('UserAdminService', () => {
         banJournal.push(`ban ${index} ${at.toISOString()}`);
       };
 
-      await service.delete(ADMIN, BIA_ID, { bannedAt: NOW });
+      await service.delete(ADMIN, BIA_ID, {
+        ban: { bannedAt: NOW },
+        includeSharedCampaigns: false,
+      });
 
       expect(journal.slice(0, 2)).toEqual([
         'ban idx:email-index:bia@x.com 2026-10-24T12:00:00.000Z',
@@ -328,7 +344,8 @@ describe('UserAdminService', () => {
     it('a blocked ban keeps no index', async () => {
       accounts.owned.set(BIA_ID, [{ id: 'vharn', name: 'Vharn', otherMembers: 1 }]);
 
-      await expect(service.delete(ADMIN, BIA_ID, { bannedAt: NOW })).rejects.toMatchObject({
+      const ban = { ban: { bannedAt: NOW }, includeSharedCampaigns: false };
+      await expect(service.delete(ADMIN, BIA_ID, ban)).rejects.toMatchObject({
         code: 'OWNS_SHARED_CAMPAIGNS',
       });
       expect(bannedEmails.banned.size).toBe(0);
@@ -361,6 +378,33 @@ describe('UserAdminService', () => {
       await service.delete(ADMIN, CAIO_ID);
       expect(accounts.deleted).toEqual([CAIO_ID]);
       expect(deletions.committed).toEqual([]);
+    });
+
+    it('taking the shared tables along deletes them and, after the commit, sends their members away', async () => {
+      accounts.owned.set(BIA_ID, [
+        { id: 'vharn', name: 'Vharn', otherMembers: 3 },
+        { id: 'quelm', name: 'Quelm', otherMembers: 0 },
+      ]);
+      accounts.ownedKeys.set(BIA_ID, ['assets/v1', 'assets/q1']);
+
+      await service.delete(ADMIN, BIA_ID, { ban: null, includeSharedCampaigns: true });
+
+      expect(accounts.deleted).toEqual([BIA_ID]);
+      expect(deletions.committed).toContain('assets/v1');
+      expect(journal).toEqual(['commit', 'ended sha:bia-1', 'ended sha:bia-2', 'table gone vharn']);
+      expect(memberships.forgotten).toEqual([BIA_ID, 'table vharn']);
+    });
+  });
+
+  describe('executeDeletion', () => {
+    it('deletes with no admin at the keyboard: no SELF_ACTION check, the ban keeps the index', async () => {
+      await service.executeDeletion(BIA_ID, {
+        ban: { bannedAt: NOW },
+        includeSharedCampaigns: false,
+      });
+
+      expect(accounts.deleted).toEqual([BIA_ID]);
+      expect([...bannedEmails.banned.keys()]).toEqual(['idx:email-index:bia@x.com']);
     });
   });
 

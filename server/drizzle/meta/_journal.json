@@ -869,6 +869,13 @@
       "when": 1795197248062,
       "tag": "0123_invitation_origin",
       "breakpoints": true
+    },
+    {
+      "idx": 124,
+      "version": "7",
+      "when": 1795206822755,
+      "tag": "0124_legal_promises",
+      "breakpoints": true
     }
   ]
 }
