@@ -125,7 +125,11 @@ function registerJoinRoutes(app: FastifyInstance, service: CampaignJoinService):
   app.post('/campaigns/:campaignId/join', joinOptions, async (request) => {
     const campaignId = campaignIdOf(request);
     const input = joinPublicCampaignRequestDto.parse(request.body ?? {});
-    const campaign = await service.joinPublic(userOf(request), campaignId, input);
+    const reader = userOf(request);
+    // An admin joins a private or protected table without its code (Privacidade §5): logged.
+    if (reader.role === 'admin')
+      request.log.info({ adminId: reader.id, campaignId, action: 'explore:join' }, 'admin join');
+    const campaign = await service.joinPublic(reader, campaignId, input);
     return { campaign } satisfies JoinCampaignResponseDto;
   });
   app.post('/campaigns/:campaignId/enter', { preHandler: requireAuth }, async (request, reply) => {
