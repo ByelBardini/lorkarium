@@ -4,9 +4,8 @@ import { runInTransaction, type Transaction } from '../../database/transaction';
 import type { ClockPort } from '../auth/clock.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
 import { UsersDao } from '../auth/users.dao';
-import type { AssetRemovalLog } from '../assets/asset-object-removal';
-import type { AssetStoragePort } from '../assets/asset-storage.port';
 import { AssetsDao } from '../assets/assets.dao';
+import { StorageDeletionsDao } from '../assets/storage-deletions.dao';
 import { ConditionsDao } from '../conditions/conditions.dao';
 import { UserBlocksDao } from '../friends/user-blocks.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
@@ -44,9 +43,6 @@ export type CampaignOutlets = Readonly<{
   removed: MemberRemovedPort;
   /** The seat (character) of a member, bound to the role's transaction. */
   seatIn: (tx: Transaction) => MemberSeatPort;
-  /** Where the objects of a deleted table's files are removed (the asset bucket). */
-  objects: Pick<AssetStoragePort, 'remove'>;
-  log: AssetRemovalLog;
 }>;
 
 export type CampaignsModule = Readonly<{
@@ -84,13 +80,12 @@ export function createCampaignsModule(options: CampaignsModuleOptions): Campaign
   let juggernaut: JuggernautService | null = null;
   let settings: CampaignSettingsService | null = null;
   const pluginWith = (outlets: CampaignOutlets): ((app: FastifyInstance) => Promise<void>) => {
-    const { changed, roleChanged, removed, seatIn, objects, log } = outlets;
+    const { changed, roleChanged, removed, seatIn } = outlets;
     const settingsDeps = { campaigns, members, assets, memberships, changed, codes, hasher, clock };
     const removal = removalTransactionOver(options.db);
-    const deletion = { removal, objects, log };
     settings = new CampaignSettingsService({
       ...settingsDeps,
-      ...deletion,
+      removal,
       presence,
       detail: service,
     });
@@ -133,7 +128,11 @@ function transactionOver(db: Database): CampaignTransactionRunner {
 function removalTransactionOver(db: Database): CampaignRemovalTransactionRunner {
   return (work) =>
     runInTransaction(db, (tx) =>
-      work({ campaigns: new CampaignsDao(tx), assets: new AssetsDao(tx) }),
+      work({
+        campaigns: new CampaignsDao(tx),
+        assets: new AssetsDao(tx),
+        deletions: new StorageDeletionsDao(tx),
+      }),
     );
 }
 

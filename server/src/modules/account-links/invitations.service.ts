@@ -17,10 +17,13 @@ import type { SessionTokenPort } from '../auth/session-token.port';
 import { usernameFromEmail, usernameLookupPrefix, usernameStemOf } from '../auth/username.bo';
 import type { UsersDao } from '../auth/users.dao';
 import type { UserPo } from '../auth/users.po';
+import { banLapseCutOf } from '../sanctions/account-sanction.bo';
+import type { BannedEmailIndexesDao } from '../sanctions/banned-email-indexes.dao';
 import { INVITATION_TTL_MS, linkExpiry } from './account-link.bo';
 import {
   AccountLinkInvalidError,
   AlreadyInvitedError,
+  EmailBannedError,
   EmailTakenError,
   InvitationNotFoundError,
   UsernameTakenError,
@@ -57,6 +60,8 @@ export type InvitationsDeps = Readonly<{
     | 'delete'
   >;
   users: Pick<UsersDao, 'findByEmailIndex' | 'usernamesStartingWith'>;
+  /** The e-mails of accounts deleted for a violation (5 years). */
+  bannedEmails: Pick<BannedEmailIndexesDao, 'isBannedSince'>;
   transaction: AcceptanceTransactionRunner;
   sessions: Pick<AuthService, 'startSession'>;
   linkTokens: SessionTokenPort;
@@ -93,6 +98,9 @@ export class InvitationsService {
     const invitedRole = input.role;
     const emailIndex = emailIndexOf(this.deps.cipher, input.email);
     if (await this.deps.users.findByEmailIndex(emailIndex)) throw new EmailTakenError(input.email);
+    const lapse = banLapseCutOf(this.deps.clock.now());
+    if (await this.deps.bannedEmails.isBannedSince(emailIndex, lapse))
+      throw new EmailBannedError(emailIndex);
     await this.requireNotInvited(input.email, emailIndex);
     const token = this.deps.linkTokens.generate();
     const id = this.deps.newId();

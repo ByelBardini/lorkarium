@@ -1,0 +1,18 @@
+---
+import { PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
+import { LEGAL_SUPPLIER_CPF, LEGAL_SUPPLIER_NAME } from 'astro:env/server';
+import { maskedCpfOf } from '@/lib/supplier-identity';
+
+// Decreto 7.962/2013, art. 2º: who sells online must say who they are. The full CPF only lives in
+// the build variable; the page gets the mask.
+const maskedCpf = maskedCpfOf(LEGAL_SUPPLIER_CPF);
+---
+
+<address class="mt-8 border-l-2 border-gold/60 pl-4 text-sm leading-relaxed text-label not-italic">
+  <strong class="text-parchment">{LEGAL_SUPPLIER_NAME}</strong>, pessoa física, CPF {maskedCpf}
+  <br />
+  Nome comercial: Evolutiva Sistemas · Orleans/SC
+  <br />
+  Contato: <a href={`mailto:${PUBLIC_CONTACT_EMAIL}`}>{PUBLIC_CONTACT_EMAIL}</a> · Privacidade:
+  <a href="mailto:privacidade@evolutivasistemas.com.br">privacidade@evolutivasistemas.com.br</a>
+</address>

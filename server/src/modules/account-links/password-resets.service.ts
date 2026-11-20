@@ -62,9 +62,9 @@ export class PasswordResetsService {
     requireOtherAccount(actorId, userId);
     const user = await this.deps.users.findById(userId);
     if (!user) throw new LinkUserNotFoundError(userId);
-    toUserAccessBo(user).requireActive();
-    const token = this.deps.linkTokens.generate();
     const now = this.deps.clock.now();
+    toUserAccessBo(user).requireActive(now);
+    const token = this.deps.linkTokens.generate();
     const expiresAt = linkExpiry(now, PASSWORD_RESET_TTL_MS);
     const tokenHash = this.deps.linkTokens.hash(token);
     await this.deps.resets.replace({ userId, tokenHash, createdAt: now, expiresAt });

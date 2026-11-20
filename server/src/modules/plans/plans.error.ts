@@ -1,5 +1,6 @@
 import {
   PLAN_LIMIT_CODE,
+  type PlanLimitHolder,
   type PlanLimitReason,
   type PlanLimitResource,
   type UserPlan,
@@ -8,7 +9,8 @@ import {
 /** What passed the plan: `stored + adding` against `limit` (0 for a feature the plan lacks).
  *  `reason` says which rule refused: `room` (creating past the ceiling, or a missing feature) or
  *  `readOnly` (editing an item kept past the ceiling; there `stored` is its 1-based position and
- *  `adding` is 0). */
+ *  `adding` is 0). `holder` says whose plan gave the ceiling when it is not the resource's
+ *  usual one (the saved rolls take the greater of the table's and the person's). */
 export type PlanLimitRefusal = Readonly<{
   reason: PlanLimitReason;
   resource: PlanLimitResource;
@@ -16,6 +18,7 @@ export type PlanLimitRefusal = Readonly<{
   adding: number;
   limit: number;
   plan: UserPlan;
+  holder?: PlanLimitHolder;
 }>;
 
 /** The one refusal for passing the plan, HTTP and Socket.IO alike: the edge answers 403 (or the
@@ -28,6 +31,7 @@ export class PlanLimitError extends Error {
   readonly adding: number;
   readonly limit: number;
   readonly plan: UserPlan;
+  readonly holder: PlanLimitHolder | undefined;
 
   constructor(refusal: PlanLimitRefusal, message: string) {
     super(message);
@@ -38,5 +42,6 @@ export class PlanLimitError extends Error {
     this.adding = refusal.adding;
     this.limit = refusal.limit;
     this.plan = refusal.plan;
+    this.holder = refusal.holder;
   }
 }

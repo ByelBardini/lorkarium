@@ -6,6 +6,7 @@ import {
   type PlanCountResource,
   type PlanFeatureResource,
   type PlanLimitDto,
+  type PlanLimitHolder,
   type PlanLimits,
   type PlanLimitResource,
   type UserPlan,
@@ -91,8 +92,9 @@ export const PLAN_FEATURE_LABEL: Readonly<Record<PlanFeatureResource, string>> =
   sheetScripts: 'Scripts no modelo de ficha estão',
 };
 
-// The table features, by what frees them in the grid. The account customizations (texture, animated
-// photo, banner; custom color, also of the account) are freed by the Apoiador, outside this grid.
+// The features, by what frees them in the grid. The other account customizations (texture,
+// animated photo; custom color, also of the account) are freed by the Apoiador, outside this grid;
+// the banner of the profile is in it, Lenda only.
 const FEATURE_IN_GRID: Readonly<
   Partial<Record<PlanFeatureResource, (limits: PlanLimits) => boolean>>
 > = {
@@ -104,6 +106,7 @@ const FEATURE_IN_GRID: Readonly<
   animatedCampaignArt: (limits) => limits.animatedCampaignArt,
   privateCampaign: (limits) => limits.privateCampaign,
   sheetScripts: (limits) => limits.sheetScripts,
+  profileBanner: (limits) => limits.profileBanner,
 };
 
 /** How an item kept past the ceiling is named: `item` opens the sentence, `free` says what stays
@@ -196,7 +199,7 @@ function countLabel(
 }
 
 /** The pt-BR sentence of a refusal for passing the plan: the ceiling and the plan that frees
- *  more; a feature (the cheapest plan that has it) or a ceiling of 0 the plan lacks; Lenda's fair
+ *  more (of the person's own plan when `holder` is `account`); a feature (the cheapest plan that has it) or a ceiling of 0 the plan lacks; Lenda's fair
  *  use, with no plan above; an item kept past the ceiling (`reason: 'readOnly'`) is read only.
  *
  *  Example: `planLimitMessage({ resource: 'scenes', limit: 3, plan: 'free' }) // 'Esta mesa usa o plano Grátis, que permite até 3 grids. O Narrador libera 15.'` */
@@ -210,7 +213,7 @@ export function planLimitMessage(planLimit: PlanLimitDto): string {
   if (PLAN_FAIR_USE_RESOURCES[plan].includes(resource)) {
     return `Esta mesa chegou ao limite de uso justo (${amountText(resource, limit)}).`;
   }
-  const ceiling = ceilingText(resource, limit, plan);
+  const ceiling = ceilingText(resource, limit, plan, planLimit.holder);
   const next = nextPlanText(resource, limit, plan);
   return next === null ? ceiling : `${ceiling} ${next}`;
 }
@@ -224,8 +227,8 @@ export function amountText(resource: PlanCountResource, amount: number): string 
   return `${amount} ${amount === 1 ? label.one : label.many}`;
 }
 
-/** The refusal of a feature the plan lacks: "Duplicar grid está no plano Narrador.", "Banner de perfil
- *  está nos planos pagos." (an account customization).
+/** The refusal of a feature the plan lacks: "Duplicar grid está no plano Narrador.", "Textura
+ *  própria do dado está nos planos pagos." (an account customization the Apoiador frees).
  *
  *  Example: `featureRefusalText('desktopWindows') // 'As janelas de Chat e Imagens estão no plano Lenda.'` */
 export function featureRefusalText(resource: PlanFeatureResource): string {
@@ -247,9 +250,14 @@ function isCountResource(resource: PlanLimitResource): resource is PlanCountReso
   return Object.hasOwn(PLAN_COUNT_LIMIT_KEY, resource);
 }
 
-function ceilingText(resource: PlanCountResource, limit: number, plan: UserPlan): string {
+function ceilingText(
+  resource: PlanCountResource,
+  limit: number,
+  plan: UserPlan,
+  holder: PlanLimitHolder | undefined,
+): string {
   const amount = amountText(resource, limit);
-  if (PLAN_COUNT_LABEL[resource].scope === 'account') {
+  if (holder === 'account' || PLAN_COUNT_LABEL[resource].scope === 'account') {
     return `Seu plano ${PLAN_NAMES[plan]} permite até ${amount}.`;
   }
   return `Esta mesa usa o plano ${PLAN_NAMES[plan]}, que permite até ${amount}.`;

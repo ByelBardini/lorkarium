@@ -38,6 +38,7 @@ describe('readEnv', () => {
       storage: STORAGE,
       dataEncryptionKey: Buffer.alloc(32, 3),
       mailer: { kind: 'log', from: 'Lorkarium <no-reply@lorkarium.dev>' },
+      mailReplyTo: null,
       appPublicUrl: 'http://localhost:5173',
       sitePublicUrl: 'http://localhost:4321',
       trustProxyHops: 0,
@@ -45,6 +46,7 @@ describe('readEnv', () => {
       assetCache: null,
       accessLog: null,
       ownerUsername: null,
+      issueTracker: null,
     });
   });
 
@@ -231,6 +233,21 @@ describe('readEnv, mail', () => {
   it('production without APP_PUBLIC_URL is refused naming the variable', () => {
     expect(() => readEnv({ ...PRODUCTION, APP_PUBLIC_URL: undefined })).toThrow(
       /APP_PUBLIC_URL is required in production \(received nothing\)/,
+    );
+  });
+
+  it('MAIL_REPLY_TO becomes the reply-to address, trimmed and lowercased', () => {
+    const env = readEnv({ ...REQUIRED, MAIL_REPLY_TO: '  Contato@Lorkarium.com.br ' });
+    expect(env.mailReplyTo).toBe('contato@lorkarium.com.br');
+  });
+
+  it('production without MAIL_REPLY_TO boots without a reply-to address', () => {
+    expect(readEnv(PRODUCTION).mailReplyTo).toBeNull();
+  });
+
+  it('a MAIL_REPLY_TO that is not an e-mail address is refused naming the variable', () => {
+    expect(() => readEnv({ ...REQUIRED, MAIL_REPLY_TO: 'contato' })).toThrow(
+      /MAIL_REPLY_TO must be an e-mail address \(received "contato"\)/,
     );
   });
 

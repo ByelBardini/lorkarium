@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { PLAN_LIMITS } from '@lorkarium/contracts';
+import { PLAN_LIMITS, type PlanLimits, type SavedRollLimits } from '@lorkarium/contracts';
 import {
   SavedRollRulesBo,
   requireFolderRoom,
 } from '../../../src/modules/saved-rolls/saved-roll.bo';
 
 const OPEN = PLAN_LIMITS.amigo_do_dono;
+
+function atTable(limits: PlanLimits): SavedRollLimits {
+  return { limits, holder: 'table' };
+}
 
 const rules = new SavedRollRulesBo(50);
 
@@ -48,11 +52,11 @@ describe('SavedRollRulesBo.requireReadable', () => {
 
 describe('SavedRollRulesBo.requireRoomFor', () => {
   it('with 49 kept, the 50th fits', () => {
-    expect(() => rules.requireRoomFor(49, OPEN)).not.toThrow();
+    expect(() => rules.requireRoomFor(49, atTable(OPEN))).not.toThrow();
   });
 
   it('with 50 kept, the next is SAVED_ROLLS_LIMIT "51 of 50"', () => {
-    expect(() => rules.requireRoomFor(50, OPEN)).toThrow(
+    expect(() => rules.requireRoomFor(50, atTable(OPEN))).toThrow(
       expect.objectContaining({
         code: 'SAVED_ROLLS_LIMIT',
         message: expect.stringContaining('51 of 50'),
@@ -63,11 +67,11 @@ describe('SavedRollRulesBo.requireRoomFor', () => {
 
 describe('SavedRollRulesBo.requireRoomFor under the table plan', () => {
   it('a free table with 2 kept: the 3rd fits', () => {
-    expect(() => rules.requireRoomFor(2, PLAN_LIMITS.free)).not.toThrow();
+    expect(() => rules.requireRoomFor(2, atTable(PLAN_LIMITS.free))).not.toThrow();
   });
 
   it('a free table with 3 kept: the 4th is PLAN_LIMIT savedRolls, limit 3, plan free', () => {
-    expect(() => rules.requireRoomFor(3, PLAN_LIMITS.free)).toThrow(
+    expect(() => rules.requireRoomFor(3, atTable(PLAN_LIMITS.free))).toThrow(
       expect.objectContaining({
         code: 'PLAN_LIMIT',
         resource: 'savedRolls',
@@ -78,13 +82,13 @@ describe('SavedRollRulesBo.requireRoomFor under the table plan', () => {
   });
 
   it('a narrador table with 15 kept: the 16th is PLAN_LIMIT, limit 15', () => {
-    expect(() => rules.requireRoomFor(15, PLAN_LIMITS.narrador)).toThrow(
+    expect(() => rules.requireRoomFor(15, atTable(PLAN_LIMITS.narrador))).toThrow(
       expect.objectContaining({ code: 'PLAN_LIMIT', limit: 15, plan: 'narrador' }),
     );
   });
 
   it('a lenda table with 50 kept: the technical SAVED_ROLLS_LIMIT answers, not the plan', () => {
-    expect(() => rules.requireRoomFor(50, PLAN_LIMITS.lenda)).toThrow(
+    expect(() => rules.requireRoomFor(50, atTable(PLAN_LIMITS.lenda))).toThrow(
       expect.objectContaining({ code: 'SAVED_ROLLS_LIMIT', limit: 50 }),
     );
   });
@@ -92,7 +96,7 @@ describe('SavedRollRulesBo.requireRoomFor under the table plan', () => {
 
 describe('requireFolderRoom', () => {
   it('a free table: the first folder is PLAN_LIMIT savedRollFolders, limit 0', () => {
-    expect(() => requireFolderRoom(0, 50, PLAN_LIMITS.free)).toThrow(
+    expect(() => requireFolderRoom(0, 50, atTable(PLAN_LIMITS.free))).toThrow(
       expect.objectContaining({
         code: 'PLAN_LIMIT',
         resource: 'savedRollFolders',
@@ -103,11 +107,11 @@ describe('requireFolderRoom', () => {
   });
 
   it('a narrador table with 4 kept: the 5th fits', () => {
-    expect(() => requireFolderRoom(4, 50, PLAN_LIMITS.narrador)).not.toThrow();
+    expect(() => requireFolderRoom(4, 50, atTable(PLAN_LIMITS.narrador))).not.toThrow();
   });
 
   it('with 50 kept, the next is the technical SAVED_ROLL_FOLDERS_LIMIT "51 of 50"', () => {
-    expect(() => requireFolderRoom(50, 50, OPEN)).toThrow(
+    expect(() => requireFolderRoom(50, 50, atTable(OPEN))).toThrow(
       expect.objectContaining({
         code: 'SAVED_ROLL_FOLDERS_LIMIT',
         message: expect.stringContaining('51 of 50'),
@@ -118,12 +122,12 @@ describe('requireFolderRoom', () => {
 
 describe('SavedRollRulesBo over the name and parts of a kept roll', () => {
   it('at a free table the 3rd roll born (rank 2) is configurable and not planLocked', () => {
-    expect(() => rules.requireConfigurable(2, PLAN_LIMITS.free)).not.toThrow();
-    expect(rules.isPlanLocked(2, PLAN_LIMITS.free)).toBe(false);
+    expect(() => rules.requireConfigurable(2, atTable(PLAN_LIMITS.free))).not.toThrow();
+    expect(rules.isPlanLocked(2, atTable(PLAN_LIMITS.free))).toBe(false);
   });
 
   it('at a free table the 4th roll born (rank 3) is PLAN_LIMIT readOnly and planLocked', () => {
-    expect(() => rules.requireConfigurable(3, PLAN_LIMITS.free)).toThrow(
+    expect(() => rules.requireConfigurable(3, atTable(PLAN_LIMITS.free))).toThrow(
       expect.objectContaining({
         code: 'PLAN_LIMIT',
         reason: 'readOnly',
@@ -133,14 +137,42 @@ describe('SavedRollRulesBo over the name and parts of a kept roll', () => {
         plan: 'free',
       }),
     );
-    expect(rules.isPlanLocked(3, PLAN_LIMITS.free)).toBe(true);
+    expect(rules.isPlanLocked(3, atTable(PLAN_LIMITS.free))).toBe(true);
   });
 
   it('the narrador keeps 15 editable and the table without plan limit never locks', () => {
-    expect([14, 15].map((rank) => rules.isPlanLocked(rank, PLAN_LIMITS.narrador))).toEqual([
-      false,
-      true,
-    ]);
-    expect(rules.isPlanLocked(49, OPEN)).toBe(false);
+    expect([14, 15].map((rank) => rules.isPlanLocked(rank, atTable(PLAN_LIMITS.narrador)))).toEqual(
+      [false, true],
+    );
+    expect(rules.isPlanLocked(49, atTable(OPEN))).toBe(false);
+  });
+});
+
+describe('the ceiling from the plan of the person', () => {
+  const apoiador: SavedRollLimits = {
+    limits: { ...PLAN_LIMITS.free, maxSavedRolls: 15, maxSavedRollFolders: 5, plan: 'apoiador' },
+    holder: 'account',
+  };
+  const rules = new SavedRollRulesBo(50);
+
+  it('the 16th roll of an Apoiador is PLAN_LIMIT naming its own plan as the holder', () => {
+    expect(() => rules.requireRoomFor(14, apoiador)).not.toThrow();
+    expect(() => rules.requireRoomFor(15, apoiador)).toThrow(
+      expect.objectContaining({ resource: 'savedRolls', limit: 15, holder: 'account' }),
+    );
+  });
+
+  it('the 6th folder of an Apoiador is PLAN_LIMIT naming its own plan as the holder', () => {
+    expect(() => requireFolderRoom(4, 50, apoiador)).not.toThrow();
+    expect(() => requireFolderRoom(5, 50, apoiador)).toThrow(
+      expect.objectContaining({ resource: 'savedRollFolders', limit: 5, holder: 'account' }),
+    );
+  });
+
+  it('the 16th roll of an Apoiador is read only, naming the holder; the 15th is not', () => {
+    expect(rules.isPlanLocked(14, apoiador)).toBe(false);
+    expect(() => rules.requireConfigurable(15, apoiador)).toThrow(
+      expect.objectContaining({ reason: 'readOnly', limit: 15, holder: 'account' }),
+    );
   });
 });

@@ -24,14 +24,15 @@ describe('legal links', () => {
   it.each([
     ['terms', 'https://example.com/termos/'],
     ['privacy', 'https://example.com/privacidade/'],
+    ['acceptable-use', 'https://example.com/uso/'],
   ])('GET /api/legal/%s answers 302 to %s, without a session', async (document, landing) => {
     const response = await app.inject({ method: 'GET', url: `/api/legal/${document}` });
     expect(response.statusCode).toBe(302);
     expect(response.headers.location).toBe(landing);
   });
 
-  it('a document that does not exist is 404', async () => {
-    const response = await app.inject({ method: 'GET', url: '/api/legal/cookies' });
+  it.each(['cookies', 'usage'])('a document that does not exist (%s) is 404', async (document) => {
+    const response = await app.inject({ method: 'GET', url: `/api/legal/${document}` });
     expect(response.statusCode).toBe(404);
   });
 });

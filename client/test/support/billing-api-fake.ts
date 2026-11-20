@@ -2,6 +2,9 @@ import {
   BILLING_PRICE_KEYS,
   priceKeyPartsOf,
   type BillingAdminAccountDto,
+  type BillingAdminCancelResponseDto,
+  type BillingAdminSubscriptionDto,
+  type BillingExportDto,
   type BillingPaymentDto,
   type BillingPriceDto,
   type BillingPriceKey,
@@ -58,6 +61,21 @@ export function subscriptionOf(
   };
 }
 
+/** A card subscription of the Narrador monthly as the backoffice sees it (with its id), renewing
+ *  on 16/12/2026; `overrides` change any field.
+ *
+ *  Example: `adminSubscriptionOf({ status: 'cancelled', renews: false })` */
+export function adminSubscriptionOf(
+  overrides: Partial<BillingAdminSubscriptionDto> = {},
+): BillingAdminSubscriptionDto {
+  return {
+    ...subscriptionOf('narrador_monthly'),
+    id: '5e4d3c2b-1a09-4f8e-9d7c-6b5a4f3e2d1c',
+    createdAt: '2026-11-16T15:00:00.000Z',
+    ...overrides,
+  };
+}
+
 /** An approved card payment of the Narrador monthly; `overrides` change any field. */
 export function billingPaymentOf(overrides: Partial<BillingPaymentDto> = {}): BillingPaymentDto {
   return {
@@ -91,10 +109,20 @@ type Answers = {
   cancel: BillingResult<BillingSubscriptionDto>;
   adminAccount: BillingResult<BillingAdminAccountDto>;
   refund: BillingResult<BillingPaymentDto>;
+  adminCancel: BillingResult<BillingAdminCancelResponseDto>;
+  exportOwn: BillingResult<BillingExportDto>;
+};
+
+/** The export of an account that never paid, as `GET /api/billing/export` answers it. */
+export const BILLING_EXPORT_EMPTY: BillingExportDto = {
+  exportedAt: '2026-11-19T14:30:00.000Z',
+  subscriptions: [],
+  payments: [],
 };
 
 /** A `BillingApi` in memory: the catalog, the session's `status`, a checkout that always opens the
- *  Mercado Pago and one admin account; every method can be scripted (`answers`). */
+ *  Mercado Pago and one admin account (whose renewing card subscription `adminCancel` stops);
+ *  every method can be scripted (`answers`). */
 export class BillingApiFake implements BillingApi {
   status_: BillingStatusDto = BILLING_STATUS_NONE;
   account: BillingAdminAccountDto = { ...BILLING_STATUS_NONE, subscriptions: [], payments: [] };
@@ -122,6 +150,33 @@ export class BillingApiFake implements BillingApi {
 
   refund(request: RefundRequestDto, idempotencyKey: string): Promise<Answers['refund']> {
     return this.answers.reply('refund', { request, idempotencyKey }, () => this.refunded(request));
+  }
+
+  /** `exported` unless scripted. */
+  exported: BillingExportDto = BILLING_EXPORT_EMPTY;
+
+  exportOwn(): Promise<Answers['exportOwn']> {
+    return this.answers.reply('exportOwn', undefined, () => ({ ok: true, value: this.exported }));
+  }
+
+  adminCancel(userId: string, idempotencyKey: string): Promise<Answers['adminCancel']> {
+    return this.answers.reply('adminCancel', { userId, idempotencyKey }, () =>
+      this.cancelledByAdmin(),
+    );
+  }
+
+  private cancelledByAdmin(): Answers['adminCancel'] {
+    const renewing = this.account.subscriptions.find(
+      (each) => each.status === 'active' && each.renews,
+    );
+    if (renewing === undefined)
+      return { ok: true, value: { subscription: null, cancelled: false } };
+    const subscription = { ...renewing, status: 'cancelled', renews: false } as const;
+    const subscriptions = this.account.subscriptions.map((each) =>
+      each.id === renewing.id ? subscription : each,
+    );
+    this.account = { ...this.account, subscriptions };
+    return { ok: true, value: { subscription, cancelled: true } };
   }
 
   private cancelled(): Answers['cancel'] {

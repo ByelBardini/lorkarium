@@ -24,7 +24,8 @@ export type UserRowCommand =
   | 'password-link'
   | 'grant-admin'
   | 'revoke-admin'
-  | 'suspend'
+  | 'sanction'
+  | 'sanctions'
   | 'reactivate'
   | 'delete'
   | 'badges'
@@ -86,13 +87,13 @@ function AccountCommands({ user, onCommand, onPlan }: UserRowMenuProps): React.J
         <DropdownMenuItem onSelect={() => onCommand('grant-admin')}>Tornar admin</DropdownMenuItem>
       )}
       <PlanSubmenu current={user.plan} onPlan={onPlan} />
-      {active ? (
-        <DropdownMenuItem onSelect={() => onCommand('suspend')}>Suspender acesso</DropdownMenuItem>
-      ) : (
+      <DropdownMenuItem onSelect={() => onCommand('sanction')}>Aplicar medida…</DropdownMenuItem>
+      {!active && (
         <DropdownMenuItem onSelect={() => onCommand('reactivate')}>
           Reativar acesso
         </DropdownMenuItem>
       )}
+      <DropdownMenuItem onSelect={() => onCommand('sanctions')}>Medidas…</DropdownMenuItem>
     </>
   );
 }

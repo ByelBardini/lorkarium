@@ -1,0 +1,52 @@
+name: Relatar um problema
+description: Algo no Lorkarium não funciona como deveria.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por avisar! Falha de segurança **não** entra aqui: siga a [política de segurança](https://github.com/ByelBardini/lorkarium/security/policy).
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passos para reproduzir
+      description: O que você fez, passo a passo, até o problema aparecer.
+      placeholder: |
+        1. Abri a mesa …
+        2. Arrastei o token …
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: O que você esperava
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: O que aconteceu
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Onde
+      options:
+        - Navegador
+        - App para Windows
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Navegador ou versão do app
+      placeholder: Chrome 142, Firefox 145, Lorkarium 0.3.1…
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Prints ou vídeo
+      description: Arraste os arquivos para cá. Esconda e-mails e dados de outras pessoas.

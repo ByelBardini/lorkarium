@@ -82,6 +82,23 @@ describe('SavedRollFoldersService', () => {
     expect(journal).toEqual(['lock', 'folder:count']);
   });
 
+  it('at a free table Bia on Apoiador creates up to 5 folders, the 6th refused naming her plan', async () => {
+    const { service, rolls, folders } = setup();
+    rolls.tablePlans.set(VHARN_ID, planAccount({ plan: 'free' }));
+    rolls.memberPlans.set(BIA_ID, planAccount({ plan: 'apoiador' }));
+
+    for (const name of ['Ataques', 'Defesa', 'Perícias', 'Cura']) await service.create(BIA, name);
+
+    expect(folders.rows.filter((row) => row.userId === BIA_ID)).toHaveLength(5);
+    await expect(service.create(BIA, 'Extra')).rejects.toMatchObject({
+      code: 'PLAN_LIMIT',
+      resource: 'savedRollFolders',
+      limit: 5,
+      plan: 'apoiador',
+      holder: 'account',
+    });
+  });
+
   it('at a narrador table Bia creates a folder', async () => {
     const { service, journal, rolls } = setup();
     rolls.tablePlans.set(VHARN_ID, planAccount({ plan: 'narrador' }));

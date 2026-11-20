@@ -8,6 +8,7 @@ import { ReplyButton, ReplyQuote, type QuotedMessage } from '@/components/messag
 import { UserAvatar } from '@/components/user-avatar';
 import { mentionsAny, type ChatMessage } from '@/lib/chat-conversations';
 import { repliesToViewer } from '@/lib/chat-replies';
+import { formatClockTime } from '@/lib/clock-time';
 import { initialsOf } from '@lorkarium/game-core';
 import { cn } from '@/lib/utils';
 import { MENTION_MARK, whisperMark } from './chat-messages';
@@ -30,8 +31,6 @@ export type ChatMessageRowProps = Readonly<{
   /** Starts answering this message; keeps its identity across renders (the row is a `memo`). */
   onReply: (message: ChatMessage) => void;
 }>;
-
-const TIME_FORMAT = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
 /** One message of the feed: the author (or the character spoken as, in the display serif and
  *  italic, with who played it below), the whisper mark in text, the time and the text. A mention
@@ -139,7 +138,7 @@ function RowHeader({ event, people, mine }: RowPartProps & Readonly<{ mine: bool
         </span>
       )}
       <time dateTime={event.at} className="text-[11px] text-muted-foreground tabular-nums">
-        {TIME_FORMAT.format(new Date(event.at))}
+        {formatClockTime(event.at)}
       </time>
     </div>
   );

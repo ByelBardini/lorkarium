@@ -10,6 +10,10 @@ const ASSET_GOES_WITH_ITS_TABLE = 'an asset row is only deleted by its campaign 
 const ACCOUNT_DELETION = 'fires only when an admin deletes an account';
 const CAMPAIGN_PREFIX = 'an index led by campaign_id narrows it to one table, a few dozen rows';
 const ACCEPTED_WITHOUT_INDEX: Record<string, string> = {
+  'account_sanctions.appeal_decided_by': ACCOUNT_DELETION,
+  'account_sanctions.issued_by': ACCOUNT_DELETION,
+  'account_sanctions.report_id':
+    'measures are few (a handful per month): the purge of a closed report scans a tiny table',
   'assets.owner_id': ACCOUNT_DELETION,
   'campaigns.banner_asset_id': ASSET_GOES_WITH_ITS_TABLE,
   'campaigns.cover_asset_id': ASSET_GOES_WITH_ITS_TABLE,
@@ -32,6 +36,9 @@ const ACCEPTED_WITHOUT_INDEX: Record<string, string> = {
     'one row per campaign: the primary key on campaign_id answers it',
   'library_images.campaign_id,asset_id': 'the unique asset_id answers it',
   'library_maps.campaign_id,asset_id': 'the unique asset_id answers it',
+  'mail_broadcast_deliveries.user_id':
+    'fires only when an admin deletes an account: a scan of the notices of 5 years, tens of thousands of rows',
+  'mail_broadcasts.created_by': ACCOUNT_DELETION,
   'scene_folders.campaign_id,parent_id': CAMPAIGN_PREFIX,
   'scenes.background_asset_id': ASSET_GOES_WITH_ITS_TABLE,
   'scenes.campaign_id,folder_id': CAMPAIGN_PREFIX,

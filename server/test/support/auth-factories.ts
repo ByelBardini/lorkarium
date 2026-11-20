@@ -62,9 +62,11 @@ export function userPo(overrides: UserOverrides<UserPo> = {}): UserPo {
     natural20Count: 0,
     passwordChangedAt: null,
     suspendedAt: null,
+    suspendedUntil: null,
     lastSeenAt: null,
     termsAcceptedAt: null,
     termsVersion: null,
+    dataExportedAt: null,
     createdAt: new Date('2026-10-01T12:00:00Z'),
     ...rest,
   };

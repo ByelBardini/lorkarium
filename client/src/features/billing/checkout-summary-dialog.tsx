@@ -1,6 +1,7 @@
 import type { BillingMethod, BillingPeriod, CheckoutRequestDto } from '@lorkarium/contracts';
 import { CalendarClockIcon, ExternalLinkIcon, LockIcon, Undo2Icon } from 'lucide-react';
 import { useState } from 'react';
+import { LegalDocumentLink } from '@/components/legal-document-link';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -39,8 +40,10 @@ const DISCOUNT_LABELS: Readonly<Record<BillingPeriod, string>> = {
 
 /** The summary before leaving for the Mercado Pago, as a receipt: the months at the monthly
  *  price, the discount of the period, the total of today; then what happens next (the next charge
- *  or the end of a Pix, cancelling, the 7 days to give up). Only "Continuar no Mercado Pago" asks
- *  the checkout; the browser leaves only for a redirect the DTO accepted.
+ *  or the end of a Pix, cancelling, the 7 days to give up) and that continuing accepts the Terms of
+ *  use (a line with the link, nothing recorded: the billing service owns the checkout). Only
+ *  "Continuar no Mercado Pago" asks the checkout; the browser leaves only for a redirect the DTO
+ *  accepted.
  *
  *  Example: `<CheckoutSummaryDialog choice={choice} now={now} billingApi={api} goToCheckout={assign} onClose={close} />` */
 export function CheckoutSummaryDialog(props: CheckoutSummaryDialogProps): React.JSX.Element {
@@ -64,6 +67,11 @@ export function CheckoutSummaryDialog(props: CheckoutSummaryDialogProps): React.
             {billingFailureMessage(checkout.failure, 'abrir o pagamento')}
           </Alert>
         )}
+        <p className="text-center text-xs text-muted-foreground">
+          Ao continuar, você aceita os{' '}
+          <LegalDocumentLink document="terms" className="text-foreground underline" />, inclusive as
+          regras de planos e reembolso.
+        </p>
         <div className="flex flex-col gap-2">
           <Button size="xl" disabled={checkout.busy} onClick={() => checkout.start(request)}>
             Continuar no Mercado Pago

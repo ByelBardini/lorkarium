@@ -1,5 +1,8 @@
 ---
 import LegalPage from '@/components/legal-page.astro';
+import SupplierIdentity from '@/components/supplier-identity.astro';
 ---
 
-<LegalPage docId="termos" description="Os termos de uso do Lorkarium, a mesa virtual de RPG." />
+<LegalPage docId="termos" description="Os termos de uso do Lorkarium, a mesa virtual de RPG.">
+  <SupplierIdentity slot="before-text" />
+</LegalPage>

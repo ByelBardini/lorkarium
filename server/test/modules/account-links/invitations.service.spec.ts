@@ -16,6 +16,7 @@ import {
   UsersDaoFake,
 } from '../../support/auth-fakes';
 import { authPlanFieldsOf, userPo } from '../../support/auth-factories';
+import { BannedEmailsFake } from '../../support/user-admin-fakes';
 
 const NOW = new Date('2026-10-24T12:00:00Z');
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
@@ -47,6 +48,7 @@ describe('InvitationsService', () => {
   let mailer: MailerFake;
   let clock: ClockFake;
   let sessions: SessionStarterFake;
+  let bannedEmails: BannedEmailsFake;
   let ids: number;
   let service: InvitationsService;
 
@@ -60,9 +62,11 @@ describe('InvitationsService', () => {
     sessions = new SessionStarterFake();
     ids = 0;
     const daos: AcceptanceDaos = { invitations, users };
+    bannedEmails = new BannedEmailsFake();
     service = new InvitationsService({
       invitations,
       users,
+      bannedEmails,
       transaction: (work) => work(daos),
       sessions,
       linkTokens: new SessionTokenFake(),
@@ -122,6 +126,33 @@ describe('InvitationsService', () => {
         code: 'ALREADY_INVITED',
         invitationId: 'id-1',
       });
+    });
+
+    it('the address of an account deleted for a violation is EMAIL_BANNED and nothing is stored nor sent', async () => {
+      await bannedEmails.ban(
+        'idx:email-index:marina@exemplo.com',
+        new Date('2026-01-10T00:00:00Z'),
+      );
+
+      const invite = service.invite(LUCAS, marina);
+
+      await expect(invite).rejects.toMatchObject({
+        code: 'EMAIL_BANNED',
+        emailIndex: 'idx:email-index:marina@exemplo.com',
+      });
+      expect(invitations.rows).toEqual([]);
+      expect(mailer.sent).toEqual([]);
+    });
+
+    it('a ban older than 5 years no longer blocks the address', async () => {
+      await bannedEmails.ban(
+        'idx:email-index:marina@exemplo.com',
+        new Date('2021-10-20T00:00:00Z'),
+      );
+
+      await service.invite(LUCAS, marina);
+
+      expect(invitations.rows).toHaveLength(1);
     });
   });
 

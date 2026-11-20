@@ -15,9 +15,12 @@ import { NO_PERF_PROBE, RecordingPerfProbe } from '@/lib/perf-probe';
 import { HttpAccountLinksApi } from '@/services/account-links-api';
 import { HttpAccountPlanApi } from '@/services/account-plan-api';
 import { HttpBillingApi } from '@/services/billing-api';
+import { HttpDataExportApi } from '@/services/data-export-api';
 import { HttpAccountSecurityApi } from '@/services/account-security-api';
 import { HttpUserAdminApi } from '@/services/user-admin-api';
 import { HttpUserReportsApi } from '@/services/user-reports-api';
+import { HttpSanctionsApi } from '@/services/sanctions-api';
+import { HttpBroadcastsApi } from '@/services/broadcasts-api';
 import { HttpBadgesAdminApi } from '@/services/badges-admin-api';
 import { HttpAuthApi } from '@/services/auth-api';
 import { HttpAssetsApi } from '@/services/assets-api';
@@ -29,6 +32,9 @@ import { NavigatorClipboard } from '@/services/clipboard';
 import { BrowserFileDownload } from '@/services/file-download';
 import { DocumentFieldEditing } from '@/services/field-editing';
 import { desktopShellOf, isDesktopShell } from '@/lib/desktop-shell';
+import { feedbackWhereOf } from '@/lib/feedback-platform';
+import { HttpFeedbackAdminApi } from '@/services/feedback-admin-api';
+import { HttpFeedbackApi } from '@/services/feedback-api';
 import { TauriDesktopWindow } from '@/services/desktop-window';
 import { FetchHttpTransport } from '@/services/http-transport';
 import { SocketIoRealtimeTransport } from '@/services/realtime-transport';
@@ -162,11 +168,14 @@ const router = createBrowserRouter(
     accountSecurityApi: new HttpAccountSecurityApi(transport),
     accountPlanApi: new HttpAccountPlanApi(transport),
     billingApi: new HttpBillingApi(transport),
+    dataExportApi: new HttpDataExportApi(),
     goToCheckout: (url) => window.location.assign(url),
     checkoutStorage: tabStorage,
     waitBeforeBillingCheck: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     userAdminApi: new HttpUserAdminApi(transport),
     userReportsApi: new HttpUserReportsApi(transport),
+    sanctionsApi: new HttpSanctionsApi(transport),
+    broadcastsApi: new HttpBroadcastsApi(transport),
     badgesAdminApi: new HttpBadgesAdminApi(transport),
     accountLinksApi: new HttpAccountLinksApi(transport),
     libraryApi: new HttpLibraryApi(transport),
@@ -235,6 +244,9 @@ const router = createBrowserRouter(
     accountRealtime,
     friendsApi,
     profileCardApi: new HttpProfileCardApi(transport),
+    feedbackApi: new HttpFeedbackApi(transport),
+    feedbackWhere: feedbackWhereOf(navigator.userAgent),
+    feedbackAdminApi: new HttpFeedbackAdminApi(transport),
     friends,
     directMessages,
     presenceChoice,

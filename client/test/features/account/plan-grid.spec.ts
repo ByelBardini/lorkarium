@@ -4,7 +4,6 @@ import {
   auraCell,
   campaignsUsageLabel,
   countCell,
-  PLAN_FEATURE_ROWS,
   PLAN_GRID_ROWS,
   storageUsageLabel,
 } from '@/features/account/plan-grid';
@@ -59,10 +58,13 @@ describe('plan grid texts', () => {
   it.each([
     ['Scripts na ficha', 'não', 'não', 'sim', 'sim'],
     ['Arte animada da mesa', 'não', 'não', 'não', 'sim'],
+    ['Banner de perfil', 'não', 'não', 'não', 'sim'],
+    ['Rolagens salvas por pessoa', '3', '15', '15', '50'],
+    ['Pastas de rolagens por pessoa', '0', '5', '5', '50'],
   ] as const)(
     'the "%s" row reads %s / %s / %s / %s on Grátis, Apoiador, Narrador and Lenda',
     (label, free, apoiador, narrador, lenda) => {
-      const row = PLAN_FEATURE_ROWS.find((line) => line.label === label);
+      const row = PLAN_GRID_ROWS.find((line) => line.label === label);
       const cells = [
         PLAN_LIMITS.free,
         PLAN_LIMITS.apoiador,
@@ -78,8 +80,18 @@ describe('plan grid texts', () => {
     expect(labels.indexOf('Duplicar grid')).toBeLessThan(labels.indexOf('Mesas como dono'));
   });
 
+  it('the saved rolls rows compare by the person’s ceilings: the Apoiador above Grátis', () => {
+    const row = PLAN_GRID_ROWS.find((line) => line.label === 'Rolagens salvas por pessoa');
+    expect([PLAN_LIMITS.free, PLAN_LIMITS.apoiador].map((l) => row?.amountOf?.(l))).toEqual([
+      3, 15,
+    ]);
+  });
+
   it('the Apoiador column keeps the table limits of Grátis', () => {
-    const tableRows = PLAN_GRID_ROWS.filter((line) => !line.label.startsWith('Personalizações'));
+    const personal = ['Personalizações', 'Rolagens salvas', 'Pastas de rolagens'];
+    const tableRows = PLAN_GRID_ROWS.filter(
+      (line) => !personal.some((start) => line.label.startsWith(start)),
+    );
     for (const row of tableRows)
       expect(row.cellOf(PLAN_LIMITS.apoiador)).toBe(row.cellOf(PLAN_LIMITS.free));
   });

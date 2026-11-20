@@ -34,6 +34,7 @@ export { drawingKind, drawings, strokeWidth } from '../modules/drawings/drawings
 export { effectAreaKind, effectAreas } from '../modules/effect-areas/effect-areas.po';
 export { doorState, wallKind, wallShape, walls } from '../modules/walls/walls.po';
 export { assetMimeType, assetPurpose, assets } from '../modules/assets/assets.po';
+export { storageDeletions } from '../modules/assets/storage-deletions.po';
 export { lights } from '../modules/lights/lights.po';
 export { emailChangeRequests } from '../modules/account-security/email-change-requests.po';
 export {
@@ -55,7 +56,27 @@ export {
   userReportStatus,
   userReports,
 } from '../modules/reports/user-reports.po';
+export {
+  reportAttachmentMimeType,
+  reportAttachments,
+} from '../modules/reports/report-attachments.po';
+export {
+  feedbackEntries,
+  feedbackKind,
+  feedbackPlatform,
+} from '../modules/feedback/feedback-entries.po';
+export {
+  feedbackAttachmentMimeType,
+  feedbackAttachments,
+} from '../modules/feedback/feedback-attachments.po';
 export { badges, userBadges } from '../modules/badges/badges.po';
+export {
+  accountSanctions,
+  appealOutcome,
+  sanctionKind,
+  sanctionRule,
+} from '../modules/sanctions/account-sanctions.po';
+export { bannedEmailIndexes } from '../modules/sanctions/banned-email-indexes.po';
 
 export { libraryImages } from '../modules/library/library-images.po';
 export { libraryImagePresentations } from '../modules/library/image-presentations.po';
@@ -79,3 +100,5 @@ export {
   characterControllers,
   characters,
 } from '../modules/characters/characters.po';
+export { mailBroadcasts } from '../modules/broadcasts/mail-broadcasts.po';
+export { mailBroadcastDeliveries } from '../modules/broadcasts/mail-broadcast-deliveries.po';

@@ -46,17 +46,12 @@ async function acceptAsMarina(marina: Page, link: string): Promise<void> {
   await marina.getByLabel('Senha', { exact: true }).fill(MARINA.password);
   await marina.getByLabel('Repita a senha', { exact: true }).fill(MARINA.password);
   await marina
-    .getByRole('checkbox', { name: 'Li e aceito os Termos de uso e a Política de privacidade' })
+    .getByRole('checkbox', {
+      name: 'Li e aceito os Termos de uso, a Política de privacidade e a Política de uso',
+    })
     .check();
   await marina.getByRole('button', { name: 'Criar minha conta' }).click();
   await expect(marina.getByRole('navigation', { name: 'Principal' })).toBeVisible();
-}
-
-async function confirmIn(admin: Page, dialog: string, button: string): Promise<void> {
-  await admin
-    .getByRole('alertdialog', { name: dialog })
-    .getByRole('button', { name: button })
-    .click();
 }
 
 test.describe('backoffice', () => {
@@ -71,8 +66,17 @@ test.describe('backoffice', () => {
     await admin.reload();
     await expect(rowOf(admin, '@marina')).toContainText('Ativo');
 
-    await chooseFor(admin, 'marina', 'Suspender acesso');
-    await confirmIn(admin, 'Suspender o acesso de @marina?', 'Suspender');
+    await chooseFor(admin, 'marina', 'Aplicar medida…');
+    const measure = admin.getByRole('dialog', { name: 'Aplicar medida a @marina' });
+    await measure.getByRole('radio', { name: 'Suspensão' }).click();
+    await measure
+      .getByLabel('Regra da Política de uso')
+      .selectOption({ label: '§9 Spam e divulgação' });
+    await measure.getByLabel('Motivo (a pessoa lê este texto)').fill('Mandou propaganda em massa.');
+    await expect(measure.getByRole('region', { name: 'Prévia do e-mail' })).toContainText(
+      'Prazo: sem prazo',
+    );
+    await measure.getByRole('button', { name: 'Aplicar medida' }).click();
     await expect(admin.getByText('O acesso de @marina foi suspenso.')).toBeVisible();
     await marina.reload();
     await expect(marina).toHaveURL(/\/login/);

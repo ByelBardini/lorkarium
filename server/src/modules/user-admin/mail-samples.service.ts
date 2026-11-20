@@ -8,6 +8,8 @@ export type MailSamplesDeps = Readonly<{
   /** The app's mailer itself, not the best-effort notices: the admin wants to see a failure. */
   mailer: MailerPort;
   appPublicUrl: string;
+  /** The landing: where the measures' rule links go. */
+  sitePublicUrl: string;
   /** The "Quando" of the notices is the moment of the send. */
   clock: ClockPort;
 }>;
@@ -23,19 +25,15 @@ export class MailSamplesService {
   constructor(private readonly deps: MailSamplesDeps) {}
 
   list(): MailSampleDto[] {
-    return mailSamples(LISTING_ADDRESS, this.deps.appPublicUrl, this.deps.clock.now()).map(
-      ({ id, name, message }) => ({
-        id,
-        name,
-        subject: message.subject,
-      }),
-    );
+    return this.catalogFor(LISTING_ADDRESS).map(({ id, name, message }) => ({
+      id,
+      name,
+      subject: message.subject,
+    }));
   }
 
   async send(sampleId: string, to: string): Promise<Readonly<{ subject: string; to: string }>> {
-    const sample = mailSamples(to, this.deps.appPublicUrl, this.deps.clock.now()).find(
-      (each) => each.id === sampleId,
-    );
+    const sample = this.catalogFor(to).find((each) => each.id === sampleId);
     if (!sample) throw new MailSampleNotFoundError(sampleId);
     try {
       await this.deps.mailer.send(sample.message);
@@ -43,5 +41,10 @@ export class MailSamplesService {
       throw new MailDeliveryFailedError(sample.message.subject, error);
     }
     return { subject: sample.message.subject, to };
+  }
+
+  private catalogFor(to: string): ReturnType<typeof mailSamples> {
+    const { appPublicUrl, sitePublicUrl, clock } = this.deps;
+    return mailSamples(to, appPublicUrl, clock.now(), sitePublicUrl);
   }
 }

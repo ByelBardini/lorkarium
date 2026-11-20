@@ -4,7 +4,7 @@ import { MailerFake } from '../../support/account-security-fakes';
 import { ClockFake } from '../../support/auth-fakes';
 
 const TO = 'preview@lorkarium.dev';
-const PUBLIC_URL = 'http://localhost:5173';
+const URLS = { publicUrl: 'http://localhost:5173', siteUrl: 'http://localhost:4321' };
 
 describe('MailPreviewService', () => {
   it('refuses production with MAIL_PREVIEW_REFUSED citing the value, before any send', async () => {
@@ -12,7 +12,7 @@ describe('MailPreviewService', () => {
     const preview = new MailPreviewService(
       mailer,
       new ClockFake(new Date('2026-10-24T16:37:00Z')),
-    ).send('production', TO, PUBLIC_URL);
+    ).send('production', TO, URLS);
     await expect(preview).rejects.toMatchObject({
       code: 'MAIL_PREVIEW_REFUSED',
       message: expect.stringContaining('NODE_ENV=production'),
@@ -25,11 +25,11 @@ describe('MailPreviewService', () => {
     const sent = await new MailPreviewService(
       mailer,
       new ClockFake(new Date('2026-10-24T16:37:00Z')),
-    ).send('development', TO, PUBLIC_URL);
-    expect(mailer.sent).toHaveLength(11);
+    ).send('development', TO, URLS);
+    expect(mailer.sent).toHaveLength(17);
     expect(new Set(mailer.sent.map((mail) => mail.to))).toEqual(new Set([TO]));
     expect(mailer.sent[0]?.subject).toBe('Confirme seu novo e-mail no Lorkarium');
-    expect(sent).toBe(11);
+    expect(sent).toBe(17);
   });
 
   it('a failure stops at the item and names its subject', async () => {
@@ -38,7 +38,7 @@ describe('MailPreviewService', () => {
     const preview = new MailPreviewService(
       mailer,
       new ClockFake(new Date('2026-10-24T16:37:00Z')),
-    ).send('development', TO, PUBLIC_URL);
+    ).send('development', TO, URLS);
     await expect(preview).rejects.toThrow(
       /Confirme seu novo e-mail no Lorkarium.*connection refused/,
     );

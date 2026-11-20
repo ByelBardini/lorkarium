@@ -1,6 +1,7 @@
-import type { BillingAdminSubscriptionDto } from '@lorkarium/contracts';
+import type { BillingAdminAccountDto, BillingAdminSubscriptionDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import {
+  deletionBillingOf,
   paymentStatusViewOf,
   paymentTotalsOf,
   renewalOf,
@@ -78,6 +79,48 @@ describe('paymentTotalsOf', () => {
     ]);
 
     expect(totals).toEqual({ receivedCents: 14290, refundedCents: 1490 });
+  });
+});
+
+describe('deletionBillingOf', () => {
+  function narradorPaidWith(subscriptions: BillingAdminSubscriptionDto[]): BillingAdminAccountDto {
+    return {
+      paidPlan: 'narrador',
+      paidPlanUntil: '2026-12-23T15:00:00.000Z',
+      subscriptions,
+      payments: [],
+    };
+  }
+
+  it('a card that renews must be cancelled first, and the line says the paid time is lost', () => {
+    const renewing = adminSubscription({ priceKey: 'narrador_monthly' });
+
+    const billing = deletionBillingOf(narradorPaidWith([renewing]));
+
+    expect(billing).toEqual({
+      renewing,
+      line: 'Narrador mensal no cartão, renova em 16/12/2026; a pessoa perde o tempo pago restante.',
+    });
+  });
+
+  it('a renewal the account already stopped has nothing to cancel, only the line', () => {
+    const stopped = adminSubscription({ status: 'active', renews: false });
+
+    const billing = deletionBillingOf(narradorPaidWith([stopped]));
+
+    expect(billing).toEqual({
+      renewing: null,
+      line: 'Narrador pago até 23/12/2026; a pessoa perde o tempo pago restante.',
+    });
+  });
+
+  it('a checkout never paid is no renewal, and without a paid plan there is no line', () => {
+    const left = adminSubscription({ status: 'pending' });
+    const unpaid = { ...narradorPaidWith([left]), paidPlan: null, paidPlanUntil: null };
+    expect(deletionBillingOf(unpaid)).toEqual({
+      renewing: null,
+      line: null,
+    });
   });
 });
 

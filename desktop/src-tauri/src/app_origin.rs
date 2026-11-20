@@ -39,7 +39,7 @@ fn has_credentials(url: &Url) -> bool {
 impl AppOrigin {
     /// The site the shell opens, reduced to `scheme://host[:port]`; release builds only take https.
     ///
-    /// Example: `AppOrigin::parse("https://lorkarium.app", BuildProfile::Release)`
+    /// Example: `AppOrigin::parse("https://app.lorkarium.com.br", BuildProfile::Release)`
     pub fn parse(raw: &str, build: BuildProfile) -> Result<Self, AppOriginError> {
         let url =
             Url::parse(raw).map_err(|cause| refusal(raw, &format!("não é uma URL ({cause})")))?;
@@ -64,7 +64,7 @@ impl AppOrigin {
 
     /// Whether `other` lives on this origin (scheme, host and port), never by text prefix.
     ///
-    /// Example: `origin.contains(&Url::parse("https://lorkarium.app/campaigns/1")?)`
+    /// Example: `origin.contains(&Url::parse("https://app.lorkarium.com.br/campaigns/1")?)`
     pub fn contains(&self, other: &Url) -> bool {
         self.url.origin() == other.origin()
     }
@@ -93,8 +93,8 @@ mod tests {
     #[test]
     fn https_url_in_release_becomes_the_origin() {
         assert_eq!(
-            origin_of("https://lorkarium.app", BuildProfile::Release),
-            "https://lorkarium.app/"
+            origin_of("https://app.lorkarium.com.br", BuildProfile::Release),
+            "https://app.lorkarium.com.br/"
         );
     }
 
@@ -109,15 +109,15 @@ mod tests {
     #[test]
     fn trailing_slash_keeps_the_same_origin() {
         assert_eq!(
-            origin_of("https://lorkarium.app/", BuildProfile::Release),
-            "https://lorkarium.app/"
+            origin_of("https://app.lorkarium.com.br/", BuildProfile::Release),
+            "https://app.lorkarium.com.br/"
         );
     }
 
     #[test]
     fn plain_http_in_release_is_refused_citing_the_url() {
-        let message = error_of("http://lorkarium.app", BuildProfile::Release);
-        assert!(message.contains("http://lorkarium.app"), "{message}");
+        let message = error_of("http://app.lorkarium.com.br", BuildProfile::Release);
+        assert!(message.contains("http://app.lorkarium.com.br"), "{message}");
         assert!(message.contains("https em release"), "{message}");
     }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { type ActId, actById, inviteMailto, landingCopy } from '@/copy/landing-copy';
+import { REPOSITORY_URL } from '@/lib/desktop-release';
 
 describe('inviteMailto', () => {
   it('fills the invite subject, URL-encoded', () => {
@@ -9,7 +10,26 @@ describe('inviteMailto', () => {
   });
 });
 
+function faqAsking(question: string): (typeof landingCopy.faqs)[number] | undefined {
+  return landingCopy.faqs.find((faq) => faq.question === question);
+}
+
 describe('landingCopy', () => {
+  it('says the paid plans are on sale, no longer "não estão à venda"', () => {
+    const price = faqAsking('Quanto custa?');
+
+    expect(price?.answer).not.toMatch(/não estão à venda|acesso antecipado/);
+    expect(price?.answer).toMatch(/Apoiador, Narrador e Lenda/);
+    expect(price?.link?.href).toBe('/planos/');
+  });
+
+  it('answers that the Lorkarium is open source under the AGPL, linking the repository', () => {
+    const openSource = faqAsking('O Lorkarium é open source?');
+
+    expect(openSource?.answer).toMatch(/AGPL-3\.0/);
+    expect(openSource?.link?.href).toBe(REPOSITORY_URL);
+  });
+
   it('promises at most the 8 bars a token takes', () => {
     const barClaims = [...landingCopy.features.map((f) => f.text), ...landingCopy.combatPoints];
 

@@ -61,6 +61,28 @@ describe('planLimitErrorBody', () => {
       planLimit: { resource: 'scenes', limit: 3, plan: 'free', reason: 'readOnly' },
     });
   });
+
+  it('carries the holder when the refusal has one', () => {
+    const limits = { ...PLAN_LIMITS.free, maxSavedRolls: 15, plan: 'apoiador' } as const;
+    let refusal: unknown;
+    try {
+      PlanLimitsBo.requireRoom('savedRolls', 15, 1, limits, 'account');
+    } catch (error) {
+      refusal = error;
+    }
+    if (!(refusal instanceof PlanLimitError)) throw new Error('expected the 16th roll refused');
+    expect(apiErrorDto.parse(planLimitErrorBody(refusal)).planLimit).toEqual({
+      resource: 'savedRolls',
+      limit: 15,
+      plan: 'apoiador',
+      reason: 'room',
+      holder: 'account',
+    });
+  });
+
+  it('leaves the holder out when the refusal has none', () => {
+    expect(planLimitErrorBody(refusalOfScenes()).planLimit).not.toHaveProperty('holder');
+  });
 });
 
 describe('withPlanLimitReply', () => {

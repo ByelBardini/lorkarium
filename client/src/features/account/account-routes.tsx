@@ -107,6 +107,11 @@ function accountScreen(deps: AppDependencies): () => React.JSX.Element {
         dicePreferences={deps.dicePreferences}
         chatPreferences={deps.chatPreferences}
         billingApi={deps.billingApi}
+        dataExport={{
+          dataExportApi: deps.dataExportApi,
+          fileDownload: deps.fileDownload,
+          now: deps.now,
+        }}
       />
     );
   };

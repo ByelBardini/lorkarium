@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   accessRestoredMail,
-  accessSuspendedMail,
   invitationMail,
   passwordLinkMail,
   promotedToAdminMail,
@@ -67,24 +66,6 @@ describe('passwordLinkMail', () => {
     expect(mail.text).toContain(
       'Se você não esperava este e-mail, ignore: sua senha continua a mesma.',
     );
-  });
-});
-
-describe('accessSuspendedMail', () => {
-  const mail = accessSuspendedMail({ person: PEDRO, publicUrl: PUBLIC_URL });
-
-  it('has no button and says the tables are kept', () => {
-    expect(mail.subject).toBe('Seu acesso ao Lorkarium foi suspenso');
-    expect(mail.html).not.toContain('<a ');
-    expect(mail.text).toContain(
-      'Você foi desconectado e não consegue entrar enquanto a suspensão valer.',
-    );
-    expect(mail.text).toContain('Suas mesas e personagens continuam guardados.');
-  });
-
-  it('points to who runs the Lorkarium, in the alert tone with the pause icon', () => {
-    expect(mail.text).toContain('Se achar que foi engano, fale com quem administra o Lorkarium.');
-    expect(mail.html).toContain('icon-pause-alert.png');
   });
 });
 

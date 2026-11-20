@@ -32,7 +32,7 @@ Qualidade e testes do monorepo: scripts de teste por camada, cobertura e (nas se
 
 ## Build
 
-`pnpm build` roda o `build` de cada workspace: client (`tsc && vite build` → `client/dist/`) e server (`tsdown` → `server/dist/index.mjs`, `server/dist/deploy-migrate.mjs` e `server/dist/recompress-images.mjs`, com um chunk comum, + sourcemap). Config em `server/tsdown.config.ts`:
+`pnpm build` roda o `build` de cada workspace: client (`tsc && vite build` → `client/dist/`) e server (`tsdown` → `server/dist/index.mjs`, `server/dist/deploy-migrate.mjs`, `server/dist/recompress-images.mjs` e `server/dist/remove-orphan-objects.mjs`, com um chunk comum, + sourcemap). Config em `server/tsdown.config.ts`:
 
 - ESM, `platform: 'node'`, alvo `node26`, entradas `src/index.ts` e `src/deploy-migrate.ts`.
 - `@lorkarium/*` vão **dentro** do bundle (`deps.alwaysBundle`): os pacotes internos exportam `.ts` cru, que o Node não carrega de `node_modules`.
@@ -80,6 +80,7 @@ Reproduzir um job localmente: o mesmo script da raiz. Para `test-integration`, o
 ## Supply chain
 
 - Actions fixadas por SHA completo (tag pode ser movida para código malicioso); o comentário `# vX.Y.Z` diz a versão.
+- Comunidade (fora do CI, mas em `.github/`): `ISSUE_TEMPLATE/bug.yml` e `sugestao.yml` (formulários; `config.yml` desliga a issue em branco e manda falha de segurança ao _Report a vulnerability_ e suporte ao site), `pull_request_template.md` (o que muda, como testar, checklist `test/lint/typecheck`, docs e DCO) e `social-preview.png` (ver [`site/capturas.md`](site/capturas.md)). O `pnpm format:check` cobre o YAML e o Markdown deles.
 - `.github/dependabot.yml`: `npm` (diretório `/`, semanal, grupos `dev-dependencies` e `production-dependencies` só para minor/patch; major vem em PR próprio) `github-actions` (semanal, um grupo, atualiza SHA e comentário juntos) e `cargo` (`/desktop/src-tauri`, semanal, um grupo minor/patch). Os três com `cooldown.default-days: 7`, a quarentena para a comunidade detectar release comprometida.
 - `pnpm audit` é informativo (ver Pipeline).
 - Proteção da `main` (configurada no GitHub, fora do repo): exigir PR e o check `ci-ok`. Só ele é obrigatório: um filtro por pasta (`paths:`) deixaria check obrigatório pendente para sempre, e o `ci-ok` permite ligar `dorny/paths-filter` depois sem travar PR.

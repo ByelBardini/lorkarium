@@ -15,6 +15,8 @@ import { openTestDatabase, truncateAllTables } from '../support/test-database';
 const PASSWORD = 'senha-de-teste';
 const NEW_PASSWORD = 'senha-nova-da-bia';
 const ONE_HOUR_MS = 60 * 60 * 1000;
+// A suspension without an end, as the backoffice applies it (a measure).
+const SUSPENSION = { kind: 'suspension', rule: 'harassment', statement: 'Ameaçou alguém.' };
 
 describe('new-password link from the backoffice', () => {
   let connection: DatabaseConnection;
@@ -106,14 +108,14 @@ describe('new-password link from the backoffice', () => {
   it('to the own account is 409 SELF_ACTION; to a suspended one 409 ACCOUNT_SUSPENDED', async () => {
     const self = await post(`/admin/users/${admin.id}/password-reset`, undefined, admin.token);
     expect(apiErrorDto.parse(self.json()).code).toBe('SELF_ACTION');
-    await post(`/admin/users/${bia.id}/suspend`, undefined, admin.token);
+    await post(`/admin/users/${bia.id}/sanctions`, SUSPENSION, admin.token);
     const suspended = await post(`/admin/users/${bia.id}/password-reset`, undefined, admin.token);
     expect(apiErrorDto.parse(suspended.json()).code).toBe('ACCOUNT_SUSPENDED');
   });
 
   it('suspending deletes a pending link', async () => {
     const token = await issue();
-    await post(`/admin/users/${bia.id}/suspend`, undefined, admin.token);
+    await post(`/admin/users/${bia.id}/sanctions`, SUSPENSION, admin.token);
     expect((await post('/password-resets/inspect', { token })).statusCode).toBe(404);
   });
 

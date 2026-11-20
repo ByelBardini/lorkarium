@@ -1,18 +1,21 @@
-import { sql } from 'drizzle-orm';
+import { inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DatabaseConnection } from '../../src/database/database';
 import { authSessions } from '../../src/modules/auth/auth-sessions.po';
 import { twoFactorChallenges } from '../../src/modules/auth/two-factor-challenges.po';
 import { UsersDao } from '../../src/modules/auth/users.dao';
+import { users } from '../../src/modules/auth/users.po';
 import { CampaignsDao } from '../../src/modules/campaigns/campaigns.dao';
 import { libraryDocumentActions } from '../../src/modules/documents/documents.po';
 import { HousekeepingDao } from '../../src/modules/housekeeping/housekeeping.dao';
 import { HousekeepingService } from '../../src/modules/housekeeping/housekeeping.service';
+import { createFeedbackRetention } from '../../src/modules/feedback/feedback.plugin';
+import { createReportRetention } from '../../src/modules/reports/reports.plugin';
 import { sheetActions } from '../../src/modules/sheets/sheets.po';
 import { ClockFake } from '../support/auth-fakes';
 import { newUserPo } from '../support/auth-factories';
 import { newCampaignPo } from '../support/campaigns-factories';
-import { HousekeepingFailureLogFake } from '../support/housekeeping-fakes';
+import { HousekeepingFailureLogFake, SuspensionEndedFake } from '../support/housekeeping-fakes';
 import { SchedulerFake } from '../support/sessions-fakes';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
@@ -37,14 +40,24 @@ describe('the housekeeping on Postgres', () => {
 
   afterAll(() => connection.close());
 
-  function sweep(): Promise<void> {
+  function sweep(suspensionEnded = new SuspensionEndedFake()): Promise<void> {
     const deps = { clock: new ClockFake(NOW), scheduler: new SchedulerFake() };
     const log = new HousekeepingFailureLogFake();
+    const dao = new HousekeepingDao(connection.db);
     return new HousekeepingService({
-      dao: new HousekeepingDao(connection.db),
+      dao,
+      expired: dao,
+      suspensionEnded,
+      reportRetention: createReportRetention(connection.db, deps.clock),
+      feedbackRetention: createFeedbackRetention(connection.db, deps.clock),
       log,
       ...deps,
     }).sweep();
+  }
+
+  async function suspendUntil(email: string, until: Date): Promise<string> {
+    const account = newUserPo({ email, suspendedAt: HOURS_AGO(48), suspendedUntil: until });
+    return (await new UsersDao(connection.db).insert(account)).id;
   }
 
   async function receiptKeptAt(createdAt: Date, operation: string): Promise<void> {
@@ -111,5 +124,32 @@ describe('the housekeeping on Postgres', () => {
     await connection.db.insert(sheetActions).values(again as typeof sheetActions.$inferInsert);
 
     expect(await operationsLeft()).toEqual(['retried']);
+  });
+
+  it('lifts the suspensions that ended an hour ago or right now, keeps the one ending tomorrow', async () => {
+    const ended = await suspendUntil('bia@mesa.com', HOURS_AGO(1));
+    const endsNow = await suspendUntil('caio@mesa.com', NOW);
+    const holding = await suspendUntil('davi@mesa.com', HOURS_AGO(-24));
+    const told = new SuspensionEndedFake();
+
+    await sweep(told);
+
+    const rows = await connection.db
+      .select({ id: users.id, suspendedAt: users.suspendedAt, until: users.suspendedUntil })
+      .from(users)
+      .where(inArray(users.id, [ended, endsNow, holding]));
+    const suspended = rows.filter((row) => row.suspendedAt !== null).map((row) => row.id);
+    expect(suspended).toEqual([holding]);
+    expect(rows.find((row) => row.id === ended)?.until).toBeNull();
+    expect([...told.told].sort()).toEqual([ended, endsNow].sort());
+  });
+
+  it('a suspension without an end is never lifted by the sweep', async () => {
+    await connection.db.update(users).set({ suspendedAt: HOURS_AGO(500) });
+
+    await sweep();
+
+    const [row] = await connection.db.select({ at: users.suspendedAt }).from(users);
+    expect(row?.at).toEqual(HOURS_AGO(500));
   });
 });

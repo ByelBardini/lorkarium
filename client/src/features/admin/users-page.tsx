@@ -31,6 +31,8 @@ export type UsersPageProps = Readonly<{
   /** The catalog and the grants of "Insígnias…" in each row's menu. */
   badgesApi: BadgesAdminApi;
   billingApi: UsersDialogProps['billingApi'];
+  /** The history of each account's measures ("Medidas…"). */
+  sanctionsApi: UsersDialogProps['sanctionsApi'];
   /** The signed-in admin's own 2FA (the refund needs it). */
   twoFactorOn: boolean;
 }>;
@@ -46,6 +48,7 @@ export function UsersPage({
   clipboard,
   badgesApi,
   billingApi,
+  sanctionsApi,
   twoFactorOn,
 }: UsersPageProps): React.JSX.Element {
   const [params, setParams] = useSearchParams();
@@ -154,6 +157,7 @@ export function UsersPage({
           clipboard={clipboard}
           badgesApi={badgesApi}
           billingApi={billingApi}
+          sanctionsApi={sanctionsApi}
           twoFactorOn={twoFactorOn}
           onDone={(message) => {
             setNotice(message);

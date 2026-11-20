@@ -3,6 +3,8 @@ import { render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { SavedRollsList } from '@/features/dice/saved-rolls-list';
 import { useSavedRolls } from '@/features/dice/use-saved-rolls';
+import { AccountPlanContext } from '@/features/plans/use-plan-limits';
+import type { AccountLimits } from '@/stores/session-store';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { ACERTO, BENCAO } from '../../support/dice-fixtures';
 import { CREATED_FOLDER_ID, SavedRollsApiFake } from '../../support/saved-rolls-api-fake';
@@ -31,9 +33,16 @@ function ListHarness() {
   );
 }
 
-async function showRolls(rolls: readonly SavedRollDto[]): Promise<HTMLElement> {
+async function showRolls(
+  rolls: readonly SavedRollDto[],
+  account: AccountLimits | null = null,
+): Promise<HTMLElement> {
   api.rolls.set(VHARN.id, rolls);
-  render(onTablePlan(PLAN_LIMITS.free, <ListHarness />));
+  render(
+    <AccountPlanContext value={account}>
+      {onTablePlan(PLAN_LIMITS.free, <ListHarness />)}
+    </AccountPlanContext>,
+  );
   await screen.findByRole('button', { name: 'Rolar Bênção' });
   return screen.getByRole('list', { name: 'Rolagens salvas' });
 }
@@ -51,6 +60,20 @@ describe('SavedRollsList of a roll past the plan ceiling', () => {
     const list = await showRolls([ACERTO, { ...BENCAO, planLocked: true }]);
     const lock = within(tagOf(list, 'Bênção')).getByRole('img', { name: 'Só leitura' });
     expect(lock.parentElement).toHaveAttribute('title', ROLL_LOCKED);
+  });
+
+  it('for an Apoiador at a Grátis table the lock names her own plan and its 15', async () => {
+    const apoiador: AccountLimits = {
+      plan: 'apoiador',
+      limits: PLAN_LIMITS.apoiador,
+      customization: true,
+    };
+    const list = await showRolls([ACERTO, { ...BENCAO, planLocked: true }], apoiador);
+    const lock = within(tagOf(list, 'Bênção')).getByRole('img', { name: 'Só leitura' });
+    expect(lock.parentElement).toHaveAttribute(
+      'title',
+      'Esta rolagem salva passou do limite do plano Apoiador (15) e está só leitura: rolar, mover para pasta e excluir seguem livres. Apague uma rolagem mais antiga ou suba de plano.',
+    );
   });
 
   it('rolling, adding, moving and deleting the locked roll stay on', async () => {

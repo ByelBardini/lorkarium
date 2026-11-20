@@ -17,11 +17,10 @@ if (env.mailer.kind === 'log') {
 const inbox = process.argv[2] ?? DEFAULT_INBOX;
 const mailer = new SmtpMailer(env.mailer.url, env.mailer.from);
 try {
-  const sent = await new MailPreviewService(mailer, new SystemClock()).send(
-    env.nodeEnv,
-    inbox,
-    env.appPublicUrl,
-  );
+  const sent = await new MailPreviewService(mailer, new SystemClock()).send(env.nodeEnv, inbox, {
+    publicUrl: env.appPublicUrl,
+    siteUrl: env.sitePublicUrl,
+  });
   process.stdout.write(`${sent} e-mails enviados para ${inbox}; abra http://localhost:8025\n`);
 } finally {
   mailer.close();

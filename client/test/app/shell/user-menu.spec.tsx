@@ -14,6 +14,35 @@ function renderMenu(user = ANA, onSignOut = vi.fn(async () => undefined)) {
   return onSignOut;
 }
 
+describe('UserMenu, the feedback', () => {
+  it('with onFeedback it offers "Relatar bug ou sugerir", which opens it', async () => {
+    const onFeedback = vi.fn();
+    render(
+      <MemoryRouter>
+        <UserMenu
+          user={ANA}
+          expanded
+          onSignOut={vi.fn(async () => undefined)}
+          onFeedback={onFeedback}
+        />
+      </MemoryRouter>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Ana/ }));
+
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Relatar bug ou sugerir' }));
+
+    expect(onFeedback).toHaveBeenCalledOnce();
+  });
+
+  it('without onFeedback the item is not there', async () => {
+    renderMenu();
+    await userEvent.click(screen.getByRole('button', { name: /Ana/ }));
+
+    await screen.findByRole('menuitem', { name: 'Sair' });
+    expect(screen.queryByRole('menuitem', { name: 'Relatar bug ou sugerir' })).toBeNull();
+  });
+});
+
 describe('UserMenu', () => {
   it('the trigger shows the name of the user and, open, offers "Sair"', async () => {
     renderMenu();
@@ -81,6 +110,7 @@ describe('UserMenu', () => {
   it.each([
     ['Termos de uso', '/api/legal/terms'],
     ['Política de privacidade', '/api/legal/privacy'],
+    ['Política de uso', '/api/legal/acceptable-use'],
   ])('"%s" in the menu opens %s in a new tab', async (name, href) => {
     renderMenu();
     await userEvent.click(screen.getByRole('button', { name: /Ana/ }));
@@ -88,6 +118,13 @@ describe('UserMenu', () => {
     expect(item).toHaveAttribute('href', href);
     expect(item).toHaveAttribute('target', '_blank');
     expect(item).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('the menu does not offer the source code (the sign-in foot and the landing do)', async () => {
+    renderMenu();
+    await userEvent.click(screen.getByRole('button', { name: /Ana/ }));
+    await screen.findByRole('menuitem', { name: 'Sair' });
+    expect(screen.queryByRole('menuitem', { name: 'Código-fonte' })).not.toBeInTheDocument();
   });
 
   it('an admin sees "Backoffice" in the menu', async () => {

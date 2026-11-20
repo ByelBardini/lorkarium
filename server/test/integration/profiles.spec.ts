@@ -471,6 +471,29 @@ describe('profiles HTTP edge', () => {
       expect((await profileOf(bia)).bannerId).toBeNull();
     });
 
+    it('on Narrador the banner (file or link) answers 403 profileBanner and on Lenda it is kept', async () => {
+      await setAccountPlan(connection.db, bia.id, 'narrador');
+
+      const sent = await sendBanner(bia, photo);
+      const linked = await call(bia, {
+        method: 'POST',
+        url: '/account/banner/link',
+        payload: { url: 'https://media.example.com/banner.png' },
+      });
+
+      for (const response of [sent, linked]) {
+        expect(response.statusCode).toBe(403);
+        expect(apiErrorDto.parse(response.json()).planLimit).toMatchObject({
+          resource: 'profileBanner',
+          limit: 0,
+          plan: 'narrador',
+        });
+      }
+      expect((await profileOf(bia)).bannerId).toBeNull();
+      await setAccountPlan(connection.db, bia.id, 'lenda');
+      expect((await sendBanner(bia, photo)).statusCode).toBe(200);
+    });
+
     it('a banner of 5 MiB + 1 answers 413 BANNER_TOO_LARGE', async () => {
       const response = await sendBanner(ana, Buffer.alloc(5 * MIB + 1));
 

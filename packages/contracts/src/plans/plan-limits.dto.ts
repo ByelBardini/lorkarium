@@ -55,5 +55,7 @@ export const planLimitsDto = z.strictObject({
   /** The `.js` files of a sheet template run; without them the sheet opens with HTML, CSS and
    *  `data-lk` only. */
   sheetScripts: z.boolean(),
+  /** The 3:1 banner on top of the account's own profile card. */
+  profileBanner: z.boolean(),
 });
 export type PlanLimits = z.infer<typeof planLimitsDto>;

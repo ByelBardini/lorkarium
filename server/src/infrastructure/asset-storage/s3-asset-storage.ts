@@ -6,12 +6,18 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
+  ListObjectsV2Command,
+  type ListObjectsV2CommandOutput,
   PutObjectCommand,
   type S3Client,
   S3ServiceException,
 } from '@aws-sdk/client-s3';
 import type { StorageConfig } from '../../config/env';
-import type { AssetStoragePort, StoredObject } from '../../modules/assets/asset-storage.port';
+import type {
+  AssetStoragePort,
+  ListedObject,
+  StoredObject,
+} from '../../modules/assets/asset-storage.port';
 import { s3ClientOf, s3ErrorNameOf, s3FailureReasonOf } from '../s3/s3-client';
 
 const NOT_FOUND = 404;
@@ -43,7 +49,12 @@ export class AssetStorageError extends Error {
 export class S3AssetStorage implements AssetStoragePort {
   private readonly client: S3Client;
 
-  constructor(private readonly config: StorageConfig) {
+  /** `listPageSize` (the `MaxKeys` of each listing page) defaults to the S3's 1000; a spec makes
+   *  it small to walk several pages. */
+  constructor(
+    private readonly config: StorageConfig,
+    private readonly listPageSize?: number,
+  ) {
     this.client = s3ClientOf(config);
   }
 
@@ -94,9 +105,34 @@ export class S3AssetStorage implements AssetStoragePort {
     });
   }
 
+  // One ListObjectsV2 page holds at most 1000 keys; the continuation token walks the rest.
+  async listKeys(prefix: string): Promise<ListedObject[]> {
+    const listed: ListedObject[] = [];
+    let ContinuationToken: string | undefined;
+    do {
+      const page = await this.listPage(prefix, ContinuationToken);
+      listed.push(...listedObjectsOf(page));
+      ContinuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (ContinuationToken);
+    return listed;
+  }
+
   /** Closes the client's keep-alive sockets; the app calls it on close. */
   destroy(): void {
     this.client.destroy();
+  }
+
+  private listPage(
+    prefix: string,
+    ContinuationToken: string | undefined,
+  ): Promise<ListObjectsV2CommandOutput> {
+    const command = new ListObjectsV2Command({
+      Bucket: this.config.bucket,
+      Prefix: prefix,
+      ContinuationToken,
+      MaxKeys: this.listPageSize,
+    });
+    return this.client.send(command).catch((error: unknown) => this.fail('ListObjectsV2', error));
   }
 
   private fail(operation: string, cause: unknown): never {
@@ -108,4 +144,15 @@ function isNotFound(error: unknown): boolean {
   const name = s3ErrorNameOf(error);
   if (name === 'NotFound' || name === 'NoSuchKey' || name === 'NoSuchBucket') return true;
   return error instanceof S3ServiceException && error.$metadata.httpStatusCode === NOT_FOUND;
+}
+
+// An entry without a key or a date is skipped: S3 always sends both, a compatible one may not.
+function listedObjectsOf(page: ListObjectsV2CommandOutput): ListedObject[] {
+  const listed: ListedObject[] = [];
+  for (const entry of page.Contents ?? []) {
+    if (entry.Key && entry.LastModified) {
+      listed.push({ key: entry.Key, lastModified: entry.LastModified });
+    }
+  }
+  return listed;
 }
