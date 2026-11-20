@@ -2,7 +2,7 @@
 
 O e2e em `e2e/` e os specs de `e2e/test/`. Hub: [`../ci.md`](../ci.md).
 
-Workspace `e2e/` (`@lorkarium/e2e`, `@playwright/test`, só Chromium), fora do Vitest. A landing tem config própria (`playwright.site.config.ts`, `test/site/`, `pnpm test:e2e:site`; build + `astro preview` na 4322, sem server): ver [`site.md`](../site.md). `pnpm e2e:install` baixa o Chromium com as libs do SO; `pnpm test:e2e` roda `e2e/test/`.
+Workspace `e2e/` (`@lorkarium/e2e`, `@playwright/test`, só Chromium), fora do Vitest. A landing tem config própria (`playwright.site.config.ts`, `test/site/`, `pnpm test:e2e:site`; build + `astro preview` na 4322, sem server; `seo-crawl.spec.ts` percorre o `sitemap-index.xml` do build, ver [`site/seo.md`](../site/seo.md)): ver [`site.md`](../site.md). `pnpm e2e:install` baixa o Chromium com as libs do SO; `pnpm test:e2e` roda `e2e/test/`.
 
 - O `webServer` de `e2e/playwright.config.ts` sobe o server (`pnpm --filter @lorkarium/server start`, pronto quando `/api/health` dá 200) e o client: `vite` local; no CI (`CI=1`), `vite build` + `vite preview` na 5173, que herda o `server.proxy` de `/api`.
 - O server **nunca** é reaproveitado (`reuseExistingServer: false`): um `pnpm dev` de pé grava no banco de dev, então o e2e recusa com "http://localhost:3333/api/health is already used". Pare o `pnpm dev` antes. O client (Vite) ainda é reaproveitado fora do CI.
