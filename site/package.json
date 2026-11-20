@@ -14,9 +14,9 @@
     "@lorkarium/brand": "workspace:*",
     "@lorkarium/contracts": "workspace:*",
     "@lorkarium/dice-renderer": "workspace:*",
-    "@tailwindcss/vite": "^4.3.4",
-    "astro": "^7.4.5",
-    "tailwindcss": "^4.3.4",
+    "@tailwindcss/vite": "^4.3.5",
+    "astro": "^7.4.11",
+    "tailwindcss": "^4.3.5",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -24,7 +24,7 @@
     "@lorkarium/tsconfig": "workspace:*",
     "@types/jsdom": "^30.0.0",
     "@types/node": "^26.6.6",
-    "jsdom": "^30.1.3",
+    "jsdom": "^31.0.0",
     "typescript": "^6.0.3"
   }
 }
