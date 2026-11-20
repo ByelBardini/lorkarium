@@ -1,4 +1,12 @@
-import { changeSceneOf, publishTokenChange, type ChangeScene } from './token-veil';
+import {
+  changeSceneOf,
+  publishSeers,
+  publishTokenChange,
+  seersBeforeOf,
+  seersShiftOf,
+  type ChangeScene,
+  type PublishedSeers,
+} from './token-veil';
 import {
   TOKEN_FORMS_MAX,
   type LinkTokenToCharacterCommandDto,
@@ -49,6 +57,7 @@ type Locked = LockedGridMaybeCharacters<TokenWriteDaos>;
 type Relinked = Readonly<{
   token: TokenWithConditions;
   veiled: ChangeScene;
+  seers: PublishedSeers | null;
   /** The character that took the token's forms (`[]` when it took none). */
   shared: readonly CharacterRow[];
 }>;
@@ -107,8 +116,9 @@ export class TokenLinkService {
     const merged = mergedFormsOf<TokenFormInputPo>(worn.forms, found.forms, TOKEN_FORMS_MAX);
     const tookForms = merged.length > worn.forms.length;
     if (tookForms) await daos.characters.replaceForms(characterId, merged);
+    const seers = await seersBeforeOf(daos, scene.id, found.token.magicSight !== null);
     await daos.characterLinks.adopt(tokenId, characterId);
-    const change = await relinked(daos, scene, found);
+    const change = await relinked(daos, scene, found, { seers, at: this.now() });
     if (!tookForms) return change;
     const shared = [await characterIn(daos, scene.campaignId, characterId)];
     return { ...change, value: { ...change.value, shared }, characters: true };
@@ -125,12 +135,18 @@ export class TokenLinkService {
     const { forms } = found;
     const { activeFormId } = found.token;
     const worn = { forms, activeFormId };
+    const seers = await seersBeforeOf(daos, scene.id, found.token.magicSight !== null);
     await daos.characterLinks.release(tokenId, characterId, identityOf(found.token), worn);
-    return relinked(daos, scene, found);
+    return relinked(daos, scene, found, { seers, at: this.now() });
+  }
+
+  private now(): string {
+    return this.deps.clock.now().toISOString();
   }
 
   private published(campaignId: string, saved: SavedInCharactersAndGrid<Relinked>): number {
-    const { token, veiled, shared } = saved.value;
+    const { token, veiled, shared, seers } = saved.value;
+    publishSeers(this.deps.publisher, seers);
     const outlet = { publisher: this.deps.characterPublisher, clock: this.deps.clock };
     publishCharactersChange(outlet, campaignId, saved.characters, shared);
     if (!saved.grid) return saved.version;
@@ -145,9 +161,11 @@ async function relinked(
   daos: TokenWriteDaos,
   scene: ScenePo,
   before: TokenRow,
+  seersBefore: Readonly<{ seers: readonly string[] | null; at: string }>,
 ): Promise<CharactersAndGridChange<Relinked>> {
   const after = await tokenIn(daos, scene, scene.campaignId, before.token.id);
   const token = await withConditions(daos, after);
   const veiled = await changeSceneOf(daos, scene, before, after, false);
-  return { value: { token, veiled, shared: [] }, grid: true, characters: false };
+  const seers = await seersShiftOf(daos, scene, seersBefore.seers, seersBefore.at);
+  return { value: { token, veiled, shared: [], seers }, grid: true, characters: false };
 }

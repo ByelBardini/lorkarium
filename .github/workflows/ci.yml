@@ -93,8 +93,16 @@ jobs:
           if-no-files-found: ignore
 
   test-integration:
+    name: test-integration (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      # One red shard must not cancel the other: each one reports different specs.
+      fail-fast: false
+      matrix:
+        # Whole, the suite reached the 10 min of the job. Each shard has its own Postgres,
+        # SeaweedFS and Mailpit, and Vitest splits the files by itself.
+        shard: [1, 2]
     services:
       postgres:
         image: postgres:17-alpine
@@ -130,7 +138,7 @@ jobs:
       - uses: ./.github/actions/seaweedfs
       - uses: ./.github/actions/mailpit
       - run: pnpm db:migrate
-      - run: pnpm test:integration
+      - run: pnpm test:integration --shard=${{ matrix.shard }}/2
 
   build:
     runs-on: ubuntu-latest

@@ -11,6 +11,7 @@ import { inviteMailto } from '@/copy/landing-copy';
 import { plansCopy } from '@/copy/plans-copy';
 import { bestSavingPercent, PLAN_PERIODS, priceView, type PlanPrices } from '@/lib/plan-price';
 import SiteLayout from '@/layouts/site-layout.astro';
+import { faqGraphOf, planOffersOf } from '@/lib/structured-data';
 
 const SEALS = { logo: LogoMark, apoiador: ApoiadorSeal, narrador: NarradorSeal, lenda: LendaSeal };
 const SEAL_COLOR = {
@@ -37,6 +38,12 @@ const periods = PLAN_PERIODS.map((period) => ({
 <SiteLayout
   title="Planos do Lorkarium"
   description="Jogar no Lorkarium é de graça. Os planos Apoiador, Narrador e Lenda são assinados no app, por cartão ou Pix, com desconto no semestral e no anual."
+  crumbs={[
+    { name: 'Início', path: '/' },
+    { name: 'Planos', path: '/planos/' },
+  ]}
+  offers={planOffersOf(plansCopy)}
+  structuredData={[faqGraphOf(plansCopy.faqs)]}
 >
   <div class="group/precos">
     <section class="act relative isolate overflow-clip">
@@ -198,7 +205,7 @@ const periods = PLAN_PERIODS.map((period) => ({
             Como os limites funcionam
           </h2>
         </div>
-        <ul class="m-0 grid list-none border-t border-l border-edge p-0 md:grid-cols-3">
+        <ul class="m-0 grid list-none border-t border-l border-edge p-0 md:grid-cols-2 xl:grid-cols-4">
           {plansCopy.rules.map((rule) => (
             <li class="border-r border-b border-edge p-7 text-[15px] leading-relaxed text-label">
               {rule}

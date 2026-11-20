@@ -93,6 +93,25 @@ export const sightDto = z.strictObject({
 });
 export type SightDto = z.infer<typeof sightDto>;
 
+/** The longest magic sight, in cells (game-core `MAGIC_SIGHT_RANGE_MAX`). */
+export const MAGIC_SIGHT_MAX = REACH_MAX;
+
+/** How far a token sees what is invisible, in cells from the edge of the target (`null` = no magic
+ *  sight); the client still needs the same eye to see it (game-core `magicSightLevel`). NaN goes
+ *  through to the refine so the refusal cites it.
+ *
+ *  Example: `magicSightDto.parse(6)` → `6` */
+export const magicSightDto = z
+  .union([z.number(), z.nan(), z.null()])
+  .superRefine((value, context) => {
+    if (value === null) return;
+    if (Number.isFinite(value) && value >= 0 && value <= MAGIC_SIGHT_MAX) return;
+    context.addIssue({
+      code: 'custom',
+      message: `magicSight ${value} is invalid; expected 0 to ${MAGIC_SIGHT_MAX} cells or null`,
+    });
+  });
+
 const barCurrentDto = z.number().int().min(-BAR_VALUE_LIMIT).max(BAR_VALUE_LIMIT);
 const barMaxDto = z.number().int().min(1).max(BAR_VALUE_LIMIT);
 const barTempDto = z.number().int().min(0).max(BAR_VALUE_LIMIT);
@@ -155,6 +174,8 @@ export const tokenDto = z.strictObject({
   /** Cuts sight and light by the shape of its art, like a curtain; only the master sets it, and it
    *  is no secret: the client draws the fog with it. */
   blocksSight: z.boolean(),
+  /** Sees invisible tokens up to this many cells; only the master sets it, and it is no secret. */
+  magicSight: magicSightDto,
   canControl: z.boolean(),
   bars: z.array(tokenBarDto).max(MAX_BARS_PER_TOKEN),
   conditions: z.array(activeConditionDto),
@@ -195,6 +216,7 @@ export const createTokenCommandDto = z.strictObject({
   light: tokenLightDto.nullable().optional(),
   aura: tokenAuraDto.nullable().default(null),
   blocksSight: z.boolean().optional(),
+  magicSight: magicSightDto.optional(),
   bars: z.array(barInputDto).max(MAX_BARS_PER_TOKEN),
 });
 export type CreateTokenCommandDto = z.infer<typeof createTokenCommandDto>;
@@ -215,6 +237,7 @@ export const updateTokenCommandDto = z.strictObject({
   light: tokenLightDto.nullable().optional(),
   aura: tokenAuraDto.nullable().optional(),
   blocksSight: z.boolean().optional(),
+  magicSight: magicSightDto.optional(),
   bars: z.array(barInputDto).max(MAX_BARS_PER_TOKEN),
   /** The forms replaced as a list, like the bars; absent keeps them. */
   forms: tokenFormsDto.optional(),

@@ -1,0 +1,15 @@
+{
+  "name": "Lorkarium",
+  "short_name": "Lorkarium",
+  "description": "Mesa virtual para RPG: mapas, iniciativa, pontos de vida, condições e dados 3D.",
+  "lang": "pt-BR",
+  "start_url": "/",
+  "display": "browser",
+  "theme_color": "#0a0b0e",
+  "background_color": "#0a0b0e",
+  "icons": [
+    { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any" },
+    { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192" },
+    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512" }
+  ]
+}

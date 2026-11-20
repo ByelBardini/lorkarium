@@ -1,0 +1,14 @@
+---
+import { getCollection } from 'astro:content';
+import { GUIDE_DRAFTS_ALLOWED } from 'astro:env/server';
+import GuideEntry from '@/components/guide-entry.astro';
+import { guidePathsOf } from '@/lib/guides';
+
+export async function getStaticPaths() {
+  return guidePathsOf(await getCollection('guides'), 'recurso', GUIDE_DRAFTS_ALLOWED);
+}
+
+const { guide } = Astro.props;
+---
+
+<GuideEntry guide={guide} />

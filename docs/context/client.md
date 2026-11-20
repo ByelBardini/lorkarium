@@ -80,6 +80,8 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 
 `main.tsx`, `buildRoutes`/`AppDependencies`, `src/components/`, `src/lib/`, os serviços HTTP e os stores comuns: [`client/estrutura.md`](client/estrutura.md).
 
+O app fica fora da busca: `index.html` com `<meta name="robots" content="noindex, nofollow">` (vale no dev e na casca desktop; em produção o server também manda o `X-Robots-Tag`) e `public/robots.txt` liberando o rastreio, para o noindex ser lido (ver [`site/seo.md`](site/seo.md)).
+
 ## Rotas
 
 Tabela de caminhos, guardas (`middleware` + `decideAccess`), `restoreOpenTables`, árvore e o `next` do login: [`client/rotas.md`](client/rotas.md). `/api` e `/assets/` são reservados (ver Regras de arquitetura).

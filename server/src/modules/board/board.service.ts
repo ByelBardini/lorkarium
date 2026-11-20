@@ -101,14 +101,18 @@ type SeenTokens = Readonly<{
   veiledLights: VeiledLightDto[];
 }>;
 
-// The hidden tokens come from the rows already read: no query of their own.
+// The hidden tokens and the seers come from the rows already read: no query of their own. A seer
+// (who controls a token with magic sight; the spectator never does) gets every hidden one, as others.
 async function tokensFor(
   daos: BoardReadDaos,
   access: CampaignAccessBo,
   sceneId: string,
 ): Promise<SeenTokens> {
   const rows = await daos.tokens.listOfScene(sceneId);
-  const unseen = rows.filter((row) => row.token.hidden && audienceOf(access, row) === 'others');
+  const seer = rows.some((row) => isSeenThrough(access, row));
+  const unseen = rows.filter(
+    (row) => !seer && row.token.hidden && audienceOf(access, row) === 'others',
+  );
   const invisible = new Set(unseen.map(({ token }) => token.id));
   const seen = rows.filter(({ token }) => !invisible.has(token.id));
   // A linked token shows its character's conditions; one read for the whole grid.
@@ -133,6 +137,10 @@ function tokenFor(
   conditions: readonly ActiveConditionDto[],
 ): TokenDto {
   return toTokenDto(row, audienceOf(access, row), conditions);
+}
+
+function isSeenThrough(access: CampaignAccessBo, row: TokenRow): boolean {
+  return row.token.magicSight !== null && audienceOf(access, row) === 'privileged';
 }
 
 function audienceOf(access: CampaignAccessBo, row: TokenRow): TokenAudience {

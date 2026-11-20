@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BAR_VALUE_LIMIT,
   MAX_BARS_PER_TOKEN,
+  MAGIC_SIGHT_MAX,
   TOKEN_BLOCKER_LIMIT_CODE,
   TOKEN_LIMIT_CODE,
   TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX,
@@ -223,6 +224,7 @@ describe('tokenDto', () => {
       aura: null,
       hidden: false,
       blocksSight: false,
+      magicSight: null,
       canControl: false,
       bars: [bar(1), bar(2)],
       conditions: [],
@@ -358,6 +360,7 @@ describe('defeated', () => {
     aura: null,
     hidden: false,
     blocksSight: false,
+    magicSight: null,
     canControl: false,
     bars: [],
     conditions: [],
@@ -444,6 +447,7 @@ describe('the field of view and the lantern of a token', () => {
       aura: null,
       hidden: false,
       blocksSight: false,
+      magicSight: null,
       canControl: false,
       bars: [],
       conditions: [],
@@ -514,6 +518,7 @@ describe('a token that blocks sight', () => {
       light: null,
       lightLit: true,
       hidden: false,
+      magicSight: null,
       canControl: false,
       bars: [],
       conditions: [],
@@ -560,6 +565,7 @@ describe('tokenDto.patrol', () => {
     lightLit: true,
     hidden: false,
     blocksSight: false,
+    magicSight: null,
     canControl: false,
     bars: [],
     conditions: [],
@@ -591,5 +597,54 @@ describe('the token ceiling of a scene', () => {
   it('its refusal travels as an ApiErrorDto with the code TOKEN_LIMIT', () => {
     const refusal = { code: TOKEN_LIMIT_CODE, message: 'This scene has too many tokens' };
     expect(apiErrorDto.parse(refusal)).toEqual({ code: 'TOKEN_LIMIT', message: refusal.message });
+  });
+});
+
+describe('magic sight', () => {
+  const UPDATE = { ...CREATE, tokenId: TOKEN_ID } as Record<string, unknown>;
+  delete UPDATE.col;
+  delete UPDATE.row;
+  const PASTE = { ...CREATE } as Record<string, unknown>;
+  delete PASTE.actionId;
+  delete PASTE.campaignId;
+
+  const COMMANDS = [
+    ['token:create', createTokenCommandDto, CREATE],
+    ['token:update', updateTokenCommandDto, UPDATE],
+    ['the paste', newTokenDto, PASTE],
+  ] as const;
+
+  it.each(COMMANDS)('%s keeps 6 cells, null, 0 and 100', (_event, schema, command) => {
+    for (const magicSight of [6, null, 0, 100]) {
+      expect(schema.parse({ ...command, magicSight }).magicSight).toBe(magicSight);
+    }
+  });
+
+  it('a create or an update without the field leaves it absent: the server keeps the current one', () => {
+    expect('magicSight' in createTokenCommandDto.parse(CREATE)).toBe(false);
+    expect('magicSight' in updateTokenCommandDto.parse(UPDATE)).toBe(false);
+  });
+
+  it.each(
+    COMMANDS.flatMap(([event, schema, command]) =>
+      [101, -1, Number.NaN].map((value) => [event, value, schema, command] as const),
+    ),
+  )('%s with magicSight %s is refused citing the value', (_event, value, schema, command) => {
+    const result = schema.safeParse({ ...command, magicSight: value });
+
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['magicSight']);
+    expect(result.error?.issues[0]?.message).toBe(
+      `magicSight ${value} is invalid; expected 0 to ${MAGIC_SIGHT_MAX} cells or null`,
+    );
+  });
+
+  it('a magicSight of "6" (a string) is refused on the field', () => {
+    const result = createTokenCommandDto.safeParse({ ...CREATE, magicSight: '6' });
+
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['magicSight']);
+  });
+
+  it('its ceiling is 100 cells, the same as sight', () => {
+    expect(MAGIC_SIGHT_MAX).toBe(100);
   });
 });

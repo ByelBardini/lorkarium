@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNotNull, sql, type SQL } from 'drizzle-orm';
 import { copyRowsSql, uuidArray } from '../../database/copy-rows';
 import { hiddenByFolderSql } from '../../database/hidden-by-folder-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
@@ -264,6 +264,16 @@ export class TokensDao {
       .where(and(eq(tokens.sceneId, sceneId), eq(tokens.hidden, true)))
       .orderBy(asc(tokens.createdAt), asc(tokens.id));
     return found.map((row) => ({ ...row, patrol: patrolPoOf(row.patrol) }));
+  }
+
+  /** Who controls a token with magic sight in the scene (a linked one, by its character's
+   *  controllers), each once: the seers of its veil. One query, only when the veil is not empty. */
+  async magicSeersOfScene(sceneId: string): Promise<string[]> {
+    const found = await this.db
+      .select({ controllerIds: HOLDER_CONTROLLER_IDS })
+      .from(tokens)
+      .where(and(eq(tokens.sceneId, sceneId), isNotNull(tokens.magicSight)));
+    return [...new Set(found.flatMap(({ controllerIds }) => controllerIds))];
   }
 
   /** Hides or shows the listed tokens; one of another scene is not written (§2.6). Returns the

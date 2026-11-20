@@ -15,7 +15,13 @@ type Rights = Readonly<{ create: boolean; delete: boolean }>;
 const BOTH_ON: Rights = { create: true, delete: true };
 const BOTH_OFF: Rights = { create: false, delete: false };
 const LYRA_CHARACTER_ID = 'c0ffee00-1a2b-4c3d-8e5f-6a7b8c9d0e1f';
-const BLIND = { sight: null, light: null, sightAngle: 360, blocksSight: false } as const;
+const BLIND = {
+  sight: null,
+  light: null,
+  sightAngle: 360,
+  blocksSight: false,
+  magicSight: null,
+} as const;
 
 function authorshipOf(userId: string, role: Role, rights: Rights = BOTH_ON): TokenAuthorshipBo {
   return new TokenAuthorshipBo(
@@ -76,6 +82,47 @@ describe('TokenAuthorshipBo and blocksSight', () => {
 
     expect(authorshipOf(BIA_ID, 'player').copyOf(copy).blocksSight).toBe(false);
     expect(authorshipOf(ANA_ID, 'master').copyOf(copy).blocksSight).toBe(true);
+  });
+});
+
+describe('TokenAuthorshipBo and magicSight', () => {
+  it('Bia creating with magic sight is refused citing the field and the master role', () => {
+    const create = () => authorshipOf(BIA_ID, 'player').requireCreate({ magicSight: 6 });
+
+    expect(create).toThrow(
+      forbiddenCiting(BIA_ID, 'create a token with magicSight', 'the master role'),
+    );
+  });
+
+  it('Bia creating with null or without the field passes', () => {
+    const bia = authorshipOf(BIA_ID, 'player');
+
+    expect(() => bia.requireCreate({ magicSight: null })).not.toThrow();
+    expect(() => bia.requireCreate({})).not.toThrow();
+  });
+
+  it('Bia changing it on her own token is refused; sending the current value back passes', () => {
+    const seer = tokenBy(BIA_ID, { vision: { ...BLIND, magicSight: 4 } });
+    const bia = authorshipOf(BIA_ID, 'player');
+
+    expect(() => bia.requireEdit(seer, editOf({ magicSight: 6 }))).toThrow(
+      forbiddenCiting(`change the magicSight of token ${LYRA_ID}`, 'the master role'),
+    );
+    expect(() => bia.requireEdit(seer, editOf({ magicSight: 4 }))).not.toThrow();
+  });
+
+  it('a copy pasted by Bia lands without it; the copy of the master keeps it', () => {
+    const copy = { magicSight: 6 };
+
+    expect(authorshipOf(BIA_ID, 'player').copyOf(copy).magicSight).toBeNull();
+    expect(authorshipOf(ANA_ID, 'master').copyOf(copy).magicSight).toBe(6);
+  });
+
+  it('the master creates and edits it freely', () => {
+    const ana = authorshipOf(ANA_ID, 'master', BOTH_OFF);
+
+    expect(() => ana.requireCreate({ magicSight: 6 })).not.toThrow();
+    expect(() => ana.requireEdit(tokenBy(BIA_ID), editOf({ magicSight: 6 }))).not.toThrow();
   });
 });
 
@@ -210,6 +257,7 @@ describe('TokenAuthorshipBo.requireEdit', () => {
       light: { bright: 4, dim: 4, color: 'torch', angle: 60 },
       sightAngle: 90,
       blocksSight: false,
+      magicSight: null,
     } as const;
     const token = tokenBy(BIA_ID, { vision });
 
@@ -284,6 +332,7 @@ describe('TokenAuthorshipBo.copyOf', () => {
       light: null,
       sightAngle: 360,
       blocksSight: false,
+      magicSight: null,
       name: 'Lyra',
     });
   });

@@ -44,18 +44,18 @@ describe('the veil of a write (token-veil.ts)', () => {
     expect(journal).toEqual([]);
   });
 
-  it('a write of the hidden Sombra (no light) veils it without reading the scene', async () => {
+  it('a write of the hidden Sombra (no light) veils it reading only the seers of the scene', async () => {
     const veiled = await veiledWriteOf(daos, VHARN_SCENE_ID, [sombraRow()]);
 
     expect(veiled.veil.tokens.map(({ tokenId }) => tokenId)).toEqual([SOMBRA_ID]);
     expect(veiled.lights).toBeNull();
-    expect(journal).toEqual([]);
+    expect(journal).toEqual(['seers']);
   });
 
   it('a write of the lit Lobo reads the scene once and gives the rest its torch', async () => {
     const veiled = await veiledWriteOf(daos, VHARN_SCENE_ID, [loboRow()]);
 
-    expect(journal).toEqual(['veil']);
+    expect(journal).toEqual(['seers', 'veil']);
     expect(veiled.lights).toEqual([
       {
         audience: { kind: 'rest', controllerIds: [BIA_ID] },
@@ -76,7 +76,7 @@ describe('the veil of a write (token-veil.ts)', () => {
 
     expect(without.tokens).toEqual([]);
     expect(joined.tokens.map(({ tokenId }) => tokenId)).toEqual([LOBO_ID, SOMBRA_ID]);
-    expect(journal).toEqual(['veil']);
+    expect(journal).toEqual(['veil', 'seers']);
   });
 });
 
@@ -98,7 +98,7 @@ describe('the scene of a change of one token', () => {
     expect(changed.combat?.combatants).toHaveLength(1);
   });
 
-  it('a hidden token keeping its controllers reads nothing more', async () => {
+  it('a hidden token keeping its controllers reads only the seers', async () => {
     const scenes = new ScenesDaoFake([scenePo()]);
     const tokens = new TokensDaoFake(scenes.journal, [loboRow()]);
     const runner = new TokenTransactionRunnerFake(scenes, tokens);
@@ -113,7 +113,7 @@ describe('the scene of a change of one token', () => {
       lights: null,
       veil: { tokens: [] },
     });
-    expect(scenes.journal).toEqual(['commit']);
+    expect(scenes.journal).toEqual(['seers', 'commit']);
   });
 });
 
@@ -158,6 +158,7 @@ describe('the diary of a move under the veil', () => {
     expect(scenes.journal).toEqual([
       'lock',
       'save',
+      'seers',
       'veil',
       'bump',
       'commit',

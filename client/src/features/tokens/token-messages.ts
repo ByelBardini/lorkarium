@@ -78,6 +78,7 @@ export const SEES_IN_DARK_HINT = 'Vê sem luz até o alcance abaixo.';
 export const DARKVISION_HINT = 'Sem isso, o token vê só onde há luz.';
 export const PENUMBRA_HINT = 'Na penumbra, vê o mapa, mas não vê tokens.';
 export const LIGHT_HINT = 'Como uma tocha. Nasce acesa; quem controla apaga pelo menu do token.';
+export const MAGIC_SIGHT_HINT = 'Vê tokens e objetos invisíveis até o alcance, se já os veria.';
 export const BLOCKS_SIGHT_HINT =
   'Corta a visão e a luz como uma cortina, pela forma que aparece na tela. Não barra a passagem.';
 export const SIGHT_BLOCKER_OLD_IMAGE_NOTICE =
