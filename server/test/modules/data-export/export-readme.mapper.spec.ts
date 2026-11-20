@@ -23,6 +23,14 @@ describe('exportReadmeOf', () => {
     );
   });
 
+  it('sends what the archive leaves out to the privacy e-mail, answered in 15 days', () => {
+    const text = exportReadmeOf({ username: 'bia', exportedAt: NOW, missingImages: [] });
+
+    expect(text).toContain('O resto, por e-mail');
+    expect(text).toContain('peça a privacidade@evolutivasistemas.com.br');
+    expect(text).toContain('Respondemos em até 15 dias.');
+  });
+
   it('a missing image becomes one line under its own heading', () => {
     const missing = ['imagens/perfil/banner.webp', 'imagens/mesas/m/a.png'];
 
