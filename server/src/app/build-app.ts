@@ -17,7 +17,8 @@ import { LibraryMapsDao } from '../modules/library-maps/library-maps.dao';
 import { createLibraryMapsModule } from '../modules/library-maps/library-maps.plugin';
 import cookie from '@fastify/cookie';
 import { AVATAR_MAX_BYTES, type AssetPurposeDto } from '@lorkarium/contracts';
-import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
+import { loggerOptions } from './logger-options';
 import type { Env } from '../config/env';
 import type { Database } from '../database/database';
 import { GuardedImageFetcher } from '../infrastructure/image-fetcher/guarded-image-fetcher';
@@ -135,9 +136,6 @@ export type AppDependencies = Readonly<{
 }>;
 
 const API_PREFIX = '/api';
-
-// Session tokens travel in these headers; a log line must never carry one.
-const REDACTED_LOG_PATHS = ['req.headers.cookie', 'res.headers["set-cookie"]'];
 
 /** The Fastify app with every module registered under `/api`; the caller listens and closes.
  *
@@ -464,11 +462,4 @@ function wireRealtime(
   const { friendsChanged } = account;
   const live = { profileChanged, campaignChanged, memberRoleChanged, memberRemoved, seatIn };
   return { ...outlets, ...live, friendsChanged, accountPresence: account.presence };
-}
-
-function loggerOptions(env: Env): FastifyServerOptions['logger'] {
-  return {
-    level: env.nodeEnv === 'test' ? 'silent' : 'info',
-    redact: { paths: REDACTED_LOG_PATHS, censor: '[redacted]' },
-  };
 }
