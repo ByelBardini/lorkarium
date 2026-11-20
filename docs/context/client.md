@@ -67,6 +67,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Brilho do ícone na barra de tarefas (desktop): pendente por mesa, foco, porta Tauri                   | [`chat-atencao.md`](client/chat-atencao.md)                     |
 | Rotas: tabela, guardas, `restoreOpenTables`, árvore, `next` do login                                  | [`rotas.md`](client/rotas.md)                                   |
 | Links de conta: `/invite` (escolher @ e senha) e `/reset-password`                                    | [`account-links.md`](client/account-links.md)                   |
+| Cadastro público: `/sign-up` (e-mail + Turnstile), `/sign-up/confirm`, "Criar conta" no login         | [`sign-up.md`](client/sign-up.md)                               |
 | Barra de título do app desktop: `WindowTitleBar`, controles, lugar por rota, slot da sala             | [`title-bar.md`](client/title-bar.md)                           |
 | Menu dos campos de texto no app desktop: `isDesktopShell`, itens, `FieldEditing`, raiz                | [`text-field-menu.md`](client/text-field-menu.md)               |
 | Versão nova depois do deploy: impressão do build, aviso, recarga segura                               | [`app-update.md`](client/app-update.md)                         |

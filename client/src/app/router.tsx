@@ -5,14 +5,12 @@ import type { DocumentsApi } from '@/services/documents-api';
 import type { DocumentWorkspaceStore } from '@/stores/document-workspace-store';
 import { DocumentWorkspaceHost } from '@/features/documents/document-workspace-host';
 import { DocumentWorkspaceLifecycle } from '@/features/documents/document-workspace-lifecycle';
-import type { AuthUserDto } from '@lorkarium/contracts';
 import type { InteractionClock } from '@/lib/interaction-clock';
 import {
   Outlet,
   redirect,
   useMatches,
   useNavigate,
-  useSearchParams,
   type MiddlewareFunction,
   type RouteObject,
 } from 'react-router';
@@ -23,7 +21,8 @@ import {
   emailConfirmRoute,
 } from '@/features/account/account-routes';
 import { inviteRoute, passwordResetRoute } from '@/features/account-links/account-link-routes';
-import { LoginPage } from '@/features/auth/login-page';
+import { loginRoute } from '@/features/auth/login-route';
+import { signUpConfirmRoute, signUpRoute } from '@/features/sign-up/sign-up-routes';
 import { campaignTableRoute } from '@/features/campaigns/campaign-routes';
 import { exploreRoute } from '@/features/explore/explore-route';
 import { checkoutReturnRoute, plansRoute } from '@/features/billing/billing-routes';
@@ -36,7 +35,6 @@ import { AppUpdateNotice } from '@/features/app-update/app-update-notice';
 import { useTabActivity } from '@/features/sessions/use-tab-activity';
 import { useLeaveDeletedTable } from '@/features/sessions/use-leave-deleted-table';
 import { useSignOutWhenRefused } from '@/features/sessions/use-sign-out-when-refused';
-import { safeRedirectTarget } from '@/lib/safe-redirect';
 import type { AccountLinksApi } from '@/services/account-links-api';
 import type { SignUpApi } from '@/services/sign-up-api';
 import type { AccountPlanApi } from '@/services/account-plan-api';
@@ -263,12 +261,14 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
           path: 'login',
           middleware: [guard(deps, 'public-only')],
           handle: place('Entrar'),
-          Component: loginRoute(deps),
+          ...loginRoute(deps),
         },
         anyonePage(deps, 'account/email/confirm', 'Confirmar e-mail', emailConfirmRoute(deps)),
         anyonePage(deps, 'account/recover', 'Recuperar conta', accountRecoveryRoute(deps)),
         anyonePage(deps, 'invite', 'Convite', inviteRoute(deps)),
         anyonePage(deps, 'reset-password', 'Nova senha', passwordResetRoute(deps)),
+        anyonePage(deps, 'sign-up', 'Criar conta', signUpRoute(deps)),
+        anyonePage(deps, 'sign-up/confirm', 'Criar conta', signUpConfirmRoute(deps)),
         {
           path: 'admin',
           middleware: [guard(deps, 'admin')],
@@ -417,23 +417,6 @@ function restoreOpenTables({ sessionStore, openTables }: AppDependencies): Middl
   return () => {
     const session = sessionStore.getState().session;
     if (session.status === 'authenticated') openTables.getState().restore(session.user.id);
-  };
-}
-
-function loginRoute({
-  authApi,
-  sessionStore,
-  isDesktop,
-}: AppDependencies): () => React.JSX.Element {
-  return function LoginRoute(): React.JSX.Element {
-    const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
-    const enter = (user: AuthUserDto): void => {
-      sessionStore.getState().signedIn(user);
-      void navigate(safeRedirectTarget(searchParams.get('next')), { replace: true });
-    };
-    // The desktop app runs on the person's own computer: staying signed in is the expected default.
-    return <LoginPage authApi={authApi} onAuthenticated={enter} rememberByDefault={isDesktop} />;
   };
 }
 

@@ -1,8 +1,6 @@
-import { useState } from 'react';
 import { useFetcher } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
 import { Alert } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { AuthFrame } from '@/features/auth/auth-frame';
 import { useOnceOnMount } from '@/lib/use-once-on-mount';
 import { useFragmentToken } from '@/lib/use-fragment-token';
@@ -10,6 +8,7 @@ import type { SessionStore } from '@/stores/session-store';
 import type { AccountLinksActionResult, AccountLinksIntent } from './account-links-action';
 import { INVITATION_LINK_DEAD, linkFailureMessage } from './account-links-messages';
 import { InviteAcceptForm } from './invite-accept-form';
+import { SignedOutFirst } from './signed-out-first';
 
 export type InviteAcceptPageProps = Readonly<{
   sessionStore: StoreApi<SessionStore>;
@@ -55,7 +54,7 @@ export function InviteAcceptPage({
           Conferindo o convite…
         </p>
       ) : (
-        <SignedOutFirst sessionStore={sessionStore} signOut={signOut}>
+        <SignedOutFirst sessionStore={sessionStore} signOut={signOut} notice={signedInNotice}>
           <InviteAcceptForm
             token={token}
             suggestedUsername={invitation.suggestedUsername}
@@ -67,39 +66,6 @@ export function InviteAcceptPage({
   );
 }
 
-// Who was signed in when the page opened: the acceptance signs the new account in before the
-// redirect, and reading the live session would unmount the form that owns the redirect.
-function SignedOutFirst({
-  sessionStore,
-  signOut,
-  children,
-}: Readonly<{
-  sessionStore: StoreApi<SessionStore>;
-  signOut: () => Promise<void>;
-  children: React.ReactNode;
-}>): React.JSX.Element {
-  const [signedInAs] = useState(() => usernameOf(sessionStore));
-  const [left, setLeft] = useState(false);
-  const [leaving, setLeaving] = useState(false);
-  if (!signedInAs || left) return <>{children}</>;
-  const leave = async (): Promise<void> => {
-    setLeaving(true);
-    await signOut();
-    setLeft(true);
-  };
-  return (
-    <div className="flex flex-col items-start gap-4">
-      <p className="text-[15px]">
-        Você está conectado como @{signedInAs}. Para aceitar este convite, saia primeiro.
-      </p>
-      <Button size="xl" disabled={leaving} onClick={() => void leave()}>
-        Sair e continuar
-      </Button>
-    </div>
-  );
-}
-
-function usernameOf(sessionStore: StoreApi<SessionStore>): string | null {
-  const { session } = sessionStore.getState();
-  return session.status === 'authenticated' ? session.user.username : null;
+function signedInNotice(username: string): string {
+  return `Você está conectado como @${username}. Para aceitar este convite, saia primeiro.`;
 }
