@@ -20,6 +20,8 @@ const NOW = new Date('2026-11-10T12:00:00Z');
 const A_DAY_AGO = new Date('2026-11-09T12:00:00Z');
 // 5 × 365 days plus 2 before NOW: one day past the calendar 5 years (one leap day in between).
 const FIVE_YEARS_AGO = new Date('2021-11-09T12:00:00Z');
+// An admin's expired invitation stays a month in the list, for the admin to resend it.
+const THIRTY_DAYS_AGO = new Date('2026-10-11T12:00:00Z');
 const TASK = 'housekeeping-sweep';
 
 describe('HousekeepingService', () => {
@@ -61,6 +63,10 @@ describe('HousekeepingService', () => {
       { swept: 'sessions', cut: NOW, limit: HOUSEKEEPING_BATCH_MAX },
       { swept: 'challenges', cut: NOW, limit: HOUSEKEEPING_BATCH_MAX },
       { swept: 'signups', cut: NOW, limit: HOUSEKEEPING_BATCH_MAX },
+      { swept: 'admin_invitations', cut: THIRTY_DAYS_AGO, limit: HOUSEKEEPING_BATCH_MAX },
+      { swept: 'email_changes', cut: NOW, limit: HOUSEKEEPING_BATCH_MAX },
+      { swept: 'password_resets', cut: NOW, limit: HOUSEKEEPING_BATCH_MAX },
+      { swept: 'recovery_tokens', cut: NOW, limit: HOUSEKEEPING_BATCH_MAX },
       { swept: 'broadcasts', cut: FIVE_YEARS_AGO, limit: HOUSEKEEPING_BATCH_MAX },
       { swept: 'banned_emails', cut: FIVE_YEARS_AGO, limit: HOUSEKEEPING_BATCH_MAX },
     ]);
@@ -86,6 +92,10 @@ describe('HousekeepingService', () => {
       'sessions',
       'challenges',
       'signups',
+      'admin_invitations',
+      'email_changes',
+      'password_resets',
+      'recovery_tokens',
       'broadcasts',
       'banned_emails',
     ]);
