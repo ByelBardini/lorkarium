@@ -49,11 +49,12 @@ describe('FeedbackDialog', () => {
     expect(screen.getByLabelText('Passos para reproduzir')).toHaveValue('Abri a mesa');
   });
 
-  it('starts with where the app detected: the Windows app and its version', () => {
+  it('shows where the app detected, the Windows app and its version, with nothing to edit', () => {
     renderDialog(DESKTOP);
 
-    expect(screen.getByRole('radio', { name: 'App para Windows' })).toBeChecked();
-    expect(screen.getByLabelText('Navegador ou versão do app')).toHaveValue('Lorkarium 0.3.1');
+    expect(screen.getByText('App para Windows · Lorkarium 0.3.1')).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Navegador' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: /versão/ })).toBeNull();
   });
 
   it('sending with a blank section marks and focuses the first one, and sends nothing', async () => {

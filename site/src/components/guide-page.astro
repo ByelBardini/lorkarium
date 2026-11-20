@@ -1,0 +1,77 @@
+---
+import type { ImageMetadata } from 'astro';
+import ActShot from '@/components/act-shot.astro';
+import BreadcrumbTrail from '@/components/breadcrumb-trail.astro';
+import DownloadPanel from '@/components/download-panel.astro';
+import FaqList from '@/components/faq-list.astro';
+import RelatedGuides from '@/components/related-guides.astro';
+import SiteLayout from '@/layouts/site-layout.astro';
+import type { GuideShot } from '@/lib/guide-schema';
+import { guideCrumbsOf, guideOgImageOf, type GuideEntry, type GuideLink } from '@/lib/guides';
+import { faqGraphOf } from '@/lib/structured-data';
+
+interface Props {
+  guide: GuideEntry;
+  /** "Veja também", already resolved by `relatedGuidesOf`. */
+  related: readonly GuideLink[];
+}
+
+const SHOTS = import.meta.glob<{ default: ImageMetadata }>('/src/assets/screens/*.png', {
+  eager: true,
+});
+
+const { guide, related } = Astro.props;
+const { data } = guide;
+const crumbs = guideCrumbsOf(guide);
+const faqs = data.faqs ?? [];
+const shot = data.shot === undefined ? null : shotOf(data.shot);
+
+function shotOf(name: GuideShot): ImageMetadata {
+  const image = SHOTS[`/src/assets/screens/${name}.png`]?.default;
+  if (!image)
+    throw new Error(`guide ${guide.id} shows "${name}"; expected a file in src/assets/screens/`);
+  return image;
+}
+---
+
+<SiteLayout
+  title={data.title}
+  description={data.description}
+  noindex={data.draft}
+  ogImage={guideOgImageOf(guide)}
+  ogImageAlt={data.h1}
+  crumbs={crumbs}
+  structuredData={faqs.length > 0 ? [faqGraphOf(faqs)] : []}
+>
+  <article data-guide={guide.id}>
+    <header class="act relative isolate overflow-clip">
+      <div class="site-wrap flex flex-col gap-6">
+        <BreadcrumbTrail crumbs={crumbs} />
+        <h1 class="act-title m-0 max-w-[22ch]">
+          {data.h1}
+          <span class="mt-4 block font-display text-[0.5em] tracking-normal text-gold normal-case italic">
+            {data.lead}
+          </span>
+        </h1>
+        {shot && (
+          <div class="mt-6 max-w-5xl">
+            <ActShot
+              image={shot}
+              alt={data.shotAlt ?? data.h1}
+              sizes="(min-width: 1100px) 1024px, 92vw"
+              priority
+            />
+          </div>
+        )}
+      </div>
+    </header>
+    <div class="site-wrap pb-20">
+      <div class="legal-prose max-w-3xl space-y-5 text-base leading-relaxed text-label">
+        <slot />
+      </div>
+    </div>
+  </article>
+  {faqs.length > 0 && <FaqList faqs={faqs} title="Perguntas" />}
+  <RelatedGuides guides={related} />
+  <DownloadPanel />
+</SiteLayout>

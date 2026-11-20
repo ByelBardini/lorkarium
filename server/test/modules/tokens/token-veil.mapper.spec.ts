@@ -5,6 +5,7 @@ import {
   entriesSeenBy,
   joinedVeil,
   pausesSeenBy,
+  seenVeil,
   tokenIdsSeenBy,
   tokenSeenBy,
   veilCutsOf,
@@ -80,6 +81,42 @@ describe('the veil of the hidden tokens', () => {
     expect(caio?.audience).toEqual({ kind: 'controller', userId: CAIO_ID });
     expect([...(caio?.invisible ?? [])]).toEqual([LOBO_ID]);
     expect(cuts.at(-1)?.audience).toEqual({ kind: 'rest', controllerIds: [CAIO_ID] });
+  });
+
+  it('Bia with magic sight sees every hidden token, without control, and leaves the rest', () => {
+    const cuts = veilCutsOf(seenVeil(LOBO_ALONE, [BIA_ID]));
+
+    expect(cuts.map(({ audience }) => audience)).toEqual([
+      { kind: 'masters' },
+      { kind: 'seer', userId: BIA_ID },
+      { kind: 'rest', controllerIds: [BIA_ID] },
+    ]);
+    expect([...(cuts[1]?.invisible ?? [])]).toEqual([]);
+    expect([...(cuts[2]?.invisible ?? [])]).toEqual([LOBO_ID]);
+  });
+
+  it('Bia, controller of the Lobo and a seer, is one audience: the controller, seeing the Sombra too', () => {
+    const veil = seenVeil(veilOf([loboRow(), sombraRow()]), [BIA_ID]);
+
+    const cuts = veilCutsOf(veil);
+
+    const audiences = cuts.map(({ audience }) => audience);
+    expect(audiences).toEqual([
+      { kind: 'masters' },
+      { kind: 'controller', userId: BIA_ID },
+      { kind: 'rest', controllerIds: [BIA_ID] },
+    ]);
+    expect([...(cuts[1]?.invisible ?? [])]).toEqual([]);
+  });
+
+  it('without seers the cuts are the ones of before, audience by audience', () => {
+    const veil = veilOf([loboRow(), sombraRow()]);
+
+    expect(veilCutsOf(seenVeil(veil, []))).toEqual(veilCutsOf(veil));
+  });
+
+  it('an empty veil cuts nothing even with seers', () => {
+    expect(veilCutsOf(seenVeil(veilOf([lyraRow()]), [BIA_ID]))).toEqual([]);
   });
 
   it('joinedVeil keeps each token once', () => {

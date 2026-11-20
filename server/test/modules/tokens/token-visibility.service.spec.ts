@@ -70,6 +70,7 @@ describe('TokenVisibilityService', () => {
     expect(scenes.journal).toEqual([
       'lock',
       'setHidden',
+      'seers',
       'veil',
       'bump',
       'commit',

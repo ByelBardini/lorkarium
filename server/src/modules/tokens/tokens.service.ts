@@ -10,12 +10,17 @@ import {
 import {
   changeSceneOf,
   combatVeilOf,
+  publishSeers,
   publishTokenChange,
+  publishTokenDeletion,
   publishVeiledLights,
+  seersBeforeOf,
+  seersShiftOf,
   veiledWriteOf,
+  withSeersOf,
   type ChangeScene,
+  type PublishedSeers,
 } from './token-veil';
-import { deletedSeenBy, deletedTokenSeenBy } from '../combat/combat-veil.mapper';
 import type {
   AdjustBarCommandDto,
   CreateTokenCommandDto,
@@ -59,7 +64,6 @@ import {
   requirePassages,
   tokenRulesOf,
 } from './token-group-moves';
-import { activeFormAfterEdit, type ShownForm } from './token-forms.bo';
 import {
   admitBlockersOf,
   authorshipOf,
@@ -69,6 +73,7 @@ import {
   requireAssetsOf,
   tokenAccessOf,
   tokenIn,
+  blockersTurnedOn,
   tokenPlanHoldOf,
   tokenPlanOf,
   tokenPlanSentOf,
@@ -79,6 +84,7 @@ import {
   type TokenWithConditions,
   type TokenWriteDaos,
 } from './token-transaction';
+import { withShownForm } from './token-form.mapper';
 import { lookAssetIdsOf } from './token-aura.mapper';
 import {
   pausePatrolsOf,
@@ -112,7 +118,7 @@ export type TokensServiceDeps = Readonly<{
   members: Pick<CampaignMembersDao, 'findMembership' | 'listMembers'>;
   transaction: TokenTransactionRunner;
   /** The drag preview reads here, on the pool and outside any transaction. */
-  dragGroups: Pick<TokensDao, 'findDragGroup'>;
+  dragGroups: Pick<TokensDao, 'findDragGroup' | 'magicSeersOfScene'>;
   /** The walls of each scene, remembered; filled only under the scene lock. */
   sceneWalls: Pick<SceneWallsService, 'wallsOf'>;
   publisher: BoardPublisherPort;
@@ -135,6 +141,7 @@ type Updated = Readonly<{
   token: TokenWithConditions;
   shared: CharacterRow | null;
   veiled: ChangeScene;
+  seers: PublishedSeers | null;
 }>;
 type AdjustedBar = Readonly<{
   changed: TokenWithConditions | null;
@@ -163,9 +170,16 @@ export class TokensService {
       rules.admit(await daos.tokens.countOfScene(scene.id), 1);
       await admitBlockersOf(daos, scene, rules, command.blocksSight ? 1 : 0);
       await requireAssetsOf(daos, campaignId, lookAssetIdsOf(command));
+      const seers = await seersBeforeOf(daos, scene.id, row.token.magicSight != null);
+      const inserted = await daos.tokens.insert(row);
       // A token just created carries no condition: nothing to read back for it.
-      return { row: await daos.tokens.insert(row), conditions: [] };
+      return {
+        row: inserted,
+        conditions: [],
+        seers: await seersShiftOf(daos, scene, seers, this.now()),
+      };
     });
+    publishSeers(this.deps.publisher, saved.value.seers);
     this.publishChange('token:created', campaignId, saved);
     return saved.version;
   }
@@ -191,7 +205,8 @@ export class TokensService {
       const update = toTokenUpdatePo(command, rules.controllers(command.controllerIds));
       return this.updateIn(locked, found, withShownForm(found.token, update), command);
     });
-    const { token, shared, veiled } = saved.value;
+    const { token, shared, veiled, seers } = saved.value;
+    publishSeers(this.deps.publisher, seers);
     publishCharactersChange(
       this.characterOutlet(),
       campaignId,
@@ -286,7 +301,8 @@ export class TokensService {
     requireDrags(access, scene, group?.tokens ?? [], command.drags, this.deps);
     const drags = command.drags.map(({ tokenId, cell }) => ({ tokenId, cell }));
     const event = { campaignId, sceneId: scene.id, at: this.now(), drags };
-    const veil = controlVeilOf((group?.tokens ?? []).map(controlOfDragged));
+    const dragged = controlVeilOf((group?.tokens ?? []).map(controlOfDragged));
+    const veil = await withSeersOf({ tokens: this.deps.dragGroups }, scene.id, dragged);
     this.deps.publisher.tokensDragged(event, connectionId, cutsOf(event, veil, DRAGS_SEEN_BY));
     return scene.version;
   }
@@ -300,7 +316,7 @@ export class TokensService {
     const saved = await this.inGrid(access, command.sceneId, async ({ daos, scene }) => {
       const rows = await tokensIn(daos, scene, campaignId, command.tokenIds);
       await daos.tokens.setLayer(command.tokenIds, command.layer);
-      return veilOf(rows);
+      return withSeersOf(daos, scene.id, veilOf(rows));
     });
     const { tokenIds, layer } = command;
     const { sceneId, version } = saved;
@@ -362,25 +378,18 @@ export class TokensService {
     const saved = await this.inGrid(access, command.sceneId, async ({ daos, scene }) => {
       const found = await tokenIn(daos, scene, campaignId, command.tokenId);
       authorship.requireDelete([toAuthoredToken(found)]);
+      const before = await seersBeforeOf(daos, scene.id, found.token.magicSight !== null);
       await leaveCombat(daos, scene, access, [found.token.id]);
       await daos.tokens.delete(found.token.id);
       const combat = await combatOf(daos, scene);
       const veil = await combatVeilOf(daos, scene.id, [found], combat);
       const { lights } = await veiledWriteOf(daos, scene.id, [found]);
-      return { combat, veil, lights, hidden: found.token.hidden };
+      const seers = await seersShiftOf(daos, scene, before, this.now());
+      return { combat, veil, lights, hidden: found.token.hidden, seers };
     });
     const { sceneId, version } = saved;
-    const { combat, veil, lights, hidden } = saved.value;
-    const base = { campaignId, sceneId, version, at: this.now(), combat };
-    const { tokenId } = command;
-    if (hidden) {
-      const event = { ...base, tokenIds: [tokenId] };
-      this.deps.publisher.tokensDeleted(event, cutsOf(event, veil, deletedSeenBy));
-    } else {
-      const event = { ...base, tokenId };
-      this.deps.publisher.tokenDeleted(event, cutsOf(event, veil, deletedTokenSeenBy));
-    }
-    publishVeiledLights(this.deps.publisher, { campaignId, sceneId, at: base.at }, lights);
+    const base = { campaignId, sceneId, version, at: this.now() };
+    publishTokenDeletion(this.deps.publisher, base, command.tokenId, saved.value);
     return saved.version;
   }
 
@@ -398,12 +407,15 @@ export class TokensService {
     const { daos, scene } = locked;
     const character = await linkedCharacterIn(locked, found);
     await requireAssetsOf(daos, scene.campaignId, lookAssetIdsOf(command));
+    const mayShift = found.token.magicSight !== null || command.magicSight != null;
+    const before = await seersBeforeOf(daos, scene.id, mayShift);
     if (character) await updateLinkedToken(daos, found, character, update);
     else await daos.tokens.update(found.token.id, update);
     const shared = character && (await characterIn(daos, scene.campaignId, character.character.id));
     const token = await this.reread(daos, scene, found);
     const veiled = await changeSceneOf(daos, scene, found, token.row, true);
-    return { value: { token, shared, veiled }, grid: true, characters: shared !== null };
+    const seers = await seersShiftOf(daos, scene, before, this.now());
+    return { value: { token, shared, veiled, seers }, grid: true, characters: shared !== null };
   }
 
   // Control and the rule first; then the bars where they live (the character's, or the token's).
@@ -487,16 +499,3 @@ export class TokensService {
 
 const MOVES_SEEN_BY = pausesSeenBy(entriesSeenBy<TokensMovedDto>('moves'));
 const DRAGS_SEEN_BY = entriesSeenBy<GridEvent<TokensDraggedDto>>('drags');
-
-// Sending true on a token that already blocks adds nothing to the count of the scene.
-function blockersTurnedOn(found: TokenRow, command: Pick<UpdateToken, 'blocksSight'>): number {
-  return command.blocksSight === true && !found.token.blocksSight ? 1 : 0;
-}
-
-// The update with the form the holder keeps: always written, since replacing the forms drops the
-// shown one (FK set null) even when its id stays in the list.
-function withShownForm(shown: ShownForm, update: TokenUpdatePo): TokenUpdatePo {
-  const formIds = update.forms?.map(({ id }) => id);
-  const activeFormId = activeFormAfterEdit(shown, { ...update.fields, formIds });
-  return { ...update, fields: { ...update.fields, activeFormId } };
-}

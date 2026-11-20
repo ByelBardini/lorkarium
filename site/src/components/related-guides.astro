@@ -1,0 +1,28 @@
+---
+import type { GuideLink } from '@/lib/guides';
+
+interface Props {
+  guides: readonly GuideLink[];
+  title?: string;
+}
+
+const { guides, title = 'Veja também' } = Astro.props;
+---
+
+{guides.length > 0 && (
+  <section data-related-guides class="border-t border-edge py-16">
+    <div class="site-wrap flex flex-col gap-8">
+      <h2 class="m-0 font-wordmark text-2xl font-bold text-ember uppercase md:text-3xl">{title}</h2>
+      <ul class="m-0 grid list-none border-t border-l border-edge p-0 sm:grid-cols-2 lg:grid-cols-3">
+        {guides.map((guide) => (
+          <li class="flex border-r border-b border-edge">
+            <a href={guide.href} class="flex flex-1 flex-col gap-2 p-6 hover:bg-surface">
+              <span class="font-wordmark text-lg font-semibold text-parchment">{guide.title}</span>
+              <span class="text-[15px] leading-relaxed text-muted">{guide.description}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+)}

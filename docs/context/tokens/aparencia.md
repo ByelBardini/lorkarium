@@ -8,3 +8,7 @@ Detalhe do hub [`../tokens.md`](../tokens.md): o `TokenAppearanceService` (`toke
 - `resizeMany(userId, campaignId, { resizes })`: `tokensIn` → para cada um `requireControl('resize')` (como a aparência, **sem** olhar a camada), `placeInScene` com a caixa nova (`OUT_OF_SCENE`) e `requireBox(id, expect?, atual)` (`token-rules.bo.ts`: diferente → `STALE_UNDO` "token X is at 2×2 at (3, 4); the undo expected 1×1 at (3, 4)") → `TokensDao.resizeMany` (um `UPDATE` por token: `col`, `row`, `width`, `height`) → `bumpVersion` → `BoardPublisherPort.tokensResized`.
 - O adaptador Socket.IO emite os três à sala `campaign:<id>` inteira (nada a redigir). O `BoardPublisherFake` guarda `tokensFacings`, `tokensRestylings` e `tokensResizes`.
 - Troca à mão: o `restyle` com imagem nova e o `resizeMany` com tamanho novo deixam o token sem forma ativa (`active_form_id` nulo no mesmo `UPDATE`; ver [`formas.md`](formas.md)).
+
+## Imagens da biblioteca
+
+- Asset `library_image` é da biblioteca: o `requireAssetsOf` o recusa em token, forma, aura e condição (`ASSET_NOT_FOUND` antes de gravar, [../library/images.md](../library/images.md)).

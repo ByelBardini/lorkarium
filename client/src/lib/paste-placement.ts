@@ -105,6 +105,7 @@ function newTokenOf(token: TokenDto, combatantId: string | undefined): NewTokenI
     light: token.light,
     aura: token.aura,
     blocksSight: token.blocksSight,
+    magicSight: token.magicSight,
   };
   const bars = token.bars.map(({ label, current, max, temp, color, visibility }) => ({
     label,

@@ -36,6 +36,7 @@ import {
   toTokenAuthorshipBo,
   toTokenDto,
   toTokenLightPo,
+  toTokenMagicSightPo,
   toTokenSightPo,
 } from './tokens.mapper';
 import type { WallsDao } from '../walls/walls.dao';
@@ -65,6 +66,7 @@ export type TokenWriteDaos = Readonly<{
     | 'deleteMany'
     | 'setHidden'
     | 'veilOfScene'
+    | 'magicSeersOfScene'
     | 'patrols'
   >;
   conditions: Pick<ConditionsDao, 'listOfHolders'>;
@@ -166,6 +168,7 @@ function newTokenLookOf(token: NewTokenInput): Partial<NewTokenPo> {
   return {
     ...{ hidden: token.hidden ?? false, imageAssetId, frame, flipX, flipY, facing, sightAngle },
     blocksSight: token.blocksSight ?? false,
+    ...toTokenMagicSightPo(token.magicSight),
     ...toTokenSightPo(token.sight),
     ...toTokenLightPo(token.light),
     ...toTokenAuraPo(token.aura),
@@ -186,7 +189,9 @@ export function tokenPlanHoldOf(row: Pick<TokenRow, 'token' | 'bars' | 'forms'>)
   const { auraKind, auraColor, lightColor } = row.token;
   const colors = [...row.bars.map(({ color }) => color), auraColor, lightColor];
   const settings = { barSettings: row.bars.map(barSettingOf), formSettings: row.forms };
-  return { bars: row.bars.length, forms: row.forms.length, auraKind, colors, ...settings };
+  const magicSight = row.token.magicSight !== null;
+  const counts = { bars: row.bars.length, forms: row.forms.length };
+  return { ...counts, auraKind, colors, ...settings, magicSight };
 }
 
 /** What a create, paste or edit sends that the plan counts; absent forms or aura keep them. */
@@ -196,12 +201,14 @@ export function tokenPlanSentOf(
     forms?: readonly TokenFormSetting[] | undefined;
     aura?: TokenPlanSent['aura'];
     light?: Readonly<{ color: string | null }> | null | undefined;
+    magicSight?: number | null | undefined;
   }>,
 ): TokenPlanSent {
   const colors = [...command.bars.map(({ color }) => color), command.light?.color];
   const settings = { barSettings: command.bars.map(barSettingOf), formSettings: command.forms };
-  const { aura } = command;
-  return { bars: command.bars.length, forms: command.forms?.length, aura, colors, ...settings };
+  const { aura, magicSight } = command;
+  const counts = { bars: command.bars.length, forms: command.forms?.length };
+  return { ...counts, aura, colors, ...settings, magicSight };
 }
 
 function barSettingOf({ label, max, color }: TokenBarSetting): TokenBarSetting {
@@ -223,6 +230,17 @@ export async function admitBlockersOf(
   const stored = await daos.tokens.countBlockersOfScene(scene.id);
   tokenPlanOf(scene).requireBlockers(stored, adding);
   rules.admitBlockers(stored, adding);
+}
+
+/** How many sight blockers an edit turns on: sending true on a token that already blocks adds
+ *  nothing to the count of the scene.
+ *
+ *  Example: `await admitBlockersOf(daos, scene, rules, blockersTurnedOn(found, command))` */
+export function blockersTurnedOn(
+  found: TokenRow,
+  command: Readonly<{ blocksSight?: boolean | undefined }>,
+): number {
+  return command.blocksSight === true && !found.token.blocksSight ? 1 : 0;
 }
 
 /** Deleted tokens leave the combat in the same transaction: the entries they empty go and the turn

@@ -102,7 +102,7 @@ export function eyeFieldOf(
 export function sightLevel(context: SightContext, target: SightTarget): SightLevel {
   if (context.mode === 'off') return 'seen';
   let best: SightLevel = 'hidden';
-  for (const point of probesOf(target.box)) {
+  for (const point of sightProbesOf(target.box)) {
     const lit = litLevel(point, context, target.ignores);
     const probe = { scenery: target.scenery, lit, except: target.ignores };
     for (const eye of context.eyes) {
@@ -162,7 +162,10 @@ function rangeLevel(range: SightRange | null, distance: number): SightLevel {
   return distance <= range.bright + range.dim ? 'silhouette' : 'hidden';
 }
 
-function probesOf({ x, y, width, height }: SightTarget['box']): Vector2[] {
+/** The points a target is looked at: its center and its four corners pulled 10% inward.
+ *
+ *  Example: `sightProbesOf({ x: 0, y: 0, width: 1, height: 1 })[0]` → `{ x: 0.5, y: 0.5 }` */
+export function sightProbesOf({ x, y, width, height }: SightTarget['box']): Vector2[] {
   const near = { x: x + width * CORNER_INSET, y: y + height * CORNER_INSET };
   const far = { x: x + width * (1 - CORNER_INSET), y: y + height * (1 - CORNER_INSET) };
   return [

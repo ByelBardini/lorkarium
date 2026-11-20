@@ -185,6 +185,22 @@ describe('applyBoardEvent, token batches', () => {
     expect(next.tokens.map(({ id }) => id)).toEqual([LYRA_ID, KAEL_ID]);
   });
 
+  // The magic sight of a token Bia controls turned on: the hidden ones arrive, one already there.
+  it('token:createdMany of a seer upserts: a token already on the board is replaced, not doubled', () => {
+    const board = vharnBoard({ tokens: [lyra(), kael({ name: 'Kael antigo' })] });
+    const hiddenKael = kael({ hidden: true, canControl: false, magicSight: null });
+
+    const next = applyBoardEvent(board, {
+      type: 'tokensCreated',
+      payload: { ...vharnEventBase(5), tokens: [hiddenKael], combat: null },
+    });
+
+    expect(next.tokens.map(({ id, hidden }) => [id, hidden])).toEqual([
+      [LYRA_ID, false],
+      [KAEL_ID, true],
+    ]);
+  });
+
   it('token:createdMany brings the combat with the copies in the entry of their original', () => {
     const board = vharnBoard({ tokens: [lyra()], combat: vharnCombat() });
     const withCopy = vharnCombat({

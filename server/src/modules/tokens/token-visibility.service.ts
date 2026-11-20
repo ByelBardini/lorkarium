@@ -21,7 +21,7 @@ import {
   type TokenWriteDaos,
 } from './token-transaction';
 import { publishVeiledLights } from './token-veil';
-import { joinedVeil, sceneVeilOf, veilOf } from './token-veil.mapper';
+import { joinedVeil, sceneVeilOf, seenVeil, veilOf } from './token-veil.mapper';
 import type { TokenRow } from './tokens.dao';
 
 export type SetTokensHidden = Omit<SetTokensHiddenCommandDto, 'actionId' | 'campaignId'>;
@@ -90,13 +90,18 @@ export class TokenVisibilityService {
     );
     if (changedIds.size === 0) return null;
     await daos.tokens.setHidden(scene.id, [...changedIds], hidden);
-    const after = sceneVeilOf(await daos.tokens.veilOfScene(scene.id));
+    // Hiding never changes who sees by magic sight: one read serves before and after.
+    const seerIds = await daos.tokens.magicSeersOfScene(scene.id);
+    const after = seenVeil(sceneVeilOf(await daos.tokens.veilOfScene(scene.id)), seerIds);
     const changed = flaggedAll(
       rows.filter(({ token }) => changedIds.has(token.id)),
       hidden,
     );
     const touched = veilOf(flaggedAll(changed, true));
-    const before = hidden ? withoutIds(after, changedIds) : joinedVeil(after, touched);
+    const before = seenVeil(
+      hidden ? withoutIds(after, changedIds) : joinedVeil(after, touched),
+      seerIds,
+    );
     return {
       changed: await audiencesWithConditions(daos, changed),
       scene: { before, after, combat: await combatOf(daos, scene) },

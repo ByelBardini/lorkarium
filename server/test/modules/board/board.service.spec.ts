@@ -16,6 +16,7 @@ import {
   LOBO_ID,
   LYRA_ID,
   loboRow,
+  lyraPo,
   lyraRow,
   sombraRow,
   SOMBRA_ID,
@@ -96,6 +97,66 @@ describe('BoardService.snapshotFor with hidden tokens', () => {
     expect(state.tokens.filter(({ hidden }) => hidden)).toHaveLength(2);
     expect(state.veiledLights).toEqual([]);
     expect(state.combat?.combatants).toHaveLength(2);
+  });
+});
+
+describe('BoardService.snapshotFor with magic sight', () => {
+  const DORA_ID = '6d1f0c2e-8b4a-4e3d-9f1a-2c3b4d5e6f70';
+  let service: BoardService;
+
+  // Bia's mage (the Lyra) sees the invisible; Dora, a spectator, is listed in its control.
+  beforeEach(() => {
+    const members = new CampaignMembersDaoFake(new CampaignsDaoFake(), {}, [
+      campaignMemberPo({ campaignId: VHARN_ID, userId: ANA_ID, role: 'master' }),
+      campaignMemberPo({ campaignId: VHARN_ID, userId: BIA_ID, role: 'player' }),
+      campaignMemberPo({ campaignId: VHARN_ID, userId: CAIO_ID, role: 'player' }),
+      campaignMemberPo({ campaignId: VHARN_ID, userId: DORA_ID, role: 'spectator' }),
+    ]);
+    const scenes = new ScenesDaoFake([scenePo({ version: 7 })]);
+    scenes.activeOf.set(VHARN_ID, VHARN_SCENE_ID);
+    const journal: string[] = [];
+    const mage = lyraRow({
+      token: lyraPo({ magicSight: '6.00' }),
+      controllerIds: [BIA_ID, DORA_ID],
+    });
+    const rows = [mage, loboRow({ controllerIds: [] }), sombraRow()];
+    const daos: BoardReadDaos = {
+      scenes,
+      tokens: new TokensDaoFake(journal, rows),
+      conditions: new ConditionsDaoFake(),
+      combat: new CombatDaoFake(journal),
+      drawings: new DrawingsDaoFake(journal),
+      effectAreas: new EffectAreasDaoFake(journal),
+      walls: new WallsDaoFake(journal),
+      lights: new LightsDaoFake(journal),
+    };
+    service = new BoardService({
+      members,
+      snapshot: (work) => work(daos),
+      clock: new ClockFake(NOW),
+    });
+  });
+
+  it('Bia, controlling the mage, gets the Lobo and the Sombra redacted as others, and no veiled light', async () => {
+    const state = await service.snapshotFor(BIA_ID, VHARN_ID);
+
+    expect(state.tokens.map(({ id }) => id)).toEqual([LYRA_ID, LOBO_ID, SOMBRA_ID]);
+    const lobo = state.tokens.find(({ id }) => id === LOBO_ID);
+    expect([lobo?.hidden, lobo?.canControl]).toEqual([true, false]);
+    expect(state.veiledLights).toEqual([]);
+  });
+
+  it('Caio, without magic sight, gets neither, and the torch as a veiled light', async () => {
+    const state = await service.snapshotFor(CAIO_ID, VHARN_ID);
+
+    expect(state.tokens.map(({ id }) => id)).toEqual([LYRA_ID]);
+    expect(state.veiledLights).toEqual([TORCH]);
+  });
+
+  it('Dora, a spectator listed in the control of the mage, gets neither', async () => {
+    const state = await service.snapshotFor(DORA_ID, VHARN_ID);
+
+    expect(state.tokens.map(({ id }) => id)).toEqual([LYRA_ID]);
   });
 });
 

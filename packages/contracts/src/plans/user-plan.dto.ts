@@ -50,6 +50,7 @@ export const PLAN_FEATURE_RESOURCES = [
   'animatedCampaignArt',
   'privateCampaign',
   'sheetScripts',
+  'magicSight',
 ] as const;
 
 /** Every resource a `PLAN_LIMIT` refusal may name. The dice with physics are not here: past the

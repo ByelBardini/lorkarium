@@ -52,6 +52,7 @@ import type {
   TokenChange,
   TokenChangeVeil,
   TokensCreation,
+  SeersChange,
   TokensHiddenChange,
   VeilAudience,
   VeilCuts,
@@ -142,6 +143,25 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
       else if (cut.name === 'token:deletedMany') to.emit(cut.name, cut.event);
       else to.emit(cut.name, cut.event);
     }
+  }
+
+  // Each one who started or stopped seeing gets their cut; the masters and the rest of the grid,
+  // `board:advanced` (a master is never cut: they already see all).
+  seersChanged(change: SeersChange): void {
+    const { campaignId, sceneId } = change;
+    const masters = sceneMastersRoom(campaignId, sceneId);
+    const cutRooms = change.cuts.map(({ userId }) => sceneUserRoom(campaignId, sceneId, userId));
+    for (const cut of change.cuts) {
+      const to = this.io.to(sceneUserRoom(campaignId, sceneId, cut.userId)).except(masters);
+      if (cut.name === 'token:createdMany') to.emit(cut.name, cut.event);
+      else to.emit(cut.name, cut.event);
+    }
+    const advanced = advancedOf(change);
+    this.io.to(masters).emit('board:advanced', advanced);
+    this.io
+      .to(sceneRoom(campaignId, sceneId))
+      .except([masters, ...cutRooms])
+      .emit('board:advanced', advanced);
   }
 
   veiledLightsChanged(change: VeiledLightsChange): void {
@@ -364,7 +384,7 @@ export class SocketIoBoardPublisher implements BoardPublisherPort {
     const { campaignId, sceneId } = address;
     const masters = sceneMastersRoom(campaignId, sceneId);
     if (audience.kind === 'masters') return this.io.to(masters);
-    if (audience.kind === 'controller')
+    if (audience.kind === 'controller' || audience.kind === 'seer')
       return this.io.to(sceneUserRoom(campaignId, sceneId, audience.userId)).except(masters);
     const controllers = audience.controllerIds.map((id) => sceneUserRoom(campaignId, sceneId, id));
     return this.io.to(sceneRoom(campaignId, sceneId)).except([masters, ...controllers]);

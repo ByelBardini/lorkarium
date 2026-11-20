@@ -17,7 +17,12 @@ import {
   savedRollLimitsOf,
   type PlanLimits,
 } from '../../src/plans/plan-limits';
-import { USER_PLANS, userPlanDto } from '../../src/plans/user-plan.dto';
+import {
+  PLAN_FEATURE_RESOURCES,
+  USER_PLANS,
+  planLimitResourceDto,
+  userPlanDto,
+} from '../../src/plans/user-plan.dto';
 
 type NumericKey = {
   [K in keyof PlanLimits]: PlanLimits[K] extends number | null ? K : never;
@@ -127,6 +132,13 @@ describe('PLAN_LIMITS', () => {
     expect(PLAN_LIMITS.narrador.auraKinds).toEqual(['color']);
   });
 
+  it('magic sight opens from Narrador up, and is a feature a refusal may name', () => {
+    const open = USER_PLANS.filter((plan) => PLAN_LIMITS[plan].magicSight);
+    expect(open).toEqual(['narrador', 'lenda', 'amigo_do_dono']);
+    expect(planLimitResourceDto.parse('magicSight')).toBe('magicSight');
+    expect(PLAN_FEATURE_RESOURCES).toContain('magicSight');
+  });
+
   it('the scripts of a sheet template open from Narrador up', () => {
     const open = USER_PLANS.filter((plan) => PLAN_LIMITS[plan].sheetScripts);
     expect(open).toEqual(['narrador', 'lenda', 'amigo_do_dono']);
@@ -173,6 +185,7 @@ describe('PLAN_LIMITS', () => {
       privateCampaign: true,
       sheetScripts: true,
       profileBanner: true,
+      magicSight: true,
     } satisfies PlanLimits);
   });
 
@@ -198,6 +211,7 @@ describe('PLAN_LIMITS', () => {
       privateCampaign: false,
       sheetScripts: false,
       profileBanner: false,
+      magicSight: false,
     });
   });
 

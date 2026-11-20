@@ -855,6 +855,13 @@
       "when": 1795136399718,
       "tag": "0121_feedback",
       "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1795146255655,
+      "tag": "0122_token_magic_sight",
+      "breakpoints": true
     }
   ]
 }

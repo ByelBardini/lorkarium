@@ -606,3 +606,46 @@ describe('token form state past the plan ceiling', () => {
     expect(result.ok && 'forms' in result.token).toBe(false);
   });
 });
+
+describe('token form state, magic sight', () => {
+  const kael = named('Kael');
+  const typed = (reach: string, saved = false) => ({ on: true, reach, saved });
+
+  it('the master switching it on with "9" m in a scene of 1.5 m sends magicSight 6', () => {
+    const result = parseTokenForm({ ...kael, magicSight: typed('9') }, METERS);
+
+    expect(result).toMatchObject({ ok: true, token: { magicSight: 6 } });
+  });
+
+  it('editing a token with 4 cells shows "6"; switching it off sends null', () => {
+    const form = tokenFormOf(lyra({ magicSight: 4 }), METERS);
+    const off = { ...form, magicSight: { ...form.magicSight, on: false } };
+
+    expect(form.magicSight).toEqual({ on: true, reach: '6', saved: true });
+    expect(parseTokenForm(off, METERS)).toMatchObject({ ok: true, token: { magicSight: null } });
+  });
+
+  it('a token that never had it, left off, sends no magicSight', () => {
+    const result = parseTokenForm(kael, METERS);
+
+    expect(result.ok && 'magicSight' in result.token).toBe(false);
+  });
+
+  it('"151" m and an empty reach are errors of the vision tab', () => {
+    const far = parseTokenForm({ ...kael, magicSight: typed('151') }, METERS);
+    const empty = parseTokenForm({ ...kael, magicSight: typed('') }, METERS);
+
+    expect(far).toEqual({ ok: false, errors: { magicSight: 'De 0 a 150 m.' } });
+    expect(empty).toEqual({
+      ok: false,
+      errors: { magicSight: 'Informe o alcance da visão mágica.' },
+    });
+    expect(firstErrorTab({ magicSight: 'De 0 a 150 m.' })).toBe('vision');
+  });
+
+  it("a player's form never sends it", () => {
+    const result = parseTokenForm({ ...kael, magicSight: typed('9') }, METERS, 'player');
+
+    expect(result.ok && 'magicSight' in result.token).toBe(false);
+  });
+});

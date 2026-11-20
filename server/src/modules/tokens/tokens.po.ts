@@ -91,6 +91,9 @@ export const tokens = pgTable(
     hidden: boolean('hidden').notNull().default(false),
     // Cuts sight and light like a curtain, by the art's shape (`docs/context/tokens/bloqueio-de-visao.md`).
     blocksSight: boolean('blocks_sight').notNull().default(false),
+    // Sees invisible tokens up to this many cells (game-core `magicSightLevel`); null = none.
+    // Only the master sets it, and it is no secret.
+    magicSight: numeric('magic_sight', { precision: 6, scale: 2 }),
     // The character this token is an instance of: it lends its identity, look, bars,
     // controllers, conditions and defeat mark. Losing the character unlinks the token.
     characterId: uuid('character_id').references((): AnyPgColumn => characters.id, {
@@ -129,6 +132,10 @@ export const tokens = pgTable(
     check(
       'tokens_light_range',
       sql`(${table.lightBright} IS NULL AND ${table.lightDim} IS NULL) OR (${table.lightBright} IS NOT NULL AND ${table.lightDim} IS NOT NULL AND ${table.lightBright} BETWEEN 0 AND 100 AND ${table.lightDim} BETWEEN 0 AND 100)`,
+    ),
+    check(
+      'tokens_magic_sight_range',
+      sql`${table.magicSight} IS NULL OR ${table.magicSight} BETWEEN 0 AND 100`,
     ),
     check(
       'tokens_light_color',
@@ -245,4 +252,4 @@ export type TokenFieldsPo = Pick<TokenPo, 'name' | 'initials' | 'side' | 'width'
   Partial<TokenSightPo> &
   Partial<TokenLightPo> &
   Partial<TokenAuraPo> &
-  Partial<Pick<TokenPo, 'sightAngle' | 'activeFormId' | 'blocksSight'>>;
+  Partial<Pick<TokenPo, 'sightAngle' | 'activeFormId' | 'blocksSight' | 'magicSight'>>;

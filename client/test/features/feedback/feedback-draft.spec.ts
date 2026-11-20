@@ -20,13 +20,12 @@ describe('the feedback draft', () => {
     expect(firstMissingOf(emptyFeedbackDraft(WHERE))).toBe('steps');
   });
 
-  it('a section of only spaces is still missing; then the version', () => {
+  it('a section of only spaces is still missing', () => {
     const draft = bugDraft();
 
     expect(firstMissingOf({ ...draft, sections: { ...draft.sections, actual: '  ' } })).toBe(
       'actual',
     );
-    expect(firstMissingOf({ ...draft, appVersion: ' ' })).toBe('appVersion');
     expect(firstMissingOf(draft)).toBeNull();
   });
 

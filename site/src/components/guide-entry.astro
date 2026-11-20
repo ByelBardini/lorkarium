@@ -1,0 +1,20 @@
+---
+import { getCollection, render, type CollectionEntry } from 'astro:content';
+import { GUIDE_DRAFTS_ALLOWED } from 'astro:env/server';
+import GuidePage from '@/components/guide-page.astro';
+import { relatedGuidesOf, visibleGuidesOf } from '@/lib/guides';
+
+interface Props {
+  guide: CollectionEntry<'guides'>;
+}
+
+const { guide } = Astro.props;
+// Related links point only at guides this build publishes, so a draft never leaks into a link.
+const visible = visibleGuidesOf(await getCollection('guides'), GUIDE_DRAFTS_ALLOWED);
+const related = relatedGuidesOf(guide, visible);
+const { Content } = await render(guide);
+---
+
+<GuidePage guide={guide} related={related}>
+  <Content />
+</GuidePage>
