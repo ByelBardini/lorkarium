@@ -12,16 +12,19 @@ export type LoginPageProps = Readonly<{
   rememberByDefault: boolean;
   /** Whether the public sign-up is open: then "Criar conta" shows under the form. */
   registrationOpen: boolean;
+  /** "Esqueci minha senha", with what was typed in the e-mail or @ field. */
+  onForgotPassword: (identifier: string) => void;
 }>;
 
 /** The sign-in screen: illustrated panel on large screens, the form always in the first fold.
  *
- *  Example: `<LoginPage authApi={authApi} onAuthenticated={goToNext} rememberByDefault={false} registrationOpen />` */
+ *  Example: `<LoginPage authApi={authApi} onAuthenticated={goToNext} rememberByDefault={false} registrationOpen onForgotPassword={goToForgot} />` */
 export function LoginPage({
   authApi,
   onAuthenticated,
   rememberByDefault,
   registrationOpen,
+  onForgotPassword,
 }: LoginPageProps): React.JSX.Element {
   return (
     <AuthFrame
@@ -34,6 +37,7 @@ export function LoginPage({
         authApi={authApi}
         onAuthenticated={onAuthenticated}
         rememberByDefault={rememberByDefault}
+        onForgotPassword={onForgotPassword}
       />
       {registrationOpen && (
         <p className="text-center text-sm text-muted-foreground">

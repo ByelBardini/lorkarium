@@ -11,7 +11,8 @@ import { useFragmentToken } from '@/lib/use-fragment-token';
 import type { AccountLinksActionResult, AccountLinksIntent } from './account-links-action';
 import { linkFailureMessage, passwordProblems, RESET_LINK_DEAD } from './account-links-messages';
 
-/** The page of the new-password link an admin sent (`/reset-password#token=…`): whose account, the
+/** The page of the new-password link (`/reset-password#token=…`, sent by an admin or asked at
+ *  `/forgot-password`): whose account, the
  *  new password twice, and then the login (every session of the account fell).
  *
  *  Example: `<PasswordResetPage />` */
@@ -25,7 +26,7 @@ export function PasswordResetPage(): React.JSX.Element {
   });
   const result = inspect.state === 'idle' ? inspect.data : undefined;
   const username = result && 'username' in result ? result.username : null;
-  const dead = <p className="text-[15px] text-muted-foreground">{RESET_LINK_DEAD}</p>;
+  const dead = <DeadResetLink />;
   const heading = username ? `Nova senha para @${username}` : 'Nova senha';
   return (
     <AuthFrame pageTitle="Lorkarium · Nova senha" heading={heading}>
@@ -43,6 +44,18 @@ export function PasswordResetPage(): React.JSX.Element {
         <NewPasswordForm token={token} deadLink={dead} />
       )}
     </AuthFrame>
+  );
+}
+
+// Since the "esqueci minha senha", the person asks for another link herself.
+function DeadResetLink(): React.JSX.Element {
+  return (
+    <div className="flex flex-col items-start gap-4">
+      <p className="text-[15px] text-muted-foreground">{RESET_LINK_DEAD}</p>
+      <Link to="/forgot-password" className={buttonVariants({ size: 'xl' })}>
+        Pedir outro
+      </Link>
+    </div>
   );
 }
 

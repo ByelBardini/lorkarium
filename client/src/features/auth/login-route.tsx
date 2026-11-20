@@ -6,7 +6,8 @@ import { safeRedirectTarget } from '@/lib/safe-redirect';
 import type { SignUpResult } from '@/services/sign-up-api';
 import { LoginPage } from './login-page';
 
-/** The login (`/login`): signs in and goes to the safe `next`; reads the sign-up settings to know
+/** The login (`/login`): signs in and goes to the safe `next`, or to `/forgot-password` with what
+ *  was typed (in the navigation state, never the URL); reads the sign-up settings to know
  *  whether "Criar conta" shows (settings that do not arrive hide it).
  *
  *  Example: `{ path: 'login', middleware: [guard(deps, 'public-only')], ...loginRoute(deps) }` */
@@ -29,6 +30,9 @@ export function loginRoute(deps: AppDependencies): Pick<RouteObject, 'loader' | 
           onAuthenticated={enter}
           rememberByDefault={isDesktop}
           registrationOpen={settings.ok && settings.value.registrationOpen}
+          onForgotPassword={(identifier) =>
+            void navigate('/forgot-password', { state: { identifier } })
+          }
         />
       );
     },
