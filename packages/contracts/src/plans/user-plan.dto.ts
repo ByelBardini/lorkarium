@@ -67,6 +67,11 @@ export type PlanFeatureResource = (typeof PLAN_FEATURE_RESOURCES)[number];
 export const PLAN_LIMIT_REASONS = ['room', 'readOnly'] as const;
 export type PlanLimitReason = (typeof PLAN_LIMIT_REASONS)[number];
 
+/** Whose plan gave the ceiling of a refusal: the table owner's, or the person's own (the saved
+ *  rolls, where the greater of the two applies). Absent: as the resource reads by default. */
+export const PLAN_LIMIT_HOLDERS = ['account', 'table'] as const;
+export type PlanLimitHolder = (typeof PLAN_LIMIT_HOLDERS)[number];
+
 /** What a `PLAN_LIMIT` error body carries: the client builds the pt-BR sentence from it. `limit`
  *  is the ceiling of the plan (0 for a feature the plan lacks); `plan` is the one whose limits
  *  apply (the table owner's, or the person's own for a customization of the account).
@@ -77,6 +82,12 @@ export const planLimitDto = z.strictObject({
   limit: z.number().int().nonnegative(),
   plan: userPlanDto,
   reason: z.enum(PLAN_LIMIT_REASONS).optional(),
+  holder: z
+    .enum(PLAN_LIMIT_HOLDERS, {
+      error: (issue) =>
+        `holder ${JSON.stringify(issue.input)}: expected one of ${PLAN_LIMIT_HOLDERS.join(', ')}`,
+    })
+    .optional(),
 });
 export type PlanLimitDto = z.infer<typeof planLimitDto>;
 

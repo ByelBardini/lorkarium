@@ -11,8 +11,10 @@ import { apiErrorDto } from '../../src/http/api-error.dto';
 import {
   PLAN_COUNT_LIMIT_KEY,
   PLAN_FAIR_USE_RESOURCES,
+  PERSONAL_SAVED_ROLL_LIMITS,
   PLAN_LIMITS,
   planLimitsDto,
+  savedRollLimitsOf,
   type PlanLimits,
 } from '../../src/plans/plan-limits';
 import { USER_PLANS, userPlanDto } from '../../src/plans/user-plan.dto';
@@ -118,6 +120,7 @@ describe('PLAN_LIMITS', () => {
     const lendaUp = ['lenda', 'amigo_do_dono'];
     expect(USER_PLANS.filter((plan) => PLAN_LIMITS[plan].desktopWindows)).toEqual(lendaUp);
     expect(USER_PLANS.filter((plan) => PLAN_LIMITS[plan].animatedCampaignArt)).toEqual(lendaUp);
+    expect(USER_PLANS.filter((plan) => PLAN_LIMITS[plan].profileBanner)).toEqual(lendaUp);
     expect(USER_PLANS.filter((plan) => PLAN_LIMITS[plan].auraKinds.includes('image'))).toEqual(
       lendaUp,
     );
@@ -169,6 +172,7 @@ describe('PLAN_LIMITS', () => {
       animatedCampaignArt: true,
       privateCampaign: true,
       sheetScripts: true,
+      profileBanner: true,
     } satisfies PlanLimits);
   });
 
@@ -193,6 +197,7 @@ describe('PLAN_LIMITS', () => {
       animatedCampaignArt: false,
       privateCampaign: false,
       sheetScripts: false,
+      profileBanner: false,
     });
   });
 
@@ -233,8 +238,78 @@ describe('apiErrorDto planLimit', () => {
     expect(apiErrorDto.safeParse({ ...REFUSAL, planLimit }).success).toBe(false);
   });
 
+  it('accepts who gave the ceiling: the account or the table', () => {
+    const planLimit = { resource: 'savedRolls', limit: 15, plan: 'apoiador', holder: 'account' };
+    expect(apiErrorDto.parse({ ...REFUSAL, planLimit }).planLimit?.holder).toBe('account');
+  });
+
+  it('refuses a holder out of account and table, citing the value', () => {
+    const planLimit = { resource: 'savedRolls', limit: 15, plan: 'apoiador', holder: 'team' };
+    const result = apiErrorDto.safeParse({ ...REFUSAL, planLimit });
+    expect(result.success).toBe(false);
+    expect(JSON.stringify(result.error?.issues)).toContain('team');
+  });
+
   it('refuses a resource out of the list', () => {
     const planLimit = { resource: 'tokens', limit: 1, plan: 'free' };
     expect(apiErrorDto.safeParse({ ...REFUSAL, planLimit }).success).toBe(false);
+  });
+});
+
+describe('PERSONAL_SAVED_ROLL_LIMITS', () => {
+  it('gives the Apoiador the saved rolls and folders of the Narrador', () => {
+    expect(PERSONAL_SAVED_ROLL_LIMITS.apoiador).toEqual({
+      maxSavedRolls: 15,
+      maxSavedRollFolders: 5,
+    });
+  });
+
+  it('gives every other plan the ceilings of its own grid', () => {
+    expect(PERSONAL_SAVED_ROLL_LIMITS.free).toEqual({ maxSavedRolls: 3, maxSavedRollFolders: 0 });
+    expect(PERSONAL_SAVED_ROLL_LIMITS.narrador).toEqual({
+      maxSavedRolls: 15,
+      maxSavedRollFolders: 5,
+    });
+    expect(PERSONAL_SAVED_ROLL_LIMITS.lenda).toEqual({
+      maxSavedRolls: 50,
+      maxSavedRollFolders: 50,
+    });
+    expect(PERSONAL_SAVED_ROLL_LIMITS.amigo_do_dono).toEqual({
+      maxSavedRolls: 50,
+      maxSavedRollFolders: 50,
+    });
+  });
+});
+
+describe('savedRollLimitsOf', () => {
+  it('an Apoiador at a Grátis table keeps 15 rolls and 5 folders, from its own plan', () => {
+    const { limits, holder } = savedRollLimitsOf(PLAN_LIMITS.free, 'apoiador');
+    expect(limits).toMatchObject({ maxSavedRolls: 15, maxSavedRollFolders: 5, plan: 'apoiador' });
+    expect(holder).toBe('account');
+  });
+
+  it('a Grátis member at the table of an Apoiador keeps the 3 rolls and no folder of the table', () => {
+    const { limits, holder } = savedRollLimitsOf(PLAN_LIMITS.apoiador, 'free');
+    expect(limits).toMatchObject({ maxSavedRolls: 3, maxSavedRollFolders: 0, plan: 'apoiador' });
+    expect(holder).toBe('table');
+  });
+
+  it('a tie stays with the table', () => {
+    const { limits, holder } = savedRollLimitsOf(PLAN_LIMITS.narrador, 'apoiador');
+    expect(limits).toMatchObject({ maxSavedRolls: 15, maxSavedRollFolders: 5, plan: 'narrador' });
+    expect(holder).toBe('table');
+  });
+
+  it('a bigger table wins over the person', () => {
+    const { limits, holder } = savedRollLimitsOf(PLAN_LIMITS.lenda, 'apoiador');
+    expect(limits).toMatchObject({ maxSavedRolls: 50, maxSavedRollFolders: 50, plan: 'lenda' });
+    expect(holder).toBe('table');
+  });
+
+  it('a Lenda at a Grátis table keeps 50, and every other key stays the table one', () => {
+    const { limits, holder } = savedRollLimitsOf(PLAN_LIMITS.free, 'lenda');
+    expect(limits).toMatchObject({ maxSavedRolls: 50, maxSavedRollFolders: 50, plan: 'lenda' });
+    expect(limits.maxScenes).toBe(3);
+    expect(holder).toBe('account');
   });
 });
