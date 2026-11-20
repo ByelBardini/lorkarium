@@ -164,6 +164,7 @@ describe('invitations', () => {
     expect(invitationInspectResponseDto.parse(inspect.json())).toEqual({
       email: 'bia@outro.com',
       suggestedUsername: 'bia2',
+      origin: 'admin',
     });
   });
 

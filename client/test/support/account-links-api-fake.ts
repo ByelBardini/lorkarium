@@ -37,7 +37,7 @@ export class AccountLinksApiFake implements AccountLinksApi {
 
   inspectInvitation(token: string): Promise<Answers['inspectInvitation']> {
     return this.answers.reply('inspectInvitation', token, () =>
-      ok({ email: 'marina@exemplo.com', suggestedUsername: 'marina' }),
+      ok({ email: 'marina@exemplo.com', suggestedUsername: 'marina', origin: 'admin' }),
     );
   }
 

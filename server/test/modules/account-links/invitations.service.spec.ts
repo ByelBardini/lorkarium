@@ -190,6 +190,7 @@ describe('InvitationsService', () => {
       expect(await service.inspect('token-1')).toEqual({
         email: 'marina@exemplo.com',
         suggestedUsername: 'marina2',
+        origin: 'admin',
       });
     });
 
