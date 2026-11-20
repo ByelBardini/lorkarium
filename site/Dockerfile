@@ -17,6 +17,10 @@ ARG SITE_URL
 ARG PUBLIC_APP_URL
 ARG PUBLIC_CONTACT_EMAIL
 ARG LEGAL_DRAFTS_ALLOWED
+# The supplier of the terms. The full CPF stays in this build stage: the runtime stage below copies
+# only site/dist, where the build wrote the masked CPF.
+ARG LEGAL_SUPPLIER_NAME
+ARG LEGAL_SUPPLIER_CPF
 RUN pnpm --filter @lorkarium/site build
 
 FROM caddy:2-alpine AS runtime

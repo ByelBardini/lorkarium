@@ -1,9 +1,10 @@
 import { z } from 'zod';
 
 export const DESKTOP_RELEASE_REPO = 'ByelBardini/lorkarium';
-export const LATEST_RELEASE_API_URL =
-  'https://api.github.com/repos/ByelBardini/lorkarium/releases/latest';
-export const RELEASES_PAGE_URL = 'https://github.com/ByelBardini/lorkarium/releases/latest';
+// The public repository is the AGPL-3.0 §13 offer of the source to whoever uses the service.
+export const REPOSITORY_URL = `https://github.com/${DESKTOP_RELEASE_REPO}`;
+export const LATEST_RELEASE_API_URL = `https://api.github.com/repos/${DESKTOP_RELEASE_REPO}/releases/latest`;
+export const RELEASES_PAGE_URL = `${REPOSITORY_URL}/releases/latest`;
 
 export interface DesktopRelease {
   version: string;

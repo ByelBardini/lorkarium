@@ -1,3 +1,5 @@
+import { REPOSITORY_URL } from '@/lib/desktop-release';
+
 // Every promise here maps to a shipped feature documented in docs/context/.
 
 export interface FeatureCopy {
@@ -17,7 +19,7 @@ export interface FaqCopy {
   answer: string;
   /** Answers that ask for an invite end with the "Pedir convite" e-mail link. */
   invite?: boolean;
-  /** A page of the site the answer ends with, after the invite link. */
+  /** A page the answer ends with, after the invite link (a page of the site or the repository). */
   link?: { label: string; href: string };
 }
 
@@ -299,8 +301,14 @@ const faqs: FaqCopy[] = [
   {
     question: 'Quanto custa?',
     answer:
-      'O Lorkarium é gratuito durante o acesso antecipado, sem pagamento. Toda conta começa no plano Grátis, que tem limites menores que os tetos citados nesta página: uma mesa como dono e 1 barra por token, por exemplo. Os planos ainda estão em construção e não estão à venda.',
+      'Jogar é de graça: toda conta começa no plano Grátis, que tem limites menores que os tetos citados nesta página (uma mesa como dono e 1 barra por token, por exemplo). Para ir além, os planos pagos Apoiador, Narrador e Lenda são assinados no app, por cartão ou Pix, e podem ser cancelados quando você quiser.',
     link: { label: 'Ver os planos', href: '/planos/' },
+  },
+  {
+    question: 'O Lorkarium é open source?',
+    answer:
+      'Sim. O código é aberto, sob a licença AGPL-3.0: você pode ler, estudar, modificar e redistribuir. Quem oferecer uma versão modificada como serviço tem que publicar o código dela. O nome e o logo do Lorkarium não fazem parte da licença.',
+    link: { label: 'Ver o código-fonte', href: REPOSITORY_URL },
   },
   {
     question: 'Como consigo uma conta?',
