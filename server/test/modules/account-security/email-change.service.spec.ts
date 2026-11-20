@@ -15,6 +15,7 @@ import {
   UsersDaoFake,
 } from '../../support/auth-fakes';
 import { ANA_ID, userPo } from '../../support/auth-factories';
+import { BannedEmailsFake } from '../../support/user-admin-fakes';
 
 const NOW = new Date('2026-10-14T12:00:00Z');
 const BIA_ID = '2c9e4b1a-7d3f-4a8e-b6c5-0f1e2d3c4b5a';
@@ -27,9 +28,11 @@ describe('EmailChangeService', () => {
   let mailer: MailerFake;
   let clock: ClockFake;
   let recovery: RecoveryIssuerFake;
+  let bannedEmails: BannedEmailsFake;
   let service: EmailChangeService;
 
   beforeEach(() => {
+    bannedEmails = new BannedEmailsFake();
     users = new UsersDaoFake([
       userPo({ passwordHash: 'hashed:senha-da-ana' }),
       userPo({ id: BIA_ID, email: 'bia@mesa.com' }),
@@ -50,6 +53,7 @@ describe('EmailChangeService', () => {
       notices: new SecurityNoticesService(mailer, () => undefined),
       appPublicUrl: APP,
       recovery,
+      bannedEmails,
     });
   });
 
@@ -116,6 +120,20 @@ describe('EmailChangeService', () => {
       const taken = service.request(ANA_ID, { ...ask, newEmail: 'bia@mesa.com' }, CHROME);
       await expect(taken).rejects.toMatchObject({ code: 'EMAIL_TAKEN' });
       expect(users.lookedUp).toEqual(['idx:email-index:bia@mesa.com']);
+    });
+
+    it('an address banned in the last 5 years is EMAIL_TAKEN too: the ban is not revealed and nothing leaves', async () => {
+      bannedEmails.banned.set('idx:email-index:bianca@x.com', new Date('2024-01-01T00:00:00Z'));
+      await expect(service.request(ANA_ID, ask, CHROME)).rejects.toMatchObject({
+        code: 'EMAIL_TAKEN',
+      });
+      expect(requests.rows).toEqual([]);
+      expect(mailer.sent).toEqual([]);
+    });
+
+    it('a ban older than 5 years has lapsed: the address can be taken', async () => {
+      bannedEmails.banned.set('idx:email-index:bianca@x.com', new Date('2021-10-01T00:00:00Z'));
+      expect(await service.request(ANA_ID, ask, CHROME)).toBe('b*****@x.com');
     });
 
     it('a link that cannot leave fails the request (the person must know)', async () => {
