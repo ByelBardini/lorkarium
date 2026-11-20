@@ -14,6 +14,7 @@ import {
   CampaignChangedFake,
   CampaignRemovalFake,
   ForgottenCampaignsFake,
+  AccountVisibilityFake,
   PresenceReaderFake,
 } from '../../support/campaign-settings-fakes';
 import {
@@ -57,6 +58,7 @@ describe('CampaignSettingsService', () => {
     const clock = new ClockFake(NOW);
     const detail = new CampaignsService({
       ...{ campaigns, members, scenes, memberships: members, presence: new PresenceReaderFake() },
+      visibility: new AccountVisibilityFake(),
       ...{ transaction: runner.run, codes, hasher, clock },
     });
     const removal = new CampaignRemovalFake(campaigns, assets, deletions, failDeleteWith).run;

@@ -19,6 +19,7 @@ import cookie from '@fastify/cookie';
 import { AVATAR_MAX_BYTES, type AssetPurposeDto } from '@lorkarium/contracts';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { loggerOptions } from './logger-options';
+import { AccountVisibilityRelay } from './account-visibility-relay';
 import type { Env } from '../config/env';
 import type { Database } from '../database/database';
 import { GuardedImageFetcher } from '../infrastructure/image-fetcher/guarded-image-fetcher';
@@ -164,7 +165,9 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   // One registry for both: the live session writes it, the campaign detail reads who is online.
   const registry = new InMemoryPresenceRegistry();
   const presence = new PresenceReaderService(registry);
-  const campaigns = createCampaignsModule({ db: deps.db, hasher, codes, clock, presence });
+  const visibility = new AccountVisibilityRelay();
+  const campaignsOptions = { db: deps.db, hasher, codes, clock, presence, visibility };
+  const campaigns = createCampaignsModule(campaignsOptions);
   await app.register(healthPlugin, { prefix: API_PREFIX, db: deps.db });
   await app.register(legalPlugin, { prefix: API_PREFIX, sitePublicUrl: env.sitePublicUrl });
   const storage = wireAssetStorage(app, deps.env, clock);
@@ -224,6 +227,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
     accessLog,
   };
   const outlets = wireRealtime(app, auth.guards, realtimeModules);
+  visibility.attach(outlets.accountPresence);
   // Registered once the live session exists: each saved campaign change reaches its room.
   const { campaignChanged: changed, memberRoleChanged: roleChanged, memberRemoved } = outlets;
   const campaignOutlets = { changed, roleChanged, removed: memberRemoved, seatIn: outlets.seatIn };

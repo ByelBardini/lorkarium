@@ -10,7 +10,7 @@ import {
   ConditionDefinitionsFake,
   TransactionRunnerFake,
 } from '../../support/campaigns-fakes';
-import { PresenceReaderFake } from '../../support/campaign-settings-fakes';
+import { AccountVisibilityFake, PresenceReaderFake } from '../../support/campaign-settings-fakes';
 import { ScenesDaoFake } from '../../support/scenes-fakes';
 import {
   BIA_ID,
@@ -38,6 +38,7 @@ describe('CampaignsService', () => {
   let runner: TransactionRunnerFake;
   let codes: CampaignCodeFake;
   let presence: PresenceReaderFake;
+  let visibility: AccountVisibilityFake;
   let service: CampaignsService;
 
   function build(codeSequence: readonly string[]): void {
@@ -47,6 +48,7 @@ describe('CampaignsService', () => {
       members,
       memberships: members,
       presence,
+      visibility,
       transaction: runner.run,
       codes,
       hasher: new PasswordHasherFake(),
@@ -65,6 +67,7 @@ describe('CampaignsService', () => {
     conditions = new ConditionDefinitionsFake();
     runner = new TransactionRunnerFake({ campaigns, members, scenes, conditions });
     presence = new PresenceReaderFake();
+    visibility = new AccountVisibilityFake();
     build(['VHRN7K2Q', 'PNTN2345', 'QLMR2345', 'ZZZZ2345']);
   });
 
@@ -197,6 +200,20 @@ describe('CampaignsService', () => {
     ]);
   });
 
+  it('listPublic hides an invisible account: the master does not show online nor counts as a player', async () => {
+    presence = new PresenceReaderFake({ vharn: [BIA_ID, ANA_ID, CAIO_ID] });
+    visibility = new AccountVisibilityFake([BIA_ID, ANA_ID]);
+    build([]);
+    campaigns.rows.push(campaignPo({ id: 'vharn', visibility: 'public' }));
+    members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: BIA_ID, role: 'master' }));
+
+    const listed = await service.listPublic({ id: CAIO_ID, role: 'user' });
+
+    expect(listed).toEqual([
+      expect.objectContaining({ id: 'vharn', masterOnline: false, playersOnline: 1 }),
+    ]);
+  });
+
   it('detail for someone who is not a member is refused with CAMPAIGN_NOT_FOUND', async () => {
     campaigns.rows.push(campaignPo({ id: 'vharn' }));
     members.rows.push(campaignMemberPo({ campaignId: 'vharn', userId: BIA_ID, role: 'master' }));
@@ -283,7 +300,15 @@ describe('CampaignsService', () => {
     it('the membership is read through the remembered memberships, which session:join warms', async () => {
       const memberships = new MembershipReadsFake([...members.rows]);
       service = new CampaignsService({
-        ...{ campaigns, members, memberships, presence, transaction: runner.run, codes },
+        ...{
+          campaigns,
+          members,
+          memberships,
+          presence,
+          visibility,
+          transaction: runner.run,
+          codes,
+        },
         ...{ hasher: new PasswordHasherFake(), clock: new ClockFake(NOW) },
       });
       await service.rosterOf(BIA_ID, VHARN_ID);

@@ -32,6 +32,7 @@ import {
 } from './campaigns.mapper';
 import type { CampaignPo } from './campaigns.po';
 import type { PresenceReaderPort } from './presence-reader.port';
+import type { AccountVisibilityPort } from './account-visibility.port';
 
 /** The DAOs a transaction hands out, bound to the open `tx`; `owners` locks the creator's row so
  *  two creations of the same account count its tables one after the other. */
@@ -63,6 +64,8 @@ export type CampaignsServiceDeps = Readonly<{
   memberships: MembershipReader;
   /** Who has each table open right now (the live session's presence), for `online`. */
   presence: PresenceReaderPort;
+  /** "Explorar mesas" shows only who is visibly online: an invisible account stays hidden. */
+  visibility: AccountVisibilityPort;
   transaction: CampaignTransactionRunner;
   codes: CampaignCodePort;
   hasher: PasswordHasherPort;
@@ -101,8 +104,14 @@ export class CampaignsService {
     const readerIsAdmin = seesPrivateInExplore(reader.role);
     const rows = await this.deps.members.listPublic(reader.id, readerIsAdmin);
     return rows.map((row) =>
-      toPublicCampaignDto(row, readerIsAdmin, this.deps.presence.onlineUserIdsOf(row.campaign.id)),
+      toPublicCampaignDto(row, readerIsAdmin, this.visiblyOnlineAt(row.campaign.id)),
     );
+  }
+
+  // Anyone may read Explore: the table's presence passes through each account's invisible choice.
+  private visiblyOnlineAt(campaignId: string): ReadonlySet<string> {
+    const online = this.deps.presence.onlineUserIdsOf(campaignId);
+    return new Set([...online].filter((id) => this.deps.visibility.isVisiblyOnline(id)));
   }
 
   async detail(userId: string, campaignId: string): Promise<CampaignDetailDto> {
