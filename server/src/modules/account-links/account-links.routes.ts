@@ -4,6 +4,7 @@ import {
   accountLinkTokenDto,
   adminUserParamsDto,
   completePasswordResetRequestDto,
+  passwordResetRequestDto,
   createInvitationRequestDto,
   invitationParamsDto,
   type AcceptInvitationResponseDto,
@@ -26,6 +27,7 @@ import {
 } from './account-links.error';
 import type { InvitationsService, Inviter } from './invitations.service';
 import type { PasswordResetsService } from './password-resets.service';
+import { mailingFormOptions } from './sign-up.routes';
 import { withPlanLimitReply } from '../plans/plan-limit-response';
 
 // Spec §8.4: links an admin issues, per admin; the public routes, per IP.
@@ -175,6 +177,12 @@ function registerPasswordResetPublicRoutes(
     const input = completePasswordResetRequestDto.parse(request.body);
     await service.complete(input.token, input.newPassword, request.headers['user-agent'] ?? null);
     return reply.code(204).send();
+  });
+  // "Esqueci minha senha": 202 with no body whether or not an account matched.
+  app.post('/password-resets/request', mailingFormOptions(), async (request, reply) => {
+    const input = passwordResetRequestDto.parse(request.body);
+    await service.request(input, request.ip);
+    return reply.code(202).send();
   });
 }
 

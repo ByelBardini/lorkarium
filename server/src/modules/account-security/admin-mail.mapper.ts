@@ -113,18 +113,27 @@ export type PasswordLinkMailInput = Readonly<{
   link: string;
   validFor: MailValidity;
   publicUrl: string;
+  /** `admin` = sent from the backoffice; `self` = asked for at "Esqueci minha senha". */
+  requestedBy: 'admin' | 'self';
 }>;
 
-/** The new-password link an admin sent; the current password works until it is used.
+/** The new-password link an admin sent or the person asked for; the current password works until
+ *  it is used.
  *
- *  Example: `passwordLinkMail({ person, link, validFor: { hours: 1 }, publicUrl }).subject // 'Crie uma senha nova no Lorkarium'` */
+ *  Example: `passwordLinkMail({ person, link, validFor: { hours: 1 }, publicUrl, requestedBy: 'self' }).subject // 'Crie uma senha nova no Lorkarium'` */
 export function passwordLinkMail({
   person,
   link,
   validFor,
   publicUrl,
+  requestedBy,
 }: PasswordLinkMailInput): MailMessage {
   const validity = validityLabel(validFor);
+  const account = `a conta @${person.username}`;
+  const why =
+    requestedBy === 'self'
+      ? `Você pediu um link para criar uma senha nova para ${account}.`
+      : `Um administrador do Lorkarium mandou este link para você escolher uma senha nova para ${account}.`;
   return toMailMessage(
     person.to,
     {
@@ -133,9 +142,7 @@ export function passwordLinkMail({
       tone: 'gold',
       icon: 'key',
       title: 'Hora de criar uma senha nova',
-      paragraphs: [
-        `${greeting(person)} Um administrador do Lorkarium mandou este link para você escolher uma senha nova para a conta @${person.username}.`,
-      ],
+      paragraphs: [`${greeting(person)} ${why}`],
       button: { label: 'Criar nova senha', href: link },
       note: `O link vale ${validity} e só funciona uma vez.`,
       fallbackLink: true,

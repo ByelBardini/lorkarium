@@ -118,6 +118,7 @@ function createPasswordResets(options: AccountLinksModuleOptions): PasswordReset
       }),
     );
   return new PasswordResetsService({
+    humanCheck: options.humanCheck,
     resets: new PasswordResetsDao(options.db),
     users: new UsersDao(options.db),
     transaction,

@@ -20,7 +20,7 @@ import type { InvitationsDao } from './invitations.dao';
 import type { InvitationPo } from './invitations.po';
 import type { PasswordLinksService } from './password-links.service';
 import type { PasswordResetsDao } from './password-resets.dao';
-import { SignUpBo, type SignUpDecision } from './sign-up.bo';
+import { SignUpBo, type FoundAccountFacts, type SignUpDecision } from './sign-up.bo';
 
 export type SignUpDeps = Readonly<{
   /** `REGISTRATION_OPEN`: closed, every request is refused before anything is looked up. */
@@ -48,6 +48,19 @@ type Lookup = Readonly<{
 
 const INVITATION_EMAIL_CONSTRAINT = 'invitations_email_index_unique';
 const HOUR_MS = 60 * 60 * 1000;
+
+/** The facts a public form needs about an account it found (suspended, last link).
+ *
+ *  Example: `mayMailPasswordLink(await foundAccountFacts(resets, user, now), now)` */
+export async function foundAccountFacts(
+  resets: Pick<PasswordResetsDao, 'findOfUser'>,
+  account: UserPo,
+  now: Date,
+): Promise<FoundAccountFacts> {
+  const reset = await resets.findOfUser(account.id);
+  const active = !toUserAccessBo(account).isSuspendedAt(now);
+  return { active, resetIssuedAt: reset?.createdAt ?? null };
+}
 
 /** A token the anti-bot widget gave this IP, checked before anything is looked up.
  *
@@ -87,17 +100,9 @@ export class SignUpService {
   private async decide({ emailIndex, account, pending }: Lookup): Promise<SignUpDecision> {
     const now = this.deps.clock.now();
     const banned = await this.deps.bannedEmails.isBannedSince(emailIndex, banLapseCutOf(now));
-    const facts = { account: account ? await this.accountFacts(account, now) : null };
+    const found = account ? await foundAccountFacts(this.deps.resets, account, now) : null;
+    const facts = { account: found };
     return new SignUpBo({ ...facts, banned, pending: pending ?? null, now }).decide();
-  }
-
-  private async accountFacts(
-    account: UserPo,
-    now: Date,
-  ): Promise<Readonly<{ active: boolean; resetIssuedAt: Date | null }>> {
-    const reset = await this.deps.resets.findOfUser(account.id);
-    const active = !toUserAccessBo(account).isSuspendedAt(now);
-    return { active, resetIssuedAt: reset?.createdAt ?? null };
   }
 
   private async act(decision: SignUpDecision, lookup: Lookup): Promise<MailMessage | null> {
