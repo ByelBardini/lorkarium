@@ -144,7 +144,7 @@ function NextSteps({ choice, now }: NextStepsProps): React.JSX.Element {
       <NextStep icon={CalendarClockIcon}>
         {pix
           ? `Vale até ${end}. Não renova sozinho: avisamos por e-mail antes de vencer.`
-          : `Próxima cobrança em ${end}: ${total}. Cancele a renovação quando quiser em Minha conta.`}
+          : `Próxima cobrança em ${end}: ${total}, e assim a cada período, pelo mesmo valor, até você cancelar. Cancele a renovação quando quiser em Minha conta.`}
       </NextStep>
       <NextStep icon={Undo2Icon}>
         Desistiu? Em até 7 dias depois da compra, fale com o suporte e o valor volta inteiro.
