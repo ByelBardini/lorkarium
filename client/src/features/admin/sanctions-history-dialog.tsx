@@ -25,6 +25,7 @@ import {
   SANCTION_KIND_LABEL,
   appealLabel,
   dateLabel,
+  deletionLabel,
   ruleLabel,
   untilLabel,
 } from './sanction-messages';
@@ -143,6 +144,7 @@ function SanctionItem({
         {dateLabel(sanction.issuedAt)}
         {sanction.issuedBy ? ` por @${sanction.issuedBy}` : ''}
         {sanction.kind === 'suspension' ? ` · ${periodOf(sanction)}` : ''}
+        {sanction.kind === 'ban' ? ` · ${deletionLabel(sanction.deletionDueAt)}` : ''}
       </p>
       <p>{sanction.statement}</p>
       <p className="text-muted-foreground">{appealLabel(sanction.appeal)}</p>

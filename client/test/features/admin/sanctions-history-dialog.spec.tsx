@@ -38,6 +38,27 @@ describe('the measures of an account', () => {
     expect(deps.sanctionsApi.answers.callsOf('history')).toEqual([bia(TEST_NOW).id]);
   });
 
+  it('a ban shows the date of its deletion, and "cancelada" once reverted', async () => {
+    const ban = {
+      ...biaWarning(TEST_NOW),
+      kind: 'ban',
+      rule: 'harassment',
+      deletionDueAt: new Date(2026, 11, 5, 12).toISOString(),
+    } as const;
+    deps.sanctionsApi.measures.set(bia(TEST_NOW).id, [ban]);
+    const dialog = await openFor('Bia', '@biaflor');
+
+    const item = await within(dialog).findByRole('listitem');
+    expect(item).toHaveTextContent('Exclusão da conta · Respeito às pessoas (§2)');
+    expect(item).toHaveTextContent('Exclusão em 05/12/2026');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Registrar contestação' }));
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Revertida' }));
+    await userEvent.type(within(dialog).getByLabelText('Nota da revisão'), 'Era outra pessoa.');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar contestação' }));
+
+    expect(await within(dialog).findByText(/Exclusão cancelada/)).toBeVisible();
+  });
+
   it('an account without measures says so', async () => {
     const dialog = await openFor('Pedro', '@pedrinho');
 

@@ -58,6 +58,22 @@ export type AdminUserResponseDto = z.infer<typeof adminUserResponseDto>;
 /** Params of `/api/admin/users/:userId/*`. */
 export const adminUserParamsDto = z.strictObject({ userId: z.uuid() });
 
+/** Query of `DELETE /api/admin/users/:userId`: `includeSharedCampaigns=true` deletes also the
+ *  tables the account owns with other members (agreed with the person first); absent = refused.
+ *
+ *  Example: `deleteUserQueryDto.parse({ includeSharedCampaigns: 'true' }) // { includeSharedCampaigns: true }` */
+export const deleteUserQueryDto = z.strictObject({
+  includeSharedCampaigns: z
+    .enum(['true', 'false'], {
+      error: (issue) =>
+        `includeSharedCampaigns ${JSON.stringify(issue.input)}: expected "true" or "false"`,
+    })
+    .transform((value) => value === 'true')
+    .optional(),
+});
+
+export type DeleteUserQueryDto = z.infer<typeof deleteUserQueryDto>;
+
 /** Body of `PATCH /api/admin/users/:userId`. */
 export const updateUserRoleRequestDto = z.strictObject({ role: userRoleDto });
 

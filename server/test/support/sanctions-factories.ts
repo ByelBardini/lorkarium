@@ -19,6 +19,9 @@ export function accountSanctionPo(overrides: Partial<AccountSanctionPo> = {}): A
     appealNote: null,
     appealDecidedBy: null,
     appealDecidedAt: null,
+    deletionDueAt: null,
+    deleteSharedCampaigns: false,
+    notifiedAt: new Date('2026-11-18T12:00:00Z'),
     ...overrides,
   };
 }

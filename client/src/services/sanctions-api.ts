@@ -14,11 +14,11 @@ import { userAdminFailureOf, type UserAdminResult } from './user-admin-api';
 
 /** The measures against an account (admins only); failures are the backoffice's, never thrown. */
 export interface SanctionsApi {
-  /** The measure and the account as it is now; `null` for a ban (the account is gone). */
+  /** The measure and the account as it is now (a ban suspends it and dates its deletion). */
   issue(
     userId: string,
     body: IssueSanctionRequestDto,
-  ): Promise<UserAdminResult<SanctionResponseDto | null>>;
+  ): Promise<UserAdminResult<SanctionResponseDto>>;
   /** The account's measures, the newest first. */
   history(userId: string): Promise<UserAdminResult<AccountSanctionDto[]>>;
   recordAppeal(
@@ -37,7 +37,7 @@ export class HttpSanctionsApi implements SanctionsApi {
   async issue(
     userId: string,
     body: IssueSanctionRequestDto,
-  ): Promise<UserAdminResult<SanctionResponseDto | null>> {
+  ): Promise<UserAdminResult<SanctionResponseDto>> {
     const parsed = issueSanctionRequestDto.safeParse(body);
     if (!parsed.success) return { ok: false, failure: { kind: 'invalid' } };
     const call = await callApi(
@@ -46,7 +46,6 @@ export class HttpSanctionsApi implements SanctionsApi {
       `${userPath(userId)}/sanctions`,
       parsed.data,
     );
-    if (call.kind === 'ok' && call.body === null) return { ok: true, value: null };
     return answerOf(call, (ok) => parseOk(sanctionResponseDto, ok, (value) => value));
   }
 

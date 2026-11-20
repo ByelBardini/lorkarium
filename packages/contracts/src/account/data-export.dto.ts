@@ -104,6 +104,8 @@ const exportedSanctionDto = z.strictObject({
   appealOutcome: appealOutcomeDto.nullable(),
   appealNote: z.string().nullable(),
   appealDecidedAt: optionalInstant,
+  /** A ban: when the account is deleted unless the appeal holds it. */
+  deletionDueAt: optionalInstant,
 });
 
 const exportedBadgeDto = z.strictObject({

@@ -92,7 +92,7 @@ describe('applying a measure to an account', () => {
     );
   });
 
-  it('"Exclusão da conta" goes on to the deletion dialog, which bans instead of a plain delete', async () => {
+  it('"Exclusão da conta" goes on to the deletion dialog, which schedules the ban instead of a plain delete', async () => {
     const dialog = await openForBia();
     await fill(dialog, 'Exclusão da conta', '§2 Respeito às pessoas');
     await userEvent.click(
@@ -101,13 +101,20 @@ describe('applying a measure to an account', () => {
 
     const deletion = await screen.findByRole('alertdialog', { name: 'Excluir @biaflor?' });
     expect(deletion).toHaveTextContent('A exclusão é uma medida por violar a Política de uso');
+    expect(deletion).toHaveTextContent('excluída em 15 dias, se a pessoa não contestar');
     await userEvent.type(
       await within(deletion).findByLabelText('Digite @biaflor para confirmar'),
       '@biaflor',
     );
-    await userEvent.click(within(deletion).getByRole('button', { name: 'Excluir' }));
+    await userEvent.click(
+      within(deletion).getByRole('button', { name: 'Suspender e agendar a exclusão' }),
+    );
 
-    expect(await screen.findByText('A conta @biaflor foi excluída.')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        /^O acesso de @biaflor foi suspenso e a conta será excluída em \d\d\/\d\d\/\d{4}\.$/,
+      ),
+    ).toBeInTheDocument();
     expect(deps.sanctionsApi.answers.callsOf('issue')).toEqual([
       { userId: biaId, body: { kind: 'ban', rule: 'harassment', statement: STATEMENT } },
     ]);

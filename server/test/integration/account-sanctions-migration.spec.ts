@@ -63,6 +63,19 @@ describe('the account_sanctions and banned_email_indexes tables (0119)', () => {
     });
   });
 
+  it('the CHECK refuses a deletion date or the shared tables on a measure that is not a ban', async () => {
+    const refused = {
+      cause: { code: CHECK_VIOLATION, constraint: 'account_sanctions_deletion_only_ban' },
+    };
+    await expect(insert({ deletionDueAt: AT })).rejects.toMatchObject(refused);
+    await expect(insert({ deleteSharedCampaigns: true })).rejects.toMatchObject(refused);
+  });
+
+  it('a ban stores its deletion date and the shared tables; a new measure is not notified yet', async () => {
+    const row = await insert({ kind: 'ban', deletionDueAt: AT, deleteSharedCampaigns: true });
+    expect(row).toMatchObject({ deletionDueAt: AT, deleteSharedCampaigns: true, notifiedAt: null });
+  });
+
   it('the CHECK refuses an empty statement', async () => {
     await expect(insert({ statement: '' })).rejects.toMatchObject({
       cause: { code: CHECK_VIOLATION, constraint: 'account_sanctions_statement_length' },

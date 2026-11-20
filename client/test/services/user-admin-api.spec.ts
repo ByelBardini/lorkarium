@@ -106,6 +106,16 @@ describe('HttpUserAdminApi', () => {
     expect(transport.requests[0]).toMatchObject({ method: 'DELETE', path });
   });
 
+  it('deleteUser with the shared tables asks it in the query', async () => {
+    transport.respondWith(204, null);
+
+    expect(await api.deleteUser('u-1', true)).toEqual({ ok: true, value: null });
+    expect(transport.requests[0]).toMatchObject({
+      method: 'DELETE',
+      path: '/admin/users/u-1?includeSharedCampaigns=true',
+    });
+  });
+
   it.each([
     [401, { code: 'UNAUTHENTICATED' }, { kind: 'unauthenticated' }],
     [403, { code: 'FORBIDDEN_ROLE' }, { kind: 'forbidden' }],

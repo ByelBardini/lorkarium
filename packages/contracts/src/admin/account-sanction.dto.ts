@@ -23,6 +23,7 @@ export const SANCTION_RULES = [
   'paid_tables',
   'security_testing',
   'reputation_reports',
+  'minimum_age',
 ] as const;
 
 export type SanctionRule = (typeof SANCTION_RULES)[number];
@@ -63,6 +64,8 @@ export const SANCTION_RULE_SECTIONS: Readonly<Record<SanctionRule, SanctionRuleS
     title: 'Reputação e denúncias',
     anchor: '12-reputação-e-denúncias',
   },
+  // The 18+ rule lives in the accounts section: a ban for it keeps no e-mail index.
+  minimum_age: { section: 8, title: 'Idade mínima', anchor: '8-contas' },
 };
 
 export const sanctionRuleDto = z.enum(SANCTION_RULES, {
@@ -83,8 +86,10 @@ function requiredText(max: number, field: string) {
 }
 
 /** Body of `POST /api/admin/users/:userId/sanctions`. `until` (the end of a suspension, absent =
- *  no deadline) only with `suspension`; the server refuses an end that is not ahead. The target
- *  comes from the URL and the author from the session (strict).
+ *  no deadline) only with `suspension`; the server refuses an end that is not ahead.
+ *  `includeSharedCampaigns` (only with `ban`) lets the scheduled deletion take the tables the
+ *  account owns with other members. The target comes from the URL and the author from the
+ *  session (strict).
  *
  *  Example: `issueSanctionRequestDto.parse({ kind: 'warning', rule: 'spam', statement: 'x' })` */
 export const issueSanctionRequestDto = z
@@ -94,14 +99,21 @@ export const issueSanctionRequestDto = z
     statement: requiredText(SANCTION_STATEMENT_MAX_LENGTH, 'statement'),
     until: z.iso.datetime({ offset: true }).optional(),
     reportId: z.uuid().optional(),
+    includeSharedCampaigns: z.boolean().optional(),
   })
   .superRefine((body, context) => {
-    if (body.until === undefined || body.kind === 'suspension') return;
-    context.addIssue({
-      code: 'custom',
-      path: ['until'],
-      message: `until ${body.until} on a ${body.kind}: expected an end only with a suspension`,
-    });
+    if (body.until !== undefined && body.kind !== 'suspension')
+      context.addIssue({
+        code: 'custom',
+        path: ['until'],
+        message: `until ${body.until} on a ${body.kind}: expected an end only with a suspension`,
+      });
+    if (body.includeSharedCampaigns !== undefined && body.kind !== 'ban')
+      context.addIssue({
+        code: 'custom',
+        path: ['includeSharedCampaigns'],
+        message: `includeSharedCampaigns on a ${body.kind}: expected it only with a ban`,
+      });
   });
 
 export type IssueSanctionRequestDto = z.infer<typeof issueSanctionRequestDto>;
@@ -138,13 +150,16 @@ export const sanctionAppealDto = z.strictObject({
 export type SanctionAppealDto = z.infer<typeof sanctionAppealDto>;
 
 /** A measure in the account's history (only the backoffice reads it). `issuedBy` is the admin's @,
- *  `null` once that account is gone; `appeal` is `null` until an appeal arrives. */
+ *  `null` once that account is gone; `appeal` is `null` until an appeal arrives. `deletionDueAt`:
+ *  when a ban deletes the account (it suspends at once and deletes after the appeal window);
+ *  `null` on the other kinds and on a ban that was reverted or lifted. */
 export const accountSanctionDto = z.strictObject({
   id: z.uuid(),
   kind: sanctionKindDto,
   rule: sanctionRuleDto,
   statement: z.string(),
   until: z.iso.datetime().nullable(),
+  deletionDueAt: z.iso.datetime().nullable(),
   reportId: z.uuid().nullable(),
   issuedBy: z.string().nullable(),
   issuedAt: z.iso.datetime(),
@@ -160,8 +175,8 @@ export const accountSanctionsResponseDto = z.strictObject({
 
 export type AccountSanctionsResponseDto = z.infer<typeof accountSanctionsResponseDto>;
 
-/** Response of a measure that keeps the account (201) and of an appeal (200): the measure and the
- *  account as it is now (a suspension changes its status). A `ban` answers 204: the account is gone. */
+/** Response of a measure (201) and of an appeal (200): the measure and the account as it is now (a
+ *  suspension or a ban suspends it; the ban's deletion comes later, at `deletionDueAt`). */
 export const sanctionResponseDto = z.strictObject({
   sanction: accountSanctionDto,
   user: adminUserDto,

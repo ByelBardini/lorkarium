@@ -3,6 +3,7 @@ import type { SchedulerPort } from '../sessions/scheduler.port';
 import type { UserPo } from '../auth/users.po';
 import type { FeedbackRetentionService } from '../feedback/feedback-retention.service';
 import type { ReportRetentionService } from '../reports/report-retention.service';
+import type { SanctionFollowUpService } from '../sanctions/sanction-follow-up.service';
 import { BANNED_EMAIL_KEPT_MS } from '../sanctions/account-sanction.bo';
 import type { HousekeepingDao, SweptTable } from './housekeeping.dao';
 import type { SuspensionEndedPort } from './suspension-ended.port';
@@ -14,6 +15,9 @@ export type HousekeepingServiceDeps = Readonly<{
   dao: Pick<HousekeepingDao, 'deleteBefore'>;
   expired: Pick<HousekeepingDao, 'liftExpiredSuspensions'>;
   suspensionEnded: SuspensionEndedPort;
+  /** The measures: e-mails that never left go again, and the bans whose appeal window passed
+   *  delete their accounts. */
+  sanctionFollowUp: Pick<SanctionFollowUpService, 'sweep'>;
   /** Closed reports past 6 months and loose screenshots past a day (the reports' own retention). */
   reportRetention: Pick<ReportRetentionService, 'purge'>;
   /** Feedback screenshots no entry claimed in a day (the feedback's own retention). */
@@ -68,6 +72,7 @@ export class HousekeepingService {
     try {
       for (const swept of Object.keys(AGE_LIMIT_MS) as SweptTable[]) await this.clean(swept);
       await this.liftSuspensions();
+      if (!this.closed) await this.deps.sanctionFollowUp.sweep();
       if (!this.closed) await this.deps.reportRetention.purge();
       if (!this.closed) await this.deps.feedbackRetention.purge();
     } catch (error) {

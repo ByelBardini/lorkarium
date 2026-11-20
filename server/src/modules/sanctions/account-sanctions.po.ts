@@ -6,7 +6,7 @@ import {
   SANCTION_STATEMENT_MAX_LENGTH,
 } from '@lorkarium/contracts';
 import { sql } from 'drizzle-orm';
-import { check, index, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, check, index, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { users } from '../auth/users.po';
 import { userReports } from '../reports/user-reports.po';
 
@@ -15,7 +15,8 @@ export const sanctionRule = pgEnum('sanction_rule', SANCTION_RULES);
 export const appealOutcome = pgEnum('appeal_outcome', APPEAL_OUTCOMES);
 
 // A measure against an account (use policy §13), with the rule, the reasons the person read and
-// the appeal (§14). It goes with the account: a ban leaves only the banned e-mail index behind.
+// the appeal (§14). It goes with the account: a ban suspends at once and deletes the account at
+// `deletion_due_at`, leaving only the banned e-mail index behind.
 export const accountSanctions = pgTable(
   'account_sanctions',
   {
@@ -39,9 +40,24 @@ export const accountSanctions = pgTable(
       onDelete: 'set null',
     }),
     appealDecidedAt: timestamp('appeal_decided_at', { withTimezone: true }),
+    // A ban's deletion: after the appeal window, held while an appeal waits for its decision;
+    // null once reverted or lifted (and always null on the other kinds).
+    deletionDueAt: timestamp('deletion_due_at', { withTimezone: true }),
+    // The ban's deletion also takes the tables the account owns with other members.
+    deleteSharedCampaigns: boolean('delete_shared_campaigns').notNull().default(false),
+    // When the measure's e-mail left; null = the hourly sweep tries again.
+    notifiedAt: timestamp('notified_at', { withTimezone: true }),
   },
   (table) => [
     index('account_sanctions_user_issued_idx').on(table.userId, table.issuedAt),
+    index('account_sanctions_deletion_due_idx').on(table.deletionDueAt),
+    index('account_sanctions_unnotified_idx')
+      .on(table.issuedAt)
+      .where(sql`notified_at IS NULL`),
+    check(
+      'account_sanctions_deletion_only_ban',
+      sql`(${table.deletionDueAt} IS NULL AND NOT ${table.deleteSharedCampaigns}) OR ${table.kind} = 'ban'`,
+    ),
     check(
       'account_sanctions_statement_length',
       sql`char_length(${table.statement}) BETWEEN 1 AND ${sql.raw(String(SANCTION_STATEMENT_MAX_LENGTH))}`,
