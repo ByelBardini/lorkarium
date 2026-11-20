@@ -17,7 +17,7 @@ export type SignUpConfig = Readonly<{
 
 /** The schema fields `envSchema` spreads in. */
 export const signUpEnvShape = {
-  // Off by default: opening the sign-up waits for the ECA Digital legal review.
+  // Off by default: a deploy never opens the sign-up by accident.
   REGISTRATION_OPEN: z
     .enum(['true', 'false'], { error: 'must be true or false' })
     .default('false')
