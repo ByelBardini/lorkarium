@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
 // The names of `USER_PLANS` (packages/contracts/src/plans/user-plan.dto.ts): change both together.
-export type UserPlanName = 'free' | 'narrador' | 'lenda' | 'amigo_do_dono';
+export type UserPlanName = 'free' | 'apoiador' | 'narrador' | 'lenda' | 'amigo_do_dono';
 
 /** Puts the account with this @ on `plan` through the backoffice route, with the cookie of the
  *  admin's page: the setup of a spec that needs a plan other than the one the account has (an

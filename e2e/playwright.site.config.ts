@@ -24,6 +24,8 @@ export default defineConfig({
       PUBLIC_APP_URL: 'https://mesa.lorkarium.test',
       PUBLIC_CONTACT_EMAIL: 'contato@lorkarium.test',
       LEGAL_DRAFTS_ALLOWED: 'true',
+      LEGAL_SUPPLIER_NAME: 'Fornecedora de Teste',
+      LEGAL_SUPPLIER_CPF: '52998224725',
     },
   },
 });
