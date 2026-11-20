@@ -68,13 +68,19 @@ describe('the landing page', () => {
     expect(page.querySelector('#baixar h2')?.textContent?.trim()).toBe('Baixe e jogue');
   });
 
-  it('offers an invite request next to the download', async () => {
+  it('offers creating an account next to the download', async () => {
     const page = await renderAstro(IndexPage);
 
     const download = page.getElementById('baixar');
     expect(download?.querySelector('a[data-download-cta]')).not.toBeNull();
     expect(
-      download?.querySelector('a[href^="mailto:contato@lorkarium.test"]')?.textContent,
-    ).toContain('Pedir convite');
+      download?.querySelector('a[href="https://mesa.lorkarium.test/sign-up"]')?.textContent,
+    ).toContain('Criar conta');
+  });
+
+  it('asks for no invite anywhere on the landing', async () => {
+    const page = await renderAstro(IndexPage);
+
+    expect(page.body.textContent).not.toMatch(/convite/i);
   });
 });

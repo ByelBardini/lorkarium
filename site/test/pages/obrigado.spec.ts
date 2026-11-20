@@ -18,17 +18,16 @@ describe('the thank-you page', () => {
     expect(steps[1]?.textContent).toContain('não significa que um vírus');
     expect(steps[1]?.textContent).toContain('Mais informações');
     expect(steps[1]?.textContent).toContain('Executar assim mesmo');
-    expect(steps[2]?.textContent).toContain('convite');
+    expect(steps[2]?.textContent).not.toMatch(/convite/i);
   });
 
-  it('asks for an invite and offers the browser version', async () => {
+  it('offers creating an account and the browser version', async () => {
     const page = await renderAstro(ThankYouPage, { path: '/obrigado/' });
 
     expect(
-      page.querySelector(
-        'a[href="mailto:contato@lorkarium.test?subject=Convite%20para%20o%20Lorkarium"]',
-      ),
-    ).not.toBeNull();
+      page.querySelector('a[href="https://mesa.lorkarium.test/sign-up"]')?.textContent?.trim(),
+    ).toBe('Criar conta');
+    expect(page.body.textContent).not.toMatch(/convite/i);
     expect(page.querySelector('a[href="https://mesa.lorkarium.test/login"]')).not.toBeNull();
   });
 });
