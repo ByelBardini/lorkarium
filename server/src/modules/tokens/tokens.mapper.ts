@@ -78,6 +78,7 @@ export function toTokenDto(
     aura: toTokenAuraDto(row.token),
     hidden: row.token.hidden,
     blocksSight: row.token.blocksSight,
+    magicSight: magicSightOfToken(row.token),
     canControl: audience === 'privileged',
     bars: bars.map(toTokenBarDto),
     conditions: [...conditions],
@@ -120,6 +121,7 @@ export function toEditedToken(row: TokenRow): EditedToken {
     light: lightOfToken(row.token),
     sightAngle: row.token.sightAngle,
     blocksSight: row.token.blocksSight,
+    magicSight: magicSightOfToken(row.token),
   };
   return { ...toAuthoredToken(row), vision };
 }
@@ -153,6 +155,7 @@ type UpdatedFields = Pick<
   | 'light'
   | 'aura'
   | 'blocksSight'
+  | 'magicSight'
   | 'forms'
   | keyof TokenLookPo
 >;
@@ -179,6 +182,7 @@ export function toTokenUpdatePo(
       ...(command.light === undefined ? {} : toTokenLightPo(command.light)),
       ...(command.aura === undefined ? {} : toTokenAuraPo(command.aura)),
       ...(command.blocksSight === undefined ? {} : { blocksSight: command.blocksSight }),
+      ...(command.magicSight === undefined ? {} : toTokenMagicSightPo(command.magicSight)),
     },
     bars: toBarInputsPo(command.bars),
     controllerIds,
@@ -261,6 +265,17 @@ function storedOutline(tokenId: string, stored: SightOutline | null): SightOutli
   } catch (cause) {
     throw new Error(`token ${tokenId} has an outline saved broken: ${String(cause)}`, { cause });
   }
+}
+
+/** A magic sight as sent → its numeric column, to the hundredth; `null` (none) clears it.
+ *
+ *  Example: `toTokenMagicSightPo(10 / 3) // { magicSight: '3.33' }` */
+export function toTokenMagicSightPo(cells: number | null | undefined): Pick<TokenPo, 'magicSight'> {
+  return { magicSight: cells === null || cells === undefined ? null : cellsNumeric(cells) };
+}
+
+function magicSightOfToken({ magicSight }: Pick<TokenPo, 'magicSight'>): number | null {
+  return magicSight === null ? null : Number(magicSight);
 }
 
 function sightOfToken({ sightBright, sightDim }: TokenSightPo): SightDto | null {

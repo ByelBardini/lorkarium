@@ -48,6 +48,7 @@ import type {
   TokenChange,
   TokenChangeVeil,
   TokensCreation,
+  SeersChange,
   TokensHiddenChange,
   VeilCuts,
   VeiledLightsChange,
@@ -65,6 +66,7 @@ export class BoardPublisherFake implements BoardPublisherPort {
   readonly tokenChangeVeils: TokenChangeVeil[] = [];
   readonly tokensHiddenChanges: TokensHiddenChange[] = [];
   readonly veiledLightsChanges: VeiledLightsChange[] = [];
+  readonly seersChanges: SeersChange[] = [];
   readonly tokenMoves: TokenMovedDto[] = [];
   readonly tokenDeletes: TokenDeletedDto[] = [];
   readonly tokenLayerChanges: TokenLayerChangedDto[] = [];
@@ -116,6 +118,11 @@ export class BoardPublisherFake implements BoardPublisherPort {
   tokensHiddenChanged(change: TokensHiddenChange): void {
     this.journal.push('publish');
     this.tokensHiddenChanges.push(change);
+  }
+
+  seersChanged(change: SeersChange): void {
+    this.journal.push('publishSeers');
+    this.seersChanges.push(change);
   }
 
   veiledLightsChanged(change: VeiledLightsChange): void {

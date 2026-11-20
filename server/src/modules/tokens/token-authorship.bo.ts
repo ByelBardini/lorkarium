@@ -15,6 +15,7 @@ export type TokenVision = Readonly<{
   light: LightRange | null;
   sightAngle: number;
   blocksSight: boolean;
+  magicSight: number | null;
 }>;
 
 /** The vision a command sends; an absent field keeps what the token has. */
@@ -23,6 +24,7 @@ export type VisionChange = Readonly<{
   light?: LightRange | null | undefined;
   sightAngle?: number | undefined;
   blocksSight?: boolean | undefined;
+  magicSight?: number | null | undefined;
 }>;
 
 /** What a create asks for, as far as authorship goes (absent layer = `tokens`). */
@@ -52,9 +54,11 @@ const NEW_TOKEN_VISION: TokenVision = {
   light: null,
   sightAngle: 360,
   blocksSight: false,
+  magicSight: null,
 };
-const VISION_FIELDS = ['sight', 'light', 'sightAngle', 'blocksSight'] as const;
-const NO_VISION = 'the master role (players never set sight, light or what blocks sight)';
+const VISION_FIELDS = ['sight', 'light', 'sightAngle', 'blocksSight', 'magicSight'] as const;
+const NO_VISION =
+  'the master role (players never set sight, light, magic sight or what blocks sight)';
 // A player's copy lands like their new token: on Tokens, visible, blind, unlit, out of combat.
 const PLAYER_COPY = {
   layer: 'tokens',
@@ -64,6 +68,7 @@ const PLAYER_COPY = {
   light: null,
   sightAngle: 360,
   blocksSight: false,
+  magicSight: null,
 } as const;
 
 /** Who creates, edits and deletes tokens (spec §3.9): the master everything; a player by the two

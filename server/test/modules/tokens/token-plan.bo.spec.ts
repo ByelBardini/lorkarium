@@ -56,6 +56,35 @@ describe('TokenPlanBo.requireNew', () => {
   });
 });
 
+describe('TokenPlanBo and magicSight', () => {
+  const blind = { bars: 0, forms: 0, auraKind: null, magicSight: false };
+  const seer = { ...blind, magicSight: true };
+
+  it('turning it on at a free table is magicSight with limit 0', () => {
+    expect(refusalOf(() => free.requireChange(blind, { magicSight: 6 }))).toEqual({
+      resource: 'magicSight',
+      limit: 0,
+      plan: 'free',
+    });
+    expect(refusalOf(() => free.requireNew({ magicSight: 6 })).resource).toBe('magicSight');
+  });
+
+  it('turning it off, or not sending it, passes at a free table', () => {
+    expect(() => free.requireChange(seer, { magicSight: null })).not.toThrow();
+    expect(() => free.requireChange(blind, {})).not.toThrow();
+    expect(() => free.requireNew({ magicSight: null })).not.toThrow();
+  });
+
+  it('a token that already had it changes the range at a free table (kept past the plan)', () => {
+    expect(() => free.requireChange(seer, { magicSight: 12 })).not.toThrow();
+  });
+
+  it('turning it on at a narrador table passes', () => {
+    expect(() => narrator.requireChange(blind, { magicSight: 6 })).not.toThrow();
+    expect(() => narrator.requireNew({ magicSight: 6 })).not.toThrow();
+  });
+});
+
 describe('TokenPlanBo.requireChange', () => {
   const heldFive = { bars: 5, forms: 4, auraKind: 'effect' } as const;
 

@@ -4,7 +4,7 @@ import {
   withPatrolPauses,
   type EnteringPauses,
 } from '../tokens/token-patrol-pause';
-import { publishVeiledLights } from '../tokens/token-veil';
+import { publishVeiledLights, withSeersOf } from '../tokens/token-veil';
 import { combatEventSeenBy, turnChangedSeenBy } from './combat-veil.mapper';
 import type {
   EndCombatCommandDto,
@@ -61,7 +61,7 @@ export type TurnCommand = Omit<TurnCommandDto, Envelope>;
 /** The DAOs a transaction hands out, bound to the open `tx`. */
 export type CombatWriteDaos = Readonly<{
   scenes: Pick<ScenesDao, 'lockInCampaign' | 'bumpVersion'>;
-  tokens: Pick<TokensDao, 'controlOfScene' | 'veilOfScene' | 'patrols'>;
+  tokens: Pick<TokensDao, 'controlOfScene' | 'veilOfScene' | 'magicSeersOfScene' | 'patrols'>;
   combat: Pick<
     CombatDao,
     | 'start'
@@ -300,7 +300,8 @@ export class CombatService {
     const state = row ? toCombatState(row, controllersIn(tokens)) : null;
     const bo = new CombatBo(access, state);
     const roster = new CombatRosterBo(access, state);
-    return { daos, scene, tokens, row, bo, roster, veil: controlVeilOf(tokens) };
+    const veil = await withSeersOf(daos, scene.id, controlVeilOf(tokens));
+    return { daos, scene, tokens, row, bo, roster, veil };
   }
 
   private async accessOf(userId: string, campaignId: string): Promise<CampaignAccessBo> {

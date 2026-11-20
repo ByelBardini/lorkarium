@@ -312,7 +312,13 @@ describe('tokens mapper', () => {
       createdBy: BIA_ID,
       characterId: null,
       controllerIds: row.controllerIds,
-      vision: { sight: { bright: 6, dim: 2 }, light: null, sightAngle: 90, blocksSight: false },
+      vision: {
+        sight: { bright: 6, dim: 2 },
+        light: null,
+        sightAngle: 90,
+        blocksSight: false,
+        magicSight: null,
+      },
     });
   });
 
@@ -350,6 +356,30 @@ describe('tokens mapper', () => {
     const update = toTokenUpdatePo({ ...fields, bars: [], controllerIds: [] }, []);
 
     expect(update.fields).not.toHaveProperty('blocksSight');
+  });
+
+  it.each(['privileged', 'others'] as const)(
+    'a token with magic sight reaches the %s audience with the same range',
+    (audience) => {
+      const row = lyraRow({ token: lyraPo({ magicSight: '6.00' }) });
+
+      expect(toTokenDto(row, audience).magicSight).toBe(6);
+    },
+  );
+
+  it('a token without magic sight reaches everyone with null, and the edit rule sees it', () => {
+    expect(toTokenDto(lyraRow(), 'others').magicSight).toBeNull();
+    const seer = lyraRow({ token: lyraPo({ magicSight: '4.50' }) });
+    expect(toEditedToken(seer).vision.magicSight).toBe(4.5);
+  });
+
+  it('an update writes magic sight to the hundredth, null clears it, absent leaves it', () => {
+    const fields = { name: 'Lyra', initials: 'LY', side: 'ally', width: 1, height: 1 } as const;
+    const base = { ...fields, bars: [], controllerIds: [] };
+
+    expect(toTokenUpdatePo({ ...base, magicSight: 10 / 3 }, []).fields.magicSight).toBe('3.33');
+    expect(toTokenUpdatePo({ ...base, magicSight: null }, []).fields.magicSight).toBeNull();
+    expect(toTokenUpdatePo(base, []).fields).not.toHaveProperty('magicSight');
   });
 
   it('a campaign gone (no stored settings) gives a player no right to create', () => {

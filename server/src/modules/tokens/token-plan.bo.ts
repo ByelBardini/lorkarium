@@ -18,6 +18,8 @@ export type TokenPlanHold = Readonly<{
   colors?: readonly SentColor[];
   barSettings?: readonly TokenBarSetting[];
   formSettings?: readonly TokenFormSetting[];
+  /** Whether it already sees the invisible (kept past the plan). */
+  magicSight?: boolean;
 }>;
 
 /** What a command sends of those; an absent one keeps what the token holds. `colors` are the
@@ -29,6 +31,7 @@ export type TokenPlanSent = Readonly<{
   colors?: readonly SentColor[];
   barSettings?: readonly TokenBarSetting[] | undefined;
   formSettings?: readonly TokenFormSetting[] | undefined;
+  magicSight?: number | null | undefined;
 }>;
 
 const NOTHING_HELD: TokenPlanHold = { bars: 0, forms: 0, auraKind: null, colors: [] };
@@ -60,6 +63,7 @@ export class TokenPlanBo {
     this.requireFormsKept(held.formSettings ?? [], sent.formSettings);
     this.requireAura(held.auraKind, sent.aura);
     this.requireColors(held.colors ?? [], [...(sent.colors ?? []), sent.aura?.color]);
+    this.requireMagicSight(held.magicSight ?? false, sent.magicSight);
   }
 
   /** Each custom color sent that the token does not already wear needs `customColor` in the
@@ -136,6 +140,13 @@ export class TokenPlanBo {
 
   private requireRoom(resource: 'tokenBars' | 'tokenForms', held: number, sent: number): void {
     PlanLimitsBo.requireRoom(resource, held, sent - held, this.limits);
+  }
+
+  // Turning it off always passes; a token that already sees the invisible keeps it (and its
+  // range) after the plan went down.
+  private requireMagicSight(held: boolean, sent: number | null | undefined): void {
+    if (sent === null || sent === undefined || held) return;
+    PlanLimitsBo.requireFeature('magicSight', this.limits.magicSight, this.limits);
   }
 
   // No aura, taking it away or keeping the kind it already has always passes.
