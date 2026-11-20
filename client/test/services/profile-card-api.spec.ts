@@ -3,6 +3,10 @@ import { HttpProfileCardApi } from '@/services/profile-card-api';
 import { HttpTransportFake } from '../support/http-transport-fake';
 import { LYRA_CARD } from '../support/profile-card-fixtures';
 
+const TABLE_ID = '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
+const SHOT_ID = '6c7d8e9f-0a1b-4c2d-8e3f-4a5b6c7d8e9f';
+const SHOT = { id: SHOT_ID, mimeType: 'image/webp', width: 800, height: 600, sizeBytes: 900 };
+
 describe('HttpProfileCardApi', () => {
   let transport: HttpTransportFake;
   let api: HttpProfileCardApi;
@@ -140,6 +144,63 @@ describe('HttpProfileCardApi', () => {
     const gone = { ok: false, failure: { kind: 'user_not_found' } };
     expect(await api.vote(LYRA_CARD.id, 1)).toEqual(gone);
     expect(await api.report(LYRA_CARD.id, { reason: 'spam' })).toEqual(gone);
+  });
+
+  it('report sends the table and the screenshot ids as given', async () => {
+    transport.respondWith(201, null);
+    const report = {
+      reason: 'harassment' as const,
+      campaignId: TABLE_ID,
+      attachmentIds: [SHOT_ID],
+    };
+
+    await api.report(LYRA_CARD.id, report);
+
+    expect(transport.requests[0]?.body).toEqual(report);
+  });
+
+  it.each([
+    ['CAMPAIGN_NOT_SHARED', 400, 'campaign_not_shared'],
+    ['ATTACHMENT_NOT_FOUND', 404, 'attachment_not_found'],
+  ] as const)('report refused %s (%i) fails as %s', async (code, status, kind) => {
+    transport.respondWith(status, { code, message: 'x' });
+
+    expect(await api.report(LYRA_CARD.id, { reason: 'spam' })).toEqual({
+      ok: false,
+      failure: { kind },
+    });
+  });
+
+  it('uploadReportAttachment POSTs the file as the raw body and answers the kept screenshot', async () => {
+    transport.respondWith(201, { attachment: SHOT });
+    const file = new Blob(['png'], { type: 'image/png' });
+
+    expect(await api.uploadReportAttachment(file)).toEqual({ ok: true, value: SHOT });
+    expect(transport.requests).toEqual([
+      { method: 'POST', path: '/reports/attachments', body: file },
+    ]);
+  });
+
+  it.each([
+    ['ATTACHMENT_TOO_LARGE', 413, 'attachment_too_large'],
+    ['UNSUPPORTED_IMAGE', 415, 'unsupported_image'],
+    ['UNSUPPORTED_IMAGE', 422, 'unsupported_image'],
+  ] as const)('uploadReportAttachment refused %s (%i) fails as %s', async (code, status, kind) => {
+    transport.respondWith(status, { code, message: 'x' });
+
+    expect(await api.uploadReportAttachment(new Blob(['x']))).toEqual({
+      ok: false,
+      failure: { kind },
+    });
+  });
+
+  it('uploadReportAttachment with a body outside the DTO is unexpected', async () => {
+    transport.respondWith(201, { attachment: { ...SHOT, storageKey: 'reports/x' } });
+
+    expect(await api.uploadReportAttachment(new Blob(['x']))).toEqual({
+      ok: false,
+      failure: { kind: 'unexpected' },
+    });
   });
 
   it('report refused 429 carries the Retry-After seconds', async () => {

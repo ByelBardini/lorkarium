@@ -20,6 +20,8 @@ export type AppShellProps = Readonly<{
   friendsBadge?: number;
   /** The status in the user menu; left out, the menu has none. */
   presence?: UserMenuPresence;
+  /** "Relatar bug ou sugerir" in the user menu. */
+  onFeedback?: () => void;
   /** The desktop title bar already shows the logo, so the rail leaves it out. */
   brandInTitleBar?: boolean;
 }>;
@@ -37,6 +39,7 @@ export function AppShell({
   onSignOut,
   friendsBadge = 0,
   presence,
+  onFeedback,
   brandInTitleBar = false,
 }: AppShellProps): React.JSX.Element {
   const compact = wantsCompactRail(useMatches());
@@ -54,6 +57,7 @@ export function AppShell({
         onSignOut={onSignOut}
         friendsBadge={friendsBadge}
         presence={presence}
+        onFeedback={onFeedback}
         compact={compact}
         showBrand={!brandInTitleBar}
         className="hidden md:flex"
@@ -67,6 +71,7 @@ export function AppShell({
             onSignOut={onSignOut}
             friendsBadge={friendsBadge}
             presence={presence}
+            onFeedback={onFeedback}
           />
           <BrandMark variant="compact" />
         </header>

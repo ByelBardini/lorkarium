@@ -8,7 +8,15 @@ export function downloadText(
   fileName: string,
   type: string = 'text/plain;charset=utf-8',
 ): void {
-  const url = URL.createObjectURL(new Blob([text], { type }));
+  downloadBlob(new Blob([text], { type }), fileName);
+}
+
+/** Hands a `Blob` already in memory (the ZIP of "Baixar meus dados") to the browser as a file,
+ *  by the same `<a download>` click, which the desktop shell saves too.
+ *
+ *  Example: `downloadBlob(archive.blob, 'lorkarium-dados-bia-2026-11-19.zip')` */
+export function downloadBlob(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   link.download = fileName;

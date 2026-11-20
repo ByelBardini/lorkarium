@@ -91,8 +91,9 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
   // Moves Bia between plans in the backoffice (back to her seeded plan after each test).
   plans: ['plans'],
   // Votes, reports and moves Caio to Grátis for the banner (back to his seeded plan at the end);
-  // badges creates, grants and deletes its own badge on Bia.
-  'profile-card': ['profile-card', 'badges'],
+  // badges creates, grants and deletes its own badge on Bia; feedback sends Bia's bug report and
+  // archives it.
+  'profile-card': ['profile-card', 'badges', 'feedback'],
 };
 
 assertEverySpecIsGrouped(SPEC_GROUPS);

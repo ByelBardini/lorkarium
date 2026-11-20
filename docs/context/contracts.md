@@ -6,6 +6,8 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 
 - `src/auth/` — login e usuário autenticado
 - `src/profiles/` — card de perfil de outra conta, voto de reputação e denúncia; [contratos](contracts/conta.md#card-de-perfil-srcprofiles)
+- `src/screenshots/` — o print da denúncia e do relato: `SCREENSHOTS_MAX` (5), `SCREENSHOT_MAX_BYTES` (5 MiB), `SCREENSHOT_MIME_TYPES`, `screenshotIdsDto` (sem id repetido), `screenshotDto`, `screenshotResponseDto`; os `USER_REPORT_ATTACHMENT*` da denúncia apontam para eles
+- `src/feedback/` — relatos de bug e sugestões (`feedbackRequestDto` com o `content` por `kind`, a fila, o rascunho, publicar e a resposta com o link `https://github.com/…`); [`feedback.md`](feedback.md)
 - `src/account/` — perfil (@, apelido, cor, bio, preferências de jogo, banner), foto, senha, e-mail, sessões, 2FA e cores salvas
 - `src/badges/` — insígnias do backoffice (catálogo, ordem, concessão, imagem 1:1); [contratos](contracts/insignias.md)
 - `src/color/` — `hex-color.dto.ts`: `hexColorDto` (`#rrggbb` opaco e minúsculo, tipo `` `#${string}` ``), `paletteOrHexDto(paleta)` e `isHexColor`. Cor personalizada só entra por aqui: a regex é o que impede injeção em `style` inline e SVG
@@ -19,6 +21,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 - `src/chat/` — chat da mesa (Socket.IO): `chat:send`, ack e `chat:sent`, sem versão
 - `src/plans/` — planos da conta: `USER_PLANS`, recursos do `PLAN_LIMIT`, a grade `PLAN_LIMITS` e `planLimitsDto`; [contratos](contracts/planos.md), com os DTOs que levam `planLocked` (o item só leitura pelo plano)
 - `src/plans/paid-plan.dto.ts` — `higherPlanOf(plan, paidPlan)` (o maior na ordem de `USER_PLANS`, server e client), `paidPlanFields` e `checkPaidPlanPair` (o pago e a data vêm juntos)
+- `src/broadcasts/` — comunicados do backoffice por e-mail (segmento, texto, prévia, rascunho, teste, confirmação com o total digitado); [`broadcasts.md`](broadcasts.md)
 - `src/billing/` — rotas `/api/billing/*` do serviço de cobrança: catálogo, checkout, status, cancelamento, reembolso; [contratos](contracts/cobranca.md)
 - `src/sheets/` — fichas personalizadas: modelo (código do mestre), ficha na biblioteca (nome, pasta, dono opcional: token ou jogador), valores com orçamento, `sheet:changed`, `sheet:adjustBar` e a ponte frame ↔ host; [contratos](sheets/contratos.md). `src/utf8-length.ts` conta bytes UTF-8 sem `TextEncoder`
 - `src/friends/` e `src/direct-messages/` — amigos, pedidos, bloqueio (HTTP), presença da conta e mensagens diretas efêmeras (Socket.IO), tetos `FRIENDS_MAX`/`BLOCKS_MAX`/`OUTGOING_REQUESTS_MAX`/`DIRECT_MESSAGE_MAX_LENGTH` e o `typedUsernameDto` (tira o "@"); [contratos](contracts/amigos.md)
@@ -88,19 +91,15 @@ Imagem, agregado e apresentação versionada: [contracts/biblioteca.md](contract
 
 ### Conta (`account/`)
 
-`usernameDto`, `memberColorDto`, perfil, foto, textura do dado (`diceNumberColorDto`), senha, e-mail, sessões ativas, 2FA e cores salvas: detalhe em [`contracts/conta.md`](contracts/conta.md).
+`usernameDto`, `memberColorDto`, perfil, foto, textura do dado (`diceNumberColorDto`), senha, e-mail, sessões ativas, 2FA e cores salvas: detalhe em [`contracts/conta.md`](contracts/conta.md). `data-export.dto.ts` — `dataExportDto` (o `dados.json`, estrito), `DATA_EXPORT_INTERVAL_HOURS`, `DATA_EXPORT_TOO_SOON_CODE`: [`data-export.md`](data-export.md).
 
 ### Backoffice (`admin/`) e links de conta (`account-links/`)
 
-- `admin-users.dto.ts` — `adminUserDto` (`{ id, username, name, email, role, plan (o do admin), paidPlan e paidPlanUntil (o pago em vigor, só leitura), lorkariumOwner, status: active | suspended, color, avatarId, campaignCount, lastSeenAt | null, createdAt }`), `adminInvitationDto` (`{ id, email, role, invitedBy (@ | null), sentAt, expiresAt }`; "vencido" é do client), `adminDirectoryResponseDto` `{ users, invitations }`, `adminUserResponseDto` `{ user }`, `adminUserParamsDto` `{ userId: uuid }`, `updateUserRoleRequestDto` `{ role }` e `updateUserPlanRequestDto` `{ plan }` estritos, `blockingCampaignDto` `{ id, name, otherMembers ≥ 1 }`, `userDeletionCheckDto` `{ blockingCampaigns, soloCampaigns }`.
-- `admin-invitations.dto.ts` — `createInvitationRequestDto` `{ email (trim + minúsculas), role }` estrito, `invitationParamsDto`, `invitationLinkResponseDto` `{ invitation, link }`, `passwordResetLinkResponseDto` `{ link, expiresAt }`.
-- `account-links/account-links.dto.ts` — `accountLinkTokenDto` `{ token }` (sobre `linkTokenDto` de `account/account-recovery.dto.ts`), `invitationInspectResponseDto` `{ email, suggestedUsername }`, `acceptInvitationRequestDto` `{ token, username (usernameDto), password (newPasswordDto), persistent, acceptedTerms: true }` (literal: a caixa dos Termos e da Privacidade desmarcada é 400), `acceptInvitationResponseDto` `{ status: 'signed-in', user }`, `passwordResetInspectResponseDto` `{ username }`, `completePasswordResetRequestDto` `{ token, newPassword }`.
-- `admin-mail-samples.dto.ts` — `mailSampleDto` `{ id, name, subject }`, `mailSamplesResponseDto` `{ samples }`, `mailSampleParamsDto` `{ sampleId }`, `sendMailSampleRequestDto` `{ to }` (aparado, minúsculas), `sendMailSampleResponseDto` `{ subject, to }`.
-- Specs: `packages/contracts/test/admin/*.spec.ts`, `test/account-links/account-links.dto.spec.ts`.
+Contas do backoffice (`adminUserDto`, lista, papel, plano, exclusão), convites e nova senha, links de conta, amostras de e-mail e medidas contra contas (`account-sanction.dto.ts`): [`contracts/backoffice.md`](contracts/backoffice.md).
 
 ### Textos legais (`legal/`)
 
-- `legal-documents.dto.ts` — `LEGAL_DOCUMENTS_VERSION` (`'2026-10-25'`: a versão do par Termos de uso + Política de privacidade que o aceite grava; muda junto com o `updatedAt` da landing) e `legalDocumentDto` (`terms` | `privacy`, tipo `LegalDocument`: os caminhos `GET /api/legal/<documento>`). Ver [`legal.md`](legal.md).
+- `legal-documents.dto.ts` — `LEGAL_DOCUMENTS_VERSION` (`'2026-11-19'`: a versão dos três textos — Termos de uso, Política de privacidade e Política de uso aceitável — que o aceite grava; muda junto com o `updatedAt` da landing) e `legalDocumentDto` (`terms` | `privacy` | `acceptable-use`, tipo `LegalDocument`: os caminhos `GET /api/legal/<documento>`). Ver [`legal.md`](legal.md).
 
 ### Tempo real comum (`http/realtime-ack.dto.ts`)
 

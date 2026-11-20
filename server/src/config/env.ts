@@ -1,6 +1,14 @@
 import path from 'node:path';
 import { usernameDto } from '@lorkarium/contracts';
 import { z } from 'zod';
+import {
+  GITHUB_APP_KEYS,
+  GITHUB_ISSUES_REPOSITORY_KEY,
+  githubEnvShape,
+  requireGitHubAppTrio,
+  toGitHubAppConfig,
+  type GitHubAppConfig,
+} from './github-env';
 
 // Enforced only in production: a local dev box may seed admin@admin.com / admin.
 export const ADMIN_PASSWORD_MIN_LENGTH = 12;
@@ -24,6 +32,7 @@ const ENV_KEYS = [
   'DATA_ENCRYPTION_KEY',
   'SMTP_URL',
   'MAIL_FROM',
+  'MAIL_REPLY_TO',
   'APP_PUBLIC_URL',
   'SITE_PUBLIC_URL',
   'TRUST_PROXY',
@@ -34,6 +43,8 @@ const ENV_KEYS = [
   'ACCESS_LOG_S3_ACCESS_KEY_ID',
   'ACCESS_LOG_S3_SECRET_ACCESS_KEY',
   'OWNER_USERNAME',
+  ...GITHUB_APP_KEYS,
+  GITHUB_ISSUES_REPOSITORY_KEY,
 ] as const;
 
 const ACCESS_LOG_KEYS = [
@@ -51,6 +62,7 @@ const SECRET_KEYS: ReadonlySet<string> = new Set([
   'DATA_ENCRYPTION_KEY',
   // smtp://user:password@host:port carries the password.
   'SMTP_URL',
+  'GITHUB_APP_PRIVATE_KEY',
 ]);
 
 export const S3_SECRET_MIN_LENGTH = 8;
@@ -177,6 +189,12 @@ const envSchema = z
     DATA_ENCRYPTION_KEY,
     SMTP_URL,
     MAIL_FROM: z.string().trim().min(3).default(DEFAULT_MAIL_FROM),
+    MAIL_REPLY_TO: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .pipe(z.email({ error: 'must be an e-mail address' }))
+      .optional(),
     APP_PUBLIC_URL: z.url({ error: 'must be a URL (https://mesa.example.com)' }).optional(),
     SITE_PUBLIC_URL: z.url({ error: 'must be a URL (https://example.com)' }).optional(),
     TRUST_PROXY: TRUST_PROXY_HOPS,
@@ -191,13 +209,15 @@ const envSchema = z
       .optional(),
     // The @ and not the e-mail: the e-mail is sealed at rest, the @ is what a query can compare.
     OWNER_USERNAME: usernameDto.optional(),
+    ...githubEnvShape,
   })
   .superRefine(requireAdminPair)
   .superRefine(requireStrongAdminPasswordInProduction)
   .superRefine(requireMailInProduction)
   .superRefine(requireSiteInProduction)
   .superRefine(requireAccessLog)
-  .superRefine(requireAssetCacheDir);
+  .superRefine(requireAssetCacheDir)
+  .superRefine(requireGitHubAppTrio);
 
 type ParsedEnv = z.infer<typeof envSchema>;
 
@@ -241,6 +261,9 @@ export type Env = Readonly<{
   /** 32 bytes; the master key the data cipher derives its per-purpose subkeys from. */
   dataEncryptionKey: Buffer;
   mailer: MailerConfig;
+  /** The contact address a sanction or broadcast e-mail is answered at; null = those e-mails go
+   *  without Reply-To and their text points at the site's Contato. */
+  mailReplyTo: string | null;
   /** Where the client is served, without a trailing slash: the base of the links in e-mails. */
   appPublicUrl: string;
   /** Where the landing is served, without a trailing slash: `/api/legal/*` redirects there. */
@@ -256,6 +279,8 @@ export type Env = Readonly<{
   accessLog: StorageConfig | null;
   /** The @ (no leading @) of the Dono do Lorkarium: no plan limit and its own seal; null = nobody. */
   ownerUsername: string | null;
+  /** The GitHub App that publishes feedback as issues; null = publishing answers 503. */
+  issueTracker: GitHubAppConfig | null;
 }>;
 
 export class InvalidEnvError extends Error {
@@ -412,6 +437,7 @@ function toEnv(parsed: ParsedEnv): Env {
     },
     dataEncryptionKey: parsed.DATA_ENCRYPTION_KEY,
     mailer: toMailerConfig(parsed),
+    mailReplyTo: parsed.MAIL_REPLY_TO ?? null,
     appPublicUrl: withoutTrailingSlash(parsed.APP_PUBLIC_URL ?? DEFAULT_APP_PUBLIC_URL),
     sitePublicUrl: withoutTrailingSlash(parsed.SITE_PUBLIC_URL ?? DEFAULT_SITE_PUBLIC_URL),
     trustProxyHops: parsed.TRUST_PROXY,
@@ -419,6 +445,7 @@ function toEnv(parsed: ParsedEnv): Env {
     assetCache: toAssetCacheConfig(parsed),
     accessLog: toAccessLogConfig(parsed),
     ownerUsername: parsed.OWNER_USERNAME ?? null,
+    issueTracker: toGitHubAppConfig(parsed),
   };
 }
 

@@ -1,7 +1,11 @@
 import {
+  listFeedbackQueryDto,
   listUserReportsQueryDto,
+  type FeedbackPageDto,
   type AdminBadgeDto,
   type AdminDirectoryResponseDto,
+  type AdminUserDto,
+  type MailBroadcastDto,
   type MailSampleDto,
   type UserReportsPageDto,
 } from '@lorkarium/contracts';
@@ -17,7 +21,10 @@ import type { BadgesAdminFailure } from '@/services/badges-admin-api';
 import { useSession } from '@/stores/session-store';
 import { AdminErrorScreen } from './admin-error-screen';
 import { AdminLayout } from './admin-layout';
+import { BroadcastsPage } from './broadcasts-page';
 import { badgesAction } from './badges-action';
+import { feedbackAction } from './feedback-action';
+import { FeedbackPage } from './feedback-page';
 import { BadgesPage } from './badges-page';
 import { mailTestAction } from './mail-test-action';
 import { MailTestPage } from './mail-test-page';
@@ -71,6 +78,7 @@ export function usersRoute(
           clipboard={deps.clipboard}
           badgesApi={deps.badgesAdminApi}
           billingApi={deps.billingApi}
+          sanctionsApi={deps.sanctionsApi}
           twoFactorOn={twoFactorOn}
         />
       );
@@ -146,30 +154,119 @@ export function badgesRoute(
   };
 }
 
-export type ReportsLoaderData = Readonly<{ page: UserReportsPageDto }>;
+export type BroadcastsLoaderData = Readonly<{
+  broadcasts: MailBroadcastDto[];
+  twoFactorOn: boolean;
+}>;
+
+/** "Comunicados" (`/admin/comunicados`): the service notices by e-mail and the editor; the
+ *  commands go straight to the service (the preview, the test and the send are one flow).
+ *
+ *  Example: `{ path: 'comunicados', lazy: async () => (await import('@/features/admin/admin-routes')).broadcastsRoute(deps) }` */
+export function broadcastsRoute(
+  deps: AppDependencies,
+): Pick<RouteObject, 'loader' | 'Component' | 'ErrorBoundary'> {
+  return {
+    loader: async ({ request }): Promise<BroadcastsLoaderData> => {
+      const [result, security] = await Promise.all([
+        deps.broadcastsApi.list(),
+        deps.accountSecurityApi.security(),
+      ]);
+      // Unread, the button stays on: the server refuses the send without 2FA anyway.
+      const twoFactorOn = !security.ok || security.value.twoFactor.enabled;
+      if (result.ok) return { broadcasts: result.value, twoFactorOn };
+      return refusedLoad(deps, loadRefusalOf(result.failure.kind), request);
+    },
+    Component: function BroadcastsRoute(): React.JSX.Element {
+      const { broadcasts, twoFactorOn } = useLoaderData<BroadcastsLoaderData>();
+      return (
+        <BroadcastsPage
+          broadcasts={broadcasts}
+          api={deps.broadcastsApi}
+          twoFactorOn={twoFactorOn}
+        />
+      );
+    },
+    ErrorBoundary: function BroadcastsErrorBoundary(): React.JSX.Element | null {
+      return (
+        <AdminErrorScreen
+          sessionStore={deps.sessionStore}
+          pageTitle="Lorkarium · Comunicados"
+          failedHeading="Não deu para carregar os comunicados."
+        />
+      );
+    },
+  };
+}
+
+// Only the session and the role decide where a refused load goes; the rest is the error screen.
+function loadRefusalOf(kind: string): BadgesAdminFailure['kind'] {
+  if (kind === 'unauthenticated' || kind === 'forbidden' || kind === 'offline') return kind;
+  return 'unexpected';
+}
+
+export type FeedbackLoaderData = Readonly<{ page: FeedbackPageDto }>;
+
+/** "Relatos" (`/admin/relatos`): the bug reports and suggestions waiting (`?page`); publishing to
+ *  GitHub and archiving go through one action.
+ *
+ *  Example: `{ path: 'relatos', lazy: async () => (await import('@/features/admin/admin-routes')).feedbackRoute(deps) }` */
+export function feedbackRoute(
+  deps: AppDependencies,
+): Pick<RouteObject, 'loader' | 'action' | 'Component' | 'ErrorBoundary'> {
+  return {
+    loader: async ({ request }): Promise<FeedbackLoaderData> => {
+      const raw = Object.fromEntries(new URL(request.url).searchParams);
+      const query = listFeedbackQueryDto.safeParse(raw);
+      const result = await deps.feedbackAdminApi.list(query.success ? query.data : { page: 1 });
+      if (result.ok) return { page: result.value };
+      return refusedLoad(deps, loadRefusalOf(result.failure.kind), request);
+    },
+    action: feedbackAction(deps),
+    Component: function FeedbackRoute(): React.JSX.Element {
+      return <FeedbackPage page={useLoaderData<FeedbackLoaderData>().page} />;
+    },
+    ErrorBoundary: function FeedbackErrorBoundary(): React.JSX.Element | null {
+      return (
+        <AdminErrorScreen
+          sessionStore={deps.sessionStore}
+          pageTitle="Lorkarium · Relatos"
+          failedHeading="Não deu para carregar os relatos."
+        />
+      );
+    },
+  };
+}
+
+export type ReportsLoaderData = Readonly<{
+  page: UserReportsPageDto;
+  /** The accounts "Aplicar medida" finds the reported one in; empty when they did not load. */
+  users: readonly AdminUserDto[];
+  twoFactorOn: boolean;
+}>;
 
 /** "Denúncias" (`/admin/reports`): the reports queue (`?status&page`, the open ones by default);
- *  the reported @ opens that person's profile card.
+ *  the reported @ opens that person's profile card, and a measure taken from a report goes
+ *  through the same dialogs (and action) as Usuários.
  *
  *  Example: `{ path: 'reports', lazy: async () => (await import('@/features/admin/admin-routes')).reportsRoute(deps) }` */
 export function reportsRoute(
   deps: AppDependencies,
 ): Pick<RouteObject, 'loader' | 'action' | 'Component' | 'ErrorBoundary'> {
   return {
-    loader: async ({ request }): Promise<ReportsLoaderData> => {
-      const result = await deps.userReportsApi.list(reportsQueryOf(new URL(request.url)));
-      if (result.ok) return { page: result.value };
-      return refusedLoad(deps, result.failure.kind, request);
-    },
+    loader: reportsLoader(deps),
     action: reportsAction(deps),
     Component: function ReportsRoute(): React.JSX.Element | null {
-      const { page } = useLoaderData<ReportsLoaderData>();
+      const { page, users, twoFactorOn } = useLoaderData<ReportsLoaderData>();
       const session = useSession(deps.sessionStore);
       if (session.status !== 'authenticated') return null;
+      const { clipboard, badgesAdminApi: badgesApi, billingApi, sanctionsApi } = deps;
+      const dialogs = { clipboard, badgesApi, billingApi, sanctionsApi, twoFactorOn };
       return (
         <ProfileCardProvider deps={deps} viewerId={session.user.id}>
           <ReportsPage
             page={page}
+            measure={{ users, dialogs }}
             targetOf={(target) => (
               <ProfileCardTrigger userId={target.id} name={`@${target.username}`} />
             )}
@@ -186,6 +283,22 @@ export function reportsRoute(
         />
       );
     },
+  };
+}
+
+// The queue decides the load; the accounts and the 2FA only light "Aplicar medida" and the
+// cancel before a deletion, so their failure leaves the queue usable.
+function reportsLoader(deps: AppDependencies): LoaderFunction {
+  return async ({ request }): Promise<ReportsLoaderData> => {
+    const [result, directory, security] = await Promise.all([
+      deps.userReportsApi.list(reportsQueryOf(new URL(request.url))),
+      deps.userAdminApi.directory(),
+      deps.accountSecurityApi.security(),
+    ]);
+    if (!result.ok) return refusedLoad(deps, result.failure.kind, request);
+    const users = directory.ok ? directory.value.users : [];
+    const twoFactorOn = !security.ok || security.value.twoFactor.enabled;
+    return { page: result.value, users, twoFactorOn };
   };
 }
 

@@ -31,7 +31,8 @@ export class SmtpMailer implements MailerPort {
 
   async send(message: MailMessage): Promise<void> {
     try {
-      await this.transport.sendMail({ from: this.from, ...message });
+      const { to, subject, text, html, replyTo } = message;
+      await this.transport.sendMail({ from: this.from, to, subject, text, html, replyTo });
     } catch (error) {
       throw new MailDeliveryError(this.host, error);
     }

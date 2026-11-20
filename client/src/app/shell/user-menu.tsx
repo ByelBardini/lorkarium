@@ -9,6 +9,8 @@ import {
   FileTextIcon,
   LockKeyholeIcon,
   LogOutIcon,
+  MessageSquareWarningIcon,
+  ScrollTextIcon,
   ShieldIcon,
   UserRoundIcon,
   type LucideIcon,
@@ -46,6 +48,8 @@ export type UserMenuProps = Readonly<{
   onSignOut: () => Promise<void>;
   /** Left out, the menu has no status (a frame without the account socket). */
   presence?: UserMenuPresence;
+  /** Opens "Relatar um bug ou sugerir"; left out, the menu does not offer it. */
+  onFeedback?: () => void;
 }>;
 
 const CHOICE_LABELS: Readonly<Record<PresenceVisibilityDto, string>> = {
@@ -56,13 +60,15 @@ const CHOICE_LABELS: Readonly<Record<PresenceVisibilityDto, string>> = {
 const LEGAL_ICONS: Readonly<Record<LegalDocument, LucideIcon>> = {
   terms: FileTextIcon,
   privacy: LockKeyholeIcon,
+  'acceptable-use': ScrollTextIcon,
 };
 
 const ITEM_LINK_CLASS = 'text-foreground no-underline hover:no-underline';
 
 /** The account menu at the foot of the rail, behind the avatar: the e-mail with the stored plan
  *  seals, the status (Online / Invisível, "Ausente" while idle), "Minha conta", Backoffice for
- *  admins, the Terms of use and the Privacy policy (new tab), and "Sair".
+ *  admins, "Relatar bug ou sugerir", the three legal texts (new tab), and "Sair". The source code is offered at the foot of
+ *  the sign-in screens and on the landing, not here.
  *
  *  Example: `<UserMenu user={user} expanded onSignOut={signOut} />` */
 export function UserMenu({
@@ -70,6 +76,7 @@ export function UserMenu({
   expanded,
   onSignOut,
   presence,
+  onFeedback,
 }: UserMenuProps): React.JSX.Element {
   return (
     <DropdownMenu>
@@ -104,6 +111,12 @@ export function UserMenu({
               <ShieldIcon aria-hidden="true" />
               Backoffice
             </Link>
+          </DropdownMenuItem>
+        )}
+        {onFeedback && (
+          <DropdownMenuItem onSelect={onFeedback}>
+            <MessageSquareWarningIcon aria-hidden="true" />
+            Relatar bug ou sugerir
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />

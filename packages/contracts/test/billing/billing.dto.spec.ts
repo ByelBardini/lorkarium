@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   BILLING_CHECKOUT_HOSTS,
   BILLING_PRICE_KEYS,
+  billingAdminCancelResponseDto,
+  billingExportDto,
   billingPricesResponseDto,
   billingStatusDto,
   checkoutRequestDto,
@@ -133,6 +135,54 @@ describe('billingPricesResponseDto', () => {
   });
 });
 
+describe('billingAdminCancelResponseDto', () => {
+  const cancelledSubscription = {
+    id: PAYMENT_ID,
+    priceKey: 'narrador_monthly',
+    method: 'card',
+    status: 'cancelled',
+    renews: false,
+    currentPeriodEnd: '2026-12-16T12:00:00.000Z',
+    createdAt: '2026-11-16T12:00:00.000Z',
+  };
+
+  it('accepts the subscription it cancelled, in the backoffice shape', () => {
+    const body = { subscription: cancelledSubscription, cancelled: true };
+    expect(billingAdminCancelResponseDto.parse(body)).toEqual(body);
+  });
+
+  it('accepts an account with nothing to cancel (no subscription, not an error)', () => {
+    const body = { subscription: null, cancelled: false };
+    expect(billingAdminCancelResponseDto.parse(body)).toEqual(body);
+  });
+
+  it('refuses the subscription without its id, as the account itself sees it', () => {
+    const ownView = {
+      priceKey: 'narrador_monthly',
+      method: 'card',
+      status: 'cancelled',
+      renews: false,
+      currentPeriodEnd: '2026-12-16T12:00:00.000Z',
+    };
+    const result = billingAdminCancelResponseDto.safeParse({
+      subscription: ownView,
+      cancelled: true,
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toContain('subscription.id');
+  });
+
+  it('refuses a field it does not declare (strict object)', () => {
+    const result = billingAdminCancelResponseDto.safeParse({
+      subscription: null,
+      cancelled: false,
+      preapprovalId: '2c938084',
+    });
+    expect(result.success).toBe(false);
+    expect(messagesOf(result)).toContain('preapprovalId');
+  });
+});
+
 describe('billingStatusDto', () => {
   it('accepts an account without a paid plan nor a subscription', () => {
     const body = { paidPlan: null, paidPlanUntil: null, periodEnd: null, subscription: null };
@@ -164,5 +214,67 @@ describe('billingStatusDto', () => {
     });
     expect(result.success).toBe(false);
     expect(messagesOf(result)).toContain('paidPlanUntil');
+  });
+});
+
+describe('billingExportDto', () => {
+  const exportedAt = '2026-11-19T14:30:00.000Z';
+  const subscription = {
+    id: '1f0e2d3c-4b5a-4968-8776-655443322110',
+    priceKey: 'narrador_monthly',
+    plan: 'narrador',
+    period: 'monthly',
+    months: 1,
+    method: 'card',
+    amountCents: 1490,
+    currency: 'BRL',
+    status: 'active',
+    renews: true,
+    currentPeriodEnd: '2026-12-19T14:30:00.000Z',
+    createdAt: exportedAt,
+  };
+  const payment = {
+    id: PAYMENT_ID,
+    subscriptionId: null,
+    priceKey: 'lenda_annual',
+    plan: 'lenda',
+    period: 'annual',
+    months: 12,
+    method: 'pix',
+    amountCents: 23890,
+    currency: 'BRL',
+    status: 'refunded',
+    coversFrom: null,
+    coversUntil: null,
+    createdAt: '2026-10-01T10:00:00.000Z',
+    mercadoPagoPaymentId: '1234567890',
+  };
+
+  it('accepts the answer of the billing service as it is sent', () => {
+    const body = { exportedAt, subscriptions: [subscription], payments: [payment] };
+
+    expect(billingExportDto.parse(body).payments[0]?.mercadoPagoPaymentId).toBe('1234567890');
+  });
+
+  it('accepts an account that never paid: both lists empty', () => {
+    const body = { exportedAt, subscriptions: [], payments: [] };
+
+    expect(billingExportDto.safeParse(body).success).toBe(true);
+  });
+
+  it('refuses a gateway field outside the contract (strict)', () => {
+    const extra = { ...subscription, preapprovalId: 'abc' };
+
+    expect(
+      billingExportDto.safeParse({ exportedAt, subscriptions: [extra], payments: [] }).success,
+    ).toBe(false);
+  });
+
+  it('refuses a payment status the service does not use', () => {
+    const paid = { ...payment, status: 'paid' };
+
+    expect(
+      billingExportDto.safeParse({ exportedAt, subscriptions: [], payments: [paid] }).success,
+    ).toBe(false);
   });
 });

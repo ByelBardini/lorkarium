@@ -25,6 +25,16 @@ Leitura pública (para quem tem sessão) do perfil de outra conta, no `profileCa
 
 - Insígnias: `badges` é o que a `AccountBadgesPort` devolve; conta sem insígnia → `[]`.
 
+## Denúncia (client)
+
+"Denunciar" no menu do card abre o `ReportUserDialog` (`client/src/features/profile-card/report-user-dialog.tsx`), com o servidor em [`../reports.md`](../reports.md):
+
+- Motivo (obrigatório), detalhes (opcional, até 1000), **mesa onde aconteceu** (um `<select>` com "Nenhuma" e as `mutualCampaigns` do card; sem mesa em comum o campo não aparece) e **prints** (`ScreenshotShotsField` de `client/src/components/screenshot-shots/`: até 5, PNG/JPEG/WebP de até 5 MB, miniatura por object URL e "Remover print N").
+- `components/screenshot-shots/use-screenshot-shots.ts` — `useScreenshotShots({ upload, limitText })` e `screenshotRefusalOf(file, kept, limitText)` (o diálogo passa o `uploadReportAttachment` e "Até 5 prints por denúncia."; o relato de bug usa o mesmo): o 6º, o tipo errado e o acima de 5 MB são recusados **antes de subir**, com uma frase só ("Até 5 prints por denúncia.", "Envie um PNG, JPEG ou WebP.", "O print passa de 5 MB."). O object URL sai ao remover o print ou fechar o diálogo.
+- Enviar: os prints sobem **primeiro**, um por vez, pela `ProfileCardApi.uploadReportAttachment` (`POST /api/reports/attachments`, validado pelo `userReportAttachmentResponseDto`); o que falha mostra o erro **no próprio print** (`reportShotFailureText`) e a denúncia não sai. O que subiu guarda o id: enviar de novo só tenta os outros. Depois, `report(userId, { reason, details, campaignId?, attachmentIds? })` (os dois só quando há).
+- Recusas da denúncia pelo `cardCommandFailureText`: `campaign_not_shared` ("Vocês não jogam juntos nessa mesa."), `attachment_not_found` ("Um dos prints não foi encontrado. Anexe de novo."), além das que já existiam.
+- Specs: `client/test/components/screenshot-shots/use-screenshot-shots.spec.ts` (as recusas e as bordas de 5 prints e 5 MiB) e `report-user-dialog.spec.tsx` (o `ProfileCardApiFake` guarda os ids em `uploads` e recusa um arquivo pelo nome com `refuseUploadOf`).
+
 ## Testes
 
 - Unit: `server/test/modules/profiles/profile-card.mapper.spec.ts`, `profile-card.service.spec.ts` (insígnias só do alvo, `cardByUsername` igual ao `cardOf`, `self`, @ desconhecido sem ler bloco nenhum; fakes nomeados em `server/test/support/profile-card-fakes.ts`, com `AccountBadgesFake`).

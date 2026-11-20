@@ -3,6 +3,9 @@ import type { Readable } from 'node:stream';
 /** An object read back from the storage, streamed to whoever asked for it. */
 export type StoredObject = Readonly<{ body: Readable; size: number; contentType: string }>;
 
+/** One object listed from the bucket, with when it was last written. */
+export type ListedObject = Readonly<{ key: string; lastModified: Date }>;
+
 /** Where the asset bytes live (any S3-compatible service, §4.3); the key is never a file name. */
 export interface AssetStoragePort {
   /** Creates the bucket when it is missing; called once when the app gets ready. */
@@ -12,4 +15,6 @@ export interface AssetStoragePort {
   open(key: string): Promise<StoredObject | null>;
   /** Deletes the object; a key that holds nothing is not an error (idempotent). */
   remove(key: string): Promise<void>;
+  /** Every object whose key starts with `prefix`, across all the pages of the listing. */
+  listKeys(prefix: string): Promise<ListedObject[]>;
 }

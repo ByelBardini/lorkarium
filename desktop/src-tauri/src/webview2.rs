@@ -32,7 +32,7 @@ pub fn desktop_user_agent(base: &str, version: &str) -> String {
 
 /// Whether a page may read the clipboard without the browser's prompt: only the app's own origin.
 ///
-/// Example: `clipboard_read_permission("https://lorkarium.app/campaigns/1", &origin) // Allow`
+/// Example: `clipboard_read_permission("https://app.lorkarium.com.br/campaigns/1", &origin) // Allow`
 pub fn clipboard_read_permission(uri: &str, app: &AppOrigin) -> PermissionDecision {
     match Url::parse(uri) {
         Ok(url) if app.contains(&url) => PermissionDecision::Allow,
@@ -216,7 +216,7 @@ mod tests {
     const EDGE_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0";
 
     fn app() -> AppOrigin {
-        AppOrigin::parse("https://lorkarium.app", BuildProfile::Release).unwrap()
+        AppOrigin::parse("https://app.lorkarium.com.br", BuildProfile::Release).unwrap()
     }
 
     #[test]
@@ -245,7 +245,7 @@ mod tests {
     #[test]
     fn app_page_may_read_the_clipboard() {
         assert_eq!(
-            clipboard_read_permission("https://lorkarium.app/campaigns/1", &app()),
+            clipboard_read_permission("https://app.lorkarium.com.br/campaigns/1", &app()),
             PermissionDecision::Allow
         );
     }

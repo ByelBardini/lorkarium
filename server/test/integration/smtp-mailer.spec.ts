@@ -20,9 +20,15 @@ async function messagesTo(address: string): Promise<MailpitSummary[]> {
   return body.messages.filter((message) => message.To.some((to) => to.Address === address));
 }
 
-async function bodyOf(id: string): Promise<Readonly<{ Text: string; HTML: string }>> {
+type MailpitMessage = Readonly<{
+  Text: string;
+  HTML: string;
+  ReplyTo: ReadonlyArray<Readonly<{ Address: string }>>;
+}>;
+
+async function bodyOf(id: string): Promise<MailpitMessage> {
   const response = await fetch(`${API_URL}/api/v1/message/${id}`);
-  return (await response.json()) as { Text: string; HTML: string };
+  return (await response.json()) as MailpitMessage;
 }
 
 describe('SmtpMailer', () => {
@@ -44,6 +50,28 @@ describe('SmtpMailer', () => {
     const body = await bodyOf(message?.ID ?? '');
     expect(body.Text.trim()).toBe('corpo em texto');
     expect(body.HTML).toContain('<p>corpo em html</p>');
+  });
+
+  it('a message with replyTo is delivered with that Reply-To header', async () => {
+    const to = `bia-${randomUUID()}@mesa.com`;
+    await mailer.send({
+      to,
+      subject: 'Sua conta foi suspensa',
+      text: 'corpo',
+      html: '<p>corpo</p>',
+      replyTo: 'contato@lorkarium.com.br',
+    });
+    const [message] = await messagesTo(to);
+    const body = await bodyOf(message?.ID ?? '');
+    expect(body.ReplyTo.map((address) => address.Address)).toEqual(['contato@lorkarium.com.br']);
+  });
+
+  it('a message without replyTo is delivered without a Reply-To header', async () => {
+    const to = `caio-${randomUUID()}@mesa.com`;
+    await mailer.send({ to, subject: 'Sua senha foi trocada', text: 'x', html: '<p>x</p>' });
+    const [message] = await messagesTo(to);
+    const body = await bodyOf(message?.ID ?? '');
+    expect(body.ReplyTo).toEqual([]);
   });
 
   it('an SMTP server that is down fails citing the host, never the password of the URL', async () => {

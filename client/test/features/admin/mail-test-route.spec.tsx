@@ -47,14 +47,12 @@ describe('backoffice mail test (/admin/emails)', () => {
     await open();
     await userEvent.clear(field());
     await userEvent.type(field(), 'Eu@Exemplo.com');
-    await userEvent.click(screen.getByRole('button', { name: 'Enviar Acesso suspenso' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar Conta suspensa' }));
     expect(
-      await screen.findByText(
-        '“Seu acesso ao Lorkarium foi suspenso” enviado para eu@exemplo.com.',
-      ),
+      await screen.findByText('“Sua conta no Lorkarium foi suspensa” enviado para eu@exemplo.com.'),
     ).toHaveAttribute('role', 'status');
     expect(deps.userAdminApi.answers.callsOf('sendMailSample')).toEqual([
-      { sampleId: 'access-suspended', to: 'eu@exemplo.com' },
+      { sampleId: 'account-suspended', to: 'eu@exemplo.com' },
     ]);
   });
 
@@ -73,7 +71,7 @@ describe('backoffice mail test (/admin/emails)', () => {
     await open();
     await userEvent.click(screen.getByRole('button', { name: 'Enviar Convite' }));
     expect(await screen.findByText('Enviando…')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Enviar Acesso suspenso' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Enviar Conta suspensa' })).toBeDisabled();
     release({
       ok: true,
       value: { subject: 'Seu convite para o Lorkarium', to: ROOT_ADMIN.email },

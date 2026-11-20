@@ -232,6 +232,41 @@ test.describe('plans', () => {
     await expect(visibility.getByRole('radio', { name: 'Privada' })).toBeChecked();
   });
 
+  test('Caio on Apoiador keeps 15 saved rolls at the Grátis table of Bia, who keeps 3', async ({
+    page: admin,
+    newPlayerPage,
+  }) => {
+    await signIn(admin, adminCredentials());
+    const bia = await newPlayerPage();
+    await signIn(bia, BIA);
+    const caio = await newPlayerPage();
+    await signIn(caio, CAIO);
+    const code = await createTableAndReadCode(bia, `Mesa das rolagens ${Date.now()}`);
+    await joinByCodeAndEnter(caio, code, bia);
+    const rollsUrl = `/api/campaigns/${campaignIdOf(caio)}/saved-rolls`;
+    const save = (page: Page, name: string) =>
+      page.request.post(rollsUrl, { data: { name, parts: [{ label: null, expression: '1d20' }] } });
+    await setPlanOf(admin, 'bia', 'free');
+    await setPlanOf(admin, 'caio', 'apoiador');
+
+    try {
+      for (const name of ['R1', 'R2', 'R3', 'R4'])
+        expect((await save(caio, name)).status()).toBe(201);
+      for (const name of ['B1', 'B2', 'B3']) expect((await save(bia, name)).status()).toBe(201);
+      const fourthOfBia = await save(bia, 'B4');
+
+      expect(fourthOfBia.status()).toBe(403);
+      expect((await fourthOfBia.json()).planLimit).toMatchObject({
+        resource: 'savedRolls',
+        limit: 3,
+        plan: 'free',
+        holder: 'table',
+      });
+    } finally {
+      await setPlanOf(admin, 'caio', 'amigo_do_dono');
+    }
+  });
+
   test('Caio, Amigo do Dono, creates a second table as usual', async ({ newPlayerPage }) => {
     const caio = await newPlayerPage();
     await signIn(caio, CAIO);

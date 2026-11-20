@@ -8,14 +8,18 @@ import {
   sessionRemovedFromTableDto,
   userDeletionCheckDto,
 } from '@lorkarium/contracts';
+import { randomUUID } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/app/build-app';
 import { readEnv } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
+import { assets } from '../../src/modules/assets/assets.po';
+import { storageDeletions } from '../../src/modules/assets/storage-deletions.po';
 import { users } from '../../src/modules/auth/users.po';
 import { MailerFake } from '../support/account-security-fakes';
+import { newAssetPo } from '../support/assets-factories';
 import { atTable, eventPayload } from '../support/live-table';
 import {
   connectRealtime,
@@ -88,6 +92,15 @@ describe('backoffice over the accounts (/api/admin/users)', () => {
     });
   }
 
+  // A file row of `campaignId` sent by `ownerId`; the bucket is not needed to read the queue.
+  async function storedFile(campaignId: string, ownerId: string): Promise<string> {
+    const id = randomUUID();
+    await connection.db
+      .insert(assets)
+      .values(newAssetPo({ id, campaignId, ownerId, storageKey: `assets/${id}` }));
+    return id;
+  }
+
   function codeOf(response: LightMyRequestResponse): string {
     return apiErrorDto.parse(response.json()).code;
   }
@@ -126,32 +139,25 @@ describe('backoffice over the accounts (/api/admin/users)', () => {
   });
 
   describe('role and suspension', () => {
-    it('suspending Ana: her cookie stops working, her socket drops, her login is 403', async () => {
-      const socket = await connectRealtime(baseUrl, { token: ana.token });
-      sockets.push(socket);
-      const dropped = disconnectionOf(socket);
+    // Suspending is a measure with a rule and reasons: server/test/integration/sanctions.spec.ts.
+    it('the suspension without a reason is gone: POST …/suspend is 404', async () => {
       const response = await call('POST', `/admin/users/${ana.id}/suspend`, admin.token);
-      expect(adminUserResponseDto.parse(response.json()).user.status).toBe('suspended');
-      await dropped;
-      expect((await call('GET', '/auth/me', ana.token)).json()).toEqual({ user: null });
-      const login = await call('POST', '/auth/login', undefined, {
-        identifier: 'ana@mesa.com',
-        password: PASSWORD,
-      });
-      expect(codeOf(login)).toBe('ACCOUNT_SUSPENDED');
-      expect(mailer.to('ana@mesa.com').map((mail) => mail.subject)).toEqual([
-        'Seu acesso ao Lorkarium foi suspenso',
-      ]);
+      expect(response.statusCode).toBe(404);
     });
 
-    it('reactivating lets the login in again', async () => {
-      await call('POST', `/admin/users/${ana.id}/suspend`, admin.token);
-      await call('POST', `/admin/users/${ana.id}/reactivate`, admin.token);
+    it('reactivating lifts the suspension and its end and lets the login in again', async () => {
+      const until = new Date(Date.now() + 86_400_000);
+      const suspension = { suspendedAt: new Date(), suspendedUntil: until };
+      await connection.db.update(users).set(suspension).where(eq(users.id, ana.id));
+      const response = await call('POST', `/admin/users/${ana.id}/reactivate`, admin.token);
+      expect(adminUserResponseDto.parse(response.json()).user.status).toBe('active');
       const login = await call('POST', '/auth/login', undefined, {
         identifier: 'ana@mesa.com',
         password: PASSWORD,
       });
       expect(login.statusCode).toBe(200);
+      const [row] = await connection.db.select().from(users).where(eq(users.id, ana.id));
+      expect(row?.suspendedUntil).toBeNull();
     });
 
     it('making Bia admin opens the list to her; taking it away closes it', async () => {
@@ -162,7 +168,7 @@ describe('backoffice over the accounts (/api/admin/users)', () => {
     });
 
     it('the admin on themselves is 409 SELF_ACTION', async () => {
-      expect(codeOf(await call('POST', `/admin/users/${admin.id}/suspend`, admin.token))).toBe(
+      expect(codeOf(await call('POST', `/admin/users/${admin.id}/reactivate`, admin.token))).toBe(
         'SELF_ACTION',
       );
       expect(
@@ -171,11 +177,10 @@ describe('backoffice over the accounts (/api/admin/users)', () => {
     });
 
     it('a malformed id is 400 and an unknown one 404', async () => {
-      expect((await call('POST', '/admin/users/nao-e-uuid/suspend', admin.token)).statusCode).toBe(
-        400,
-      );
+      const malformed = await call('POST', '/admin/users/nao-e-uuid/reactivate', admin.token);
+      expect(malformed.statusCode).toBe(400);
       const unknown = '44444444-4444-4444-8444-444444444444';
-      expect(codeOf(await call('POST', `/admin/users/${unknown}/suspend`, admin.token))).toBe(
+      expect(codeOf(await call('POST', `/admin/users/${unknown}/reactivate`, admin.token))).toBe(
         'USER_NOT_FOUND',
       );
     });
@@ -227,6 +232,24 @@ describe('backoffice over the accounts (/api/admin/users)', () => {
       expect(members.rows[0]).toEqual({ n: 1 });
     });
 
+    it("deleting Bia queues her table's files and her photo, not the file she sent to Ana's table", async () => {
+      const solo = await createTable(app, bia, 'Só da Bia');
+      const vharn = await createTable(app, ana, 'Vharn');
+      const soloFile = await storedFile(solo.id, bia.id);
+      const sentToAna = await storedFile(vharn.id, bia.id);
+      const avatarId = randomUUID();
+      await connection.db.update(users).set({ avatarId }).where(eq(users.id, bia.id));
+
+      expect((await call('DELETE', `/admin/users/${bia.id}`, admin.token)).statusCode).toBe(204);
+
+      const queued = await connection.db.select().from(storageDeletions);
+      expect(queued.map((row) => row.key).sort()).toEqual(
+        [`assets/${soloFile}`, `avatars/${avatarId}`].sort(),
+      );
+      const kept = await connection.db.select().from(assets).where(eq(assets.id, sentToAna));
+      expect(kept).toHaveLength(1);
+    });
+
     it('the admin on themselves is 409', async () => {
       expect(codeOf(await call('DELETE', `/admin/users/${admin.id}`, admin.token))).toBe(
         'SELF_ACTION',
@@ -251,27 +274,27 @@ describe('backoffice over the accounts (/api/admin/users)', () => {
   });
 
   describe('mail test', () => {
-    it('the admin lists the 11 system e-mails and a player is 403', async () => {
+    it('the admin lists the 17 system e-mails and a player is 403', async () => {
       const response = await call('GET', '/admin/mail-samples', admin.token);
-      expect(mailSamplesResponseDto.parse(response.json()).samples).toHaveLength(11);
+      expect(mailSamplesResponseDto.parse(response.json()).samples).toHaveLength(17);
       expect(codeOf(await call('GET', '/admin/mail-samples', ana.token))).toBe('FORBIDDEN_ROLE');
     });
 
     it('sending one reaches the typed address through the mailer', async () => {
       const response = await call(
         'POST',
-        '/admin/mail-samples/access-suspended/send',
+        '/admin/mail-samples/account-suspended/send',
         admin.token,
         {
           to: ' Eu@Exemplo.com ',
         },
       );
       expect(response.json()).toEqual({
-        subject: 'Seu acesso ao Lorkarium foi suspenso',
+        subject: 'Sua conta no Lorkarium foi suspensa',
         to: 'eu@exemplo.com',
       });
       expect(mailer.to('eu@exemplo.com').map((mail) => mail.subject)).toEqual([
-        'Seu acesso ao Lorkarium foi suspenso',
+        'Sua conta no Lorkarium foi suspensa',
       ]);
     });
 

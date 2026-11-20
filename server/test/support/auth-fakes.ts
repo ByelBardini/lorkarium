@@ -75,9 +75,11 @@ export class UsersDaoFake implements UsersDaoSlice {
       natural20Count: 0,
       passwordChangedAt: null,
       suspendedAt: null,
+      suspendedUntil: null,
       lastSeenAt: null,
       termsAcceptedAt: null,
       termsVersion: null,
+      dataExportedAt: null,
       createdAt: FAKE_CREATED_AT,
       ...user,
     };

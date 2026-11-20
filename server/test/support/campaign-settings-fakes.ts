@@ -3,9 +3,13 @@ import type { AssetsDao } from '../../src/modules/assets/assets.dao';
 import type { AssetPo } from '../../src/modules/assets/assets.po';
 import type { CachedMemberships } from '../../src/modules/campaigns/cached-memberships';
 import type { CampaignChangedPort } from '../../src/modules/campaigns/campaign-changed.port';
-import type { CampaignRemovalTransactionRunner } from '../../src/modules/campaigns/campaign-settings.service';
+import type {
+  CampaignRemovalScope,
+  CampaignRemovalTransactionRunner,
+} from '../../src/modules/campaigns/campaign-settings.service';
 import type { PresenceReaderPort } from '../../src/modules/campaigns/presence-reader.port';
 import type { CampaignsDaoFake } from './campaigns-fakes';
+import type { StagedDeletionQueueFake } from './storage-deletions-fakes';
 
 /** Who is online, by campaign id; a table not listed has nobody.
  *
@@ -61,16 +65,33 @@ export class ForgottenCampaignsFake implements Pick<CachedMemberships, 'forgetCa
 }
 
 /** The deletion's transaction over the in-memory tables; writes `commit` to the campaign
- *  `writes` when the work resolves (a refusal leaves no `commit`). */
+ *  `writes` when the work resolves (a refusal leaves no `commit`), and commits or rolls back the
+ *  keys staged in `deletions` with it. `failDeleteWith` makes the row's `DELETE` throw.
+ *
+ *  Example: `new CampaignRemovalFake(campaigns, assets, deletions).run` */
 export class CampaignRemovalFake {
   constructor(
     private readonly campaigns: CampaignsDaoFake,
     private readonly assets: CampaignAssetsFake,
+    private readonly deletions: StagedDeletionQueueFake,
+    private readonly failDeleteWith: Error | null = null,
   ) {}
 
   readonly run: CampaignRemovalTransactionRunner = async (work) => {
-    const result = await work({ campaigns: this.campaigns, assets: this.assets });
+    const result = await this.deletions.around(() => work(this.scope()));
     this.campaigns.writes.push('commit');
     return result;
   };
+
+  private scope(): CampaignRemovalScope {
+    const { campaigns, failDeleteWith } = this;
+    const deleting: CampaignRemovalScope['campaigns'] = {
+      lockById: (campaignId) => campaigns.lockById(campaignId),
+      delete: async (campaignId) => {
+        if (failDeleteWith) throw failDeleteWith;
+        return campaigns.delete(campaignId);
+      },
+    };
+    return { campaigns: deleting, assets: this.assets, deletions: this.deletions };
+  }
 }

@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { HttpBillingApi } from '@/services/billing-api';
 import {
+  BILLING_EXPORT_EMPTY,
   BILLING_STATUS_NONE,
   NARRADOR_MONTHLY_PRICE,
+  adminSubscriptionOf,
   billingPaymentOf,
 } from '../support/billing-api-fake';
 import { HttpTransportFake } from '../support/http-transport-fake';
 
 const PAYMENT_ID = '0b9a3c52-8f1e-4c1d-9a7b-6e5f4d3c2b1a';
+const USER_ID = '7d1c2b3a-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
 const CHECKOUT_URL = 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=2c9';
 
 describe('HttpBillingApi', () => {
@@ -112,10 +115,57 @@ describe('HttpBillingApi', () => {
     });
   });
 
+  it('adminCancel posts to the cancel of that account with the idempotency key of this attempt', async () => {
+    const subscription = adminSubscriptionOf({ status: 'cancelled', renews: false });
+    transport.respondWith(200, { subscription, cancelled: true });
+
+    const result = await api.adminCancel(USER_ID, 'key-7');
+
+    expect(result).toEqual({ ok: true, value: { subscription, cancelled: true } });
+    expect(transport.requests).toEqual([
+      {
+        method: 'POST',
+        path: `/billing/admin/accounts/${USER_ID}/cancel`,
+        body: undefined,
+        headers: { 'x-idempotency-key': 'key-7' },
+      },
+    ]);
+  });
+
+  it('adminCancel refused for the admin without 2FA keeps TWO_FACTOR_REQUIRED', async () => {
+    transport.respondWith(403, { code: 'TWO_FACTOR_REQUIRED', message: 'x' });
+    const result = await api.adminCancel(USER_ID, 'key-7');
+    expect(result).toEqual({
+      ok: false,
+      failure: { kind: 'refused', code: 'TWO_FACTOR_REQUIRED' },
+    });
+  });
+
+  it('adminCancel with a body outside the contract is unexpected', async () => {
+    transport.respondWith(200, { subscription: null });
+    const result = await api.adminCancel(USER_ID, 'key-7');
+    expect(result).toEqual({ ok: false, failure: { kind: 'unexpected' } });
+  });
+
   it('the billing of an account is read by its id, for the backoffice', async () => {
     const account = { paidPlan: null, paidPlanUntil: null, subscriptions: [], payments: [] };
     transport.respondWith(200, account);
     expect(await api.adminAccount(PAYMENT_ID)).toEqual({ ok: true, value: account });
     expect(transport.requests[0]?.path).toBe(`/billing/admin/accounts/${PAYMENT_ID}`);
+  });
+
+  it('exportOwn reads GET /billing/export and gives the export the service sent', async () => {
+    transport.respondWith(200, BILLING_EXPORT_EMPTY);
+
+    expect(await api.exportOwn()).toEqual({ ok: true, value: BILLING_EXPORT_EMPTY });
+    expect(transport.requests).toEqual([
+      { method: 'GET', path: '/billing/export', body: undefined },
+    ]);
+  });
+
+  it('an export with a field outside the contract is unexpected', async () => {
+    transport.respondWith(200, { ...BILLING_EXPORT_EMPTY, preapprovals: [] });
+
+    expect(await api.exportOwn()).toEqual({ ok: false, failure: { kind: 'unexpected' } });
   });
 });

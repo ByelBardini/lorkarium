@@ -12,6 +12,12 @@ const MESSAGE_BY_KIND: Readonly<Record<MessageKind, string>> = {
   self_action: 'Você não pode fazer isso com a sua própria conta.',
   owns_shared_campaigns: 'Essa conta criou mesas em que outras pessoas jogam.',
   email_taken: 'Esse e-mail já é de uma conta.',
+  email_banned:
+    'Esse e-mail é de uma conta excluída por violar a Política de uso e não pode ser convidado de novo.',
+  already_suspended: 'A conta já está suspensa.',
+  sanction_until_past: 'O fim da suspensão precisa ser depois de agora.',
+  target_is_admin: 'Uma conta admin não recebe medida. Tire o acesso de admin antes.',
+  appeal_already_decided: 'Essa contestação já foi decidida.',
   already_invited: 'Já existe um convite para esse e-mail.',
   account_suspended: 'A conta está suspensa. Reative antes de mandar o link.',
   not_found: 'Essa conta ou convite não existe mais. Recarregue a lista.',

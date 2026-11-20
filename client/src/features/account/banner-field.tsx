@@ -12,7 +12,7 @@ import { memberColorCss } from '@/lib/member-color';
 import type { ProfileApi } from '@/services/profile-api';
 import type { ImageCropRect } from '@/services/assets-api';
 import type { SessionStore } from '@/stores/session-store';
-import { customizationGate } from '@/features/plans/plan-gate';
+import { featureGate } from '@/features/plans/plan-gate';
 import { AccountPlanContext } from '@/features/plans/use-plan-limits';
 import { accountFailureMessage } from './account-messages';
 import { SettingsRow } from './settings-row';
@@ -27,16 +27,16 @@ export type BannerFieldProps = Readonly<{
   cropArea?: CropAreaComponent;
 }>;
 
-// The account customizations open together: the seal shown is the cheapest plan that has them.
-const REQUIRED_SEAL = { plan: 'apoiador', admin: false, lorkariumOwner: false } as const;
+// The banner is Lenda only: the seal shown is the plan that has it.
+const REQUIRED_SEAL = { plan: 'lenda', admin: false, lorkariumOwner: false } as const;
 
-/** "Banner": the 3:1 image on top of the card. Grátis sees it locked with the Apoiador seal; a paid
- *  plan picks a file, frames it in the 3:1 crop and sends it on its own, like the photo.
+/** "Banner": the 3:1 image on top of the card. Below Lenda it is locked with the Lenda seal; the
+ *  Lenda picks a file, frames it in the 3:1 crop and sends it on its own, like the photo.
  *
  *  Example: `<BannerField profile={profile} profileApi={profileApi} sessionStore={sessionStore} />` */
 export function BannerField(props: BannerFieldProps): React.JSX.Element {
   const account = useContext(AccountPlanContext);
-  const gate = customizationGate(account?.customization ?? null);
+  const gate = featureGate(account?.limits ?? null, (limits) => limits.profileBanner);
   const hintId = useId();
   return (
     <SettingsRow

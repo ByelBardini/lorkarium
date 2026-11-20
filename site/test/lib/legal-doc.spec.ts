@@ -8,6 +8,12 @@ describe('assertPublishable', () => {
     expect(publish).toThrow(/termos\.md.*draft: true/);
   });
 
+  it('guards the acceptable use policy the same way, naming uso.md', () => {
+    const publish = (): void => assertPublishable({ id: 'uso', draft: true }, false);
+
+    expect(publish).toThrow(/uso\.md.*draft: true/);
+  });
+
   it('lets a draft through when drafts are allowed', () => {
     expect(() => assertPublishable({ id: 'termos', draft: true }, true)).not.toThrow();
   });

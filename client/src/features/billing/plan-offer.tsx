@@ -21,7 +21,8 @@ export type PlanOfferProps = Readonly<{
 
 const PLAN_PITCH: Readonly<Record<OfferedPlan, string>> = {
   free: 'Para conhecer a mesa e jogar com um grupo pequeno. Toda conta começa aqui.',
-  apoiador: 'Apoia a casa e libera a personalização da sua conta. As mesas seguem o Grátis.',
+  apoiador:
+    'Apoia a casa e libera a personalização da sua conta e mais rolagens salvas. As mesas seguem o Grátis.',
   narrador: 'Mais mesas, mais espaço e os efeitos para contar histórias maiores.',
   lenda: 'Tudo o que o Lorkarium oferece, em escala épica.',
 };

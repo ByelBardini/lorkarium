@@ -15,6 +15,7 @@ export type MobileRailProps = Readonly<{
   onSignOut: () => Promise<void>;
   friendsBadge?: number;
   presence?: UserMenuPresence;
+  onFeedback?: () => void;
 }>;
 
 /** Below `md`: "Abrir menu" opens the expanded rail as a drawer, which closes on navigation.
@@ -26,6 +27,7 @@ export function MobileRail({
   onSignOut,
   friendsBadge = 0,
   presence,
+  onFeedback,
 }: MobileRailProps): React.JSX.Element {
   const [open, setOpen] = useState(false);
   return (
@@ -41,7 +43,13 @@ export function MobileRail({
         <RailNav expanded onNavigate={() => setOpen(false)} friendsBadge={friendsBadge} />
         <OpenTablesNav openTables={openTables} expanded onNavigate={() => setOpen(false)} />
         <div className="mt-auto border-t border-border p-2">
-          <UserMenu user={user} expanded onSignOut={onSignOut} presence={presence} />
+          <UserMenu
+            user={user}
+            expanded
+            onSignOut={onSignOut}
+            presence={presence}
+            onFeedback={onFeedback}
+          />
         </div>
       </SheetContent>
     </Sheet>

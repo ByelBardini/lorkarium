@@ -13,6 +13,7 @@ import {
   type PartBreakdown,
   type RollNatural,
 } from '@/lib/dice-breakdown';
+import { formatClockTime } from '@/lib/clock-time';
 import { cn } from '@/lib/utils';
 import type { DiceHistoryEntry } from '@/stores/dice-history-store';
 import { secretRollText } from './dice-messages';
@@ -37,8 +38,6 @@ const MODE_TEXT: Readonly<Record<AdvantageMode, string>> = {
   advantage: 'com vantagem',
   disadvantage: 'com desvantagem',
 };
-
-const TIME_FORMAT = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
 /** One roll of the history: the roller's avatar and name, the label in gold, the time and the
  *  mode, then "…" until the dice stop and the total (gold on a natural 20, red on a 1) with the
@@ -77,7 +76,7 @@ function RowHeading({ entry, name }: HeadingProps): React.JSX.Element {
         {label !== null && <span className="font-medium text-primary">{label}</span>}
       </span>
       <span className="text-xs text-muted-foreground tabular-nums">
-        <time dateTime={entry.event.at}>{TIME_FORMAT.format(new Date(entry.event.at))}</time>
+        <time dateTime={entry.event.at}>{formatClockTime(entry.event.at)}</time>
         {mode !== null && ` · ${MODE_TEXT[mode]}`}
       </span>
     </div>

@@ -30,6 +30,8 @@ export type AppRailProps = Readonly<{
   /** Received friend requests plus unread direct messages: the badge of "Amigos". */
   friendsBadge?: number;
   presence?: UserMenuPresence;
+  /** "Relatar bug ou sugerir" in the user menu. */
+  onFeedback?: () => void;
   /** Forced collapsed with no toggle, leaving the stored preference alone (the play room). */
   compact?: boolean;
   /** Off in the desktop app, whose title bar already shows the logo right above. */
@@ -48,6 +50,7 @@ export function AppRail({
   onSignOut,
   friendsBadge = 0,
   presence,
+  onFeedback,
   compact = false,
   showBrand = true,
   className,
@@ -67,7 +70,13 @@ export function AppRail({
       <RailNav expanded={expanded} friendsBadge={friendsBadge} />
       <OpenTablesNav openTables={openTables} expanded={expanded} />
       <div className="mt-auto flex flex-col gap-1 border-t border-border p-2">
-        <UserMenu user={user} expanded={expanded} onSignOut={onSignOut} presence={presence} />
+        <UserMenu
+          user={user}
+          expanded={expanded}
+          onSignOut={onSignOut}
+          presence={presence}
+          onFeedback={onFeedback}
+        />
         {!compact && <RailToggle expanded={expanded} onToggle={toggle} />}
       </div>
     </aside>

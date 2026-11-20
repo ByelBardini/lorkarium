@@ -1,13 +1,17 @@
 import {
   BILLING_ERROR_CODES,
   billingAdminAccountDto,
+  billingAdminCancelResponseDto,
+  billingExportDto,
   billingPricesResponseDto,
   billingStatusDto,
   cancelSubscriptionResponseDto,
   checkoutResponseDto,
   refundResponseDto,
   type BillingAdminAccountDto,
+  type BillingAdminCancelResponseDto,
   type BillingErrorCode,
+  type BillingExportDto,
   type BillingPaymentDto,
   type BillingPriceDto,
   type BillingStatusDto,
@@ -46,6 +50,14 @@ export interface BillingApi {
     request: RefundRequestDto,
     idempotencyKey: string,
   ): Promise<BillingResult<BillingPaymentDto>>;
+  /** Stops the card renewal of another account (before deleting it); nothing to cancel is
+   *  `cancelled: false`, not a failure. `idempotencyKey` is one per attempt of the dialog. */
+  adminCancel(
+    userId: string,
+    idempotencyKey: string,
+  ): Promise<BillingResult<BillingAdminCancelResponseDto>>;
+  /** The session's own subscriptions and payments, for "Dados de pagamento" (LGPD art. 18). */
+  exportOwn(): Promise<BillingResult<BillingExportDto>>;
 }
 
 /** `BillingApi` over HTTP: every answer validated by its contracts DTO.
@@ -89,6 +101,21 @@ export class HttpBillingApi implements BillingApi {
     const headers = { 'x-idempotency-key': idempotencyKey };
     const call = await callApi(this.transport, 'POST', '/billing/admin/refunds', request, headers);
     return resultOf(call, (body) => parseOk(refundResponseDto, body, (dto) => dto.payment));
+  }
+
+  async adminCancel(
+    userId: string,
+    idempotencyKey: string,
+  ): Promise<BillingResult<BillingAdminCancelResponseDto>> {
+    const path = `/billing/admin/accounts/${encodeURIComponent(userId)}/cancel`;
+    const headers = { 'x-idempotency-key': idempotencyKey };
+    const call = await callApi(this.transport, 'POST', path, undefined, headers);
+    return resultOf(call, (body) => parseOk(billingAdminCancelResponseDto, body, (dto) => dto));
+  }
+
+  async exportOwn(): Promise<BillingResult<BillingExportDto>> {
+    const call = await callApi(this.transport, 'GET', '/billing/export');
+    return resultOf(call, (body) => parseOk(billingExportDto, body, (dto) => dto));
   }
 }
 

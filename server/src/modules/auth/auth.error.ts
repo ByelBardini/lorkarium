@@ -53,10 +53,12 @@ export class AccountSuspendedError extends AuthError {
   constructor(
     readonly userId: string,
     readonly suspendedAt: Date,
+    readonly suspendedUntil: Date | null = null,
   ) {
+    const end = suspendedUntil ? ` until ${suspendedUntil.toISOString()}` : ' with no end';
     super(
       'ACCOUNT_SUSPENDED',
-      `user ${userId} is suspended since ${suspendedAt.toISOString()}; expected an active account`,
+      `user ${userId} is suspended since ${suspendedAt.toISOString()}${end}; expected an active account`,
     );
   }
 }

@@ -294,6 +294,31 @@ describe('auth HTTP edge', () => {
       await suspendAna(new Date());
       expect(meResponseDto.parse((await me(app, token)).json()).user).toBeNull();
     });
+
+    it('a suspension whose end passed lets the right password in (200) before the sweep lifts it', async () => {
+      const past = new Date(Date.now() - 60_000);
+      const ended = { suspendedAt: new Date(Date.now() - 86_400_000), suspendedUntil: past };
+      await connection.db.update(users).set(ended).where(eq(users.id, ana.id));
+      const response = await login(app, { identifier: 'ana@mesa.com', password: 'segredo-da-ana' });
+      expect(response.statusCode).toBe(200);
+      await connection.db
+        .update(users)
+        .set({ suspendedAt: null, suspendedUntil: null })
+        .where(eq(users.id, ana.id));
+    });
+
+    it('a suspension that ends tomorrow is still 403 ACCOUNT_SUSPENDED', async () => {
+      const tomorrow = new Date(Date.now() + 86_400_000);
+      const holding = { suspendedAt: new Date(), suspendedUntil: tomorrow };
+      await connection.db.update(users).set(holding).where(eq(users.id, ana.id));
+      // By the @: the e-mail already spent its 5 attempts of the minute in this describe.
+      const response = await login(app, { identifier: 'ana', password: 'segredo-da-ana' });
+      expect(apiErrorDto.parse(response.json()).code).toBe('ACCOUNT_SUSPENDED');
+      await connection.db
+        .update(users)
+        .set({ suspendedAt: null, suspendedUntil: null })
+        .where(eq(users.id, ana.id));
+    });
   });
 
   describe('admin seed at boot', () => {

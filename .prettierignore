@@ -10,3 +10,5 @@ desktop/src-tauri/target/
 desktop/src-tauri/gen/
 site/.astro/
 site/src/assets/dice/throws.json
+# Texto oficial da AGPL (gnu.org), sem edição: o GitHub detecta a licença por ele.
+LICENSE.md

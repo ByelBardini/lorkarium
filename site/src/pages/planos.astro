@@ -1,5 +1,5 @@
 ---
-import { PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
+import { PUBLIC_APP_URL, PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
 import ApoiadorSeal from '@lorkarium/brand/seals/apoiador.svg';
 import LendaSeal from '@lorkarium/brand/seals/lenda.svg';
 import NarradorSeal from '@lorkarium/brand/seals/narrador.svg';
@@ -8,7 +8,7 @@ import ActPoints from '@/components/act-points.astro';
 import FaqList from '@/components/faq-list.astro';
 import PriceNumber from '@/components/price-number.astro';
 import { inviteMailto } from '@/copy/landing-copy';
-import { notifyMailto, plansCopy } from '@/copy/plans-copy';
+import { plansCopy } from '@/copy/plans-copy';
 import { bestSavingPercent, PLAN_PERIODS, priceView, type PlanPrices } from '@/lib/plan-price';
 import SiteLayout from '@/layouts/site-layout.astro';
 
@@ -36,8 +36,7 @@ const periods = PLAN_PERIODS.map((period) => ({
 
 <SiteLayout
   title="Planos do Lorkarium"
-  description="Jogar no Lorkarium é de graça. Os planos Apoiador, Narrador e Lenda abrem depois do acesso antecipado, por cartão ou Pix, com desconto no semestral e no anual."
-  noindex
+  description="Jogar no Lorkarium é de graça. Os planos Apoiador, Narrador e Lenda são assinados no app, por cartão ou Pix, com desconto no semestral e no anual."
 >
   <div class="group/precos">
     <section class="act relative isolate overflow-clip">
@@ -53,8 +52,8 @@ const periods = PLAN_PERIODS.map((period) => ({
           role="note"
           class="m-0 max-w-[640px] text-[17px] leading-[1.6] text-muted"
         >
-          Toda conta começa no Grátis. Os planos pagos abrem depois do acesso antecipado, e os
-          preços abaixo ainda podem mudar.
+          Toda conta começa no Grátis. Os planos pagos são assinados no app, por cartão ou Pix, e
+          você cancela a renovação quando quiser.
         </p>
         <fieldset class="m-0 flex flex-wrap items-center justify-center gap-4 border-0 p-0">
           <legend class="sr-only">Período de cobrança</legend>
@@ -91,6 +90,7 @@ const periods = PLAN_PERIODS.map((period) => ({
             const Seal = SEALS[plan.seal];
             const prices = plan.priceCents;
             const highlighted = plan.tag !== undefined;
+            const isFree = prices === null;
             return (
               <li
                 data-plan={plan.name}
@@ -112,10 +112,10 @@ const periods = PLAN_PERIODS.map((period) => ({
                     data-plan-status
                     class:list={[
                       'text-xs font-bold tracking-[0.14em] uppercase',
-                      plan.available ? 'text-gold' : 'text-faint',
+                      isFree ? 'text-gold' : 'text-faint',
                     ]}
                   >
-                    {plan.available ? 'Disponível no acesso antecipado' : 'Ainda não disponível'}
+                    {isFree ? 'Toda conta começa aqui' : 'Cartão ou Pix'}
                   </span>
                 </div>
                 <div class="flex flex-col gap-3">
@@ -166,19 +166,15 @@ const periods = PLAN_PERIODS.map((period) => ({
                 </div>
                 <a
                   data-plan-cta
-                  href={
-                    plan.available
-                      ? inviteMailto(PUBLIC_CONTACT_EMAIL)
-                      : notifyMailto(PUBLIC_CONTACT_EMAIL, plan.name)
-                  }
+                  href={isFree ? inviteMailto(PUBLIC_CONTACT_EMAIL) : `${PUBLIC_APP_URL}/planos`}
                   class:list={[
                     'inline-flex h-12 items-center justify-center rounded-sm border text-[15px] font-semibold transition-colors',
-                    plan.available || highlighted
+                    isFree || highlighted
                       ? 'border-gold bg-gold text-ink hover:bg-gold-hover'
                       : 'border-edge-strong text-parchment hover:border-gold hover:text-gold-light',
                   ]}
                 >
-                  {plan.available ? 'Pedir convite' : 'Me avise quando abrir'}
+                  {isFree ? 'Pedir convite' : 'Assinar no app'}
                 </a>
                 <div class="border-t border-edge pt-5">
                   <ActPoints points={plan.limits} />

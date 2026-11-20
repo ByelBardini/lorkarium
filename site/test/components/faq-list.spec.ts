@@ -19,23 +19,35 @@ describe('FaqList', () => {
     expect(open).toEqual(landingCopy.faqs.map((_, index) => index === 0));
   });
 
-  it('answers the price as free during early access', async () => {
+  it('answers the price as free to play, with paid plans signed in the app', async () => {
     const faq = await renderAstro(FaqList);
 
     const price = [...faq.querySelectorAll('details')].find((item) =>
       item.querySelector('summary')?.textContent?.includes('Quanto custa?'),
     );
-    expect(price?.textContent).toContain('gratuito durante o acesso antecipado');
+    expect(price?.textContent).toContain('Jogar é de graça');
+    expect(price?.textContent).toContain('assinados no app');
+    expect(price?.textContent).not.toContain('não estão à venda');
   });
 
-  it('sends the price answer to the plans page, saying plans are not on sale', async () => {
+  it('sends the price answer to the plans page', async () => {
     const faq = await renderAstro(FaqList);
 
     const price = [...faq.querySelectorAll('details')].find((item) =>
       item.querySelector('summary')?.textContent?.includes('Quanto custa?'),
     );
-    expect(price?.textContent).toContain('não estão à venda');
     expect(price?.querySelector('p')?.lastElementChild?.getAttribute('href')).toBe('/planos/');
+  });
+
+  it('ends the open source answer with the link to the repository', async () => {
+    const faq = await renderAstro(FaqList);
+
+    const openSource = [...faq.querySelectorAll('details')].find((item) =>
+      item.querySelector('summary')?.textContent?.includes('open source'),
+    );
+    expect(openSource?.querySelector('p')?.lastElementChild?.getAttribute('href')).toBe(
+      'https://github.com/ByelBardini/lorkarium',
+    );
   });
 
   it('titles the questions in the voice of the table', async () => {

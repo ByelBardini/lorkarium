@@ -813,6 +813,48 @@
       "when": 1794879802280,
       "tag": "0115_paid_plan",
       "breakpoints": true
+    },
+    {
+      "idx": 116,
+      "version": "7",
+      "when": 1795060272953,
+      "tag": "0116_storage_deletions",
+      "breakpoints": true
+    },
+    {
+      "idx": 117,
+      "version": "7",
+      "when": 1795126004621,
+      "tag": "0117_report_attachments",
+      "breakpoints": true
+    },
+    {
+      "idx": 118,
+      "version": "7",
+      "when": 1795126032430,
+      "tag": "0118_mail_broadcasts",
+      "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1795126244590,
+      "tag": "0119_account_sanctions",
+      "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1795126984678,
+      "tag": "0120_data_export",
+      "breakpoints": true
+    },
+    {
+      "idx": 121,
+      "version": "7",
+      "when": 1795136399718,
+      "tag": "0121_feedback",
+      "breakpoints": true
     }
   ]
 }

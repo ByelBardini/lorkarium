@@ -7,7 +7,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { CampaignSettingsService } from '../../../src/modules/campaigns/campaign-settings.service';
 import { CampaignsService } from '../../../src/modules/campaigns/campaigns.service';
 import { lyraPortraitPo } from '../../support/assets-factories';
-import { FlakyRemovalStorageFake, RemovalLogFake } from '../../support/asset-quota-fakes';
 import { ClockFake, PasswordHasherFake } from '../../support/auth-fakes';
 import { ANA_ID } from '../../support/auth-factories';
 import {
@@ -33,6 +32,7 @@ import {
   campaignPo,
 } from '../../support/campaigns-factories';
 import { ScenesDaoFake } from '../../support/scenes-fakes';
+import { StagedDeletionQueueFake } from '../../support/storage-deletions-fakes';
 
 const NOW = new Date('2026-10-24T20:00:00Z');
 const COVER_ID = '7d6c5b4a-3f2e-4d1c-8b0a-9f8e7d6c5b4a';
@@ -45,8 +45,8 @@ describe('CampaignSettingsService', () => {
   let codes: CampaignCodeFake;
   let assets: CampaignAssetsFake;
   let presence: PresenceReaderFake;
-  let objects: FlakyRemovalStorageFake;
-  let log: RemovalLogFake;
+  let deletions: StagedDeletionQueueFake;
+  let failDeleteWith: Error | null;
   let service: CampaignSettingsService;
 
   function build(): void {
@@ -59,10 +59,10 @@ describe('CampaignSettingsService', () => {
       ...{ campaigns, members, scenes, memberships: members, presence: new PresenceReaderFake() },
       ...{ transaction: runner.run, codes, hasher, clock },
     });
-    const removal = new CampaignRemovalFake(campaigns, assets).run;
+    const removal = new CampaignRemovalFake(campaigns, assets, deletions, failDeleteWith).run;
     service = new CampaignSettingsService({
       ...{ campaigns, members, assets, detail, memberships: forgotten, changed, presence },
-      ...{ codes, hasher, clock, removal, objects, log },
+      ...{ codes, hasher, clock, removal },
     });
   }
 
@@ -87,8 +87,8 @@ describe('CampaignSettingsService', () => {
       lyraPortraitPo({ id: COVER_ID, campaignId: VHARN_ID, purpose: 'cover' }),
     ]);
     presence = new PresenceReaderFake({ [VHARN_ID]: [ANA_ID, BIA_ID], [QUELM_ID]: [CAIO_ID] });
-    objects = new FlakyRemovalStorageFake();
-    log = new RemovalLogFake();
+    deletions = new StagedDeletionQueueFake();
+    failDeleteWith = null;
     build();
   });
 
@@ -295,33 +295,30 @@ describe('CampaignSettingsService', () => {
       ]);
     });
 
-    it("the objects of the table's files are removed after the commit, the other table's stay", async () => {
-      const ownFile = lyraPortraitPo({
-        id: '0f1e2d3c-4b5a-4968-8776-655443322110',
-        storageKey: 'assets/own',
-      });
-      const quelmFile = lyraPortraitPo({ campaignId: QUELM_ID, storageKey: 'assets/quelm' });
-      assets = new CampaignAssetsFake([ownFile, quelmFile]);
+    it("the keys of the table's 3 files are queued in the deletion's transaction, the other table's stay out", async () => {
+      assets = new CampaignAssetsFake([
+        lyraPortraitPo({ id: 'a1', storageKey: 'assets/own-1' }),
+        lyraPortraitPo({ id: 'a2', storageKey: 'assets/own-2' }),
+        lyraPortraitPo({ id: 'a3', storageKey: 'assets/own-3' }),
+        lyraPortraitPo({ id: 'q1', campaignId: QUELM_ID, storageKey: 'assets/quelm' }),
+      ]);
       build();
 
       await service.delete(ANA_ID, VHARN_ID);
 
-      expect(objects.removed).toEqual(['assets/own']);
+      expect(deletions.committed).toEqual(['assets/own-1', 'assets/own-2', 'assets/own-3']);
       expect(changed.deleted[0]?.writesBefore.at(-1)).toBe('commit');
     });
 
-    it('a failed removal still deletes the table and goes to the log', async () => {
-      objects = new FlakyRemovalStorageFake(new Set([lyraPortraitPo().storageKey]));
+    it('a deletion that fails after the keys were queued rolls them back with the table', async () => {
+      failDeleteWith = new Error('DELETE FROM campaigns answered 40P01 (deadlock)');
       build();
 
-      await service.delete(ANA_ID, VHARN_ID);
+      await expect(service.delete(ANA_ID, VHARN_ID)).rejects.toBe(failDeleteWith);
 
-      expect(campaigns.rows.map(({ id }) => id)).toEqual([QUELM_ID]);
-      expect(log.warnings).toEqual([
-        expect.objectContaining({
-          fields: expect.objectContaining({ storageKey: lyraPortraitPo().storageKey }),
-        }),
-      ]);
+      expect(deletions.committed).toEqual([]);
+      expect(forgotten.forgotten).toEqual([]);
+      expect(changed.deleted).toEqual([]);
     });
 
     it('a player is refused with FORBIDDEN and the table stays', async () => {
@@ -329,7 +326,7 @@ describe('CampaignSettingsService', () => {
       expect(campaigns.rows).toHaveLength(2);
       expect(forgotten.forgotten).toEqual([]);
       expect(changed.deleted).toEqual([]);
-      expect(objects.removed).toEqual([]);
+      expect(deletions.committed).toEqual([]);
     });
 
     it('the master without the table open is refused with CAMPAIGN_NOT_OPEN and the table stays', async () => {

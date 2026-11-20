@@ -2,10 +2,9 @@ import type { DmSentDto, FriendDto } from '@lorkarium/contracts';
 import { useEffect, useMemo, useRef } from 'react';
 import { EmoteText } from '@/components/emote-text';
 import { ReplyButton, ReplyQuote, type QuotedMessage } from '@/components/message-reply';
+import { formatClockTime } from '@/lib/clock-time';
 import { directFeedOf, type DirectFeedRun } from '@/lib/direct-feed';
 import { cn } from '@/lib/utils';
-
-const TIME_FORMAT = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
 export type ConversationFeedProps = Readonly<{
   messages: readonly DmSentDto[];
@@ -85,7 +84,7 @@ function MessageRun({ run, authors, byId, onReply }: RunProps): React.JSX.Elemen
       ))}
       {last && (
         <time dateTime={last.at} className="text-[11px] text-muted-foreground">
-          {TIME_FORMAT.format(new Date(last.at))}
+          {formatClockTime(last.at)}
         </time>
       )}
     </div>

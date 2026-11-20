@@ -175,38 +175,48 @@ describe('SavedRollsDao on Postgres', () => {
     expect(await rolls.countOf(vharnId, caioId)).toBe(0);
   });
 
-  it("lockOwner answers the plan of Vharn's owner for Bia and nothing for someone outside the table", async () => {
+  it("lockPlans answers the plan of Vharn's owner and Bia's own, and nothing for someone outside the table", async () => {
     const stranger = '00000000-0000-4000-8000-000000000000';
     await setAccountPlan(connection.db, anaId, 'narrador');
+    await setAccountPlan(connection.db, biaId, 'apoiador');
     const lockOf = (userId: string) =>
-      runInTransaction(connection.db, (tx) => new SavedRollsDao(tx).lockOwner(vharnId, userId));
+      runInTransaction(connection.db, (tx) => new SavedRollsDao(tx).lockPlans(vharnId, userId));
 
     expect(await lockOf(biaId)).toEqual({
-      role: 'user',
-      plan: 'narrador',
-      activePaidPlan: null,
-      lorkariumOwner: false,
+      tableOwner: { role: 'user', plan: 'narrador', activePaidPlan: null, lorkariumOwner: false },
+      member: { role: 'user', plan: 'apoiador', activePaidPlan: null, lorkariumOwner: false },
     });
     expect(await lockOf(stranger)).toBeUndefined();
   });
 
-  it("lockOwner of Bia at Quelm answers the plan of Caio, its owner, not Ana's", async () => {
+  it("lockPlans of Bia at Quelm answers the plan of Caio, its owner, not Ana's", async () => {
     await setAccountPlan(connection.db, anaId, 'narrador');
     await setAccountPlan(connection.db, caioId, 'lenda');
 
-    const owner = await runInTransaction(connection.db, (tx) =>
-      new SavedRollsDao(tx).lockOwner(quelmId, biaId),
+    const plans = await runInTransaction(connection.db, (tx) =>
+      new SavedRollsDao(tx).lockPlans(quelmId, biaId),
     );
 
-    expect(owner?.plan).toBe('lenda');
+    expect([plans?.tableOwner.plan, plans?.member.plan]).toEqual(['lenda', 'free']);
   });
 
-  it('lockOwner locks only the membership: the table and its owner stay free to update', async () => {
+  it('findPlans reads the same two plans without a lock, and nothing outside the table', async () => {
+    await setAccountPlan(connection.db, caioId, 'lenda');
+    await setAccountPlan(connection.db, biaId, 'apoiador');
+    const rolls = new SavedRollsDao(connection.db);
+
+    const plans = await rolls.findPlans(quelmId, biaId);
+
+    expect([plans?.tableOwner.plan, plans?.member.plan]).toEqual(['lenda', 'apoiador']);
+    expect(await rolls.findPlans(quelmId, anaId)).toBeUndefined();
+  });
+
+  it('lockPlans locks only the membership: the table, its owner and the member stay free to update', async () => {
     let release = (): void => {};
     const held = new Promise<void>((resolve) => (release = resolve));
     let locked = false;
     const first = runInTransaction(connection.db, async (tx) => {
-      await new SavedRollsDao(tx).lockOwner(vharnId, biaId);
+      await new SavedRollsDao(tx).lockPlans(vharnId, biaId);
       locked = true;
       await held;
     });
@@ -216,6 +226,7 @@ describe('SavedRollsDao on Postgres', () => {
       await tx.execute(sql`SET LOCAL lock_timeout = '200ms'`);
       await tx.update(campaigns).set({ name: 'Vharn' }).where(eq(campaigns.id, vharnId));
       await tx.update(usersTable).set({ name: 'Ana B' }).where(eq(usersTable.id, anaId));
+      await tx.update(usersTable).set({ name: 'Bia B' }).where(eq(usersTable.id, biaId));
     });
 
     const outcome = await touched.then(
@@ -227,19 +238,19 @@ describe('SavedRollsDao on Postgres', () => {
     expect(outcome).toBe('free');
   });
 
-  it('a second lockOwner of Bia waits for the first transaction to end', async () => {
+  it('a second lockPlans of Bia waits for the first transaction to end', async () => {
     const order: string[] = [];
     let release = (): void => {};
     const held = new Promise<void>((resolve) => (release = resolve));
     const first = runInTransaction(connection.db, async (tx) => {
-      await new SavedRollsDao(tx).lockOwner(vharnId, biaId);
+      await new SavedRollsDao(tx).lockPlans(vharnId, biaId);
       order.push('first locked');
       await held;
       order.push('first done');
     });
     while (order.length === 0) await new Promise((resolve) => setTimeout(resolve, 10));
     const second = runInTransaction(connection.db, async (tx) => {
-      await new SavedRollsDao(tx).lockOwner(vharnId, biaId);
+      await new SavedRollsDao(tx).lockPlans(vharnId, biaId);
       order.push('second locked');
     });
     await new Promise((resolve) => setTimeout(resolve, 100));

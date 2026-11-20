@@ -20,7 +20,14 @@ describe('planHighlightsOf', () => {
       'Cor própria no perfil, nos dados e nas cores salvas',
       'Textura própria para os seus dados',
       'Foto de perfil em GIF animado',
+      '15 rolagens salvas e 5 pastas em qualquer mesa',
     ]);
+  });
+
+  it('only the Lenda offer promises the banner of the profile', () => {
+    expect(planHighlightsOf('lenda')).toContain('Banner no seu perfil');
+    for (const plan of ['free', 'apoiador', 'narrador'] as const)
+      expect(planHighlightsOf(plan).join(' | ')).not.toMatch(/banner/i);
   });
 
   it('the Lenda offer names the extras only it has', () => {

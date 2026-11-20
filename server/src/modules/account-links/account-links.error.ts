@@ -1,6 +1,7 @@
 export type AccountLinksErrorCode =
   | 'ACCOUNT_LINK_INVALID'
   | 'EMAIL_TAKEN'
+  | 'EMAIL_BANNED'
   | 'ALREADY_INVITED'
   | 'INVITATION_NOT_FOUND'
   | 'USERNAME_TAKEN'
@@ -29,6 +30,16 @@ export class AccountLinkInvalidError extends AccountLinksError {
 export class EmailTakenError extends AccountLinksError {
   constructor(readonly email: string) {
     super('EMAIL_TAKEN', `e-mail ${email} already belongs to an account; expected a new address`);
+  }
+}
+
+// Cites the blind index, never the address: the log of a refused invitation keeps no e-mail.
+export class EmailBannedError extends AccountLinksError {
+  constructor(readonly emailIndex: string) {
+    super(
+      'EMAIL_BANNED',
+      `e-mail index ${emailIndex} is of an account deleted for a violation in the last 5 years; expected another address`,
+    );
   }
 }
 

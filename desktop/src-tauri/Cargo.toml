@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Lorkarium para Windows: a casca que abre o site publicado"
 edition = "2021"
 rust-version = "1.90"
+license = "AGPL-3.0-only"
 publish = false
 
 [lib]

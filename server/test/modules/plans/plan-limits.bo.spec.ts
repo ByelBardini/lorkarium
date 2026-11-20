@@ -5,6 +5,8 @@ import {
   customizationAllowed,
   effectiveLimitsOf,
   effectivePlanOf,
+  memberSavedRollLimitsOf,
+  profileBannerAllowed,
 } from '../../../src/modules/plans/plan-limits.bo';
 import { PlanLimitError } from '../../../src/modules/plans/plans.error';
 
@@ -69,6 +71,85 @@ describe('customizationAllowed', () => {
 
   it('is false only for a free user', () => {
     expect(customizationAllowed({ ...USER, plan: 'free' })).toBe(false);
+  });
+});
+
+describe('profileBannerAllowed', () => {
+  const USER = { role: 'user', lorkariumOwner: false } as const;
+
+  it('opens on a paid Lenda', () => {
+    expect(profileBannerAllowed({ ...USER, plan: 'free', activePaidPlan: 'lenda' })).toBe(true);
+  });
+
+  it('stays closed on Grátis, Apoiador and Narrador, though the Apoiador keeps its customizations', () => {
+    for (const plan of ['free', 'apoiador', 'narrador'] as const) {
+      expect({ plan, open: profileBannerAllowed({ ...USER, plan }) }).toEqual({
+        plan,
+        open: false,
+      });
+    }
+    expect(customizationAllowed({ ...USER, plan: 'apoiador' })).toBe(true);
+  });
+
+  it('the admin and the Dono do Lorkarium have it on free', () => {
+    expect(profileBannerAllowed({ ...USER, role: 'admin', plan: 'free' })).toBe(true);
+    expect(profileBannerAllowed({ ...USER, plan: 'free', lorkariumOwner: true })).toBe(true);
+  });
+});
+
+describe('memberSavedRollLimitsOf', () => {
+  const USER = { role: 'user', lorkariumOwner: false } as const;
+  const freeOwner = { ...USER, plan: 'free' } as const;
+
+  it('an Apoiador at a Grátis table keeps 15 rolls and 5 folders from its own plan', () => {
+    const member = { ...USER, plan: 'free', activePaidPlan: 'apoiador' } as const;
+    const { limits, holder } = memberSavedRollLimitsOf({ tableOwner: freeOwner, member });
+    expect(limits).toMatchObject({ maxSavedRolls: 15, maxSavedRollFolders: 5, plan: 'apoiador' });
+    expect(holder).toBe('account');
+  });
+
+  it('a Grátis member at the table of an Apoiador keeps 3 rolls and no folder', () => {
+    const tableOwner = { ...USER, plan: 'apoiador' } as const;
+    const { limits, holder } = memberSavedRollLimitsOf({ tableOwner, member: freeOwner });
+    expect(limits).toMatchObject({ maxSavedRolls: 3, maxSavedRollFolders: 0, plan: 'apoiador' });
+    expect(holder).toBe('table');
+  });
+
+  it('an admin member at a Grátis table keeps the technical ceilings', () => {
+    const member = { ...USER, role: 'admin', plan: 'free' } as const;
+    const { limits, holder } = memberSavedRollLimitsOf({ tableOwner: freeOwner, member });
+    expect(limits).toMatchObject({ maxSavedRolls: 50, maxSavedRollFolders: 50 });
+    expect(holder).toBe('account');
+  });
+
+  it('an Apoiador whose paid plan ended is back to the 3 rolls of the table', () => {
+    const member = { ...USER, plan: 'free', activePaidPlan: null } as const;
+    const { limits, holder } = memberSavedRollLimitsOf({ tableOwner: freeOwner, member });
+    expect(limits.maxSavedRolls).toBe(3);
+    expect(holder).toBe('table');
+  });
+});
+
+describe('the holder of a PLAN_LIMIT', () => {
+  const apoiadorRolls = { ...PLAN_LIMITS.free, maxSavedRolls: 15, plan: 'apoiador' } as const;
+
+  it('a refusal for room names the account when its plan gave the ceiling', () => {
+    const error = refusalOf(() =>
+      PlanLimitsBo.requireRoom('savedRolls', 15, 1, apoiadorRolls, 'account'),
+    );
+    expect(error).toMatchObject({ holder: 'account', limit: 15, plan: 'apoiador' });
+  });
+
+  it('a read-only refusal carries the holder too', () => {
+    const error = refusalOf(() =>
+      PlanLimitsBo.requireEditable('savedRolls', 15, apoiadorRolls, 'account'),
+    );
+    expect(error).toMatchObject({ holder: 'account', reason: 'readOnly', limit: 15 });
+  });
+
+  it('without a holder the refusal carries none', () => {
+    const error = refusalOf(() => PlanLimitsBo.requireRoom('scenes', 3, 1, FREE));
+    expect(error.holder).toBeUndefined();
   });
 });
 

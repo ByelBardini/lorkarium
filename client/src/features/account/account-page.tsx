@@ -7,6 +7,7 @@ import type { ChatPreferencesStore } from '@/stores/chat-preferences-store';
 import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
 import type { SessionStore } from '@/stores/session-store';
 import type { AccountLoaderData } from './account-routes';
+import { DataExportSection, type DataExportSectionProps } from './data-export-section';
 import {
   ACCOUNT_TAB_PARAM,
   ACCOUNT_TABS,
@@ -28,7 +29,8 @@ export type AccountPageProps = AccountLoaderData &
     clipboard: Clipboard;
     dicePreferences: StoreApi<DicePreferencesStore>;
     chatPreferences: StoreApi<ChatPreferencesStore>;
-    billingApi: PlanSectionProps['billingApi'];
+    billingApi: PlanSectionProps['billingApi'] & DataExportSectionProps['billingApi'];
+    dataExport: Pick<DataExportSectionProps, 'dataExportApi' | 'fileDownload' | 'now'>;
   }>;
 
 /** "Minha conta" in tabs: how the person shows up to the table and rolls the dice (Perfil), how
@@ -105,13 +107,18 @@ function AccountTabPanels(
           chatPreferences={props.chatPreferences}
         />
       </TabsContent>
-      <TabsContent value="seguranca">
+      <TabsContent value="seguranca" className="flex flex-col gap-14">
         <SecuritySection
           security={props.security}
           sessions={props.sessions}
           username={profile.username}
           now={props.now}
           clipboard={props.clipboard}
+        />
+        <DataExportSection
+          {...props.dataExport}
+          billingApi={props.billingApi}
+          username={profile.username}
         />
       </TabsContent>
       <TabsContent value="plano">

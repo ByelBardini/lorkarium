@@ -177,6 +177,18 @@ export const billingAdminAccountDto = z.strictObject({
 });
 export type BillingAdminAccountDto = z.infer<typeof billingAdminAccountDto>;
 
+/** Response of `POST /api/billing/admin/accounts/:userId/cancel` (admin with 2FA on, plus the
+ *  `X-Idempotency-Key` header): the card renewal of another account stopped before it is deleted.
+ *  An account with nothing to cancel answers `{ subscription: null, cancelled: false }`, not an
+ *  error.
+ *
+ *  Example: `billingAdminCancelResponseDto.parse(body).cancelled // true` */
+export const billingAdminCancelResponseDto = z.strictObject({
+  subscription: billingAdminSubscriptionDto.nullable(),
+  cancelled: z.boolean(),
+});
+export type BillingAdminCancelResponseDto = z.infer<typeof billingAdminCancelResponseDto>;
+
 export const REFUND_REASON_MIN_LENGTH = 10;
 export const REFUND_REASON_MAX_LENGTH = 500;
 
@@ -219,3 +231,50 @@ export const BILLING_ERROR_CODES = [
   'PIX_UNAVAILABLE',
 ] as const;
 export type BillingErrorCode = (typeof BILLING_ERROR_CODES)[number];
+
+/** The catalog key spelled out, as the export repeats it for a reader without the catalog. */
+const exportedPriceFields = {
+  priceKey: billingPriceKeyDto,
+  plan: z.enum(BILLING_PLANS),
+  period: z.enum(BILLING_PERIODS),
+  months: z.number().int().positive(),
+  method: billingMethodDto,
+  amountCents: z.number().int().positive(),
+  currency: z.literal('BRL'),
+};
+
+/** One subscription in the account's own export. */
+export const billingExportSubscriptionDto = z.strictObject({
+  id: z.uuid(),
+  ...exportedPriceFields,
+  status: z.enum(BILLING_SUBSCRIPTION_STATUSES),
+  renews: z.boolean(),
+  currentPeriodEnd: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+});
+export type BillingExportSubscriptionDto = z.infer<typeof billingExportSubscriptionDto>;
+
+/** One payment in the account's own export; the only gateway id it keeps is the payment number
+ *  the Mercado Pago receipt shows. */
+export const billingExportPaymentDto = z.strictObject({
+  id: z.uuid(),
+  subscriptionId: z.uuid().nullable(),
+  ...exportedPriceFields,
+  status: z.enum(BILLING_PAYMENT_STATUSES),
+  coversFrom: z.iso.datetime().nullable(),
+  coversUntil: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  mercadoPagoPaymentId: z.string().nullable(),
+});
+export type BillingExportPaymentDto = z.infer<typeof billingExportPaymentDto>;
+
+/** Response of `GET /api/billing/export` (the session's own account): the subscriptions and the
+ *  payments, newest first; both empty for an account that never paid.
+ *
+ *  Example: `billingExportDto.parse(body).payments[0].status // 'refunded'` */
+export const billingExportDto = z.strictObject({
+  exportedAt: z.iso.datetime(),
+  subscriptions: z.array(billingExportSubscriptionDto),
+  payments: z.array(billingExportPaymentDto),
+});
+export type BillingExportDto = z.infer<typeof billingExportDto>;

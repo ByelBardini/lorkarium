@@ -9,6 +9,9 @@ const TEST_ENV = {
   PUBLIC_APP_URL: 'https://mesa.lorkarium.test',
   PUBLIC_CONTACT_EMAIL: 'contato@lorkarium.test',
   LEGAL_DRAFTS_ALLOWED: 'true',
+  // Fake supplier: a test CPF with valid check digits, never the real one.
+  LEGAL_SUPPLIER_NAME: 'Fornecedora de Teste',
+  LEGAL_SUPPLIER_CPF: '52998224725',
   SITE_URL: 'https://lorkarium.test',
 };
 

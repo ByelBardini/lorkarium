@@ -55,6 +55,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Planos e cobrança: `/planos`, volta do checkout, "Assinatura" em Seu plano, "Cobrança…" no backoffice | [`billing.md`](billing.md)                                      |
 | Backoffice: moldura, Usuários, busca/filtros na URL, convidar, menus e diálogos das contas            | [`backoffice.md`](client/backoffice.md)                         |
 | Backoffice · Insígnias: catálogo, gaveta com recorte 1:1, ordem, exclusão, concessão por conta        | [`backoffice-badges.md`](client/backoffice-badges.md)           |
+| Backoffice · Comunicados: editor, prévia do server, teste, "Digite N", lista com progresso            | [`broadcasts.md`](broadcasts.md)                                |
 | Dados: rede, stores, 3D (conta e adaptador), e o índice da aba "Dados"                                | [`dice.md`](client/dice.md)                                     |
 | Aba "Dados": bandeja, salvas em etiquetas, histórico em linhas, aviso sobre o tabuleiro               | [`dice-tab.md`](client/dice-tab.md)                             |
 | Chat da mesa: rodapé (barra, gaveta, prévia, aviso), store de conversas, campo, feed, destino         | [`chat.md`](client/chat.md)                                     |
