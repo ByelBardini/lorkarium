@@ -16,6 +16,21 @@ describe('the site header', () => {
     expect(linkNamed(page, 'Já tenho conta')?.href).toBe('https://mesa.lorkarium.test/login');
   });
 
+  it('sends "Criar conta" to the public sign-up of the web app', async () => {
+    const page = await renderAstro(SiteHeader);
+
+    expect(linkNamed(page, 'Criar conta')?.href).toBe('https://mesa.lorkarium.test/sign-up');
+  });
+
+  it('puts "Criar conta" between the login link and "Baixar"', async () => {
+    const page = await renderAstro(SiteHeader);
+
+    const order = Array.from(page.querySelectorAll('a')).map((link) => link.textContent?.trim());
+    const login = order.indexOf('Já tenho conta');
+    expect(order.indexOf('Criar conta')).toBe(login + 1);
+    expect(order.indexOf('Baixar')).toBe(login + 2);
+  });
+
   it('sends "Baixar" to the thank-you page as a download CTA', async () => {
     const page = await renderAstro(SiteHeader);
 
@@ -50,11 +65,12 @@ describe('the site header', () => {
     expect(brand?.textContent).toContain('LORKARIUM');
   });
 
-  it('hides the anchors and the login link on phones, keeping brand and "Baixar"', async () => {
+  it('hides the anchors, the login and the sign-up on phones, keeping brand and "Baixar"', async () => {
     const page = await renderAstro(SiteHeader);
 
     expect(page.querySelector('nav')?.classList.contains('hidden')).toBe(true);
     expect(linkNamed(page, 'Já tenho conta')?.classList.contains('hidden')).toBe(true);
+    expect(linkNamed(page, 'Criar conta')?.classList.contains('hidden')).toBe(true);
     expect(linkNamed(page, 'Baixar')?.classList.contains('hidden')).toBe(false);
   });
 });

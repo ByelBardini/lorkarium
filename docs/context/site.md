@@ -22,15 +22,15 @@ Ideia que se repete: **a mesa de campanha** — o grid do tabuleiro e os três c
 
 ## Variáveis de build
 
-| Variável               | Lida por                                     | Uso                                                 |
-| ---------------------- | -------------------------------------------- | --------------------------------------------------- |
-| `SITE_URL`             | `process.env` no `astro.config.mjs` (`site`) | canonical, Open Graph, sitemap; padrão `localhost`  |
-| `PUBLIC_APP_URL`       | `astro:env/client` (obrigatória, URL)        | "Já tenho conta", "jogue pelo navegador"            |
-| `PUBLIC_CONTACT_EMAIL` | `astro:env/client` (obrigatória)             | FAQ ("outras dúvidas"), rodapé, fornecedor          |
-| `LEGAL_DRAFTS_ALLOWED` | `astro:env/server` (padrão `false`)          | só com `true` Termos/Privacidade em rascunho passam |
-| `GUIDE_DRAFTS_ALLOWED` | `astro:env/server` (padrão `false`)          | só com `true` os guias em rascunho viram página     |
-| `LEGAL_SUPPLIER_NAME`  | `astro:env/server` (obrigatória)             | o nome do fornecedor no `<address>` dos Termos      |
-| `LEGAL_SUPPLIER_CPF`   | `astro:env/server`, **secret** (obrigatória) | só a máscara vai ao HTML (`maskedCpfOf`)            |
+| Variável               | Lida por                                     | Uso                                                                             |
+| ---------------------- | -------------------------------------------- | ------------------------------------------------------------------------------- |
+| `SITE_URL`             | `process.env` no `astro.config.mjs` (`site`) | canonical, Open Graph, sitemap; padrão `localhost`                              |
+| `PUBLIC_APP_URL`       | `astro:env/client` (obrigatória, URL)        | "Já tenho conta" e "Criar conta" (cabeçalho e chamadas), "jogue pelo navegador" |
+| `PUBLIC_CONTACT_EMAIL` | `astro:env/client` (obrigatória)             | FAQ ("outras dúvidas"), rodapé, fornecedor                                      |
+| `LEGAL_DRAFTS_ALLOWED` | `astro:env/server` (padrão `false`)          | só com `true` Termos/Privacidade em rascunho passam                             |
+| `GUIDE_DRAFTS_ALLOWED` | `astro:env/server` (padrão `false`)          | só com `true` os guias em rascunho viram página                                 |
+| `LEGAL_SUPPLIER_NAME`  | `astro:env/server` (obrigatória)             | o nome do fornecedor no `<address>` dos Termos                                  |
+| `LEGAL_SUPPLIER_CPF`   | `astro:env/server`, **secret** (obrigatória) | só a máscara vai ao HTML (`maskedCpfOf`)                                        |
 
 O CPF é `server` + `secret` de propósito: o valor cru nunca vai ao bundle do client nem ao HTML, e no git só existe um CPF de teste (`52998224725`, com dígitos válidos) no `.env.example`, no `vitest.config.ts`, no `ci.yml` e na config do e2e da landing; o real é digitado pelo responsável no Coolify. `site/.env.example` tem os valores de dev; o `site/.env` é ignorado pelo git. O `astro:env` embute os valores no build: trocar exige rebuild.
 
