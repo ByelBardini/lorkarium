@@ -1,7 +1,13 @@
-import { LEGAL_DOCUMENTS_VERSION, type AdminInvitationDto } from '@lorkarium/contracts';
+import {
+  LEGAL_DOCUMENTS_VERSION,
+  type AdminInvitationDto,
+  type InvitationOriginDto,
+} from '@lorkarium/contracts';
+import { invitationMail, signUpLinkMail } from '../account-security/admin-mail.mapper';
+import type { MailMessage } from '../account-security/mailer.port';
 import type { DataCipherPort } from '../auth/data-cipher.port';
 import type { UserPo } from '../auth/users.po';
-import { AccountLinkBo } from './account-link.bo';
+import { AccountLinkBo, invitationTtlOf } from './account-link.bo';
 import type { InvitationListingRow } from './invitations.dao';
 import type { InvitationPo } from './invitations.po';
 import type { PasswordResetPo } from './password-resets.po';
@@ -47,8 +53,39 @@ export function toAccountLinkBo(row: InvitationPo | PasswordResetPo): AccountLin
  *  Example: `linkOf('https://mesa.example.com', '/invite', 'abc') // 'https://mesa.example.com/invite#token=abc'` */
 export function linkOf(
   publicUrl: string,
-  path: '/invite' | '/reset-password',
+  path: '/invite' | '/sign-up/confirm' | '/reset-password',
   token: string,
 ): string {
   return `${publicUrl}${path}#token=${encodeURIComponent(token)}`;
 }
+
+/** The link of an invitation: the sign-up's has its own page (the invitation's text asks whoever
+ *  invited for a new one).
+ *
+ *  Example: `invitationLinkOf(url, 'self', 'abc') // 'https://…/sign-up/confirm#token=abc'` */
+export function invitationLinkOf(
+  publicUrl: string,
+  origin: InvitationOriginDto,
+  token: string,
+): string {
+  return linkOf(publicUrl, origin === 'self' ? '/sign-up/confirm' : '/invite', token);
+}
+
+export type InvitationMailTarget = Readonly<{ to: string; link: string; publicUrl: string }>;
+
+/** The e-mail of an invitation's link, by who asked for it: the admin's invitation or the
+ *  sign-up's confirmation, each with its own validity.
+ *
+ *  Example: `invitationMailOf('self', { to, link, publicUrl }).subject // 'Confirme seu cadastro no Lorkarium'` */
+export function invitationMailOf(
+  origin: InvitationOriginDto,
+  target: InvitationMailTarget,
+): MailMessage {
+  if (origin === 'self') {
+    return signUpLinkMail({ ...target, validFor: { hours: invitationTtlOf('self') / HOUR_MS } });
+  }
+  return invitationMail({ ...target, validFor: { days: invitationTtlOf('admin') / DAY_MS } });
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;

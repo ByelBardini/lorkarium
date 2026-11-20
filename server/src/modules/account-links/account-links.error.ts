@@ -7,6 +7,8 @@ export type AccountLinksErrorCode =
   | 'USERNAME_TAKEN'
   | 'USER_NOT_FOUND'
   | 'SELF_ACTION'
+  | 'REGISTRATION_CLOSED'
+  | 'HUMAN_CHECK_FAILED'
   | 'RATE_LIMITED';
 
 /** Every refusal of the invitation and new-password routes; the edge maps `code` to status. */
@@ -75,6 +77,25 @@ export class LinkSelfActionError extends AccountLinksError {
     super(
       'SELF_ACTION',
       `admin ${userId} cannot send a new-password link to their own account; expected another account`,
+    );
+  }
+}
+
+export class RegistrationClosedError extends AccountLinksError {
+  constructor() {
+    super(
+      'REGISTRATION_CLOSED',
+      'the public sign-up is closed (REGISTRATION_OPEN=false); expected an invitation from an admin',
+    );
+  }
+}
+
+// Cites the IP, never the address nor the token: the refusal must not tie a person to a form.
+export class HumanCheckFailedError extends AccountLinksError {
+  constructor(readonly remoteIp: string) {
+    super(
+      'HUMAN_CHECK_FAILED',
+      `the anti-bot token from ${remoteIp} did not pass; expected a fresh Turnstile token`,
     );
   }
 }

@@ -276,7 +276,7 @@ describe('backoffice over the accounts (/api/admin/users)', () => {
   describe('mail test', () => {
     it('the admin lists the 17 system e-mails and a player is 403', async () => {
       const response = await call('GET', '/admin/mail-samples', admin.token);
-      expect(mailSamplesResponseDto.parse(response.json()).samples).toHaveLength(17);
+      expect(mailSamplesResponseDto.parse(response.json()).samples).toHaveLength(20);
       expect(codeOf(await call('GET', '/admin/mail-samples', ana.token))).toBe('FORBIDDEN_ROLE');
     });
 
