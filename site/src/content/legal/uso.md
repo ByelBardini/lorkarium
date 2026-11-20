@@ -1,6 +1,6 @@
 ---
 title: Política de uso aceitável
-updatedAt: 19 de novembro de 2026
+updatedAt: 20 de novembro de 2026
 draft: false
 ---
 
