@@ -1,7 +1,9 @@
 import {
   accessRestoredMail,
+  accountExistsMail,
   invitationMail,
   passwordLinkMail,
+  signUpLinkMail,
   promotedToAdminMail,
 } from './admin-mail.mapper';
 import {
@@ -136,6 +138,7 @@ function backofficeSamples(
         publicUrl,
       }),
     ),
+    ...signUpSamples(to, publicUrl, lucas),
     sample(
       'password-link',
       'Link de nova senha',
@@ -145,6 +148,17 @@ function backofficeSamples(
         validFor: { hours: 1 },
         publicUrl,
         requestedBy: 'admin',
+      }),
+    ),
+    sample(
+      'password-link-requested',
+      'Link de nova senha (pedido pela pessoa)',
+      passwordLinkMail({
+        person: lucas,
+        link: resetLink,
+        validFor: { hours: 1 },
+        publicUrl,
+        requestedBy: 'self',
       }),
     ),
     ...measures,
@@ -168,4 +182,16 @@ function feedbackSample(person: MailRecipient, publicUrl: string): MailMessage {
 
 function sample(id: string, name: string, message: MailMessage): MailSample {
   return { id, name, message };
+}
+
+// The two e-mails of the public sign-up: the confirmation link and the "you already have one".
+function signUpSamples(to: string, publicUrl: string, person: MailRecipient): MailSample[] {
+  const link = `${publicUrl}/sign-up/confirm#token=amostra`;
+  const resetLink = `${publicUrl}/reset-password#token=amostra`;
+  const confirmation = signUpLinkMail({ to, link, validFor: { hours: 24 }, publicUrl });
+  const exists = accountExistsMail({ person, link: resetLink, validFor: { hours: 1 }, publicUrl });
+  return [
+    sample('sign-up-link', 'Confirmação do cadastro', confirmation),
+    sample('account-exists', 'Você já tem conta (cadastro)', exists),
+  ];
 }
