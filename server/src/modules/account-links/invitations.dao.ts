@@ -16,12 +16,13 @@ export class InvitationsDao {
     return row;
   }
 
-  /** Every pending invitation, the newest first. */
+  /** Every pending invitation of the backoffice, the newest first (sign-up links stay out). */
   async listPending(): Promise<InvitationListingRow[]> {
     return this.db
       .select({ ...invitationColumns, invitedByUsername: users.username })
       .from(invitations)
       .leftJoin(users, eq(users.id, invitations.invitedBy))
+      .where(eq(invitations.origin, 'admin'))
       .orderBy(desc(invitations.sentAt));
   }
 
@@ -86,6 +87,7 @@ const invitationColumns = {
   emailCipher: invitations.emailCipher,
   emailIndex: invitations.emailIndex,
   role: invitations.role,
+  origin: invitations.origin,
   invitedBy: invitations.invitedBy,
   sentAt: invitations.sentAt,
   expiresAt: invitations.expiresAt,

@@ -1,5 +1,8 @@
-import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { userRole, users } from '../auth/users.po';
+
+/** Who asked for the link: an admin in the backoffice, or the person at the public sign-up. */
+export const invitationOrigin = pgEnum('invitation_origin', ['admin', 'self']);
 
 /** A pending invitation: the `users` row is only born when it is accepted (the @ comes then). */
 export const invitations = pgTable('invitations', {
@@ -11,6 +14,8 @@ export const invitations = pgTable('invitations', {
   emailCipher: text('email_cipher').notNull(),
   emailIndex: text('email_index').notNull().unique(),
   role: userRole('role').notNull(),
+  // The deadline, the page of the link and the backoffice list depend on it.
+  origin: invitationOrigin('origin').notNull().default('admin'),
   invitedBy: uuid('invited_by').references(() => users.id, { onDelete: 'set null' }),
   sentAt: timestamp('sent_at', { withTimezone: true }).notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),

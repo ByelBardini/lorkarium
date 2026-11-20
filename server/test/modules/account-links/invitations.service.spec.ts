@@ -91,6 +91,7 @@ describe('InvitationsService', () => {
           emailCipher: 'sealed:invitation-email:id-1:marina@exemplo.com',
           emailIndex: 'idx:email-index:marina@exemplo.com',
           role: 'user',
+          origin: 'admin',
           invitedBy: LUCAS.id,
           sentAt: NOW,
           expiresAt: new Date(NOW.getTime() + SEVEN_DAYS),
@@ -192,6 +193,12 @@ describe('InvitationsService', () => {
         suggestedUsername: 'marina2',
         origin: 'admin',
       });
+    });
+
+    it('a link asked for at the public sign-up answers the origin of its row', async () => {
+      await service.invite(LUCAS, marina);
+      invitations.rows = invitations.rows.map((row) => ({ ...row, origin: 'self' as const }));
+      expect(await service.inspect('token-1')).toMatchObject({ origin: 'self' });
     });
 
     it('an expired invitation is ACCOUNT_LINK_INVALID', async () => {
