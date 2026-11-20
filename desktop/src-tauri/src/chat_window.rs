@@ -2,6 +2,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use tauri::webview::{NewWindowFeatures, NewWindowResponse};
 use tauri::window::Color;
+#[cfg(windows)]
+use tauri::Manager;
 use tauri::{AppHandle, Runtime, Theme, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use url::Url;
 
@@ -88,8 +90,8 @@ fn nested_window_guard<R: Runtime>(
 // F5 would reload the empty page and drop the portal; the browser menu and shortcuts go like in the main window.
 #[cfg(windows)]
 fn harden<R: Runtime>(window: &WebviewWindow<R>, origins: &ShellOrigins) {
-    let hardened =
-        crate::webview2::harden_chat(window, origins.app.clone(), env!("CARGO_PKG_VERSION"));
+    let version = crate::webview2::shell_version(window.package_info());
+    let hardened = crate::webview2::harden_chat(window, origins.app.clone(), version);
     if let Err(problem) = hardened {
         eprintln!("ajuste do WebView2 do chat falhou: {problem}");
     }
