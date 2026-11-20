@@ -3,6 +3,7 @@ import type { LegalDocument } from '@lorkarium/contracts';
 export const LEGAL_DOCUMENT_TITLES: Readonly<Record<LegalDocument, string>> = {
   terms: 'Termos de uso',
   privacy: 'Política de privacidade',
+  'acceptable-use': 'Política de uso',
 };
 
 /** Where a legal text opens. Same origin on purpose: the server redirects to the landing

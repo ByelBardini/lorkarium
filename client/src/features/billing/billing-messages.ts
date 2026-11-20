@@ -24,7 +24,8 @@ const REFUSAL_MESSAGES: Partial<Record<BillingErrorCode, string>> = {
   NO_ACTIVE_SUBSCRIPTION: 'Não há renovação ativa para cancelar.',
   GATEWAY_UNAVAILABLE: 'O Mercado Pago não respondeu. Tente de novo em instantes.',
   PIX_UNAVAILABLE: 'O Pix está indisponível no momento. Assine pelo cartão ou tente mais tarde.',
-  TWO_FACTOR_REQUIRED: 'Ative a verificação em duas etapas da sua conta para reembolsar.',
+  TWO_FACTOR_REQUIRED:
+    'Ative a verificação em duas etapas da sua conta para mexer na cobrança de outra conta.',
   ALREADY_REFUNDED: 'Esse pagamento já foi reembolsado.',
   PAYMENT_NOT_FOUND: 'Esse pagamento não existe mais.',
 };

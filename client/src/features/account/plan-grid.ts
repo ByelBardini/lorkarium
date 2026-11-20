@@ -1,10 +1,12 @@
 import {
   AURA_KINDS,
+  PERSONAL_SAVED_ROLL_LIMITS,
   PLAN_COUNT_LIMIT_KEY,
   PLAN_COUNT_RESOURCES,
   PLAN_FAIR_USE_RESOURCES,
   type PlanCountResource,
   type PlanLimits,
+  type SavedRollCeilings,
 } from '@lorkarium/contracts';
 import { byteSizeText } from '@/lib/byte-size-text';
 import { PLAN_COUNT_LABELS } from './plan-section-labels';
@@ -42,12 +44,25 @@ export function storageUsageLabel(used: number, limit: number | null): string {
   return `${byteSizeText(used)} de ${byteSizeText(limit)}`;
 }
 
-/** The cell of a counted resource: "ilimitado" on a fair-use ceiling, "sem limite" without one.
+// The saved rolls are the person's: each plan shows what its holder keeps at any table.
+const PERSONAL_KEY: Readonly<Partial<Record<PlanCountResource, keyof SavedRollCeilings>>> = {
+  savedRolls: 'maxSavedRolls',
+  savedRollFolders: 'maxSavedRollFolders',
+};
+
+function ceilingOf(resource: PlanCountResource, limits: PlanLimits): number | null {
+  const personal = PERSONAL_KEY[resource];
+  if (personal !== undefined) return PERSONAL_SAVED_ROLL_LIMITS[limits.plan][personal];
+  return limits[PLAN_COUNT_LIMIT_KEY[resource]];
+}
+
+/** The cell of a counted resource: "ilimitado" on a fair-use ceiling, "sem limite" without one;
+ *  the saved rolls by the plan's own ceilings (the Apoiador keeps those of the Narrador).
  *
  *  Example: `countCell('scenes', PLAN_LIMITS.lenda) // 'ilimitado'` */
 export function countCell(resource: PlanCountResource, limits: PlanLimits): string {
   if (PLAN_FAIR_USE_RESOURCES[limits.plan].includes(resource)) return 'ilimitado';
-  const limit = limits[PLAN_COUNT_LIMIT_KEY[resource]];
+  const limit = ceilingOf(resource, limits);
   if (limit === null) return 'sem limite';
   return resource === 'storage' ? byteSizeText(limit) : NUMBER.format(limit);
 }
@@ -78,13 +93,14 @@ export const PLAN_FEATURE_ROWS: readonly PlanGridRow[] = [
     label: 'Personalizações da conta (cor própria, textura do dado, foto animada)',
     cellOf: (l) => yesNo(l.plan !== 'free'),
   },
+  { label: 'Banner de perfil', cellOf: (l) => yesNo(l.profileBanner) },
   { label: 'Aura', cellOf: auraCell },
 ];
 
 // A fair-use or missing ceiling is not a number to compare.
 function countAmount(resource: PlanCountResource, limits: PlanLimits): number | null {
   if (PLAN_FAIR_USE_RESOURCES[limits.plan].includes(resource)) return null;
-  return limits[PLAN_COUNT_LIMIT_KEY[resource]];
+  return ceilingOf(resource, limits);
 }
 
 /** The numeric lines, below the marks: the counted resources in the order of the contracts.

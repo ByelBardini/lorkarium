@@ -20,9 +20,13 @@ import { createChatPreferencesStore } from '@/stores/chat-preferences-store';
 import { AccountLinksApiFake } from './account-links-api-fake';
 import { AccountPlanApiFake } from './account-plan-api-fake';
 import { BillingApiFake, BillingWaitsFake, CheckoutNavigationFake } from './billing-api-fake';
+import { DataExportApiFake } from './data-export-api-fake';
 import { AccountSecurityApiFake } from './account-security-api-fake';
 import { UserAdminApiFake } from './user-admin-api-fake';
 import { UserReportsApiFake } from './user-reports-api-fake';
+import { FeedbackAdminApiFake, FeedbackApiFake } from './feedback-api-fake';
+import { SanctionsApiFake } from './sanctions-api-fake';
+import { BroadcastsApiFake } from './broadcasts-api-fake';
 import { BadgesAdminApiFake } from './badges-admin-api-fake';
 import { AssetsApiFake } from './assets-api-fake';
 import { AuthApiFake } from './auth-api-fake';
@@ -73,12 +77,15 @@ export type TestDependencies = AppDependencies & {
   accountSecurityApi: AccountSecurityApiFake;
   accountPlanApi: AccountPlanApiFake;
   billingApi: BillingApiFake;
+  dataExportApi: DataExportApiFake;
   checkoutNavigation: CheckoutNavigationFake;
   /** The `sessionStorage` under `checkoutStorage`. */
   checkoutStorage: StorageFake;
   billingWaits: BillingWaitsFake;
   userAdminApi: UserAdminApiFake;
   userReportsApi: UserReportsApiFake;
+  sanctionsApi: SanctionsApiFake;
+  broadcastsApi: BroadcastsApiFake;
   badgesAdminApi: BadgesAdminApiFake;
   accountLinksApi: AccountLinksApiFake;
   libraryApi: LibraryApiFake;
@@ -148,6 +155,8 @@ export type TestDependencies = AppDependencies & {
   accountTransport: RealtimeTransportFake;
   friendsApi: FriendsApiFake;
   profileCardApi: ProfileCardApiFake;
+  feedbackApi: FeedbackApiFake;
+  feedbackAdminApi: FeedbackAdminApiFake;
   /** The commands under `directMessages`. */
   directMessageCommands: DirectMessageCommandsFake;
   /** The `localStorage` under `directMessages`. */
@@ -217,6 +226,7 @@ export function testDependencies(): TestDependencies {
   );
   const checkoutNavigation = new CheckoutNavigationFake();
   const billingWaits = new BillingWaitsFake();
+  const userAdminApi = new UserAdminApiFake(TEST_NOW);
   return {
     journal,
     retryWaits,
@@ -228,13 +238,16 @@ export function testDependencies(): TestDependencies {
     accountSecurityApi: new AccountSecurityApiFake(TEST_NOW),
     accountPlanApi: new AccountPlanApiFake(),
     billingApi: new BillingApiFake(),
+    dataExportApi: new DataExportApiFake(),
     checkoutNavigation,
     goToCheckout: checkoutNavigation.goTo,
     checkoutStorage: new StorageFake(),
     billingWaits,
     waitBeforeBillingCheck: billingWaits.wait,
-    userAdminApi: new UserAdminApiFake(TEST_NOW),
+    userAdminApi,
     userReportsApi: new UserReportsApiFake(),
+    sanctionsApi: new SanctionsApiFake(TEST_NOW, userAdminApi),
+    broadcastsApi: new BroadcastsApiFake(),
     badgesAdminApi: new BadgesAdminApiFake(),
     accountLinksApi: new AccountLinksApiFake(),
     libraryApi: new LibraryApiFake(),
@@ -321,6 +334,9 @@ export function testDependencies(): TestDependencies {
     presenceChoice,
     friendsApi,
     profileCardApi: new ProfileCardApiFake(),
+    feedbackApi: new FeedbackApiFake(),
+    feedbackWhere: { platform: 'browser', appVersion: 'Chrome 142' },
+    feedbackAdminApi: new FeedbackAdminApiFake(),
     friends: createFriendsStore(friendsApi),
     directMessageCommands,
     directMessagesStorage,

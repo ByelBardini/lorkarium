@@ -1,5 +1,4 @@
 import type { AdminUserDto, BillingAdminAccountDto, BillingPaymentDto } from '@lorkarium/contracts';
-import { ShieldAlertIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Alert } from '@/components/ui/alert';
 import {
@@ -16,6 +15,7 @@ import type { BillingApi, BillingResult } from '@/services/billing-api';
 import { paymentTotalsOf, renewalOf } from './billing-admin-view';
 import { BillingPaymentsTable } from './billing-payments-table';
 import { BillingSubscriptionsTable } from './billing-subscriptions-table';
+import { TwoFactorRequiredNote } from './two-factor-required-note';
 
 export type UserBillingDialogProps = Readonly<{
   user: AdminUserDto;
@@ -70,12 +70,7 @@ function BillingDetail({ detail, api, twoFactorOn }: DetailProps): React.JSX.Ele
         <BillingSubscriptionsTable subscriptions={detail.subscriptions} />
       </BillingSection>
       <BillingSection title="Pagamentos">
-        {refundable && !twoFactorOn && (
-          <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
-            <ShieldAlertIcon aria-hidden="true" className="size-4 shrink-0 text-chart-2" />
-            Ative a verificação em duas etapas da sua conta para reembolsar.
-          </p>
-        )}
+        {refundable && !twoFactorOn && <TwoFactorRequiredNote action="reembolsar" />}
         <BillingPaymentsTable
           payments={payments}
           api={api}

@@ -66,17 +66,19 @@ describe('actions of each account', () => {
     expect(rowOf('@biaflor')).toHaveTextContent('Usuário');
   });
 
-  it('"Suspender acesso" confirms, then SUSPENSO and the menu offers "Reativar acesso" only', async () => {
-    await choose('Bia', 'Suspender acesso');
-    const dialog = await screen.findByRole('alertdialog', {
-      name: 'Suspender o acesso de @biaflor?',
-    });
-    expect(dialog).toHaveTextContent('@biaflor sai de todas as sessões agora');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Suspender' }));
-    expect(await screen.findByText('O acesso de @biaflor foi suspenso.')).toBeInTheDocument();
-    expect(rowOf('@biaflor')).toHaveTextContent('Suspenso');
+  // Applying the measure itself: sanction-dialog.spec.tsx.
+  it('an active account offers "Aplicar medida…" and "Medidas…", never a suspension without a reason', async () => {
     await userEvent.click(screen.getByRole('button', { name: 'Ações de Bia' }));
+    expect(screen.getByRole('menuitem', { name: 'Aplicar medida…' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Medidas…' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Suspender acesso' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Reativar acesso' })).toBeNull();
+  });
+
+  it('a suspended account offers "Reativar acesso" and still "Aplicar medida…", without the new-password link', async () => {
+    await userEvent.click(screen.getByRole('button', { name: 'Ações de Pedro' }));
     expect(screen.getByRole('menuitem', { name: 'Reativar acesso' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Aplicar medida…' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Mandar link de nova senha' })).toBeNull();
   });
 
@@ -163,9 +165,8 @@ describe('actions of each account', () => {
       expect(within(dialog).getByText('Vharn (3 outras pessoas)')).toBeInTheDocument();
       expect(within(dialog).queryByRole('button', { name: 'Excluir' })).toBeNull();
       await userEvent.click(within(dialog).getByRole('button', { name: 'Suspender em vez disso' }));
-      expect(
-        await screen.findByRole('alertdialog', { name: 'Suspender o acesso de @biaflor?' }),
-      ).toBeInTheDocument();
+      const measure = await screen.findByRole('dialog', { name: 'Aplicar medida a @biaflor' });
+      expect(within(measure).getByRole('radio', { name: 'Suspensão' })).toBeChecked();
     });
 
     it('free: says what goes, unlocks "Excluir" by the @ and the row leaves', async () => {

@@ -59,6 +59,14 @@ describe('HttpUserReportsApi', () => {
     ]);
   });
 
+  it("resolve sends the admin's note trimmed, as the DTO keeps it", async () => {
+    transport.respondWith(200, { report: { ...SPAM_REPORT, status: 'resolved', adminNote: 'ok' } });
+
+    await api.resolve(SPAM_REPORT.id, { status: 'resolved', note: '  Aviso aplicado.  ' });
+
+    expect(transport.requests[0]?.body).toEqual({ status: 'resolved', note: 'Aviso aplicado.' });
+  });
+
   it('resolve of a report already closed fails as not_found', async () => {
     transport.respondWith(404, { code: 'REPORT_NOT_FOUND', message: 'x' });
     expect(await api.resolve(SPAM_REPORT.id, { status: 'resolved' })).toEqual({

@@ -1,9 +1,13 @@
 import {
   createInvitationRequestDto,
+  issueSanctionRequestDto,
+  recordAppealRequestDto,
   userPlanDto,
   userRoleDto,
+  type AccountSanctionDto,
   type AdminInvitationDto,
   type AdminUserDto,
+  type SanctionResponseDto,
   type UserDeletionCheckDto,
 } from '@lorkarium/contracts';
 import type { ActionFunction } from 'react-router';
@@ -20,16 +24,21 @@ const usersIntentDto = z.discriminatedUnion('intent', [
   z.strictObject({ intent: z.literal('invitation-cancel'), ...invitationTarget }),
   z.strictObject({ intent: z.literal('role'), ...target, role: userRoleDto }),
   z.strictObject({ intent: z.literal('plan'), ...target, plan: userPlanDto }),
-  z.strictObject({ intent: z.literal('suspend'), ...target }),
   z.strictObject({ intent: z.literal('reactivate'), ...target }),
   z.strictObject({ intent: z.literal('password-reset'), ...target }),
   z.strictObject({ intent: z.literal('deletion-check'), ...target }),
   z.strictObject({ intent: z.literal('delete'), ...target }),
+  z.strictObject({ intent: z.literal('sanction'), ...target, sanction: issueSanctionRequestDto }),
+  z.strictObject({
+    intent: z.literal('appeal'),
+    sanctionId: z.string().min(1),
+    appeal: recordAppealRequestDto,
+  }),
 ]);
 
 export type UsersIntent = z.input<typeof usersIntentDto>;
 export type UsersIntentName = UsersIntent['intent'];
-type UserIntentName = 'role' | 'plan' | 'suspend' | 'reactivate';
+type UserIntentName = 'role' | 'plan' | 'reactivate' | 'sanction';
 
 export type UsersActionResult =
   | Readonly<{
@@ -37,10 +46,11 @@ export type UsersActionResult =
       invitation: AdminInvitationDto;
       link: string;
     }>
-  | Readonly<{ intent: 'invitation-cancel' | 'delete'; done: true }>
+  | Readonly<{ intent: 'invitation-cancel' | 'delete' | 'sanction'; done: true }>
   | Readonly<{ intent: UserIntentName; user: AdminUserDto }>
   | Readonly<{ intent: 'password-reset'; link: string }>
   | Readonly<{ intent: 'deletion-check'; check: UserDeletionCheckDto }>
+  | Readonly<{ intent: 'appeal'; sanction: AccountSanctionDto; user: AdminUserDto }>
   | Readonly<{ intent: UsersIntentName | null; failure: UserAdminFailure }>;
 
 /** The session fell during a fetcher's action: the route's ErrorBoundary goes to the login. */
@@ -62,7 +72,7 @@ export class AdminForbiddenError extends Error {
 /** Every command of the users page, one intent per JSON body; a fallen session or a lost role
  *  goes to the ErrorBoundary. The router reloads the list after each one.
  *
- *  Example: `fetcher.submit({ intent: 'suspend', userId }, { method: 'post', encType: 'application/json' })` */
+ *  Example: `fetcher.submit({ intent: 'reactivate', userId }, { method: 'post', encType: 'application/json' })` */
 export function usersAction(deps: AppDependencies): ActionFunction {
   return async ({ request }): Promise<UsersActionResult> => {
     const parsed = usersIntentDto.safeParse(await request.json());
@@ -91,7 +101,7 @@ export function dropAdminRole({ sessionStore }: Pick<AppDependencies, 'sessionSt
 }
 
 async function run(
-  { userAdminApi: api }: AppDependencies,
+  { userAdminApi: api, sanctionsApi }: AppDependencies,
   input: UsersIntent,
 ): Promise<UsersActionResult> {
   switch (input.intent) {
@@ -105,8 +115,6 @@ async function run(
       return userResult(input.intent, await api.changeRole(input.userId, input.role));
     case 'plan':
       return userResult(input.intent, await api.changePlan(input.userId, input.plan));
-    case 'suspend':
-      return userResult(input.intent, await api.suspend(input.userId));
     case 'reactivate':
       return userResult(input.intent, await api.reactivate(input.userId));
     case 'password-reset':
@@ -115,6 +123,10 @@ async function run(
       return checkResult(await api.deletionCheck(input.userId));
     case 'delete':
       return doneResult(input.intent, await api.deleteUser(input.userId));
+    case 'sanction':
+      return sanctionResult(await sanctionsApi.issue(input.userId, input.sanction));
+    case 'appeal':
+      return appealResult(await sanctionsApi.recordAppeal(input.sanctionId, input.appeal));
   }
 }
 
@@ -155,4 +167,15 @@ function checkResult(result: UserAdminResult<UserDeletionCheckDto>): UsersAction
   return result.ok
     ? { intent: 'deletion-check', check: result.value }
     : failed('deletion-check', result.failure);
+}
+
+// A ban answers no account (it is gone): the dialog reads it as done, like a deletion.
+function sanctionResult(result: UserAdminResult<SanctionResponseDto | null>): UsersActionResult {
+  if (!result.ok) return failed('sanction', result.failure);
+  if (result.value === null) return { intent: 'sanction', done: true };
+  return { intent: 'sanction', user: result.value.user };
+}
+
+function appealResult(result: UserAdminResult<SanctionResponseDto>): UsersActionResult {
+  return result.ok ? { intent: 'appeal', ...result.value } : failed('appeal', result.failure);
 }

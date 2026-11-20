@@ -9,8 +9,9 @@ export type TermsAcceptanceFieldProps = Readonly<{
   error: string | undefined;
 }>;
 
-/** The box the person ticks to accept the Terms of use and the Privacy policy (the clickwrap the
- *  server records); each text opens in a new tab without ticking it.
+/** The box the person ticks to accept the Terms of use, the Privacy policy and the Acceptable use
+ *  policy (the clickwrap the server records, one version for the three); each text opens in a new
+ *  tab without ticking it.
  *
  *  Example: `<TermsAcceptanceField id={id} checked={accepted} onCheckedChange={setAccepted} error={errors.terms} />` */
 export function TermsAcceptanceField({
@@ -34,8 +35,9 @@ export function TermsAcceptanceField({
           htmlFor={id}
           className="block cursor-pointer text-sm leading-snug font-normal text-muted-foreground"
         >
-          Li e aceito os <LegalDocumentLink document="terms" /> e a{' '}
-          <LegalDocumentLink document="privacy" />
+          Li e aceito os <LegalDocumentLink document="terms" />, a{' '}
+          <LegalDocumentLink document="privacy" /> e a{' '}
+          <LegalDocumentLink document="acceptable-use" />
         </Label>
       </div>
       {error && (

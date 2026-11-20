@@ -76,22 +76,23 @@ export function profileLookupFailureText(failure: ProfileLookupFailure, typed: s
   return cardLoadFailureText(failure);
 }
 
+const COMMAND_FAILURE_TEXT: Partial<
+  Record<(ReputationFailure | UserReportFailure)['kind'], string>
+> = {
+  reputation_not_allowed: 'Só quem divide uma mesa com a pessoa pode votar.',
+  report_already_open: 'Você já tem uma denúncia aberta sobre essa pessoa.',
+  campaign_not_shared: 'Vocês não jogam juntos nessa mesa.',
+  attachment_not_found: 'Um dos prints não foi encontrado. Anexe de novo.',
+  offline: 'Sem conexão. Tente de novo.',
+  user_not_found: 'Essa conta não existe mais.',
+};
+
 /** Why a vote or a report was refused (pt-BR).
  *
  *  Example: `cardCommandFailureText({ kind: 'report_already_open' })` */
 export function cardCommandFailureText(failure: ReputationFailure | UserReportFailure): string {
-  switch (failure.kind) {
-    case 'reputation_not_allowed':
-      return 'Só quem divide uma mesa com a pessoa pode votar.';
-    case 'report_already_open':
-      return 'Você já tem uma denúncia aberta sobre essa pessoa.';
-    case 'rate_limited':
-      return `Muitas tentativas. Tente de novo em ${failure.retryAfterSeconds} s.`;
-    case 'offline':
-      return 'Sem conexão. Tente de novo.';
-    case 'user_not_found':
-      return 'Essa conta não existe mais.';
-    default:
-      return 'Algo deu errado. Tente de novo.';
+  if (failure.kind === 'rate_limited') {
+    return `Muitas tentativas. Tente de novo em ${failure.retryAfterSeconds} s.`;
   }
+  return COMMAND_FAILURE_TEXT[failure.kind] ?? 'Algo deu errado. Tente de novo.';
 }
