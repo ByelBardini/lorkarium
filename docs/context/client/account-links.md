@@ -27,11 +27,13 @@ Hub: [`../client.md`](../client.md). As páginas públicas de quem recebeu um li
 
 - `services/account-links-api.ts` — `AccountLinksApi` / `HttpAccountLinksApi`: `inspectInvitation`, `acceptInvitation`, `inspectPasswordReset`, `completePasswordReset`. Falhas `AccountLinksFailure`: `link_invalid` (404 `ACCOUNT_LINK_INVALID`), `username_taken`, `email_taken`, `invalid`, `rate_limited`, `offline`, `unexpected`.
 - `AppDependencies.accountLinksApi` (e `userAdminApi`, do backoffice).
+- `services/sign-up-api.ts` — `SignUpApi` / `HttpSignUpApi` (`AppDependencies.signUpApi`), as rotas públicas de quem não tem conta: `settings()` (`GET /api/sign-up/settings`, validado pelo `signUpSettingsDto`: `registrationOpen`, `humanCheckSiteKey`), `requestSignUp({ email, humanCheckToken })` (`POST /api/sign-up`) e `requestPasswordReset({ identifier, humanCheckToken })` (`POST /api/password-resets/request`); os dois pedidos dão `ok` no 202 sem corpo, que é igual exista a conta ou não. Falhas `SignUpFailure`: `registration_closed` (403 `REGISTRATION_CLOSED`), `human_check_failed` (400 `HUMAN_CHECK_FAILED`), `invalid` (outro 400), `rate_limited` com os segundos (`Retry-After` ou `retryAfterSeconds`), `offline`, `unexpected`. As telas: [`sign-up.md`](sign-up.md).
 
 ## Testes
 
 - `client/test/services/account-links-api.spec.ts`; pelo router `test/features/account-links/invite-accept-page.spec.tsx` (inclusive a caixa do aceite: links, desmarcada não envia) e `password-reset-page.spec.tsx`.
 - Fake: `test/support/account-links-api-fake.ts` — `AccountLinksApiFake` (sem roteiro: convite da Marina, link de nova senha da `@biaflor`; `MARINA`).
+- `test/services/sign-up-api.spec.ts`; fake `test/support/sign-up-api-fake.ts` — `SignUpApiFake` (sem roteiro: cadastro aberto, sem site key, todo pedido em 202; `withSiteKey()` põe o `TEST_SITE_KEY`). O widget: `test/components/human-check/human-check-widget.spec.tsx` com o `TurnstileScriptFake` (`test/support/turnstile-script-fake.ts`: `loadScript`/`failScript` disparam o `load`/`error` do `<script>` que o widget pôs; `preload` = script já carregado; `solve`, `expire`, `failChallenge` no último widget; `uninstall` no `afterEach`).
 
 ## Armadilhas
 
