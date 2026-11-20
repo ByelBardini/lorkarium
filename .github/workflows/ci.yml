@@ -290,11 +290,11 @@ jobs:
           tags: lorkarium:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      # Production mode on the host network: SMTP, APP_PUBLIC_URL, SITE_PUBLIC_URL and the access log are required there, as in Coolify.
+      # Production mode on the host network: SMTP, APP_PUBLIC_URL, SITE_PUBLIC_URL, the access log and the Turnstile keys (the Cloudflare test pair) are required there, as in Coolify.
       # The access log shares the asset bucket here; its boot marker failing would keep the container from getting healthy.
       - name: Start the image
         run: |
-          docker run -d --name lorkarium --network host             -e DATABASE_URL=postgres://lorkarium:lorkarium@localhost:5432/lorkarium             -e S3_ENDPOINT=http://localhost:8333 -e S3_BUCKET=lorkarium             -e S3_ACCESS_KEY_ID=lorkarium -e S3_SECRET_ACCESS_KEY=lorkarium-dev-secret             -e DATA_ENCRYPTION_KEY=EJ0VAPvnCxgUGYKDbckfwbxEca0bm7NndOkKfFJQjeQ=             -e SMTP_URL=smtp://localhost:1025 -e APP_PUBLIC_URL=http://localhost:3333 -e SITE_PUBLIC_URL=http://localhost:4321             -e ACCESS_LOG_S3_BUCKET=lorkarium -e ACCESS_LOG_S3_ACCESS_KEY_ID=lorkarium -e ACCESS_LOG_S3_SECRET_ACCESS_KEY=lorkarium-dev-secret             -e TRUST_PROXY=1             lorkarium:ci
+          docker run -d --name lorkarium --network host             -e DATABASE_URL=postgres://lorkarium:lorkarium@localhost:5432/lorkarium             -e S3_ENDPOINT=http://localhost:8333 -e S3_BUCKET=lorkarium             -e S3_ACCESS_KEY_ID=lorkarium -e S3_SECRET_ACCESS_KEY=lorkarium-dev-secret             -e DATA_ENCRYPTION_KEY=EJ0VAPvnCxgUGYKDbckfwbxEca0bm7NndOkKfFJQjeQ=             -e SMTP_URL=smtp://localhost:1025 -e APP_PUBLIC_URL=http://localhost:3333 -e SITE_PUBLIC_URL=http://localhost:4321             -e ACCESS_LOG_S3_BUCKET=lorkarium -e ACCESS_LOG_S3_ACCESS_KEY_ID=lorkarium -e ACCESS_LOG_S3_SECRET_ACCESS_KEY=lorkarium-dev-secret             -e TRUST_PROXY=1 -e TURNSTILE_SITE_KEY=1x00000000000000000000AA -e TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA             lorkarium:ci
       - run: bash infra/docker/smoke.sh lorkarium http://localhost:3333
 
   # The landing page: its specs, the image Coolify builds from site/Dockerfile with its smoke, and its e2e.

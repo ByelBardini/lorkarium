@@ -17,6 +17,11 @@ const ACCESS_LOG = {
   ACCESS_LOG_S3_ACCESS_KEY_ID: 'lorkarium-access-log',
   ACCESS_LOG_S3_SECRET_ACCESS_KEY: 'segredo-do-registro',
 };
+// Required in production: the forgotten-password route always checks for bots.
+const HUMAN_CHECK = {
+  TURNSTILE_SITE_KEY: '1x00000000000000000000AA',
+  TURNSTILE_SECRET_KEY: '1x0000000000000000000000000000000AA',
+};
 const STORAGE = {
   endpoint: 'http://localhost:8333',
   region: 'sa-east-1',
@@ -47,6 +52,7 @@ describe('readEnv', () => {
       accessLog: null,
       ownerUsername: null,
       issueTracker: null,
+      signUp: { registrationOpen: false, humanCheck: null },
     });
   });
 
@@ -192,6 +198,7 @@ describe('readEnv, mail', () => {
   const PRODUCTION = {
     ...REQUIRED,
     NODE_ENV: 'production',
+    ...HUMAN_CHECK,
     SMTP_URL: 'smtp://mailer:segredo-smtp@smtp.example.com:587',
     APP_PUBLIC_URL: 'https://mesa.example.com/',
     SITE_PUBLIC_URL: 'https://example.com',
@@ -265,6 +272,7 @@ describe('readEnv, SITE_PUBLIC_URL', () => {
   const PRODUCTION = {
     ...REQUIRED,
     NODE_ENV: 'production',
+    ...HUMAN_CHECK,
     SMTP_URL: 'smtp://localhost:1025',
     APP_PUBLIC_URL: 'https://mesa.example.com',
     ...ACCESS_LOG,
@@ -388,6 +396,7 @@ describe('readEnv, ACCESS_LOG_S3_*', () => {
   const PRODUCTION = {
     ...REQUIRED,
     NODE_ENV: 'production',
+    ...HUMAN_CHECK,
     SMTP_URL: 'smtp://localhost:1025',
     APP_PUBLIC_URL: 'https://mesa.example.com',
     SITE_PUBLIC_URL: 'https://example.com',
