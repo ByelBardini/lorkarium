@@ -1,34 +1,59 @@
 ---
-import faviconUrl from '@lorkarium/brand/favicon.svg?url';
+// Same file the CSS @font-face loads, so the preload and the font share one hashed URL.
+import cinzelLatinUrl from '@fontsource-variable/cinzel/files/cinzel-latin-wght-normal.woff2?url';
+import heroShot from '@/assets/screens/hero.png';
 import SiteFooter from '@/components/site-footer.astro';
 import SiteHeader from '@/components/site-header.astro';
+import { siteGraphOf, type Crumb, type Offer, type SchemaNode } from '@/lib/structured-data';
 import '@/styles/global.css';
 
 interface Props {
   title: string;
   description: string;
   noindex?: boolean;
+  /** A site path under `public/`, like `/og-recursos.png` (1200×630). */
+  ogImage?: string;
+  ogImageAlt?: string;
+  /** The trail from the home page, for the BreadcrumbList. */
+  crumbs?: readonly Crumb[];
+  /** Offers beyond the free plan. */
+  offers?: readonly Offer[];
+  /** JSON-LD nodes only this page has (its FAQPage). */
+  structuredData?: readonly SchemaNode[];
 }
 
-const { title, description, noindex = false } = Astro.props;
+const DEFAULT_OG_IMAGE_ALT = 'Mapas e combate para o seu RPG';
+const {
+  title,
+  description,
+  noindex = false,
+  ogImage = '/og.png',
+  ogImageAlt = DEFAULT_OG_IMAGE_ALT,
+  crumbs = [],
+  offers = [],
+  structuredData = [],
+} = Astro.props;
+if (!ogImage.startsWith('/') || ogImage.startsWith('//')) {
+  throw new Error(`ogImage is ${JSON.stringify(ogImage)}; expected a site path like /og.png`);
+}
 if (!Astro.site) {
   throw new Error(
     `Astro.site is ${String(Astro.site)}; expected SITE_URL like https://lorkarium.com.br`,
   );
 }
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site).href;
-const ogImageUrl = new URL('/og.png', Astro.site).href;
-const softwareApplication = {
-  '@context': 'https://schema.org',
-  '@type': 'SoftwareApplication',
-  name: 'Lorkarium',
-  applicationCategory: 'GameApplication',
-  operatingSystem: 'Windows 10, Windows 11',
-  url: Astro.site.href,
-  offers: { '@type': 'Offer', price: '0', priceCurrency: 'BRL' },
-};
+const ogImageUrl = new URL(ogImage, Astro.site).href;
+const graph = siteGraphOf({
+  site: Astro.site,
+  path: Astro.url.pathname,
+  page: { title, description },
+  screenshot: heroShot.src,
+  crumbs,
+  offers,
+  extraNodes: structuredData,
+});
 // `<` escaped so no value can close the data block early.
-const structuredData = JSON.stringify(softwareApplication).replaceAll('<', '\\u003c');
+const graphJson = JSON.stringify(graph).replaceAll('<', '\\u003c');
 ---
 
 <!doctype html>
@@ -40,7 +65,13 @@ const structuredData = JSON.stringify(softwareApplication).replaceAll('<', '\\u0
     <meta name="description" content={description} />
     {noindex && <meta name="robots" content="noindex" />}
     <meta name="theme-color" content="#0a0b0e" />
-    <link rel="icon" type="image/svg+xml" href={faviconUrl} />
+    {/* Stable crawlable URLs: Google shows the result icon only from a fetchable file. */}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    {/* Every h1 is in Cinzel: fetching it with the HTML keeps the LCP text from swapping late. */}
+    <link rel="preload" as="font" type="font/woff2" href={cinzelLatinUrl} crossorigin />
     <link rel="canonical" href={canonicalUrl} />
     <link rel="sitemap" href="/sitemap-index.xml" />
     <meta property="og:type" content="website" />
@@ -52,8 +83,9 @@ const structuredData = JSON.stringify(softwareApplication).replaceAll('<', '\\u0
     <meta property="og:image" content={ogImageUrl} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={ogImageAlt} />
     <meta name="twitter:card" content="summary_large_image" />
-    <script type="application/ld+json" is:inline set:html={structuredData} />
+    <script type="application/ld+json" is:inline set:html={graphJson} />
   </head>
   <body class="flex min-h-screen flex-col overflow-x-clip">
     <a

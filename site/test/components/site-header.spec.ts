@@ -1,5 +1,7 @@
+import { getCollection } from 'astro:content';
 import { describe, expect, it } from 'vitest';
 import SiteHeader from '@/components/site-header.astro';
+import { guideNavLinksOf } from '@/lib/guides';
 import { renderAstro } from '../support/render-astro';
 
 function linkNamed(page: Document, name: string): HTMLAnchorElement | undefined {
@@ -31,6 +33,14 @@ describe('the site header', () => {
     const page = await renderAstro(SiteHeader);
 
     expect(linkNamed(page, name)?.getAttribute('href')).toBe(href);
+  });
+
+  it('links the hub of recursos while it has a visible guide', async () => {
+    const page = await renderAstro(SiteHeader);
+
+    const hubs = guideNavLinksOf(await getCollection('guides'), true);
+    expect(hubs).toEqual([{ label: 'Recursos', href: '/recursos/' }]);
+    for (const hub of hubs) expect(linkNamed(page, hub.label)?.getAttribute('href')).toBe(hub.href);
   });
 
   it('takes the brand back to the top of the landing', async () => {

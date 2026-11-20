@@ -10,14 +10,28 @@ function bodyCentresOf(hero: Document, size: string): number[][] {
 }
 
 describe('Hero', () => {
-  it('opens the page with the approved headline as the only h1', async () => {
+  it('opens the only h1 with the searched term before the approved headline', async () => {
     const hero = await renderAstro(Hero);
 
     const headings = hero.querySelectorAll('section#topo h1');
     expect(headings).toHaveLength(1);
     expect(headings[0]?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-      'Role a iniciativa. E que comece o combate.',
+      'Mesa virtual para RPG Role a iniciativa. E que comece o combate.',
     );
+    expect(headings[0]?.querySelector('span.eyebrow')?.textContent).toBe('Mesa virtual para RPG');
+  });
+
+  it('leaves no eyebrow outside the h1, so the term is not said twice', async () => {
+    const hero = await renderAstro(Hero);
+
+    expect(hero.querySelectorAll('section#topo .eyebrow:not(h1 *)')).toHaveLength(0);
+    expect(hero.querySelectorAll('section#topo p.eyebrow')).toHaveLength(0);
+  });
+
+  it('lazy-loads no image above the fold', async () => {
+    const hero = await renderAstro(Hero);
+
+    expect(hero.querySelectorAll('section#topo img[loading="lazy"]')).toHaveLength(0);
   });
 
   it('offers the Windows download with the release line and the platform notes', async () => {

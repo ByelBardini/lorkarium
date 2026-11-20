@@ -45,6 +45,18 @@ expect_status /nao-existe/ 404
 [ "$(curl -s "$base/nao-existe/")" = "$(curl -s "$base/404.html")" ] ||
   fail "GET $base/nao-existe/ must answer the body of /404.html"
 
+# SEO: crawlable icon, robots with the absolute sitemap, sitemap index, trailing-slash redirect.
+robots="$(curl -sf "$base/robots.txt")" || fail "GET $base/robots.txt is not 2xx"
+grep -q '^Sitemap: https\?://[^ ]*/sitemap-index.xml$' <<<"$robots" ||
+  fail "GET $base/robots.txt must end in an absolute Sitemap: line, got: $robots"
+expect_status /sitemap-index.xml 200
+icon_type="$(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$base/favicon-48.png")"
+[ "$icon_type" = "200 image/png" ] || fail "GET $base/favicon-48.png answered '$icon_type', expected '200 image/png'"
+redirect="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$base/termos")"
+# Caddy's file_server answers 308; Google treats it as a 301 (permanent, passes the signals).
+[[ "$redirect" =~ ^30[18]\ .*/termos/$ ]] ||
+  fail "GET $base/termos answered '$redirect', expected a permanent redirect to /termos/"
+
 asset="$(grep -o '/_astro/[^"'"'"' )>]*' <<<"$home" | head -1 || true)"
 [ -n "$asset" ] || fail "GET $base/ references no /_astro/ file"
 asset_headers="$(curl -s -D - -o /dev/null "$base$asset")"

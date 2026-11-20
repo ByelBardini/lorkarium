@@ -8,12 +8,15 @@ import ActScene from '@/components/act-scene.astro';
 import DownloadPanel from '@/components/download-panel.astro';
 import FaqList from '@/components/faq-list.astro';
 import Hero from '@/components/hero.astro';
+import { landingCopy } from '@/copy/landing-copy';
 import SiteLayout from '@/layouts/site-layout.astro';
+import { faqGraphOf } from '@/lib/structured-data';
 ---
 
 <SiteLayout
   title="Lorkarium · Mapas e combate para o seu RPG"
   description="Prepare mapas e acompanhe iniciativa, pontos de vida e condições no Lorkarium. Mesa virtual de RPG com dados 3D e chat, para Windows e navegador."
+  structuredData={[faqGraphOf(landingCopy.faqs)]}
 >
   <Hero />
   <ActScene />

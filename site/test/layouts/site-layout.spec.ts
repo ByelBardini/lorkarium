@@ -30,16 +30,96 @@ describe('the site layout', () => {
     expect(metaContent(page, 'meta[name="twitter:card"]')).toBe('summary_large_image');
   });
 
-  it('describes the product as a free Windows SoftwareApplication in JSON-LD', async () => {
+  it('publishes a single JSON-LD block holding the whole @graph', async () => {
+    const page = await renderAstro(SiteLayout, { props: PAGE_PROPS, path: '/termos/' });
+
+    expect(page.querySelectorAll('script[type="application/ld+json"]')).toHaveLength(1);
+    const graph = structuredData(page)['@graph'] as Record<string, unknown>[];
+    expect(graph.map((node) => node['@type'])).toEqual([
+      'Organization',
+      'WebSite',
+      'WebPage',
+      'SoftwareApplication',
+    ]);
+    expect(graph[2]).toMatchObject({ url: 'https://lorkarium.test/termos/' });
+  });
+
+  it('adds the trail and the page nodes it receives to the graph', async () => {
+    const props = {
+      ...PAGE_PROPS,
+      crumbs: [{ name: 'Início', path: '/' }],
+      structuredData: [{ '@type': 'FAQPage', mainEntity: [] }],
+    };
+    const page = await renderAstro(SiteLayout, { props });
+
+    const types = (structuredData(page)['@graph'] as Record<string, unknown>[]).map(
+      (node) => node['@type'],
+    );
+    expect(types).toContain('BreadcrumbList');
+    expect(types).toContain('FAQPage');
+  });
+
+  it('escapes < so no value closes the data block early', async () => {
+    const props = { ...PAGE_PROPS, title: 'A </script><b>x</b>' };
+    const page = await renderAstro(SiteLayout, { props });
+
+    const script = page.querySelector('script[type="application/ld+json"]');
+    expect(script?.innerHTML).not.toContain('</script>');
+    expect(page.querySelector('head b')).toBeNull();
+  });
+
+  it('links the icons by stable site paths, never by a data: URL', async () => {
     const page = await renderAstro(SiteLayout, { props: PAGE_PROPS });
 
-    expect(structuredData(page)).toMatchObject({
-      '@type': 'SoftwareApplication',
-      name: 'Lorkarium',
-      operatingSystem: 'Windows 10, Windows 11',
-      url: 'https://lorkarium.test/',
-      offers: { price: '0', priceCurrency: 'BRL' },
-    });
+    const hrefOf = (selector: string): string | null =>
+      page.querySelector(selector)?.getAttribute('href') ?? null;
+    expect(hrefOf('link[rel="icon"][type="image/svg+xml"]')).toBe('/favicon.svg');
+    expect(hrefOf('link[rel="icon"][sizes="48x48"]')).toBe('/favicon-48.png');
+    expect(hrefOf('link[rel="apple-touch-icon"]')).toBe('/apple-touch-icon.png');
+    expect(hrefOf('link[rel="manifest"]')).toBe('/site.webmanifest');
+    const inlined = [...page.querySelectorAll('link[href^="data:"]')];
+    expect(inlined.map((link) => link.outerHTML)).toEqual([]);
+  });
+
+  it('shares the image and alt text the page asks for', async () => {
+    const props = {
+      ...PAGE_PROPS,
+      ogImage: '/og-recursos.png',
+      ogImageAlt: 'Recursos no Lorkarium',
+    };
+    const page = await renderAstro(SiteLayout, { props });
+
+    expect(metaContent(page, 'meta[property="og:image"]')).toBe(
+      'https://lorkarium.test/og-recursos.png',
+    );
+    expect(metaContent(page, 'meta[property="og:image:alt"]')).toBe('Recursos no Lorkarium');
+  });
+
+  it('falls back to og.png with the default alt text when the page names no image', async () => {
+    const page = await renderAstro(SiteLayout, { props: PAGE_PROPS });
+
+    expect(metaContent(page, 'meta[property="og:image"]')).toBe('https://lorkarium.test/og.png');
+    expect(metaContent(page, 'meta[property="og:image:alt"]')).toBe(
+      'Mapas e combate para o seu RPG',
+    );
+  });
+
+  it('refuses an og:image from another host', async () => {
+    const props = { ...PAGE_PROPS, ogImage: 'https://x.com/a.png' };
+
+    await expect(renderAstro(SiteLayout, { props })).rejects.toThrow(
+      /https:\/\/x\.com\/a\.png.*expected a site path like \/og\.png/,
+    );
+  });
+
+  it('preloads the Latin Cinzel the h1 is drawn with, once, from the fontsource file', async () => {
+    const page = await renderAstro(SiteLayout, { props: PAGE_PROPS });
+
+    const preloads = [...page.querySelectorAll('link[rel="preload"][as="font"]')];
+    expect(preloads).toHaveLength(1);
+    expect(preloads[0]?.getAttribute('type')).toBe('font/woff2');
+    expect(preloads[0]?.hasAttribute('crossorigin')).toBe(true);
+    expect(preloads[0]?.getAttribute('href')).toMatch(/cinzel-latin-wght-normal.*\.woff2/);
   });
 
   it('leaves the page indexable when it does not ask for noindex', async () => {

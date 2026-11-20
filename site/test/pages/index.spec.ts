@@ -10,6 +10,12 @@ describe('the landing page', () => {
     expect(page.title).toBe('Lorkarium · Mapas e combate para o seu RPG');
   });
 
+  it('has exactly one h1', async () => {
+    const page = await renderAstro(IndexPage);
+
+    expect(page.querySelectorAll('h1')).toHaveLength(1);
+  });
+
   it('shows the LORKARIUM wordmark', async () => {
     const page = await renderAstro(IndexPage);
 

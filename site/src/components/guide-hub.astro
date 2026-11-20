@@ -1,0 +1,75 @@
+---
+import { getCollection } from 'astro:content';
+import { GUIDE_DRAFTS_ALLOWED } from 'astro:env/server';
+import BreadcrumbTrail from '@/components/breadcrumb-trail.astro';
+import DownloadPanel from '@/components/download-panel.astro';
+import SiteLayout from '@/layouts/site-layout.astro';
+import { HUB_PATH } from '@/lib/sitemap-entry';
+import { linkOf, visibleGuidesOf, type GuideEntry } from '@/lib/guides';
+
+interface Props {
+  kind: 'recurso';
+  /** Name in the trail and the nav: `Recursos`. */
+  name: string;
+  title: string;
+  description: string;
+  h1: string;
+  lead: string;
+  /** The guides to list; the collection by default (specs pass their own). */
+  guides?: readonly GuideEntry[];
+}
+
+const { kind, name, title, description, h1, lead } = Astro.props;
+const guides = Astro.props.guides ?? (await getCollection('guides'));
+const ofKind = guides.filter((guide) => guide.data.kind === kind);
+const cards = visibleGuidesOf(ofKind, GUIDE_DRAFTS_ALLOWED).map(linkOf);
+// Same rule as the sitemap (hiddenPathsOf): a hub with no published guide stays out of the index.
+const hasPublished = ofKind.some((guide) => !guide.data.draft);
+const path = HUB_PATH[kind];
+const crumbs = [
+  { name: 'Início', path: '/' },
+  { name, path },
+];
+---
+
+<SiteLayout
+  title={title}
+  description={description}
+  noindex={!hasPublished}
+  ogImage={`/og-${path.replaceAll('/', '')}.png`}
+  ogImageAlt={h1}
+  crumbs={crumbs}
+>
+  <section class="act relative isolate overflow-clip">
+    <div class="site-wrap flex flex-col gap-6">
+      <BreadcrumbTrail crumbs={crumbs} />
+      <h1 class="act-title m-0 max-w-[22ch]">
+        {h1}
+        <span class="mt-4 block font-display text-[0.5em] tracking-normal text-gold normal-case italic">
+          {lead}
+        </span>
+      </h1>
+      {cards.length === 0 ? (
+        <p data-hub-empty class="m-0 max-w-xl text-lg text-label">
+          As primeiras páginas estão sendo escritas. Enquanto isso, veja{' '}
+          <a href="/">como é uma sessão no Lorkarium</a>.
+        </p>
+      ) : (
+        <ul
+          data-hub-cards
+          class="m-0 mt-6 grid list-none border-t border-l border-edge p-0 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          {cards.map((card) => (
+            <li class="flex border-r border-b border-edge">
+              <a href={card.href} class="flex flex-1 flex-col gap-2 p-7 hover:bg-surface">
+                <h2 class="m-0 font-wordmark text-xl font-semibold text-parchment">{card.title}</h2>
+                <p class="m-0 text-[15px] leading-relaxed text-muted">{card.description}</p>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  </section>
+  <DownloadPanel />
+</SiteLayout>
