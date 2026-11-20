@@ -112,7 +112,6 @@ type Answers = {
   cancelInvitation: UserAdminResult<null>;
   changeRole: UserAdminResult<AdminUserDto>;
   changePlan: UserAdminResult<AdminUserDto>;
-  suspend: UserAdminResult<AdminUserDto>;
   reactivate: UserAdminResult<AdminUserDto>;
   sendPasswordLink: UserAdminResult<PasswordResetLinkResponseDto>;
   deletionCheck: UserAdminResult<UserDeletionCheckDto>;
@@ -130,9 +129,9 @@ export const MAIL_SAMPLES: readonly MailSampleDto[] = [
   },
   { id: 'invitation', name: 'Convite', subject: 'Seu convite para o Lorkarium' },
   {
-    id: 'access-suspended',
-    name: 'Acesso suspenso',
-    subject: 'Seu acesso ao Lorkarium foi suspenso',
+    id: 'account-suspended',
+    name: 'Conta suspensa',
+    subject: 'Sua conta no Lorkarium foi suspensa',
   },
 ];
 
@@ -199,10 +198,6 @@ export class UserAdminApiFake implements UserAdminApi {
 
   changePlan(userId: string, plan: UserPlan): Promise<Answers['changePlan']> {
     return this.answers.reply('changePlan', { userId, plan }, () => this.patch(userId, { plan }));
-  }
-
-  suspend(userId: string): Promise<Answers['suspend']> {
-    return this.answers.reply('suspend', userId, () => this.patch(userId, { status: 'suspended' }));
   }
 
   reactivate(userId: string): Promise<Answers['reactivate']> {

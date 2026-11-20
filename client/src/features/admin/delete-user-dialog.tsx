@@ -14,25 +14,46 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { adminFailureMessage, deletionConsequence } from './admin-messages';
+import { billingFailureMessage } from '@/features/billing/billing-messages';
 import { useOnceOnMount } from '@/lib/use-once-on-mount';
+import type { BillingApi } from '@/services/billing-api';
+import { adminFailureMessage, deletionConsequence } from './admin-messages';
+import { TwoFactorRequiredNote } from './two-factor-required-note';
+import {
+  useDeletionBilling,
+  useRenewalCancel,
+  type DeletionBillingState,
+  type RenewalCancelStatus,
+} from './use-deletion-billing';
+import type { BanMeasure } from './sanction-dialog';
+import type { UsersIntent } from './users-action';
 import { useOnUsersSettled, usersFailureOf, useUsersFetcher } from './use-users-fetcher';
 
 export type DeleteUserDialogProps = Readonly<{
   user: AdminUserDto;
+  /** The account's billing, read on open, and the cancel of its card renewal. */
+  billingApi: Pick<BillingApi, 'adminAccount' | 'adminCancel'>;
+  /** The admin's own 2FA: the billing service only cancels another account's renewal with it. */
+  twoFactorOn: boolean;
+  /** A deletion that is a measure (a ban, from "Aplicar medida…"): it goes as the measure, which
+   *  e-mails the reasons and keeps the e-mail from being invited again. Absent = asked by the person. */
+  measure?: BanMeasure;
   onDeleted: () => void;
   /** "Suspender em vez disso", when tables block the deletion. */
   onSuspendInstead: () => void;
   onClose: () => void;
 }>;
 
-/** "Excluir usuário": loads what the deletion would take; tables where others play block it (and
- *  offer to suspend), otherwise typing the @ unlocks "Excluir".
+/** "Excluir usuário": loads what the deletion would take, the paid plan included; tables where
+ *  others play block it (and offer to suspend), otherwise typing the @ unlocks "Excluir", which
+ *  cancels the card renewal first and only then deletes.
  *
- *  Example: `<DeleteUserDialog user={bia} onDeleted={…} onSuspendInstead={…} onClose={…} />` */
+ *  Example: `<DeleteUserDialog user={bia} billingApi={api} twoFactorOn onDeleted={…} onSuspendInstead={…} onClose={…} />` */
 export function DeleteUserDialog(props: DeleteUserDialogProps): React.JSX.Element {
   const check = useUsersFetcher();
   const deletion = useUsersFetcher();
+  const billing = useDeletionBilling(props.billingApi, props.user.id);
+  const renewal = useRenewalCancel(props.billingApi, props.user.id);
   useOnceOnMount(() => check.send({ intent: 'deletion-check', userId: props.user.id }));
   useOnUsersSettled(deletion.settled, (result) => {
     if ('done' in result) props.onDeleted();
@@ -40,13 +61,18 @@ export function DeleteUserDialog(props: DeleteUserDialogProps): React.JSX.Elemen
   const blocking = blockingOf(check.settled, deletion.settled);
   const checked = check.settled && 'check' in check.settled ? check.settled.check : null;
   const failure = usersFailureOf(check.settled) ?? usersFailureOf(deletion.settled);
+  const busy = deletion.busy || renewal.status.kind === 'busy';
+  const confirm = async (): Promise<void> => {
+    if (mustCancelFirst(billing, renewal.status) && !(await renewal.cancel())) return;
+    deletion.send(deletionIntentOf(props.user.id, props.measure));
+  };
   return (
-    <AlertDialog open onOpenChange={(open) => !open && !deletion.busy && props.onClose()}>
-      <AlertDialogContent aria-busy={check.busy || deletion.busy}>
+    <AlertDialog open onOpenChange={(open) => !open && !busy && props.onClose()}>
+      <AlertDialogContent aria-busy={check.busy || busy}>
         <AlertDialogHeader>
           <AlertDialogTitle>Excluir @{props.user.username}?</AlertDialogTitle>
           <AlertDialogDescription asChild>
-            <div>
+            <div className="flex flex-col gap-2">
               {blocking ? (
                 <BlockedBody username={props.user.username} campaigns={blocking} />
               ) : checked ? (
@@ -54,6 +80,10 @@ export function DeleteUserDialog(props: DeleteUserDialogProps): React.JSX.Elemen
               ) : (
                 <p role="status">Conferindo o que a exclusão apaga…</p>
               )}
+              {!blocking && billing.kind === 'read' && billing.line !== null && (
+                <p>{billing.line}</p>
+              )}
+              {!blocking && props.measure && <p>{BAN_CONSEQUENCE}</p>}
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -62,19 +92,62 @@ export function DeleteUserDialog(props: DeleteUserDialogProps): React.JSX.Elemen
             {adminFailureMessage(failure)}
           </Alert>
         )}
+        {!blocking && <DeletionBillingAlert billing={billing} renewal={renewal.status} />}
         {blocking ? (
           <BlockedFooter onSuspendInstead={props.onSuspendInstead} />
         ) : (
-          checked && (
+          checked &&
+          billing.kind !== 'loading' && (
             <ConfirmByTyping
               user={props.user}
-              busy={deletion.busy}
-              onConfirm={() => deletion.send({ intent: 'delete', userId: props.user.id })}
+              busyLabel={busyLabelOf(deletion.busy, renewal.status)}
+              anyway={billing.kind === 'unread' || renewal.status.kind === 'failed'}
+              needsTwoFactor={mustCancelFirst(billing, renewal.status) && !props.twoFactorOn}
+              onConfirm={() => void confirm()}
             />
           )
         )}
       </AlertDialogContent>
     </AlertDialog>
+  );
+}
+
+const BAN_CONSEQUENCE =
+  'A exclusão é uma medida por violar a Política de uso: a pessoa recebe o e-mail com o motivo, e o e-mail dela não pode ser convidado de novo por 5 anos.';
+
+function deletionIntentOf(userId: string, measure: BanMeasure | undefined): UsersIntent {
+  if (!measure) return { intent: 'delete', userId };
+  return { intent: 'sanction', userId, sanction: { kind: 'ban', ...measure } };
+}
+
+// A failed cancel is not retried: the admin chose "Excluir mesmo assim" and the hourly
+// reconciliation of the billing service stops what is left.
+function mustCancelFirst(billing: DeletionBillingState, renewal: RenewalCancelStatus): boolean {
+  return billing.kind === 'read' && billing.renewing !== null && renewal.kind === 'idle';
+}
+
+function busyLabelOf(deleting: boolean, renewal: RenewalCancelStatus): string | null {
+  if (renewal.kind === 'busy') return 'Cancelando a renovação…';
+  return deleting ? 'Excluindo…' : null;
+}
+
+const RECONCILED_WITHIN_AN_HOUR = 'a cobrança cancela sozinha em até 1 hora.';
+
+function DeletionBillingAlert({
+  billing,
+  renewal,
+}: Readonly<{ billing: DeletionBillingState; renewal: RenewalCancelStatus }>) {
+  const message =
+    billing.kind === 'unread'
+      ? `Não deu para conferir a cobrança da conta. Se excluir mesmo assim e houver renovação no cartão, ${RECONCILED_WITHIN_AN_HOUR}`
+      : renewal.kind === 'failed'
+        ? `${billingFailureMessage(renewal.failure, 'cancelar a renovação')} Se excluir mesmo assim, ${RECONCILED_WITHIN_AN_HOUR}`
+        : null;
+  if (message === null) return null;
+  return (
+    <Alert variant="destructive" className="px-3.5 py-3 text-sm">
+      {message}
+    </Alert>
   );
 }
 
@@ -127,15 +200,23 @@ function BlockedFooter({
   );
 }
 
-function ConfirmByTyping({
-  user,
-  busy,
-  onConfirm,
-}: Readonly<{ user: AdminUserDto; busy: boolean; onConfirm: () => void }>): React.JSX.Element {
+type ConfirmByTypingProps = Readonly<{
+  user: AdminUserDto;
+  /** What the button says while it works; `null` when idle. */
+  busyLabel: string | null;
+  /** The billing could not be read or its renewal not cancelled: "Excluir mesmo assim". */
+  anyway: boolean;
+  /** A renewal to cancel first and no 2FA on the admin's account: disabled, with the reason. */
+  needsTwoFactor: boolean;
+  onConfirm: () => void;
+}>;
+
+function ConfirmByTyping(props: ConfirmByTypingProps): React.JSX.Element {
   const id = useId();
   const [typed, setTyped] = useState('');
-  const expected = `@${user.username}`;
+  const expected = `@${props.user.username}`;
   const matches = typed.trim().toLowerCase() === expected;
+  const busy = props.busyLabel !== null;
   return (
     <>
       <FormField id={id} label={`Digite ${expected} para confirmar`} error={undefined}>
@@ -146,17 +227,20 @@ function ConfirmByTyping({
           onChange={(event) => setTyped(event.target.value)}
         />
       </FormField>
+      {props.needsTwoFactor && (
+        <TwoFactorRequiredNote action="cancelar a renovação antes de excluir" />
+      )}
       <AlertDialogFooter>
         <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
         <Button
           variant="destructive"
           size="lg"
-          disabled={!matches || busy}
+          disabled={!matches || busy || props.needsTwoFactor}
           aria-busy={busy}
-          onClick={onConfirm}
+          onClick={props.onConfirm}
         >
           {busy && <Loader2Icon aria-hidden="true" className="animate-spin" />}
-          {busy ? 'Excluindo…' : 'Excluir'}
+          {props.busyLabel ?? (props.anyway ? 'Excluir mesmo assim' : 'Excluir')}
         </Button>
       </AlertDialogFooter>
     </>

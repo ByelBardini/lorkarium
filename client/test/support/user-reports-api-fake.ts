@@ -44,7 +44,13 @@ export class UserReportsApiFake implements UserReportsApi {
   private close(reportId: string, request: ResolveUserReportRequestDto): Answers['resolve'] {
     const report = this.reports.get(reportId);
     if (report?.status !== 'open') return { ok: false, failure: { kind: 'not_found' } };
-    const closed = { ...report, ...request, resolvedAt: report.createdAt, resolvedBy: 'lucas' };
+    const closed: UserReportDto = {
+      ...report,
+      status: request.status,
+      adminNote: request.note ?? null,
+      resolvedAt: report.createdAt,
+      resolvedBy: 'lucas',
+    };
     this.reports.set(reportId, closed);
     return { ok: true, value: closed };
   }

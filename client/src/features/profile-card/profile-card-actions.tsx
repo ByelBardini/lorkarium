@@ -84,6 +84,7 @@ export function ProfileCardActions(props: ProfileCardActionsProps): React.JSX.El
         api={deps.api}
         userId={card.id}
         name={card.name}
+        campaigns={card.mutualCampaigns}
         open={reporting}
         onOpenChange={setReporting}
       />

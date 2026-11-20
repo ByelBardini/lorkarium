@@ -23,6 +23,12 @@ export type AccountCommonFailure =
   | Readonly<{ kind: 'invalid' }>
   | Readonly<{ kind: 'rate_limited'; retryAfterSeconds: number }>;
 
+/** A screenshot upload refused (a report's or a feedback's): past 5 MiB, or not a PNG, JPEG or WebP. */
+export type ScreenshotUploadFailure =
+  | AccountCommonFailure
+  | Readonly<{ kind: 'attachment_too_large' }>
+  | Readonly<{ kind: 'unsupported_image' }>;
+
 /** The failure each `ApiErrorDto.code` of a route means; a code outside it falls to the status. */
 export type FailureByCode<F> = Readonly<Record<string, F>>;
 

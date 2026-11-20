@@ -79,6 +79,7 @@ describe('availableInText', () => {
 
   it('no plan on offer has it: the paid plans', () => {
     expect(availableInText(() => false)).toBe('Disponível nos planos pagos');
+    expect(availableInText((limits) => limits.profileBanner)).toBe('Disponível no plano Lenda');
   });
 });
 

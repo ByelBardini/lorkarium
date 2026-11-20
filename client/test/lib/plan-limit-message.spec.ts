@@ -101,9 +101,50 @@ describe('planLimitMessage', () => {
   );
 
   it('an account customization names the paid plans (the Apoiador frees it, outside the table grid)', () => {
-    expect(planLimitMessage({ resource: 'profileBanner', limit: 0, plan: 'free' })).toBe(
-      'Banner de perfil está nos planos pagos.',
+    expect(planLimitMessage({ resource: 'diceTexture', limit: 0, plan: 'free' })).toBe(
+      'Textura própria do dado está nos planos pagos.',
     );
+  });
+
+  it('the banner of the profile names the Lenda, on Grátis as on Narrador', () => {
+    for (const plan of ['free', 'apoiador', 'narrador'] as const) {
+      expect(planLimitMessage({ resource: 'profileBanner', limit: 0, plan })).toBe(
+        'Banner de perfil está no plano Lenda.',
+      );
+    }
+  });
+
+  it('a ceiling given by the person’s own plan speaks of her plan, and the next plan frees more', () => {
+    const planLimit = {
+      resource: 'savedRolls',
+      limit: 15,
+      plan: 'apoiador',
+      holder: 'account',
+    } as const;
+    expect(planLimitMessage(planLimit)).toBe(
+      'Seu plano Apoiador permite até 15 rolagens salvas por pessoa. A Lenda libera 50.',
+    );
+  });
+
+  it('a folder ceiling of the person’s Narrador speaks of her plan too', () => {
+    const planLimit = {
+      resource: 'savedRollFolders',
+      limit: 5,
+      plan: 'narrador',
+      holder: 'account',
+    } as const;
+    expect(planLimitMessage(planLimit)).toBe(
+      'Seu plano Narrador permite até 5 pastas de rolagens por pessoa. A Lenda libera 50.',
+    );
+  });
+
+  it('a ceiling given by the table keeps the sentence of the table, with or without the holder', () => {
+    const sentence =
+      'Esta mesa usa o plano Grátis, que permite até 3 rolagens salvas por pessoa. O Narrador libera 15.';
+    expect(planLimitMessage({ resource: 'savedRolls', limit: 3, plan: 'free' })).toBe(sentence);
+    expect(
+      planLimitMessage({ resource: 'savedRolls', limit: 3, plan: 'free', holder: 'table' }),
+    ).toBe(sentence);
   });
 
   it('has a sentence for every resource of the contract', () => {

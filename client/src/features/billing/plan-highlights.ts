@@ -1,4 +1,10 @@
-import { PLAN_LIMITS, type BillingPlan, type PlanLimits } from '@lorkarium/contracts';
+import {
+  PERSONAL_SAVED_ROLL_LIMITS,
+  PLAN_LIMITS,
+  type BillingPlan,
+  type PlanLimits,
+  type SavedRollCeilings,
+} from '@lorkarium/contracts';
 import { byteSizeText } from '@/lib/byte-size-text';
 
 export type OfferedPlan = 'free' | BillingPlan;
@@ -12,6 +18,7 @@ const EXTRA_LINES: Readonly<Record<OfferedPlan, readonly string[]>> = {
   lenda: [
     'Janelas de Chat e Imagens, auras com efeito e arte animada',
     'Grids, mapas e fichas sem limite no uso normal',
+    'Banner no seu perfil',
     'Tudo do Narrador',
   ],
 };
@@ -21,6 +28,7 @@ const APOIADOR_LINES = [
   'Cor própria no perfil, nos dados e nas cores salvas',
   'Textura própria para os seus dados',
   'Foto de perfil em GIF animado',
+  savedRollsLine(PERSONAL_SAVED_ROLL_LIMITS.apoiador),
 ];
 
 /** What an offer promises in a few lines.
@@ -30,6 +38,10 @@ export function planHighlightsOf(plan: OfferedPlan): readonly string[] {
   if (plan === 'apoiador') return APOIADOR_LINES;
   const limits = PLAN_LIMITS[plan];
   return [tablesLine(limits), seatsLine(limits), ...EXTRA_LINES[plan]];
+}
+
+function savedRollsLine(ceilings: SavedRollCeilings): string {
+  return `${ceilings.maxSavedRolls} rolagens salvas e ${ceilings.maxSavedRollFolders} pastas em qualquer mesa`;
 }
 
 function tablesLine({ maxCampaigns, maxStorageBytes }: PlanLimits): string {

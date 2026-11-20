@@ -3,21 +3,22 @@ import { describe, expect, it } from 'vitest';
 import { AuthFrame } from '@/features/auth/auth-frame';
 
 describe('AuthFrame', () => {
-  it('the foot links the Terms of use and the Privacy policy', () => {
+  it.each([
+    ['Termos de uso', '/api/legal/terms'],
+    ['Política de privacidade', '/api/legal/privacy'],
+    ['Política de uso', '/api/legal/acceptable-use'],
+    ['Código-fonte', 'https://github.com/ByelBardini/lorkarium'],
+  ])('the foot links "%s" to %s in a new tab', (name, href) => {
     render(
       <AuthFrame pageTitle="Lorkarium · Entrar" heading="Bem-vindo de volta">
         <p>formulário</p>
       </AuthFrame>,
     );
     const legal = screen.getByRole('navigation', { name: 'Documentos legais' });
-    expect(within(legal).getByRole('link', { name: 'Termos de uso' })).toHaveAttribute(
-      'href',
-      '/api/legal/terms',
-    );
-    expect(within(legal).getByRole('link', { name: 'Política de privacidade' })).toHaveAttribute(
-      'href',
-      '/api/legal/privacy',
-    );
+    const link = within(legal).getByRole('link', { name });
+    expect(link).toHaveAttribute('href', href);
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
   it('legalLinks={false} leaves them out and still shows the footer content', () => {

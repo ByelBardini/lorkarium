@@ -30,8 +30,13 @@ export type UserAdminFailure =
   | Readonly<{ kind: 'self_action' }>
   | Readonly<{ kind: 'owns_shared_campaigns'; blockingCampaigns: BlockingCampaignDto[] }>
   | Readonly<{ kind: 'email_taken' }>
+  | Readonly<{ kind: 'email_banned' }>
   | Readonly<{ kind: 'already_invited'; invitationId: string | null }>
   | Readonly<{ kind: 'account_suspended' }>
+  | Readonly<{ kind: 'already_suspended' }>
+  | Readonly<{ kind: 'sanction_until_past' }>
+  | Readonly<{ kind: 'target_is_admin' }>
+  | Readonly<{ kind: 'appeal_already_decided' }>
   | Readonly<{ kind: 'not_found' }>
   | Readonly<{ kind: 'mail_delivery_failed' }>
   | Readonly<{ kind: 'invalid' }>
@@ -50,7 +55,6 @@ export interface UserAdminApi {
   cancelInvitation(invitationId: string): Promise<UserAdminResult<null>>;
   changeRole(userId: string, role: UserRoleDto): Promise<UserAdminResult<AdminUserDto>>;
   changePlan(userId: string, plan: UserPlan): Promise<UserAdminResult<AdminUserDto>>;
-  suspend(userId: string): Promise<UserAdminResult<AdminUserDto>>;
   reactivate(userId: string): Promise<UserAdminResult<AdminUserDto>>;
   sendPasswordLink(userId: string): Promise<UserAdminResult<PasswordResetLinkResponseDto>>;
   deletionCheck(userId: string): Promise<UserAdminResult<UserDeletionCheckDto>>;
@@ -64,11 +68,18 @@ const FAILURE_BY_CODE: Readonly<Record<string, UserAdminFailure>> = {
   FORBIDDEN_ROLE: { kind: 'forbidden' },
   SELF_ACTION: { kind: 'self_action' },
   EMAIL_TAKEN: { kind: 'email_taken' },
+  EMAIL_BANNED: { kind: 'email_banned' },
   ACCOUNT_SUSPENDED: { kind: 'account_suspended' },
   USER_NOT_FOUND: { kind: 'not_found' },
   INVITATION_NOT_FOUND: { kind: 'not_found' },
   MAIL_SAMPLE_NOT_FOUND: { kind: 'not_found' },
   MAIL_DELIVERY_FAILED: { kind: 'mail_delivery_failed' },
+  ALREADY_SUSPENDED: { kind: 'already_suspended' },
+  SANCTION_UNTIL_PAST: { kind: 'sanction_until_past' },
+  TARGET_IS_ADMIN: { kind: 'target_is_admin' },
+  APPEAL_ALREADY_DECIDED: { kind: 'appeal_already_decided' },
+  SANCTION_NOT_FOUND: { kind: 'not_found' },
+  SANCTION_REPORT_NOT_FOUND: { kind: 'not_found' },
 };
 
 /** `UserAdminApi` over HTTP: validates every answer by the contracts DTO.
@@ -107,11 +118,6 @@ export class HttpUserAdminApi implements UserAdminApi {
 
   async changePlan(userId: string, plan: UserPlan): Promise<UserAdminResult<AdminUserDto>> {
     const call = await callApi(this.transport, 'PATCH', `${userPath(userId)}/plan`, { plan });
-    return answerOf(call, adminUserResponseDto, (body) => body.user);
-  }
-
-  async suspend(userId: string): Promise<UserAdminResult<AdminUserDto>> {
-    const call = await callApi(this.transport, 'POST', `${userPath(userId)}/suspend`);
     return answerOf(call, adminUserResponseDto, (body) => body.user);
   }
 

@@ -1,4 +1,4 @@
-import type { PlanLimits } from '@lorkarium/contracts';
+import { savedRollLimitsOf, type PlanLimits } from '@lorkarium/contracts';
 import { createContext, useContext, useMemo } from 'react';
 import type { PlanReadOnlyResource } from '@/lib/plan-limit-message';
 import type { AccountLimits } from '@/stores/session-store';
@@ -25,7 +25,8 @@ export function usePlanLimits(): PlanLimitsInForce {
 }
 
 /** Whether the configuration of `item` is editable under the table's limits around: closed, with
- *  the read-only sentence, when the server marked it `planLocked`.
+ *  the read-only sentence, when the server marked it `planLocked`. A saved roll is the person's:
+ *  its ceiling is the greater of the table's and the account's own (`savedRollLimitsOf`).
  *
  *  Example: `const lock = usePlanLock('scenes', scene); <Button disabled={!lock.open} />` */
 export function usePlanLock(
@@ -33,5 +34,15 @@ export function usePlanLock(
   item: Readonly<{ planLocked: boolean }> | null,
 ): PlanGate {
   const table = useContext(TablePlanLimitsContext);
-  return planLockGate(table, resource, item ?? { planLocked: false });
+  const account = useContext(AccountPlanContext);
+  const limits = resource === 'savedRolls' ? savedRollPlanOf(table, account) : table;
+  return planLockGate(limits, resource, item ?? { planLocked: false });
+}
+
+function savedRollPlanOf(
+  table: PlanLimits | null,
+  account: AccountLimits | null,
+): PlanLimits | null {
+  if (table === null || account === null) return table;
+  return savedRollLimitsOf(table, account.limits.plan).limits;
 }

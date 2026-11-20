@@ -58,7 +58,6 @@ describe('HttpUserAdminApi', () => {
       '/admin/users/u-1/plan',
       { plan: 'lenda' },
     ],
-    ['suspend', () => api.suspend('u-1'), 'POST', '/admin/users/u-1/suspend', undefined],
     ['reactivate', () => api.reactivate('u-1'), 'POST', '/admin/users/u-1/reactivate', undefined],
     [
       'sendPasswordLink',
@@ -113,6 +112,7 @@ describe('HttpUserAdminApi', () => {
     [409, { code: 'SELF_ACTION' }, { kind: 'self_action' }],
     [409, { code: 'EMAIL_TAKEN' }, { kind: 'email_taken' }],
     [409, { code: 'ACCOUNT_SUSPENDED' }, { kind: 'account_suspended' }],
+    [409, { code: 'EMAIL_BANNED' }, { kind: 'email_banned' }],
     [404, { code: 'USER_NOT_FOUND' }, { kind: 'not_found' }],
     [400, { code: 'INVALID_BODY' }, { kind: 'invalid' }],
     [
@@ -122,7 +122,7 @@ describe('HttpUserAdminApi', () => {
     ],
   ] as const)('a %i %o fails as %o', async (status, body, failure) => {
     refuse(status, body);
-    expect(await api.suspend('u-1')).toEqual({ ok: false, failure });
+    expect(await api.reactivate('u-1')).toEqual({ ok: false, failure });
   });
 
   it('OWNS_SHARED_CAMPAIGNS carries the blocking tables', async () => {

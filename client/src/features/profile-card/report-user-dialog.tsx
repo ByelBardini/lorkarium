@@ -2,6 +2,7 @@ import {
   USER_REPORT_DETAILS_MAX_LENGTH,
   USER_REPORT_REASONS,
   type UserReportReason,
+  type UserReportRequestDto,
 } from '@lorkarium/contracts';
 import { useId, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -17,27 +18,46 @@ import {
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
+import { ScreenshotShotsField } from '@/components/screenshot-shots/screenshot-shots-field';
+import {
+  useScreenshotShots,
+  type ScreenshotShots,
+  type ScreenshotUploadOutcome,
+} from '@/components/screenshot-shots/use-screenshot-shots';
 import type { ProfileCardApi } from '@/services/profile-card-api';
+import { screenshotFailureText } from '@/components/screenshot-shots/screenshot-failure-text';
 import { cardCommandFailureText, REPORT_REASON_LABELS } from './profile-card-text';
+
+/** A table both accounts play: the only ones a report may name. */
+export type ReportCampaignOption = Readonly<{ id: string; name: string }>;
 
 export type ReportUserDialogProps = Readonly<{
   api: ProfileCardApi;
   userId: string;
   name: string;
+  /** The tables in common (the card's `mutualCampaigns`); empty hides the field. */
+  campaigns: readonly ReportCampaignOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }>;
 
 type ReportStage = 'editing' | 'sending' | 'sent';
 
-/** "Denunciar Bia": a reason from the list (required) and optional details, sent to the admins'
- *  queue. The reporter hears nothing back beyond "Denúncia enviada".
+type ReportDraft = Readonly<{
+  reason: UserReportReason;
+  details: string;
+  campaignId: string;
+}>;
+
+/** "Denunciar Bia": a reason from the list (required), optional details, the table where it
+ *  happened (one in common) and up to 5 screenshots, sent to the admins' queue. The screenshots
+ *  go up first; the reporter hears nothing back beyond "Denúncia enviada".
  *
- *  Example: `<ReportUserDialog api={api} userId={card.id} name={card.name} open onOpenChange={setOpen} />` */
+ *  Example: `<ReportUserDialog api={api} userId={card.id} name={card.name} campaigns={card.mutualCampaigns} open onOpenChange={setOpen} />` */
 export function ReportUserDialog(props: ReportUserDialogProps): React.JSX.Element {
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{`Denunciar ${props.name}`}</DialogTitle>
           <DialogDescription>
@@ -50,50 +70,85 @@ export function ReportUserDialog(props: ReportUserDialogProps): React.JSX.Elemen
   );
 }
 
-function ReportForm({ api, userId, onOpenChange }: ReportUserDialogProps): React.JSX.Element {
+function ReportForm(props: ReportUserDialogProps): React.JSX.Element {
   const ids = useId();
   const [reason, setReason] = useState<UserReportReason | null>(null);
   const [details, setDetails] = useState('');
-  const [stage, setStage] = useState<ReportStage>('editing');
-  const [failure, setFailure] = useState<string | null>(null);
-  const send = async (): Promise<void> => {
-    if (reason === null) return;
-    setStage('sending');
-    const result = await api.report(userId, { reason, details: details.trim() || null });
-    setStage(result.ok ? 'sent' : 'editing');
-    setFailure(result.ok ? null : cardCommandFailureText(result.failure));
-  };
-  if (stage === 'sent') return <ReportSent onClose={() => onOpenChange(false)} />;
+  const [campaignId, setCampaignId] = useState('');
+  const shots = useScreenshotShots(reportShotsOptionsOf(props.api));
+  const { stage, failure, send } = useReportSend(props, shots);
+  if (stage === 'sent') return <ReportSent onClose={() => props.onOpenChange(false)} />;
+  const sending = stage === 'sending';
   return (
     <form
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
-        void send();
+        if (reason !== null) void send({ reason, details, campaignId });
       }}
     >
       <ReasonChoice groupId={ids} reason={reason} onChange={setReason} />
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={`${ids}-details`}>Detalhes (opcional)</Label>
-        <Textarea
-          id={`${ids}-details`}
-          value={details}
-          maxLength={USER_REPORT_DETAILS_MAX_LENGTH}
-          onChange={(event) => setDetails(event.target.value)}
-        />
-      </div>
+      <DetailsField id={`${ids}-details`} value={details} onChange={setDetails} />
+      <CampaignChoice
+        id={`${ids}-campaign`}
+        campaigns={props.campaigns}
+        value={campaignId}
+        onChange={setCampaignId}
+      />
+      <ScreenshotShotsField shots={shots} disabled={sending} />
       {failure && (
         <Alert variant="destructive">
           <AlertDescription>{failure}</AlertDescription>
         </Alert>
       )}
       <DialogFooter>
-        <Button type="submit" disabled={reason === null || stage === 'sending'}>
+        <Button type="submit" disabled={reason === null || sending}>
           Enviar denúncia
         </Button>
       </DialogFooter>
     </form>
   );
+}
+
+function reportShotsOptionsOf(api: ProfileCardApi): Parameters<typeof useScreenshotShots>[0] {
+  const upload = async (file: File): Promise<ScreenshotUploadOutcome> => {
+    const result = await api.uploadReportAttachment(file);
+    if (result.ok) return { ok: true, id: result.value.id };
+    return { ok: false, error: screenshotFailureText(result.failure) };
+  };
+  return { upload, limitText: 'Até 5 prints por denúncia.' };
+}
+
+// The screenshots go up first: one that fails keeps the report from leaving (its error is on it).
+function useReportSend(
+  { api, userId }: ReportUserDialogProps,
+  shots: ScreenshotShots,
+): Readonly<{
+  stage: ReportStage;
+  failure: string | null;
+  send: (draft: ReportDraft) => Promise<void>;
+}> {
+  const [stage, setStage] = useState<ReportStage>('editing');
+  const [failure, setFailure] = useState<string | null>(null);
+  const send = async (draft: ReportDraft): Promise<void> => {
+    setStage('sending');
+    setFailure(null);
+    const attachmentIds = await shots.uploadAll();
+    if (attachmentIds === null) return setStage('editing');
+    const result = await api.report(userId, requestOf(draft, attachmentIds));
+    setStage(result.ok ? 'sent' : 'editing');
+    setFailure(result.ok ? null : cardCommandFailureText(result.failure));
+  };
+  return { stage, failure, send };
+}
+
+function requestOf(draft: ReportDraft, attachmentIds: readonly string[]): UserReportRequestDto {
+  return {
+    reason: draft.reason,
+    details: draft.details.trim() || null,
+    ...(draft.campaignId ? { campaignId: draft.campaignId } : {}),
+    ...(attachmentIds.length > 0 ? { attachmentIds: [...attachmentIds] } : {}),
+  };
 }
 
 function ReasonChoice({
@@ -129,6 +184,48 @@ function ReasonChoice({
         ))}
       </RadioGroup>
     </fieldset>
+  );
+}
+
+type TextFieldProps = Readonly<{ id: string; value: string; onChange: (value: string) => void }>;
+
+function DetailsField({ id, value, onChange }: TextFieldProps): React.JSX.Element {
+  return (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={id}>Detalhes (opcional)</Label>
+      <Textarea
+        id={id}
+        value={value}
+        maxLength={USER_REPORT_DETAILS_MAX_LENGTH}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </div>
+  );
+}
+
+function CampaignChoice({
+  campaigns,
+  ...field
+}: TextFieldProps &
+  Readonly<{ campaigns: readonly ReportCampaignOption[] }>): React.JSX.Element | null {
+  if (campaigns.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={field.id}>Mesa onde aconteceu (opcional)</Label>
+      <select
+        id={field.id}
+        value={field.value}
+        onChange={(event) => field.onChange(event.target.value)}
+        className="h-10 w-full rounded-lg border border-input bg-card px-3 text-sm text-foreground outline-none focus-visible:border-primary focus-visible:ring-3 focus-visible:ring-ring/20"
+      >
+        <option value="">Nenhuma</option>
+        {campaigns.map((campaign) => (
+          <option key={campaign.id} value={campaign.id}>
+            {campaign.name}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }
 

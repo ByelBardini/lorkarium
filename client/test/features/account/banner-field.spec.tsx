@@ -11,7 +11,17 @@ import { ANA } from '../../support/auth-api-fake';
 import { CENTER_STRIP, fakeCropAreaReporting } from '../../support/crop-area-fake';
 import { ANA_PROFILE, ProfileApiFake, UPLOADED_BANNER_ID } from '../../support/profile-api-fake';
 
-const PAID: AccountLimits = { plan: 'apoiador', limits: PLAN_LIMITS.apoiador, customization: true };
+const PAID: AccountLimits = { plan: 'lenda', limits: PLAN_LIMITS.lenda, customization: true };
+const APOIADOR: AccountLimits = {
+  plan: 'apoiador',
+  limits: PLAN_LIMITS.apoiador,
+  customization: true,
+};
+const NARRADOR: AccountLimits = {
+  plan: 'narrador',
+  limits: PLAN_LIMITS.narrador,
+  customization: true,
+};
 const FREE: AccountLimits = { plan: 'free', limits: PLAN_LIMITS.free, customization: false };
 
 describe('BannerField', () => {
@@ -44,15 +54,22 @@ describe('BannerField', () => {
     return new File([new Uint8Array(4)], 'mapa.png', { type: 'image/png' });
   }
 
-  it('on Grátis the banner is locked: the Apoiador seal, the plan sentence and no way to send', () => {
-    renderField(FREE);
+  it.each([
+    ['Grátis', FREE],
+    ['Apoiador', APOIADOR],
+    ['Narrador', NARRADOR],
+  ] as const)(
+    'on %s the banner is locked: the Lenda seal, the plan sentence and no way to send',
+    (_, account) => {
+      renderField(account);
 
-    expect(within(field()).getByRole('img', { name: 'Apoiador' })).toBeVisible();
-    expect(within(field()).getByText('Banner de perfil está nos planos pagos.')).toBeVisible();
-    expect(within(field()).getByText('Disponível no plano Apoiador')).toBeVisible();
-    expect(within(field()).queryByLabelText('Arquivo de imagem')).toBeNull();
-    expect(within(field()).queryByRole('button', { name: /imagem/ })).toBeNull();
-  });
+      expect(within(field()).getByRole('img', { name: 'Plano Lenda' })).toBeVisible();
+      expect(within(field()).getByText('Banner de perfil está no plano Lenda.')).toBeVisible();
+      expect(within(field()).getByText('Disponível no plano Lenda')).toBeVisible();
+      expect(within(field()).queryByLabelText('Arquivo de imagem')).toBeNull();
+      expect(within(field()).queryByRole('button', { name: /imagem/ })).toBeNull();
+    },
+  );
 
   // The server cuts every frame: a GIF keeps moving, so the browser never redraws the file.
   it('on a paid plan a file opens the 3:1 crop, and "Enviar" sends the file itself with the rectangle', async () => {
@@ -90,12 +107,12 @@ describe('BannerField', () => {
     expect(within(field()).getByRole('button', { name: 'Tirar banner' })).toBeVisible();
   });
 
-  it('a refusal of the plan from the server reads the plan sentence', async () => {
+  it('a refusal of the plan from the server (the Lenda ended meanwhile) reads the plan sentence', async () => {
     profileApi.answers.answer('uploadBanner', {
       ok: false,
       failure: {
         kind: 'plan_limit',
-        planLimit: { resource: 'profileBanner', limit: 0, plan: 'free' },
+        planLimit: { resource: 'profileBanner', limit: 0, plan: 'narrador' },
       },
     });
     renderField(PAID);
@@ -104,8 +121,6 @@ describe('BannerField', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Recorte de teste' }));
     await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
 
-    expect(
-      await within(field()).findByText('Banner de perfil está nos planos pagos.'),
-    ).toBeVisible();
+    expect(await within(field()).findByText('Banner de perfil está no plano Lenda.')).toBeVisible();
   });
 });

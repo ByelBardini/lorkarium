@@ -1,8 +1,10 @@
 import {
   profileCardResponseDto,
   profileLookupParamsDto,
+  userReportAttachmentResponseDto,
   type ProfileCardDto,
   type ReputationVoteValue,
+  type UserReportAttachmentDto,
   type UserReportRequestDto,
 } from '@lorkarium/contracts';
 import {
@@ -11,8 +13,9 @@ import {
   type AccountCommonFailure,
   type AccountLoadFailure,
   type AccountResult,
+  type ScreenshotUploadFailure,
 } from './account-failure';
-import { callApi, parseOk, retryAfterOf, type ApiCall } from './api-call';
+import { callApi, callUpload, parseOk, retryAfterOf, type ApiCall } from './api-call';
 import type { HttpTransport } from './http-transport';
 
 /** A card read: suspended or missing accounts answer 404. */
@@ -29,11 +32,18 @@ export type ReputationFailure =
   | Readonly<{ kind: 'reputation_not_allowed' }>
   | Readonly<{ kind: 'user_not_found' }>;
 
-/** A second open report on the same person is 409 `REPORT_ALREADY_OPEN`. */
+/** A second open report on the same person is 409 `REPORT_ALREADY_OPEN`; a table the two do not
+ *  both play is `campaign_not_shared`; a screenshot that is not one the reporter sent loose is
+ *  `attachment_not_found`. */
 export type UserReportFailure =
   | AccountCommonFailure
   | Readonly<{ kind: 'report_already_open' }>
+  | Readonly<{ kind: 'campaign_not_shared' }>
+  | Readonly<{ kind: 'attachment_not_found' }>
   | Readonly<{ kind: 'user_not_found' }>;
+
+/** A screenshot sent for a report: past 5 MiB, or not a PNG, JPEG or WebP. */
+export type ReportAttachmentFailure = ScreenshotUploadFailure;
 
 /** Another account's card, the reader's vote on it and a report; failures come back as values.
  *
@@ -48,6 +58,10 @@ export interface ProfileCardApi {
     userId: string,
     report: UserReportRequestDto,
   ): Promise<AccountResult<null, UserReportFailure>>;
+  /** One screenshot, sent alone before the report that cites its id. */
+  uploadReportAttachment(
+    file: Blob,
+  ): Promise<AccountResult<UserReportAttachmentDto, ReportAttachmentFailure>>;
 }
 
 const USER_NOT_FOUND = { kind: 'user_not_found' } as const;
@@ -60,6 +74,13 @@ const REPUTATION_FAILURE_BY_CODE = {
 const REPORT_FAILURE_BY_CODE = {
   REPORT_ALREADY_OPEN: { kind: 'report_already_open' },
   REPORT_TARGET_NOT_FOUND: USER_NOT_FOUND,
+  CAMPAIGN_NOT_SHARED: { kind: 'campaign_not_shared' },
+  ATTACHMENT_NOT_FOUND: { kind: 'attachment_not_found' },
+} as const;
+
+const ATTACHMENT_FAILURE_BY_CODE = {
+  ATTACHMENT_TOO_LARGE: { kind: 'attachment_too_large' },
+  UNSUPPORTED_IMAGE: { kind: 'unsupported_image' },
 } as const;
 
 function pathOf(userId: string, rest: string): string {
@@ -110,6 +131,16 @@ export class HttpProfileCardApi implements ProfileCardApi {
   ): Promise<AccountResult<null, UserReportFailure>> {
     const call = await callApi(this.transport, 'POST', pathOf(userId, 'reports'), report);
     return emptied(call, REPORT_FAILURE_BY_CODE);
+  }
+
+  async uploadReportAttachment(
+    file: Blob,
+  ): Promise<AccountResult<UserReportAttachmentDto, ReportAttachmentFailure>> {
+    const call = await callUpload(this.transport, '/reports/attachments', file);
+    if (call.kind === 'ok') {
+      return parseOk(userReportAttachmentResponseDto, call.body, (body) => body.attachment);
+    }
+    return { ok: false, failure: commandFailureOf(call, ATTACHMENT_FAILURE_BY_CODE) };
   }
 }
 

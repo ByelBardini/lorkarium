@@ -40,10 +40,13 @@ import { safeRedirectTarget } from '@/lib/safe-redirect';
 import type { AccountLinksApi } from '@/services/account-links-api';
 import type { AccountPlanApi } from '@/services/account-plan-api';
 import type { BillingApi } from '@/services/billing-api';
+import type { DataExportApi } from '@/services/data-export-api';
 import type { TabStorage } from '@/stores/scene-tabs-storage';
 import type { AccountSecurityApi } from '@/services/account-security-api';
 import type { UserAdminApi } from '@/services/user-admin-api';
 import type { UserReportsApi } from '@/services/user-reports-api';
+import type { SanctionsApi } from '@/services/sanctions-api';
+import type { BroadcastsApi } from '@/services/broadcasts-api';
 import type { BadgesAdminApi } from '@/services/badges-admin-api';
 import type { AuthApi } from '@/services/auth-api';
 import type { RoomAssetsApi } from '@/services/assets-api';
@@ -95,6 +98,10 @@ import { AccountPlanProvider } from '@/features/plans/plan-limits-providers';
 import type { AccountRealtime } from '@/services/account-realtime';
 import type { FriendsApi } from '@/services/friends-api';
 import type { ProfileCardApi } from '@/services/profile-card-api';
+import type { FeedbackAdminApi } from '@/services/feedback-admin-api';
+import type { FeedbackApi } from '@/services/feedback-api';
+import type { FeedbackWhere } from '@/lib/feedback-platform';
+import { useFeedbackDialog } from '@/features/feedback/use-feedback-dialog';
 import { ProfileCardProvider } from '@/features/profile-card/profile-card-provider';
 import type { DirectMessagesStore } from '@/stores/direct-messages-store';
 import type { FriendsStore } from '@/stores/friends-store';
@@ -113,6 +120,8 @@ export type AppDependencies = Readonly<{
   accountPlanApi: AccountPlanApi;
   /** The billing service (`/api/billing/*`): prices, checkout, subscription, refunds. */
   billingApi: BillingApi;
+  /** "Baixar meus dados" in "Minha conta": the ZIP of the account's own data. */
+  dataExportApi: DataExportApi;
   /** Leaves the app for the hosted checkout of the Mercado Pago; `location.assign` in the app. */
   goToCheckout: (url: string) => void;
   /** The `sessionStorage` that carries the paid end across the checkout and back. */
@@ -123,6 +132,10 @@ export type AppDependencies = Readonly<{
   userAdminApi: UserAdminApi;
   /** The backoffice queue of user reports (admins only). */
   userReportsApi: UserReportsApi;
+  /** The measures against an account and their appeals (admins only). */
+  sanctionsApi: SanctionsApi;
+  /** The backoffice notices by e-mail (admins only). */
+  broadcastsApi: BroadcastsApi;
   /** The backoffice badge catalog and the grants per account (admins only). */
   badgesAdminApi: BadgesAdminApi;
   /** The public side of the invitation and new-password links. */
@@ -216,6 +229,11 @@ export type AppDependencies = Readonly<{
   friendsApi: FriendsApi;
   /** Another account's card, the vote on it and the report (the profile card). */
   profileCardApi: ProfileCardApi;
+  /** "Relatar bug ou sugerir" of the user menu, and where the app runs (from the user-agent). */
+  feedbackApi: FeedbackApi;
+  feedbackWhere: FeedbackWhere;
+  /** The backoffice queue of the feedback and the publish to GitHub (admins only). */
+  feedbackAdminApi: FeedbackAdminApi;
   /** Friends, requests, blocks and presence, as the server confirmed them. */
   friends: StoreApi<FriendsStore>;
   /** The direct messages of this device, per account and friend. */
@@ -289,8 +307,17 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
               lazy: async () => (await import('@/features/admin/admin-routes')).reportsRoute(deps),
             },
             {
+              path: 'relatos',
+              lazy: async () => (await import('@/features/admin/admin-routes')).feedbackRoute(deps),
+            },
+            {
               path: 'emails',
               lazy: async () => (await import('@/features/admin/admin-routes')).mailTestRoute(deps),
+            },
+            {
+              path: 'comunicados',
+              lazy: async () =>
+                (await import('@/features/admin/admin-routes')).broadcastsRoute(deps),
             },
           ],
         },
@@ -429,6 +456,7 @@ function shellRoute(deps: AppDependencies): () => React.JSX.Element | null {
     const navigate = useNavigate();
     const friendsBadge = useFriendsBadge(deps.friends, deps.directMessages);
     const presence = useUserMenuPresence(deps.presenceChoice);
+    const feedback = useFeedbackDialog(deps);
     useSignOutWhenRefused(openTables, sessionStore);
     useLeaveDeletedTable(openTables);
     useTabActivity({ clock: interactionClock, onAway: setAway });
@@ -458,8 +486,10 @@ function shellRoute(deps: AppDependencies): () => React.JSX.Element | null {
               onSignOut={signOut}
               friendsBadge={friendsBadge}
               presence={presence}
+              onFeedback={feedback.open}
               brandInTitleBar={desktopWindow !== null}
             />
+            {feedback.dialog}
             <DocumentWorkspaceHost deps={deps} />
           </ProfileCardProvider>
         </SavedColorsProvider>

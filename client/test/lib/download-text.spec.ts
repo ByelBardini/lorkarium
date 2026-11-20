@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { downloadText } from '@/lib/download-text';
+import { downloadBlob, downloadText } from '@/lib/download-text';
 
 /** Stands for the browser's object URLs (jsdom has none) and remembers what was made and freed. */
 class ObjectUrlsFake {
@@ -45,5 +45,15 @@ describe('downloadText', () => {
   it('gives the Blob the type passed', () => {
     downloadText('{"format":"lorkarium.sheet-template"}', 'Ficha.lksheet', 'application/json');
     expect(urls.made[0]?.type).toBe('application/json');
+  });
+
+  it('downloadBlob hands the Blob itself to the URL, not a copy, then frees it', () => {
+    const zip = new Blob([new Uint8Array([80, 75, 3, 4])], { type: 'application/zip' });
+
+    downloadBlob(zip, 'lorkarium-dados-bia.zip');
+
+    expect(urls.made).toEqual([zip]);
+    expect(urls.made[0]).toBe(zip);
+    expect(urls.revoked).toEqual(['blob:fake/1']);
   });
 });

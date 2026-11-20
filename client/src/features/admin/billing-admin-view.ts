@@ -1,9 +1,12 @@
 import type {
+  BillingAdminAccountDto,
   BillingAdminSubscriptionDto,
   BillingPaymentDto,
   BillingSubscriptionDto,
 } from '@lorkarium/contracts';
+import { subscriptionLine } from '@/features/billing/subscription-line';
 import { dayOf } from '@/lib/paid-plan-text';
+import { PLAN_NAMES } from '@/lib/plan-seal';
 
 /** The tone of a status: success (moss), waiting (steel), problem (rust), past (muted). */
 export type BillingTone = 'success' | 'waiting' | 'problem' | 'past';
@@ -90,6 +93,32 @@ export function paymentTotalsOf(
       .filter((payment) => payment.status === status)
       .reduce((sum, payment) => sum + payment.amountCents, 0);
   return { receivedCents: sumOf('approved'), refundedCents: sumOf('refunded') };
+}
+
+export type DeletionBilling = Readonly<{
+  /** The card subscription that would keep charging: cancelled before the account goes. */
+  renewing: BillingAdminSubscriptionDto | null;
+  /** What the deletion takes from the paid plan; `null` without one. */
+  line: string | null;
+}>;
+
+const LOST_PAID_TIME = 'a pessoa perde o tempo pago restante.';
+
+/** What deleting the account does to its billing: the renewal to cancel first, and the sentence
+ *  of the dialog.
+ *
+ *  Example: `deletionBillingOf(account).line // 'Narrador pago até 23/12/2026; a pessoa perde…'` */
+export function deletionBillingOf(account: BillingAdminAccountDto): DeletionBilling {
+  const renewing =
+    splitSubscriptions(account.subscriptions).main.find(
+      (subscription) => subscription.status === 'active' && subscription.renews,
+    ) ?? null;
+  if (renewing !== null)
+    return { renewing, line: `${subscriptionLine(renewing)}; ${LOST_PAID_TIME}` };
+  if (account.paidPlan === null || account.paidPlanUntil === null)
+    return { renewing: null, line: null };
+  const paid = `${PLAN_NAMES[account.paidPlan]} pago até ${dayOf(account.paidPlanUntil)}`;
+  return { renewing: null, line: `${paid}; ${LOST_PAID_TIME}` };
 }
 
 /** The renewal of the account, from its newest subscription that got charged: a headline and,

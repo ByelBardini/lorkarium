@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -8,7 +8,7 @@ import { ANA } from '../../support/auth-api-fake';
 
 const LINK = '/invite#token=abc';
 const DEAD = 'Esse link venceu ou já foi usado. Peça um novo a quem te convidou.';
-const TERMS_BOX = 'Li e aceito os Termos de uso e a Política de privacidade';
+const TERMS_BOX = 'Li e aceito os Termos de uso, a Política de privacidade e a Política de uso';
 
 describe('accepting an invitation (/invite)', () => {
   let deps: TestDependencies;
@@ -62,17 +62,28 @@ describe('accepting an invitation (/invite)', () => {
     expect(deps.accountLinksApi.answers.callsOf('acceptInvitation')).toEqual([]);
   });
 
-  it('the acceptance box links the Terms of use and the Privacy policy, each in a new tab', async () => {
+  it('the acceptance box links the three legal texts, each in a new tab', async () => {
     renderAt(LINK);
     expect(await screen.findByRole('checkbox', { name: TERMS_BOX })).not.toBeChecked();
     const terms = screen.getByRole('link', { name: 'Termos de uso' });
     const privacy = screen.getByRole('link', { name: 'Política de privacidade' });
+    const acceptableUse = screen.getByRole('link', { name: 'Política de uso' });
     expect(terms).toHaveAttribute('href', '/api/legal/terms');
     expect(privacy).toHaveAttribute('href', '/api/legal/privacy');
-    for (const link of [terms, privacy]) {
+    expect(acceptableUse).toHaveAttribute('href', '/api/legal/acceptable-use');
+    for (const link of [terms, privacy, acceptableUse]) {
       expect(link).toHaveAttribute('target', '_blank');
       expect(link).toHaveAttribute('rel', 'noopener noreferrer');
     }
+  });
+
+  it('opening the acceptable use policy from the box does not tick it', async () => {
+    renderAt(LINK);
+    const box = await screen.findByRole('checkbox', { name: TERMS_BOX });
+    // fireEvent, not userEvent: user-event's own click behavior sends any click inside a <label> to
+    // its control, which browsers (and jsdom) skip for a link, the interactive content of the label.
+    fireEvent.click(screen.getByRole('link', { name: 'Política de uso' }));
+    expect(box).not.toBeChecked();
   });
 
   it('without the box ticked nothing is sent: the box says why and takes the focus', async () => {
@@ -80,7 +91,7 @@ describe('accepting an invitation (/invite)', () => {
     await fill(null, 'senha-boa-1', 'senha-boa-1', false);
     const box = screen.getByRole('checkbox', { name: TERMS_BOX });
     expect(box).toHaveAccessibleDescription(
-      'Para criar a conta, aceite os Termos de uso e a Política de privacidade.',
+      'Para criar a conta, aceite os Termos de uso, a Política de privacidade e a Política de uso.',
     );
     expect(box).toHaveAttribute('aria-invalid', 'true');
     expect(box).toHaveFocus();
