@@ -18,8 +18,9 @@ export type ApiErrorReply = (
  *
  *  Example: `planLimitErrorBody(error).planLimit // { resource: 'scenes', limit: 3, plan: 'free', reason: 'room' }` */
 export function planLimitErrorBody(error: PlanLimitError): ApiErrorDto {
-  const { code, message, resource, limit, plan, reason } = error;
-  return { code, message, planLimit: { resource, limit, plan, reason } };
+  const { code, message, resource, limit, plan, reason, holder } = error;
+  const planLimit = { resource, limit, plan, reason, ...(holder ? { holder } : {}) };
+  return { code, message, planLimit };
 }
 
 /** Wraps a module's error handler so a `PlanLimitError` thrown anywhere under it answers 403 with

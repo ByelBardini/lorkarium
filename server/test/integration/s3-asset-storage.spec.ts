@@ -60,6 +60,29 @@ describe('S3AssetStorage', () => {
     await expect(storage.remove(`avatars/${randomUUID()}`)).resolves.toBeUndefined();
   });
 
+  it('listKeys walks every page of the prefix, with each object date, and leaves the other prefixes out', async () => {
+    const paged = new S3AssetStorage({ ...config, bucket: `lorkarium-list-${randomUUID()}` }, 2);
+    opened.push(paged);
+    await paged.ensureBucket();
+    const before = Date.now() - 60_000;
+    for (const key of ['assets/a', 'assets/b', 'assets/c', 'avatars/x']) {
+      await paged.put(key, PNG_BYTES, 'image/png');
+    }
+
+    const listed = await paged.listKeys('assets/');
+
+    expect(listed.map((object) => object.key)).toEqual(['assets/a', 'assets/b', 'assets/c']);
+    for (const object of listed) {
+      expect(object.lastModified.getTime()).toBeGreaterThan(before);
+    }
+  });
+
+  it('listKeys of a prefix that holds nothing is an empty list', async () => {
+    await storage.ensureBucket();
+
+    expect(await storage.listKeys(`nothing-${randomUUID()}/`)).toEqual([]);
+  });
+
   it('a wrong secret fails citing the bucket and the endpoint, never the secret', async () => {
     const secretAccessKey = 'not-the-dev-secret';
     const wrong = new S3AssetStorage({ ...config, secretAccessKey });

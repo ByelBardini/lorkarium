@@ -74,7 +74,7 @@ export class AuthService {
       input.password,
     );
     if (!row || !matches) throw new InvalidCredentialsError(input.identifier);
-    toUserAccessBo(row).requireActive();
+    toUserAccessBo(row).requireActive(this.deps.clock.now());
     if (await this.deps.twoFactor.isEnabled(row.id)) {
       return { status: 'two-factor-required', challenge: await this.challenge(row, input) };
     }
@@ -84,9 +84,9 @@ export class AuthService {
   /** Issues a login session for `row` (after the password, the second factor or an accepted
    *  invitation); refused for a suspended account. */
   async startSession(row: UserPo, persistent: boolean, userAgent?: string): Promise<IssuedSession> {
-    toUserAccessBo(row).requireActive();
-    const token = this.deps.tokens.generate();
     const now = this.deps.clock.now();
+    toUserAccessBo(row).requireActive(now);
+    const token = this.deps.tokens.generate();
     const terms = AuthSessionBo.startedAt(now, persistent);
     const id = this.deps.tokens.hash(token);
     const agent = userAgent?.slice(0, USER_AGENT_MAX_LENGTH) ?? null;
@@ -130,7 +130,7 @@ export class AuthService {
     const user = await this.deps.users.findById(session.userId);
     if (!user) return null;
     // Defense in depth: the suspension already deleted the sessions, a race may leave one.
-    if (user.suspendedAt !== null) {
+    if (toUserAccessBo(user).isSuspendedAt(now)) {
       await this.deps.sessions.delete(session.id);
       return null;
     }

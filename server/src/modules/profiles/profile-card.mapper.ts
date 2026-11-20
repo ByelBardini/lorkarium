@@ -8,7 +8,7 @@ import type {
 import { memberColorOf } from '@lorkarium/game-core';
 import { accountSealFieldsOf } from '../campaigns/campaigns.mapper';
 import type { RelationReadingRow } from '../friends/friendships.dao';
-import { customizationAllowed } from '../plans/plan-limits.bo';
+import { profileBannerAllowed } from '../plans/plan-limits.bo';
 import type {
   MutualCampaignRow,
   ProfileCardAccountRow,
@@ -62,9 +62,9 @@ export function profileCardPresenceOf(
   return visiblyOnline ? 'online' : 'offline';
 }
 
-/** PO + the read blocks → the card DTO; the banner only while the plan opens customization.
+/** PO + the read blocks → the card DTO; the banner only while the plan has it (Lenda).
  *
- *  Example: `toProfileCardDto(parts).bannerId // null on the free plan` */
+ *  Example: `toProfileCardDto(parts).bannerId // null below Lenda` */
 export function toProfileCardDto(parts: ProfileCardParts): ProfileCardDto {
   const { account, relation } = parts;
   return {
@@ -73,7 +73,7 @@ export function toProfileCardDto(parts: ProfileCardParts): ProfileCardDto {
     name: account.name,
     color: memberColorOf(account.id, account.color),
     avatarId: account.avatarId,
-    bannerId: customizationAllowed(account) ? account.bannerId : null,
+    bannerId: profileBannerAllowed(account) ? account.bannerId : null,
     bio: account.bio,
     memberSince: account.createdAt.toISOString(),
     ...accountSealFieldsOf(account),

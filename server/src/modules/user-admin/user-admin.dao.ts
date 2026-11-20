@@ -3,6 +3,7 @@ import { lorkariumOwnerSql } from '../../database/lorkarium-owner-sql';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { activePaidPlanSql, activePaidPlanUntilSql } from '../auth/users.dao';
 import { users, type UserPo } from '../auth/users.po';
+import { assets } from '../assets/assets.po';
 import { campaignMembers } from '../campaigns/campaign-members.po';
 import { campaigns } from '../campaigns/campaigns.po';
 
@@ -60,8 +61,17 @@ export class UserAdminDao {
     await this.db.update(users).set({ plan }).where(eq(users.id, userId));
   }
 
-  async setSuspendedAt(userId: string, suspendedAt: Date | null): Promise<void> {
-    await this.db.update(users).set({ suspendedAt }).where(eq(users.id, userId));
+  /** Suspends (with an end, or none) or, with `null`, lifts the suspension and its end together. */
+  async setSuspendedAt(
+    userId: string,
+    suspendedAt: Date | null,
+    suspendedUntil: Date | null = null,
+  ): Promise<void> {
+    const until = suspendedAt === null ? null : suspendedUntil;
+    await this.db
+      .update(users)
+      .set({ suspendedAt, suspendedUntil: until })
+      .where(eq(users.id, userId));
   }
 
   /** The tables `userId` owns, locked (`FOR UPDATE`) until the transaction ends, with the members
@@ -80,6 +90,18 @@ export class UserAdminDao {
       userId,
     );
     return owned.map((campaign) => ({ ...campaign, otherMembers: others.get(campaign.id) ?? 0 }));
+  }
+
+  /** The bucket keys of every file of the tables the account owns (they go with it by cascade).
+   *  Called under `lockOwnedCampaigns`: an upload in flight to one of them has finished. */
+  async storageKeysOfOwnedCampaigns(userId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ storageKey: assets.storageKey })
+      .from(assets)
+      .innerJoin(campaigns, eq(campaigns.id, assets.campaignId))
+      .where(eq(campaigns.ownerId, userId))
+      .orderBy(asc(assets.createdAt));
+    return rows.map((row) => row.storageKey);
   }
 
   /** Deletes the account; its sessions, memberships, tables (and their scenes) go by cascade. */

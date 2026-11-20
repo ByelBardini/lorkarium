@@ -11,6 +11,7 @@ function serviceWith(mailer: MailerFake): MailSamplesService {
   return new MailSamplesService({
     mailer,
     appPublicUrl: PUBLIC_URL,
+    sitePublicUrl: 'https://lorkarium.example.com',
     clock: new ClockFake(SENT_AT),
   });
 }
@@ -18,16 +19,16 @@ function serviceWith(mailer: MailerFake): MailSamplesService {
 describe('MailSamplesService', () => {
   it('lists every system e-mail with its id, name and subject, in the catalog order', () => {
     const samples = serviceWith(new MailerFake()).list();
-    expect(samples).toHaveLength(11);
+    expect(samples).toHaveLength(17);
     expect(samples[0]).toEqual({
       id: 'email-confirmation',
       name: 'Confirmação do novo e-mail',
       subject: 'Confirme seu novo e-mail no Lorkarium',
     });
     expect(samples.at(-1)).toEqual({
-      id: 'promoted-to-admin',
-      name: 'Agora é admin',
-      subject: 'Você agora é admin do Lorkarium',
+      id: 'broadcast',
+      name: 'Comunicado',
+      subject: 'Os preços do Narrador mudam em 30 dias',
     });
   });
 

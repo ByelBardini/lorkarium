@@ -432,6 +432,31 @@ describe('ProfilesService', () => {
       expect([journal, fetcher.fetched]).toEqual([[], []]);
     });
 
+    it('Bia on Narrador or Apoiador is refused the banner before anything is read: it is Lenda only', async () => {
+      for (const plan of ['narrador', 'apoiador'] as const) {
+        accounts.set(BIA_ID, planAccount({ plan }));
+        await expect(service.replaceBanner(BIA_ID, PHOTO)).rejects.toMatchObject({
+          ...profileBanner,
+          plan,
+        });
+        await expect(service.replaceBannerFromLink(BIA_ID, LINK)).rejects.toMatchObject({
+          ...profileBanner,
+          plan,
+        });
+      }
+
+      expect([journal, fetcher.fetched]).toEqual([[], []]);
+    });
+
+    it('Bia on Lenda sends a banner, kept animated', async () => {
+      accounts.set(BIA_ID, planAccount({ plan: 'lenda' }));
+
+      const profile = await service.replaceBanner(BIA_ID, PHOTO);
+
+      expect(processor.shapes).toEqual([{ width: 1800, height: 600, animated: true, crop: null }]);
+      expect(profile.bannerId).toBe(NEW_AVATAR);
+    });
+
     it('a banner above 5 MiB is BANNER_TOO_LARGE before it is decoded', async () => {
       const huge = new Uint8Array(AVATAR_MAX_BYTES + 1);
 

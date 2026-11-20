@@ -1,4 +1,8 @@
-import type { AssetStoragePort, StoredObject } from '../../modules/assets/asset-storage.port';
+import type {
+  AssetStoragePort,
+  ListedObject,
+  StoredObject,
+} from '../../modules/assets/asset-storage.port';
 import type { ObjectCache } from './disk-object-cache';
 import { InFlightLoads } from './in-flight-loads';
 
@@ -54,6 +58,11 @@ export class DiskCachedAssetStorage implements AssetStoragePort {
   async remove(key: string): Promise<void> {
     await this.inner.remove(key);
     await this.guarded('delete', key, () => this.cache.delete(key));
+  }
+
+  // The storage is the source of truth: a listing never reads the local copies.
+  listKeys(prefix: string): Promise<ListedObject[]> {
+    return this.inner.listKeys(prefix);
   }
 
   private async openThroughCache(key: string): Promise<StoredObject | null> {

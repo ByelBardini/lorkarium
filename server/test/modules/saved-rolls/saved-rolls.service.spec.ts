@@ -13,7 +13,6 @@ import {
   ACERTO_ID,
   MAGIAS_ID,
   SavedRollFoldersDaoFake,
-  SavedRollTableOwnersFake,
   SavedRollsDaoFake,
   SavedRollsTransactionRunnerFake,
   savedRollFolderPo,
@@ -37,8 +36,7 @@ function setup(rows = [savedRollPo()]) {
   rolls.owners.add(`${VHARN_ID}:${CAIO_ID}`);
   const folders = new SavedRollFoldersDaoFake(journal, [savedRollFolderPo()]);
   const transaction = new SavedRollsTransactionRunnerFake(journal, { rolls, folders }).run;
-  const tableOwners = new SavedRollTableOwnersFake(rolls);
-  const service = new SavedRollsService({ members, tableOwners, rolls, transaction, maxSaved: 50 });
+  const service = new SavedRollsService({ members, rolls, transaction, maxSaved: 50 });
   return { service, journal, members, rolls };
 }
 
@@ -47,6 +45,57 @@ function rollsOfBia(count: number) {
     savedRollPo({ id: `roll-of-bia-${index}`, name: `R${index}`, nameKey: `r${index}` }),
   );
 }
+
+describe('the saved rolls of an Apoiador follow its own plan', () => {
+  it('at a free table Bia on Apoiador saves her 15th roll: lock → count → insert → commit', async () => {
+    const { service, journal, rolls } = setup(rollsOfBia(14));
+    rolls.tablePlans.set(VHARN_ID, planAccount({ plan: 'free' }));
+    rolls.memberPlans.set(BIA_ID, planAccount({ plan: 'apoiador' }));
+
+    const saved = await service.create(BIA, { name: 'Bênção', parts: ATTACK });
+
+    expect(journal).toEqual(['lock', 'count', 'insert:Bênção', 'commit']);
+    expect(saved.planLocked).toBe(false);
+  });
+
+  it('the 16th is PLAN_LIMIT with her plan as the holder, and nothing is inserted', async () => {
+    const { service, journal, rolls } = setup(rollsOfBia(15));
+    rolls.tablePlans.set(VHARN_ID, planAccount({ plan: 'free' }));
+    rolls.memberPlans.set(BIA_ID, planAccount({ plan: 'apoiador' }));
+
+    await expect(service.create(BIA, { name: 'Bênção', parts: ATTACK })).rejects.toMatchObject({
+      code: 'PLAN_LIMIT',
+      resource: 'savedRolls',
+      limit: 15,
+      plan: 'apoiador',
+      holder: 'account',
+    });
+    expect(journal).toEqual(['lock', 'count']);
+  });
+
+  it('her list at a free table locks nothing up to the 15th and the 16th on', async () => {
+    const { service, rolls } = setup(rollsOfBia(16));
+    rolls.tablePlans.set(VHARN_ID, planAccount({ plan: 'free' }));
+    rolls.memberPlans.set(BIA_ID, planAccount({ plan: 'apoiador' }));
+
+    const { savedRolls } = await service.list(BIA);
+
+    expect(savedRolls.map(({ planLocked }) => planLocked).lastIndexOf(false)).toBe(14);
+    expect(savedRolls[15]?.planLocked).toBe(true);
+  });
+
+  it('at the table of an Apoiador, Bia on Grátis keeps 3: the 4th is PLAN_LIMIT of the table', async () => {
+    const { service, rolls } = setup(rollsOfBia(3));
+    rolls.tablePlans.set(VHARN_ID, planAccount({ plan: 'apoiador' }));
+
+    await expect(service.create(BIA, { name: 'Bênção', parts: ATTACK })).rejects.toMatchObject({
+      code: 'PLAN_LIMIT',
+      limit: 3,
+      plan: 'apoiador',
+      holder: 'table',
+    });
+  });
+});
 
 describe('SavedRollsService.list', () => {
   it('Bia lists hers', async () => {

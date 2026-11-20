@@ -65,6 +65,9 @@ export const users = pgTable(
     passwordChangedAt: timestamp('password_changed_at', { withTimezone: true }),
     // Set by an admin (backoffice): no login and no session while it holds; null = active.
     suspendedAt: timestamp('suspended_at', { withTimezone: true }),
+    // The end of a suspension with a deadline: past it the account is active again (the login
+    // checks it, the hourly housekeeping clears both columns); null = until an admin lifts it.
+    suspendedUntil: timestamp('suspended_until', { withTimezone: true }),
     // Last login or session activity, in the same 5-minute steps as the session's touch: the
     // sessions themselves vanish on logout and expiry, so they are no history.
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
@@ -72,6 +75,8 @@ export const users = pgTable(
     // Null on accounts born before the box existed (seeds, invitations accepted until 0054).
     termsAcceptedAt: timestamp('terms_accepted_at', { withTimezone: true }),
     termsVersion: text('terms_version'),
+    // The last export of the account's data (LGPD art. 18): one a day, the ZIP is heavy to build.
+    dataExportedAt: timestamp('data_exported_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -104,6 +109,10 @@ export const users = pgTable(
     check(
       'users_paid_plan_sold',
       sql`${table.paidPlan} IS NULL OR ${table.paidPlan} IN ('apoiador', 'narrador', 'lenda')`,
+    ),
+    check(
+      'users_suspended_until_with_suspension',
+      sql`${table.suspendedUntil} IS NULL OR ${table.suspendedAt} IS NOT NULL`,
     ),
     check(
       'users_terms_acceptance_pair',

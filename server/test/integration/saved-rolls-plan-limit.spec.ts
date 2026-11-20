@@ -151,3 +151,120 @@ describe('saved rolls past the plan of a table that went down are read only', ()
     expect(locksOf(await listOf(live.bia, ermo))).toEqual([false, false, false]);
   });
 });
+
+describe('the saved rolls of a member follow the greater of the table plan and its own', () => {
+  function onPlan(user: SignedInUser, plan: UserPlan): Promise<void> {
+    return setAccountPlan(live.connection.db, user.id, plan);
+  }
+
+  function save(user: SignedInUser, table: Table, name: string) {
+    const payload = { name, parts: ATTACK };
+    return live.http(user, { method: 'POST', url: rollsUrl(table), payload });
+  }
+
+  function saveFolder(user: SignedInUser, table: Table, name: string) {
+    const url = `/api/campaigns/${table.id}/saved-roll-folders`;
+    return live.http(user, { method: 'POST', url, payload: { name } });
+  }
+
+  it('Bia on Apoiador at Ana’s free Vharn saves 15 rolls, and the 16th is 403 naming her plan', async () => {
+    await anaOn('free');
+    await onPlan(live.bia, 'apoiador');
+    for (let index = 1; index <= 15; index += 1) {
+      const response = await save(live.bia, live.vharn, `Rolagem ${index}`);
+      expect(response.statusCode, response.body).toBe(201);
+    }
+
+    const sixteenth = await save(live.bia, live.vharn, 'Rolagem 16');
+
+    expect(sixteenth.statusCode, sixteenth.body).toBe(403);
+    expect(apiErrorDto.parse(sixteenth.json()).planLimit).toEqual({
+      resource: 'savedRolls',
+      limit: 15,
+      plan: 'apoiador',
+      reason: 'room',
+      holder: 'account',
+    });
+    expect(locksOf(await listOf(live.bia, live.vharn))).not.toContain(true);
+  });
+
+  it('Bia on Apoiador at a free table keeps 5 folders, and the 6th is 403', async () => {
+    await anaOn('free');
+    await onPlan(live.bia, 'apoiador');
+    for (const name of ['Ataques', 'Defesa', 'Perícias', 'Cura', 'Magias']) {
+      const response = await saveFolder(live.bia, live.vharn, name);
+      expect(response.statusCode, response.body).toBe(201);
+    }
+
+    const sixth = await saveFolder(live.bia, live.vharn, 'Extra');
+
+    expect(sixth.statusCode, sixth.body).toBe(403);
+    expect(apiErrorDto.parse(sixth.json()).planLimit).toMatchObject({
+      resource: 'savedRollFolders',
+      limit: 5,
+      holder: 'account',
+    });
+  });
+
+  it('at the table of Ana on Apoiador, Bia on Grátis keeps 3 rolls and no folder', async () => {
+    await anaOn('apoiador');
+    for (const name of ['R1', 'R2', 'R3'])
+      expect((await save(live.bia, live.vharn, name)).statusCode).toBe(201);
+
+    const fourth = await save(live.bia, live.vharn, 'R4');
+    const folder = await saveFolder(live.bia, live.vharn, 'Ataques');
+
+    expect(fourth.statusCode, fourth.body).toBe(403);
+    expect(apiErrorDto.parse(fourth.json()).planLimit).toMatchObject({
+      resource: 'savedRolls',
+      limit: 3,
+      plan: 'apoiador',
+      holder: 'table',
+    });
+    expect(folder.statusCode, folder.body).toBe(403);
+    expect(apiErrorDto.parse(folder.json()).planLimit).toMatchObject({
+      limit: 0,
+      plan: 'apoiador',
+    });
+  });
+
+  it('Bia on Lenda at a free table saves her 16th roll', async () => {
+    const rolls = await rollsBornAbovePlan(live.bia, live.vharn, 15);
+    await anaOn('free');
+    await onPlan(live.bia, 'lenda');
+
+    const sixteenth = await save(live.bia, live.vharn, 'Rolagem 16');
+
+    expect(rolls).toHaveLength(15);
+    expect(sixteenth.statusCode, sixteenth.body).toBe(201);
+  });
+
+  it('when Bia leaves Apoiador, her rolls past the 3rd at a free table go read only', async () => {
+    await onPlan(live.bia, 'apoiador');
+    const rolls = await rollsBornAbovePlan(live.bia, live.vharn, 5);
+    await anaOn('free');
+    expect(locksOf(await listOf(live.bia, live.vharn))).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+    await onPlan(live.bia, 'free');
+
+    expectReadOnly(await edit(live.bia, live.vharn, rollAt(rolls, 3), { name: 'Quarta' }));
+    expect(locksOf(await listOf(live.bia, live.vharn))).toEqual([false, false, false, true, true]);
+  });
+
+  it('Bia’s own plan does not reach Ana: Ana on Grátis at her own Vharn keeps 3 while Bia is Apoiador', async () => {
+    await anaOn('free');
+    await onPlan(live.bia, 'apoiador');
+    for (const name of ['A1', 'A2', 'A3'])
+      expect((await save(live.ana, live.vharn, name)).statusCode).toBe(201);
+
+    const fourth = await save(live.ana, live.vharn, 'A4');
+
+    expect(fourth.statusCode, fourth.body).toBe(403);
+    expect(apiErrorDto.parse(fourth.json()).planLimit).toMatchObject({ limit: 3, plan: 'free' });
+  });
+});

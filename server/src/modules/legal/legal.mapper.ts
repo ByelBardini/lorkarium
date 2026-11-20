@@ -1,9 +1,10 @@
 import type { LegalDocument } from '@lorkarium/contracts';
 
-// The pages of `site/src/pages/{termos,privacidade}.astro`; they never move (the texts cite them).
+// The pages of `site/src/pages/{termos,privacidade,uso}.astro`; they never move (the texts cite them).
 const LANDING_PATH: Readonly<Record<LegalDocument, string>> = {
   terms: '/termos/',
   privacy: '/privacidade/',
+  'acceptable-use': '/uso/',
 };
 
 /** The landing page of a legal text, under the landing address (no trailing slash).

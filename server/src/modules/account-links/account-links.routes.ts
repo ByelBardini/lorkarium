@@ -37,6 +37,7 @@ type RefusalCode = AccountLinksErrorCode | 'ACCOUNT_SUSPENDED';
 const STATUS_BY_CODE: Readonly<Record<RefusalCode, number>> = {
   ACCOUNT_LINK_INVALID: 404,
   EMAIL_TAKEN: 409,
+  EMAIL_BANNED: 409,
   ALREADY_INVITED: 409,
   INVITATION_NOT_FOUND: 404,
   USERNAME_TAKEN: 409,
@@ -51,6 +52,7 @@ const STATUS_BY_CODE: Readonly<Record<RefusalCode, number>> = {
 const PUBLIC_MESSAGE: Readonly<Record<RefusalCode, string>> = {
   ACCOUNT_LINK_INVALID: 'This link expired or was already used',
   EMAIL_TAKEN: 'This e-mail already belongs to an account',
+  EMAIL_BANNED: 'This e-mail belongs to an account deleted for breaking the use policy',
   ALREADY_INVITED: 'This e-mail already has a pending invitation',
   INVITATION_NOT_FOUND: 'Invitation not found',
   USERNAME_TAKEN: 'This @ is already taken',

@@ -175,6 +175,17 @@ describe('DiskCachedAssetStorage', () => {
     expect(failures).toEqual([{ operation: 'delete', key: KEY, error: cache.error }]);
   });
 
+  it('lists the keys of the storage, never a copy left only in the cache', async () => {
+    const { storage, inner } = rigWith(new ObjectCacheMemoryFake());
+    await storage.put(KEY, BYTES, 'image/png');
+    inner.objects.delete(KEY);
+    inner.objects.set('assets/only-stored', { bytes: BYTES, contentType: 'image/png' });
+
+    const listed = await storage.listKeys('assets/');
+
+    expect(listed.map((object) => object.key)).toEqual(['assets/only-stored']);
+  });
+
   it('delegates ensureBucket to the storage', async () => {
     const { storage, inner } = rigWith(new ObjectCacheMemoryFake());
 

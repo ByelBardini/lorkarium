@@ -1,12 +1,23 @@
 import type { ClockPort } from '../auth/clock.port';
 import type { SchedulerPort } from '../sessions/scheduler.port';
+import type { UserPo } from '../auth/users.po';
+import type { FeedbackRetentionService } from '../feedback/feedback-retention.service';
+import type { ReportRetentionService } from '../reports/report-retention.service';
+import { BANNED_EMAIL_KEPT_MS } from '../sanctions/account-sanction.bo';
 import type { HousekeepingDao, SweptTable } from './housekeeping.dao';
+import type { SuspensionEndedPort } from './suspension-ended.port';
 
 /** The slice of the pino logger a failed sweep is reported to. */
 export type HousekeepingFailureLog = Readonly<{ error: (fields: object, message: string) => void }>;
 
 export type HousekeepingServiceDeps = Readonly<{
   dao: Pick<HousekeepingDao, 'deleteBefore'>;
+  expired: Pick<HousekeepingDao, 'liftExpiredSuspensions'>;
+  suspensionEnded: SuspensionEndedPort;
+  /** Closed reports past 6 months and loose screenshots past a day (the reports' own retention). */
+  reportRetention: Pick<ReportRetentionService, 'purge'>;
+  /** Feedback screenshots no entry claimed in a day (the feedback's own retention). */
+  feedbackRetention: Pick<FeedbackRetentionService, 'purge'>;
   clock: ClockPort;
   scheduler: SchedulerPort;
   log: HousekeepingFailureLog;
@@ -15,6 +26,9 @@ export type HousekeepingServiceDeps = Readonly<{
 export const HOUSEKEEPING_INTERVAL_MS = 60 * 60_000;
 // A receipt answers a repeated actionId (a retry after a lost ack); a day later it is a new command.
 export const RECEIPT_TTL_MS = 24 * 60 * 60_000;
+// The record of who got a service notice is the proof of the warning (CDC art. 27: 5 years); the
+// two extra days cover the leap years.
+export const BROADCAST_RETENTION_MS = (5 * 365 + 2) * 24 * 60 * 60_000;
 export const HOUSEKEEPING_BATCH_MAX = 1000;
 const SWEEP_TASK = 'housekeeping-sweep';
 
@@ -24,6 +38,8 @@ const AGE_LIMIT_MS: Readonly<Record<SweptTable, number>> = {
   sheet_receipts: RECEIPT_TTL_MS,
   sessions: 0,
   challenges: 0,
+  broadcasts: BROADCAST_RETENTION_MS,
+  banned_emails: BANNED_EMAIL_KEPT_MS,
 };
 
 /** Every hour deletes the receipts a day old, the expired sessions and the expired 2FA steps, a
@@ -43,6 +59,9 @@ export class HousekeepingService {
   async sweep(): Promise<void> {
     try {
       for (const swept of Object.keys(AGE_LIMIT_MS) as SweptTable[]) await this.clean(swept);
+      await this.liftSuspensions();
+      if (!this.closed) await this.deps.reportRetention.purge();
+      if (!this.closed) await this.deps.feedbackRetention.purge();
     } catch (error) {
       this.deps.log.error({ err: error }, 'housekeeping sweep failed; retrying in an hour');
     }
@@ -58,6 +77,26 @@ export class HousekeepingService {
     let deleted = HOUSEKEEPING_BATCH_MAX;
     while (deleted === HOUSEKEEPING_BATCH_MAX && !this.closed)
       deleted = await this.deps.dao.deleteBefore(swept, cut, HOUSEKEEPING_BATCH_MAX);
+  }
+
+  // A suspension with an end already stopped holding at the login; this clears the columns and
+  // sends the "access is back" e-mail, so nobody has to remember the date.
+  private async liftSuspensions(): Promise<void> {
+    const now = this.deps.clock.now();
+    let lifted: UserPo[];
+    do {
+      lifted = await this.deps.expired.liftExpiredSuspensions(now, HOUSEKEEPING_BATCH_MAX);
+      for (const account of lifted) await this.tellSuspensionEnded(account);
+    } while (lifted.length === HOUSEKEEPING_BATCH_MAX && !this.closed);
+  }
+
+  private async tellSuspensionEnded(account: UserPo): Promise<void> {
+    try {
+      await this.deps.suspensionEnded.suspensionEnded(account);
+    } catch (error) {
+      const fields = { err: error, userId: account.id };
+      this.deps.log.error(fields, 'could not tell an account its suspension ended');
+    }
   }
 
   private scheduleSweep(): void {

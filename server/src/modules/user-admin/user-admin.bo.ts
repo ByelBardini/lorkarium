@@ -7,7 +7,9 @@ export type AdminAction =
   | 'suspend'
   | 'reactivate'
   | 'send a new-password link to'
-  | 'delete';
+  | 'delete'
+  | 'apply a measure to'
+  | 'record the appeal of';
 
 /** An admin never acts on their own account (and so the last admin can never be removed).
  *

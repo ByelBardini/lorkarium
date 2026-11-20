@@ -8,12 +8,12 @@ import {
 import { cardAccountRow, cardParts, NO_RELATION } from '../../support/profile-card-fakes';
 
 describe('profile card mapper', () => {
-  it('the banner goes out on a paid plan and is null on the free one, column kept', () => {
-    const paid = toProfileCardDto(cardParts());
-    const free = toProfileCardDto(cardParts({ account: cardAccountRow({ plan: 'free' }) }));
+  it('the banner goes out on Lenda and is null on Narrador, Apoiador and Grátis, column kept', () => {
+    const cardOn = (plan: 'free' | 'apoiador' | 'narrador' | 'lenda') =>
+      toProfileCardDto(cardParts({ account: cardAccountRow({ plan }) })).bannerId;
 
-    expect(paid.bannerId).toBe(cardAccountRow().bannerId);
-    expect(free.bannerId).toBeNull();
+    expect(cardOn('lenda')).toBe(cardAccountRow().bannerId);
+    expect([cardOn('narrador'), cardOn('apoiador'), cardOn('free')]).toEqual([null, null, null]);
   });
 
   it('an admin on the free plan keeps the banner and the admin seal', () => {

@@ -80,10 +80,7 @@ export function userAdminRoutes(
 
 function registerStandingRoutes(app: FastifyInstance, service: UserAdminService): void {
   const admin = { preHandler: app.authGuards.requireRole('admin') };
-  app.post('/admin/users/:userId/suspend', admin, async (request) => {
-    const { actor, userId } = audited(app, request, 'suspend');
-    return { user: await service.suspend(actor, userId) } satisfies AdminUserResponseDto;
-  });
+  // Suspending is a measure (POST /admin/users/:userId/sanctions, the sanctions module).
   app.post('/admin/users/:userId/reactivate', admin, async (request) => {
     const { actor, userId } = audited(app, request, 'reactivate');
     return { user: await service.reactivate(actor, userId) } satisfies AdminUserResponseDto;

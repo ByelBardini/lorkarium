@@ -1,5 +1,7 @@
-import type { CampaignsDao } from '../../src/modules/campaigns/campaigns.dao';
-import type { SavedRollsDao } from '../../src/modules/saved-rolls/saved-rolls.dao';
+import type {
+  SavedRollPlansPo,
+  SavedRollsDao,
+} from '../../src/modules/saved-rolls/saved-rolls.dao';
 import type { SavedRollFoldersDao } from '../../src/modules/saved-rolls/saved-roll-folders.dao';
 import type {
   NewSavedRollFolderPo,
@@ -146,12 +148,14 @@ export class SavedRollNameViolationFake extends Error {
  *  journal. */
 export class SavedRollsDaoFake implements Pick<
   SavedRollsDao,
-  'listOf' | 'countOf' | 'rankOf' | 'lockOwner' | 'insert' | 'update' | 'remove'
+  'listOf' | 'countOf' | 'rankOf' | 'lockPlans' | 'findPlans' | 'insert' | 'update' | 'remove'
 > {
-  /** Owners (`<campaign>:<user>`) still at the table; `lockOwner` answers from it. */
+  /** Owners (`<campaign>:<user>`) still at the table; `lockPlans` answers from it. */
   readonly owners = new Set<string>([`${VHARN_ID}:${BIA_ID}`]);
   /** The plan of each table's owner; a table not set answers `planAccount()` (everything open). */
   readonly tablePlans = new Map<string, UserPlanPo>();
+  /** The plan of each member; one not set is on Grátis, so the table's plan decides. */
+  readonly memberPlans = new Map<string, UserPlanPo>();
 
   constructor(
     private readonly journal: string[],
@@ -179,10 +183,15 @@ export class SavedRollsDaoFake implements Pick<
     return this.rows.filter((row) => row.campaignId === campaignId && row.userId === userId).length;
   }
 
-  async lockOwner(campaignId: string, userId: string): Promise<UserPlanPo | undefined> {
+  async lockPlans(campaignId: string, userId: string): Promise<SavedRollPlansPo | undefined> {
     this.journal.push('lock');
+    return this.findPlans(campaignId, userId);
+  }
+
+  async findPlans(campaignId: string, userId: string): Promise<SavedRollPlansPo | undefined> {
     if (!this.owners.has(`${campaignId}:${userId}`)) return undefined;
-    return this.tablePlans.get(campaignId) ?? planAccount();
+    const tableOwner = this.tablePlans.get(campaignId) ?? planAccount();
+    return { tableOwner, member: this.memberPlans.get(userId) ?? planAccount({ plan: 'free' }) };
   }
 
   async insert(row: NewSavedRollPo): Promise<SavedRollPo> {
@@ -246,18 +255,6 @@ export class SavedRollsDaoFake implements Pick<
     );
     if (taken)
       throw new SavedRollNameViolationFake('duplicate key value violates unique constraint');
-  }
-}
-
-/** The table owner's plan read without a lock, from the `tablePlans` of the rolls fake (a table
- *  not set answers `planAccount()`, everything open).
- *
- *  Example: `new SavedRollTableOwnersFake(rolls).findOwnerPlan(VHARN_ID)` */
-export class SavedRollTableOwnersFake implements Pick<CampaignsDao, 'findOwnerPlan'> {
-  constructor(private readonly rolls: SavedRollsDaoFake) {}
-
-  async findOwnerPlan(campaignId: string): Promise<UserPlanPo | undefined> {
-    return this.rolls.tablePlans.get(campaignId) ?? planAccount();
   }
 }
 

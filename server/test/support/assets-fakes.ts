@@ -1,7 +1,11 @@
 import { Readable } from 'node:stream';
 import type { AssetReadPolicyPort } from '../../src/modules/assets/asset-read-policy.port';
 import type { AddressPolicy } from '../../src/infrastructure/image-fetcher/address-policy';
-import type { AssetStoragePort, StoredObject } from '../../src/modules/assets/asset-storage.port';
+import type {
+  AssetStoragePort,
+  ListedObject,
+  StoredObject,
+} from '../../src/modules/assets/asset-storage.port';
 import type { AssetsDao } from '../../src/modules/assets/assets.dao';
 import type { AssetPo, NewAssetPo } from '../../src/modules/assets/assets.po';
 import type {
@@ -38,11 +42,14 @@ export class LoopbackOnlyPolicyFake implements AddressPolicy {
   }
 }
 
-/** An in-memory bucket; writes 'put' and 'remove:<key>' to the shared journal. */
+/** An in-memory bucket; writes 'put' and 'remove:<key>' to the shared journal. `put` dates each
+ *  object with `storedAt` (an object set by hand without a date lists as `FAKE_DATE`). */
 export class AssetStorageFake implements AssetStoragePort {
   readonly objects = new Map<string, { bytes: Uint8Array; contentType: string }>();
   /** Every key `open` was asked for: a 304 opens none. */
   readonly opened: string[] = [];
+  storedAt: Date = FAKE_DATE;
+  private readonly lastModified = new Map<string, Date>();
 
   constructor(private readonly journal: string[] = []) {}
 
@@ -51,6 +58,14 @@ export class AssetStorageFake implements AssetStoragePort {
   async put(key: string, bytes: Uint8Array, contentType: string): Promise<void> {
     this.journal.push('put');
     this.objects.set(key, { bytes, contentType });
+    this.lastModified.set(key, this.storedAt);
+  }
+
+  async listKeys(prefix: string): Promise<ListedObject[]> {
+    return [...this.objects.keys()]
+      .filter((key) => key.startsWith(prefix))
+      .sort()
+      .map((key) => ({ key, lastModified: this.lastModified.get(key) ?? FAKE_DATE }));
   }
 
   async open(key: string): Promise<StoredObject | null> {

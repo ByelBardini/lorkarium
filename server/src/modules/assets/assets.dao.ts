@@ -54,6 +54,17 @@ export class AssetsDao {
     return rows.map((row) => row.storageKey);
   }
 
+  /** Of the asked bucket keys, those that still have a row, whatever the table (only the
+   *  `pnpm db:remove-orphan-objects` asks, outside any request); no keys, no query. */
+  async storageKeysAmong(keys: readonly string[]): Promise<string[]> {
+    if (keys.length === 0) return [];
+    const rows = await this.db
+      .select({ storageKey: assets.storageKey })
+      .from(assets)
+      .where(inArray(assets.storageKey, [...keys]));
+    return rows.map((row) => row.storageKey);
+  }
+
   /** The asked assets that belong to `campaignId`; ids from elsewhere are skipped. */
   async findManyInCampaign(campaignId: string, assetIds: readonly string[]): Promise<AssetPo[]> {
     if (assetIds.length === 0) return [];
