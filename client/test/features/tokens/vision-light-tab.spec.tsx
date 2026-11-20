@@ -2,6 +2,8 @@ import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
+import { PLAN_LIMITS, type PlanLimits } from '@lorkarium/contracts';
+import { TablePlanLimitsContext } from '@/features/plans/use-plan-limits';
 import { VisionLightTab } from '@/features/tokens/vision-light-tab';
 import {
   emptyTokenForm,
@@ -293,5 +295,66 @@ describe('VisionLightTab, "Bloqueia a visão"', () => {
     expect(within(section('Bloqueia a visão')).getByRole('alert')).toHaveTextContent(
       'A cena já tem o máximo.',
     );
+  });
+});
+
+describe('VisionLightTab, "Visão mágica"', () => {
+  function PlanTab({
+    limits,
+    initial,
+  }: Readonly<{ limits: PlanLimits; initial: TokenFormValues }>) {
+    const [form, setForm] = useState(initial);
+    return (
+      <TablePlanLimitsContext.Provider value={limits}>
+        <VisionLightTab form={form} errors={{}} distance={METERS} onChange={setForm} />
+      </TablePlanLimitsContext.Provider>
+    );
+  }
+  const magicSwitch = () => screen.getByRole('switch', { name: 'Visão mágica' });
+
+  it('on a new token it is off and says what it does; switched on, "Até (m)" in cells', async () => {
+    render(<Harness />);
+
+    expect(magicSwitch()).toHaveAttribute('aria-checked', 'false');
+    expect(
+      within(section('Visão mágica')).getByText(/invisíveis até o alcance/),
+    ).toBeInTheDocument();
+    await userEvent.click(magicSwitch());
+    await userEvent.type(within(section('Visão mágica')).getByLabelText('Até (m)'), '9');
+
+    expect(within(section('Visão mágica')).getByText('= 6 casas')).toBeInTheDocument();
+  });
+
+  it('editing a token with 4 cells opens it on, with "6"', () => {
+    render(<Harness initial={tokenFormOf(lyra({ magicSight: 4 }), METERS)} />);
+
+    expect(magicSwitch()).toHaveAttribute('aria-checked', 'true');
+    expect(within(section('Visão mágica')).getByLabelText('Até (m)')).toHaveValue('6');
+  });
+
+  it('shows the error of the field', () => {
+    const initial = {
+      ...emptyTokenForm(METERS),
+      magicSight: { on: true, reach: '151', saved: false },
+    };
+    render(<Harness initial={initial} errors={{ magicSight: 'De 0 a 150 m.' }} />);
+
+    expect(within(section('Visão mágica')).getByText('De 0 a 150 m.')).toBeInTheDocument();
+  });
+
+  it('at a free table a token without it has the switch locked, saying the plan', () => {
+    render(<PlanTab limits={PLAN_LIMITS.free} initial={emptyTokenForm(METERS)} />);
+
+    expect(magicSwitch()).toBeDisabled();
+    expect(within(section('Visão mágica')).getByText(/Narrador/)).toBeInTheDocument();
+  });
+
+  it('at a free table a token that already had it may still turn it off', async () => {
+    const initial = tokenFormOf(lyra({ magicSight: 4 }), METERS);
+    render(<PlanTab limits={PLAN_LIMITS.free} initial={initial} />);
+
+    expect(magicSwitch()).toBeEnabled();
+    await userEvent.click(magicSwitch());
+    expect(magicSwitch()).toHaveAttribute('aria-checked', 'false');
   });
 });

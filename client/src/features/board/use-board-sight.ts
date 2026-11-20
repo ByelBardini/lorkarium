@@ -29,6 +29,7 @@ const CLEAR_SIGHT: BoardSight = {
   noEyes: false,
   seenDoorIds: null,
   previewBlind: false,
+  magicEyes: [],
 };
 
 /** The master's "Ver como os selecionados": the selected tokens are the eyes; `null` when off.

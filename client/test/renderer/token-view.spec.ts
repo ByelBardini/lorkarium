@@ -216,7 +216,6 @@ describe('tokenViewsOf', () => {
         row: 4,
         conditions: [activeCondition()],
         defeated: true,
-        hidden: true,
         aura: GOLD_AURA,
       }),
       kael({ ...others, id: GOBLIN_ID, col: 11, row: 4 }),
@@ -232,7 +231,7 @@ describe('tokenViewsOf', () => {
       );
     const views = viewsOf({ tokens, currentTokenIds: [KAEL_ID], sight: sightOf(tokens) });
 
-    it('the token in the penumbra is a silhouette with no name, bar, marks, facing, defeat nor hidden mark, and cannot be taken', () => {
+    it('the token in the penumbra is a silhouette with no name, bar, marks, facing nor defeat, and cannot be taken', () => {
       expect(views.find(({ id }) => id === KAEL_ID)).toMatchObject({
         silhouette: 'round',
         defeated: false,

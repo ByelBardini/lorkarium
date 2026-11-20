@@ -8,6 +8,12 @@ import {
   type TokenSideDto,
 } from '@lorkarium/contracts';
 import { cellsText } from '@/lib/cells-text';
+import {
+  NO_MAGIC_SIGHT_FIELDS,
+  magicSightFieldsOf,
+  parseMagicSightFields,
+  type MagicSightFields,
+} from '@/lib/magic-sight-form';
 import { coneFieldOf, parseConeField, type ConeFieldResult } from '@/lib/cone-form';
 import {
   parseRangeFields,
@@ -83,6 +89,8 @@ export type TokenFormValues = Readonly<{
   blocksSight: boolean;
   /** Only a switch the master touched is sent: untouched, the token keeps its own. */
   blocksSightEdited: boolean;
+  /** "Visão mágica": how far it sees invisible tokens, typed in the unit of the scene. */
+  magicSight: MagicSightFields;
   /** "Aura": the aura of the token in the unit of the scene. */
   aura: AuraFormValues;
   /** Only an aura the master touched is sent: untouched, the token keeps its own. */
@@ -98,6 +106,7 @@ export type TokenFormErrors = Readonly<{
   light?: RangeFieldErrors;
   sightAngle?: string;
   lightAngle?: string;
+  magicSight?: string;
   bars?: Readonly<Record<number, BarFormErrors>>;
   aura?: AuraFormErrors;
   forms?: FormsFormErrors;
@@ -188,9 +197,8 @@ export function tabHasErrors(errors: TokenFormErrors, tab: TokenDialogTab): bool
   if (tab === 'bars') return Object.keys(errors.bars ?? {}).length > 0;
   if (tab === 'aura') return Object.keys(errors.aura ?? {}).length > 0;
   if (tab === 'forms') return Object.keys(errors.forms ?? {}).length > 0;
-  return [errors.sight, errors.light, errors.sightAngle, errors.lightAngle].some(
-    (error) => error !== undefined,
-  );
+  const vision = [errors.sight, errors.light, errors.sightAngle, errors.lightAngle];
+  return [...vision, errors.magicSight].some((error) => error !== undefined);
 }
 
 /** The line under the name in the preview: side, size and what the token does in the dark.
@@ -228,6 +236,7 @@ export function emptyTokenForm(distance: SceneDistance): TokenFormValues {
     lightColor: null,
     blocksSight: false,
     blocksSightEdited: false,
+    magicSight: NO_MAGIC_SIGHT_FIELDS,
     bars: [],
     aura: auraFormOf(null, distance),
     auraEdited: false,
@@ -253,7 +262,11 @@ export function tokenFormOf(token: TokenDto, distance: SceneDistance): TokenForm
   const look = { controllerIds, imageAssetId, bars, sight, light, lightColor, ...angles };
   const aura = { aura: auraFormOf(token.aura, distance), auraEdited: false };
   const forms = formsFormOf(token);
-  const blocker = { blocksSight: token.blocksSight, blocksSightEdited: false };
+  const blocker = {
+    blocksSight: token.blocksSight,
+    blocksSightEdited: false,
+    magicSight: magicSightFieldsOf(token.magicSight, distance),
+  };
   return {
     name,
     initials,
@@ -326,7 +339,8 @@ export function parseTokenForm(
   const player = mode === 'player';
   const look = player ? parseTokenFields(form, NO_RANGES) : parseTokenLook(form, distance);
   const aura = form.auraEdited ? withPart(look, auraPartOf(form, distance)) : look;
-  const sent = withPart(aura, blockerPartOf(form));
+  const seen = player ? aura : withPart(aura, magicSightPartOf(form, distance));
+  const sent = withPart(seen, blockerPartOf(form));
   return form.forms.edited ? withPart(sent, formsPartOf(form.forms)) : sent;
 }
 
@@ -343,6 +357,14 @@ function withPart(look: TokenFormResult, part: PartResult): TokenFormResult {
 
 function blockerPartOf(form: TokenFormValues): PartResult {
   return { ok: true, edit: form.blocksSightEdited ? { blocksSight: form.blocksSight } : {} };
+}
+
+// Off on a token that never had it sends nothing: the server keeps what it has.
+function magicSightPartOf(form: TokenFormValues, distance: SceneDistance): PartResult {
+  const parsed = parseMagicSightFields(form.magicSight, distance);
+  if (!parsed.ok) return { ok: false, errors: { magicSight: parsed.error } };
+  const { magicSight } = parsed;
+  return { ok: true, edit: magicSight === undefined ? {} : { magicSight } };
 }
 
 // The aura is not in the DTO parse: its form already gives a valid aura or says what is wrong.

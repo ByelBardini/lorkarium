@@ -90,6 +90,7 @@ export const PLAN_FEATURE_LABEL: Readonly<Record<PlanFeatureResource, string>> =
   animatedCampaignArt: 'Imagens animadas da mesa estão',
   privateCampaign: 'Mesa privada está',
   sheetScripts: 'Scripts no modelo de ficha estão',
+  magicSight: 'Visão mágica está',
 };
 
 // The features, by what frees them in the grid. The other account customizations (texture,
@@ -107,6 +108,7 @@ const FEATURE_IN_GRID: Readonly<
   privateCampaign: (limits) => limits.privateCampaign,
   sheetScripts: (limits) => limits.sheetScripts,
   profileBanner: (limits) => limits.profileBanner,
+  magicSight: (limits) => limits.magicSight,
 };
 
 /** How an item kept past the ceiling is named: `item` opens the sentence, `free` says what stays
