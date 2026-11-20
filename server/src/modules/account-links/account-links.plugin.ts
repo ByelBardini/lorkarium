@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
+import type { SignUpConfig } from '../../config/sign-up-env';
 import type { Database } from '../../database/database';
 import { runInTransaction } from '../../database/transaction';
 import type { AccountRecoveryService } from '../account-security/account-recovery.service';
@@ -16,10 +17,14 @@ import { TwoFactorChallengesDao } from '../auth/two-factor-challenges.dao';
 import { UsersDao } from '../auth/users.dao';
 import { BannedEmailIndexesDao } from '../sanctions/banned-email-indexes.dao';
 import { accountLinksRoutes } from './account-links.routes';
+import type { HumanCheckPort } from './human-check.port';
 import { InvitationsDao } from './invitations.dao';
 import { InvitationsService, type AcceptanceTransactionRunner } from './invitations.service';
 import { PasswordResetsDao } from './password-resets.dao';
+import { PasswordLinksService } from './password-links.service';
 import { PasswordResetsService, type ResetTransactionRunner } from './password-resets.service';
+import { registerSignUpRoutes } from './sign-up.routes';
+import { SignUpService } from './sign-up.service';
 
 export type AccountLinksModuleOptions = Readonly<{
   db: Database;
@@ -32,6 +37,9 @@ export type AccountLinksModuleOptions = Readonly<{
   notices: Pick<SecurityNoticesService, 'send'>;
   recovery: Pick<AccountRecoveryService, 'issue'>;
   appPublicUrl: string;
+  /** `env.signUp`: the switch and the Turnstile site key the client renders. */
+  signUp: SignUpConfig;
+  humanCheck: HumanCheckPort;
 }>;
 
 export type AccountLinksModule = Readonly<{
@@ -46,7 +54,35 @@ export type AccountLinksModule = Readonly<{
 export function createAccountLinksModule(options: AccountLinksModuleOptions): AccountLinksModule {
   const invitations = createInvitations(options);
   const passwordResets = createPasswordResets(options);
-  return { plugin: accountLinksRoutes({ invitations, passwordResets }), invitations };
+  const signUp = createSignUp(options);
+  const signUpSettings = {
+    registrationOpen: options.signUp.registrationOpen,
+    humanCheckSiteKey: options.signUp.humanCheck?.siteKey ?? null,
+  };
+  const registerMore = (app: FastifyInstance): void =>
+    registerSignUpRoutes(app, signUp, signUpSettings);
+  const routes = accountLinksRoutes({ invitations, passwordResets, registerMore });
+  return { plugin: routes, invitations };
+}
+
+function createSignUp(options: AccountLinksModuleOptions): SignUpService {
+  const resets = new PasswordResetsDao(options.db);
+  const { tokens: linkTokens, clock, appPublicUrl } = options;
+  return new SignUpService({
+    registrationOpen: options.signUp.registrationOpen,
+    humanCheck: options.humanCheck,
+    invitations: new InvitationsDao(options.db),
+    users: new UsersDao(options.db),
+    bannedEmails: new BannedEmailIndexesDao(options.db),
+    resets,
+    passwordLinks: new PasswordLinksService({ resets, linkTokens, clock, appPublicUrl }),
+    linkTokens,
+    cipher: options.cipher,
+    clock,
+    notices: options.notices,
+    newId: randomUUID,
+    appPublicUrl,
+  });
 }
 
 function createInvitations(options: AccountLinksModuleOptions): InvitationsService {
