@@ -1,0 +1,2 @@
+ALTER TABLE "tokens" ADD COLUMN "magic_sight" numeric(6, 2);--> statement-breakpoint
+ALTER TABLE "tokens" ADD CONSTRAINT "tokens_magic_sight_range" CHECK ("tokens"."magic_sight" IS NULL OR "tokens"."magic_sight" BETWEEN 0 AND 100);

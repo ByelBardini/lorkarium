@@ -1,5 +1,12 @@
 import { cutsOf, veilOf, type TokenVeil } from './token-veil.mapper';
-import { combatVeilOf, publishVeiledLights, veiledWriteOf } from './token-veil';
+import {
+  combatVeilOf,
+  publishSeers,
+  publishVeiledLights,
+  seersBeforeOf,
+  seersShiftOf,
+  veiledWriteOf,
+} from './token-veil';
 import { creationCutsOf } from './token-hidden.mapper';
 import { deletedSeenBy } from '../combat/combat-veil.mapper';
 import type {
@@ -107,6 +114,8 @@ export class TokenBatchService {
       const blockers = copies.filter(({ blocksSight }) => blocksSight).length;
       await admitBlockersOf(daos, scene, rules, blockers);
       await requireAssetsOf(daos, campaignId, copies.flatMap(lookAssetIdsOf));
+      const seeing = copies.some(({ magicSight }) => magicSight != null);
+      const before = await seersBeforeOf(daos, scene.id, seeing);
       const created = await daos.tokens.insertMany(rows);
       const pasted = created.map(({ token }, index) => ({
         tokenId: token.id,
@@ -118,10 +127,12 @@ export class TokenBatchService {
       const combat = await combatOf(daos, scene);
       const veil = await combatVeilOf(daos, scene.id, created, combat);
       const { lights } = await veiledWriteOf(daos, scene.id, created);
-      return { tokens: withAll, combat, veil, lights };
+      const seers = await seersShiftOf(daos, scene, before, this.now());
+      return { tokens: withAll, combat, veil, lights, seers };
     });
     const { sceneId, version } = saved;
-    const { combat, veil, lights } = saved.value;
+    const { combat, veil, lights, seers } = saved.value;
+    publishSeers(this.deps.publisher, seers);
     const at = this.now();
     const tokens = saved.value.tokens.map(audiencesOf);
     const creation = { campaignId, sceneId, version, at, tokens, combat };
@@ -146,15 +157,19 @@ export class TokenBatchService {
         const expected = command.expect?.find(({ tokenId }) => tokenId === token.id);
         rules.requireAt(token.id, expected, token);
       }
+      const seeing = rows.some(({ token }) => token.magicSight !== null);
+      const before = await seersBeforeOf(daos, scene.id, seeing);
       await leaveCombat(daos, scene, access, tokenIds);
       await daos.tokens.deleteMany(scene.id, tokenIds);
       const combat = await combatOf(daos, scene);
       const veil = await combatVeilOf(daos, scene.id, rows, combat);
       const { lights } = await veiledWriteOf(daos, scene.id, rows);
-      return { combat, veil, lights };
+      const seers = await seersShiftOf(daos, scene, before, this.now());
+      return { combat, veil, lights, seers };
     });
     const { sceneId, version } = saved;
-    const { combat, veil, lights } = saved.value;
+    const { combat, veil, lights, seers } = saved.value;
+    publishSeers(this.deps.publisher, seers);
     const at = this.now();
     const event = { campaignId, sceneId, version, at, tokenIds: [...tokenIds], combat };
     this.deps.publisher.tokensDeleted(event, cutsOf(event, veil, deletedSeenBy));

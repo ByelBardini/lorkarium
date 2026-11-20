@@ -5,6 +5,7 @@ import {
   veilOf,
   type TokenVeil,
 } from '../tokens/token-veil.mapper';
+import { withSeersOf } from '../tokens/token-veil';
 import type {
   ApplyConditionCommandDto,
   ApplyConditionsCommandDto,
@@ -64,7 +65,7 @@ export type SetConditionStacks = Omit<SetConditionStacksCommandDto, Envelope>;
 /** The DAOs a transaction hands out, bound to the open `tx`. */
 export type ConditionWriteDaos = Readonly<{
   scenes: Pick<ScenesDao, 'lockInCampaign' | 'bumpVersion'>;
-  tokens: Pick<TokensDao, 'findInScene' | 'findManyInScene'>;
+  tokens: Pick<TokensDao, 'findInScene' | 'findManyInScene' | 'magicSeersOfScene'>;
   combat: Pick<CombatDao, 'findOfScene'>;
   conditions: Pick<
     ConditionsDao,
@@ -187,7 +188,8 @@ export class ConditionsService {
       const applied = await applyTo(daos, holders, known, duration);
       const grid = applied.filter(({ tokenId }) => tokenId !== null);
       const characters = await charactersIn(daos, campaignId, characterIdsOf(holders));
-      const veil = veilOf(tokens.filter(({ token }) => token.characterId === null));
+      const loose = veilOf(tokens.filter(({ token }) => token.characterId === null));
+      const veil = await withSeersOf(daos, scene.id, loose);
       const value = { grid, characters, veil };
       return { value, grid: grid.length > 0, characters: characters.length > 0 };
     });
@@ -275,7 +277,8 @@ export class ConditionsService {
       const saved = await write(locked, holder);
       const tokenId = token.token.id;
       if ('tokenId' in holder) {
-        const value = { saved, tokenId, veil: veilOf([token]), character: null };
+        const veil = await withSeersOf(locked.daos, locked.scene.id, veilOf([token]));
+        const value = { saved, tokenId, veil, character: null };
         return { value, grid: true, characters: false };
       }
       const campaignId = locked.scene.campaignId;

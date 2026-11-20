@@ -60,6 +60,7 @@ export class TokensDaoFake implements Pick<
   | 'deleteMany'
   | 'setHidden'
   | 'veilOfScene'
+  | 'magicSeersOfScene'
   | 'patrols'
 > {
   /** The scenes whose blockers were counted: a command turning none on reads nothing. */
@@ -200,6 +201,14 @@ export class TokensDaoFake implements Pick<
 
   async countOfScene(sceneId: string): Promise<number> {
     return (await this.listOfScene(sceneId)).length;
+  }
+
+  async magicSeersOfScene(sceneId: string): Promise<string[]> {
+    this.journal.push('seers');
+    const seers = (await this.listOfScene(sceneId)).filter(
+      ({ token }) => token.magicSight !== null,
+    );
+    return [...new Set(seers.flatMap(({ controllerIds }) => controllerIds))];
   }
 
   async countBlockersOfScene(sceneId: string): Promise<number> {
@@ -382,7 +391,7 @@ export class TokenTransactionRunnerFake {
  *  campaign queried, as `<campaignId>:<sceneId>` when a grid was named.
  *
  *  Example: `new DragGroupsFake(scenes, tokens)` */
-export class DragGroupsFake implements Pick<TokensDao, 'findDragGroup'> {
+export class DragGroupsFake implements Pick<TokensDao, 'findDragGroup' | 'magicSeersOfScene'> {
   readonly asked: string[] = [];
 
   constructor(
@@ -402,5 +411,10 @@ export class DragGroupsFake implements Pick<TokensDao, 'findDragGroup'> {
       ({ token }) => token.sceneId === scene.id && tokenIds.includes(token.id),
     );
     return { scene, tokens: found.map(({ token, controllerIds }) => ({ token, controllerIds })) };
+  }
+
+  async magicSeersOfScene(sceneId: string): Promise<string[]> {
+    this.asked.push(`seers:${sceneId}`);
+    return this.tokens.magicSeersOfScene(sceneId);
   }
 }

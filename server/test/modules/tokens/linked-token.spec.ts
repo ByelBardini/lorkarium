@@ -157,6 +157,15 @@ describe('the aura of a token linked to a character', () => {
     expect(own.fields).not.toHaveProperty('auraImageShape');
   });
 
+  it('splitUpdate keeps magicSight on the token, per grid, never on the character', () => {
+    const update = { fields: { ...FIELDS, magicSight: '6.00' }, bars: [], controllerIds: [] };
+
+    const { shared, own } = splitUpdate(update);
+
+    expect(shared.look).not.toHaveProperty('magicSight');
+    expect(own.fields).toEqual({ width: 2, height: 2, magicSight: '6.00' });
+  });
+
   it('splitUpdate keeps blocksSight on the token, per grid, never on the character', () => {
     const update = { fields: { ...FIELDS, blocksSight: true }, bars: [], controllerIds: [] };
 

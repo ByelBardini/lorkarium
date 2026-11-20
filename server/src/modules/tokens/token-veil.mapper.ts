@@ -11,8 +11,9 @@ export type VeiledToken = Readonly<{
   light: VeiledLightDto | null;
 }>;
 
-/** The hidden tokens an event may name (or a snapshot holds). Empty = nothing to cut. */
-export type TokenVeil = Readonly<{ tokens: readonly VeiledToken[] }>;
+/** The hidden tokens an event may name (or a snapshot holds). Empty = nothing to cut. `seerIds`:
+ *  who controls a token with magic sight in the grid; they receive every hidden token, as others. */
+export type TokenVeil = Readonly<{ tokens: readonly VeiledToken[]; seerIds?: readonly string[] }>;
 
 /** One audience of a veil and the ids it may not receive. */
 export type VeilCut = Readonly<{ audience: VeilAudience; invisible: ReadonlySet<string> }>;
@@ -39,12 +40,22 @@ export function sceneVeilOf(hidden: readonly HiddenTokenPo[]): TokenVeil {
   return { tokens: hidden.map(veiledTokenOf) };
 }
 
-/** Two veils as one, each token once (the first one's wins).
+/** Two veils as one, each token once (the first one's wins), and the seers of both.
  *
  *  Example: `joinedVeil(veilOf(rows), sceneVeilOf(scene))` */
 export function joinedVeil(first: TokenVeil, second: TokenVeil): TokenVeil {
   const ids = new Set(first.tokens.map(({ tokenId }) => tokenId));
-  return { tokens: [...first.tokens, ...second.tokens.filter(({ tokenId }) => !ids.has(tokenId))] };
+  const tokens = [...first.tokens, ...second.tokens.filter(({ tokenId }) => !ids.has(tokenId))];
+  const seerIds = [...new Set([...(first.seerIds ?? []), ...(second.seerIds ?? [])])];
+  return seerIds.length > 0 ? { tokens, seerIds } : { tokens };
+}
+
+/** The veil with who has magic sight in the grid (`TokensDao.magicSeersOfScene`); none leaves it as
+ *  it was.
+ *
+ *  Example: `seenVeil(veilOf(rows), await daos.tokens.magicSeersOfScene(scene.id))` */
+export function seenVeil(veil: TokenVeil, seerIds: readonly string[]): TokenVeil {
+  return seerIds.length > 0 ? { ...veil, seerIds: [...seerIds] } : veil;
 }
 
 /** A hidden token's light, from the center of its footprint, only while lit; a running patrol
@@ -57,8 +68,10 @@ export function veiledTokenOf({ token, controllerIds, patrol }: HiddenTokenPo): 
 }
 
 /** The audiences of a veil: the masters (who see all), each controller of a hidden token (they see
- *  theirs) and the rest (who see none). Without a hidden token, no audience: nothing to cut.
- *  `alsoUserIds` get a cut of their own too (who just stopped controlling one).
+ *  theirs), each seer (who sees all, as others) and the rest (who see none). A seer who also
+ *  controls one is one audience, the controller's, seeing all. Without a hidden token, no
+ *  audience: nothing to cut. `alsoUserIds` get a cut of their own too (who just stopped
+ *  controlling one).
  *
  *  Example: `veilCutsOf(veil).find(({ audience }) => audience.kind === 'rest')?.invisible` */
 export function veilCutsOf(veil: TokenVeil, alsoUserIds: readonly string[] = []): VeilCut[] {
@@ -66,15 +79,23 @@ export function veilCutsOf(veil: TokenVeil, alsoUserIds: readonly string[] = [])
   const controllerIds = [
     ...new Set([...veil.tokens.flatMap((t) => t.controllerIds), ...alsoUserIds]),
   ];
+  const seerIds = new Set(veil.seerIds ?? []);
   const all = new Set(veil.tokens.map(({ tokenId }) => tokenId));
   const controllerCuts = controllerIds.map((userId) => ({
     audience: { kind: 'controller', userId } as const,
     invisible: invisibleTo(veil, userId),
   }));
+  const seersOnly = [...seerIds].filter((userId) => !controllerIds.includes(userId));
+  const seerCuts = seersOnly.map((userId) => ({
+    audience: { kind: 'seer', userId } as const,
+    invisible: NOTHING_HIDDEN,
+  }));
+  const apart = [...controllerIds, ...seersOnly];
   return [
     { audience: { kind: 'masters' }, invisible: NOTHING_HIDDEN },
     ...controllerCuts,
-    { audience: { kind: 'rest', controllerIds }, invisible: all },
+    ...seerCuts,
+    { audience: { kind: 'rest', controllerIds: apart }, invisible: all },
   ];
 }
 
@@ -153,11 +174,12 @@ export function veiledLightsOf(veil: TokenVeil, invisible: ReadonlySet<string>):
   );
 }
 
-/** The ids of the veil a member does not receive: all of them, but the ones they control (a
- *  master receives every one: pass the veil only for who is not).
+/** The ids of the veil a member does not receive: all of them, but the ones they control, and
+ *  none for a seer (a master receives every one: pass the veil only for who is not).
  *
  *  Example: `invisibleTo(veil, biaId) // the hidden tokens Bia does not control` */
 export function invisibleTo(veil: TokenVeil, userId: string): ReadonlySet<string> {
+  if (veil.seerIds?.includes(userId)) return NOTHING_HIDDEN;
   const unseen = veil.tokens.filter(({ controllerIds }) => !controllerIds.includes(userId));
   return new Set(unseen.map(({ tokenId }) => tokenId));
 }

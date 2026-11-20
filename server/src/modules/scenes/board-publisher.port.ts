@@ -84,6 +84,9 @@ export type TokensCreation = Readonly<{
 export type VeilAudience =
   | Readonly<{ kind: 'masters' }>
   | Readonly<{ kind: 'controller'; userId: string }>
+  // Controls a token with magic sight in the grid: every hidden token, redacted as others.
+  | Readonly<{ kind: 'seer'; userId: string }>
+  // `controllerIds`: everyone with a cut of their own (controllers and seers), left out of it.
   | Readonly<{ kind: 'rest'; controllerIds: readonly string[] }>;
 
 /** What one audience receives of an event that touched a hidden token; `null` = nothing of it is
@@ -114,6 +117,24 @@ export type TokensHiddenChange = Readonly<{
   campaignId: string;
   sceneId: string;
   cuts: readonly HiddenCut[];
+}>;
+
+/** What one member receives when they start or stop seeing through magic sight: the hidden
+ *  tokens arriving (as others) or leaving, with the combat as they now see it. */
+export type SeerCut = Readonly<{ userId: string }> &
+  (
+    | Readonly<{ name: 'token:createdMany'; event: GridEvent<TokensCreatedDto> }>
+    | Readonly<{ name: 'token:deletedMany'; event: GridEvent<TokensDeletedDto> }>
+  );
+
+/** The seers of a grid changed, in a version of its own: each one who started or stopped gets
+ *  their cut, everyone else `board:advanced`. */
+export type SeersChange = Readonly<{
+  campaignId: string;
+  sceneId: string;
+  version: number;
+  at: string;
+  cuts: readonly SeerCut[];
 }>;
 
 /** The whole list of veiled lights of each audience whose list changed. */
@@ -150,6 +171,8 @@ export interface BoardPublisherPort {
   tokensHiddenChanged(change: TokensHiddenChange): void;
   /** No version, like a drag: each audience gets its whole new list. */
   veiledLightsChanged(change: VeiledLightsChange): void;
+  /** Who started or stopped seeing through magic sight (see `SeersChange`). */
+  seersChanged(change: SeersChange): void;
   tokenLayerChanged(
     event: GridEvent<TokenLayerChangedDto>,
     veil: VeilCuts<GridEvent<TokenLayerChangedDto>>,

@@ -3,6 +3,7 @@ import { combatSeenBy } from '../combat/combat-veil.mapper';
 import type {
   GridEvent,
   HiddenCut,
+  SeerCut,
   TokenChange,
   TokenChangeVeil,
   TokensCreation,
@@ -50,8 +51,9 @@ export function creationCutsOf(
 }
 
 /** The veil of a `token:created` / `token:updated` of a hidden token: whole to the masters and its
- *  controllers, nothing (`board:advanced`) to the rest, and `token:deleted` (with the combat as
- *  they now see it) to who stopped controlling it. A visible token: no veil.
+ *  controllers, redacted (others) to the seers of `scene.veil`, nothing (`board:advanced`) to the
+ *  rest, and `token:deleted` (with the combat as they now see it) to who stopped controlling it
+ *  and does not see it by magic sight. A visible token: no veil.
  *
  *  Example: `publisher.tokenChanged(change, changeVeilOf(change, row.token.hidden, former, change))` */
 export function changeVeilOf(
@@ -61,13 +63,20 @@ export function changeVeilOf(
   scene: Readonly<{ veil: TokenVeil; combat: CombatDto | null }>,
 ): TokenChangeVeil {
   if (!hidden) return { cuts: [], lost: [] };
-  const losers = formerControllerIds.filter((userId) => !change.controllerIds.includes(userId));
-  const controllerIds = [...new Set([...change.controllerIds, ...losers])];
+  const seerIds = (scene.veil.seerIds ?? []).filter((id) => !change.controllerIds.includes(id));
+  const losers = formerControllerIds.filter(
+    (userId) => !change.controllerIds.includes(userId) && !seerIds.includes(userId),
+  );
+  const controllerIds = [...new Set([...change.controllerIds, ...losers, ...seerIds])];
   const cuts = [
     { audience: { kind: 'masters' } as const, event: change.privileged },
     ...change.controllerIds.map((userId) => ({
       audience: { kind: 'controller', userId } as const,
       event: change.privileged,
+    })),
+    ...seerIds.map((userId) => ({
+      audience: { kind: 'seer', userId } as const,
+      event: change.others,
     })),
     { audience: { kind: 'rest', controllerIds } as const, event: null },
   ];
@@ -112,6 +121,39 @@ export function hiddenCutsOf(
   });
 }
 
+/** Who started (`gained`) or stopped (`lost`) seeing through magic sight, and the hidden tokens of
+ *  the grid after the change (`veil` with the seers after it). */
+export type SeersShift = Readonly<{
+  gained: readonly string[];
+  lost: readonly string[];
+  hidden: readonly CreatedToken[];
+  veil: TokenVeil;
+  combat: CombatDto | null;
+}>;
+
+/** What each one who started or stopped seeing receives: `token:createdMany` with every hidden
+ *  token they did not control (as others), or `token:deletedMany` of those; each with the combat
+ *  as they now see it. One with nothing to receive is left out.
+ *
+ *  Example: `seersCutsOf(base, { gained: [biaId], lost: [], hidden, veil, combat })` */
+export function seersCutsOf(base: EventBase, shift: SeersShift): SeerCut[] {
+  const notTheirs = (userId: string): CreatedToken[] =>
+    shift.hidden.filter(({ controllerIds }) => !controllerIds.includes(userId));
+  const gained = shift.gained.flatMap((userId): SeerCut[] => {
+    const tokens = notTheirs(userId).map(({ others }) => others);
+    if (tokens.length === 0) return [];
+    const event = { ...base, tokens, combat: shift.combat };
+    return [{ userId, name: 'token:createdMany', event }];
+  });
+  const lost = shift.lost.flatMap((userId): SeerCut[] => {
+    const tokenIds = notTheirs(userId).map(({ privileged }) => privileged.id);
+    if (tokenIds.length === 0) return [];
+    const combat = combatSeenBy(shift.combat, invisibleTo(shift.veil, userId));
+    return [{ userId, name: 'token:deletedMany', event: { ...base, tokenIds, combat } }];
+  });
+  return [...gained, ...lost];
+}
+
 /** The new list of veiled lights of each audience to which a `touched` hidden token (moved, lit,
  *  hidden, shown, deleted…) is invisible; the masters never have one. `after` is every hidden
  *  token of the scene after the change.
@@ -134,7 +176,8 @@ export function veiledLightsCutsOf(
  *  Example: `invisibleFor({ kind: 'rest', controllerIds: [] }, veil) // every id of it` */
 export function invisibleFor(audience: VeilAudience, veil: TokenVeil): ReadonlySet<string> {
   if (audience.kind === 'masters') return new Set();
-  if (audience.kind === 'controller') return invisibleTo(veil, audience.userId);
+  if (audience.kind === 'controller' || audience.kind === 'seer')
+    return invisibleTo(veil, audience.userId);
   return new Set(veil.tokens.map(({ tokenId }) => tokenId));
 }
 

@@ -1,5 +1,5 @@
 import { cutsOf, entriesSeenBy, pausesSeenBy, tokenIdsSeenBy, veilOf } from './token-veil.mapper';
-import { publishVeiledLights, veiledWriteOf, type VeiledWrite } from './token-veil';
+import { publishVeiledLights, veiledWriteOf, withSeersOf, type VeiledWrite } from './token-veil';
 import type { GridEvent } from '../scenes/board-publisher.port';
 import type {
   FaceTokensCommandDto,
@@ -231,7 +231,8 @@ async function litWriteOf(
   rows: readonly TokenRow[],
   style: TokenStyleDto,
 ): Promise<VeiledWrite> {
-  if (style.lightLit === undefined) return { veil: veilOf(rows), lights: null };
+  if (style.lightLit === undefined)
+    return { veil: await withSeersOf(daos, sceneId, veilOf(rows)), lights: null };
   return veiledWriteOf(
     daos,
     sceneId,

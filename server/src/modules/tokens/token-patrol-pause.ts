@@ -4,7 +4,7 @@ import { patrolPoseNowOf } from './token-patrol.bo';
 import { toPatrolledToken, toPatrolPauseDto } from './token-patrol.mapper';
 import type { PatrolledTokenPo, TokenPatrolWrites } from './token-patrols.dao';
 import { veiledLightsCutsOf } from './token-hidden.mapper';
-import { sceneVeilOf } from './token-veil.mapper';
+import { sceneVeilOf, seenVeil } from './token-veil.mapper';
 import type { TokenRow, TokensDao } from './tokens.dao';
 
 // The pieces the commands that move a token by hand (or put it in combat) share to pause its
@@ -96,7 +96,7 @@ export async function pausedIfOf(
 }
 
 type EnteringDaos = Readonly<{
-  tokens: Pick<TokensDao, 'veilOfScene'> &
+  tokens: Pick<TokensDao, 'veilOfScene' | 'magicSeersOfScene'> &
     Readonly<{ patrols: Pick<TokenPatrolWrites, 'pause' | 'runningOf'> }>;
 }>;
 
@@ -123,7 +123,8 @@ export async function pauseEnteringOf(
   await daos.tokens.patrols.pause(sceneId, pauses);
   const patrolPauses = pauses.map(toPatrolPauseDto);
   if (!running.some(({ token }) => token.hidden)) return { patrolPauses, lights: null };
-  const after = sceneVeilOf(await daos.tokens.veilOfScene(sceneId));
+  const hiddenOnes = sceneVeilOf(await daos.tokens.veilOfScene(sceneId));
+  const after = seenVeil(hiddenOnes, await daos.tokens.magicSeersOfScene(sceneId));
   const ids = new Set(pauses.map(({ tokenId }) => tokenId));
   const touched = after.tokens.filter(({ tokenId, light }) => ids.has(tokenId) && light);
   return { patrolPauses, lights: touched.length > 0 ? veiledLightsCutsOf(after, touched) : null };

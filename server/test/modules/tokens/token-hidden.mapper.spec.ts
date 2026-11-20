@@ -4,13 +4,21 @@ import {
   changeVeilOf,
   creationCutsOf,
   hiddenCutsOf,
+  seersCutsOf,
   veiledLightsCutsOf,
 } from '../../../src/modules/tokens/token-hidden.mapper';
-import { veilOf } from '../../../src/modules/tokens/token-veil.mapper';
+import { seenVeil, veilOf } from '../../../src/modules/tokens/token-veil.mapper';
 import { toTokenDto } from '../../../src/modules/tokens/tokens.mapper';
 import { BIA_ID, CAIO_ID, VHARN_ID } from '../../support/campaigns-factories';
 import { VHARN_SCENE_ID } from '../../support/scenes-factories';
-import { BRAM_ID, LOBO_ID, bramRow, loboRow, sombraRow } from '../../support/tokens-factories';
+import {
+  BRAM_ID,
+  LOBO_ID,
+  SOMBRA_ID,
+  bramRow,
+  loboRow,
+  sombraRow,
+} from '../../support/tokens-factories';
 
 const BASE = {
   campaignId: VHARN_ID,
@@ -107,7 +115,101 @@ describe('a token change of a hidden token', () => {
   });
 });
 
+describe('a token change of a hidden token seen by magic sight', () => {
+  const change = {
+    name: 'token:updated' as const,
+    campaignId: VHARN_ID,
+    sceneId: VHARN_SCENE_ID,
+    controllerIds: [CAIO_ID],
+    privileged: { ...BASE, token: toTokenDto(loboRow(), 'privileged') },
+    others: { ...BASE, token: toTokenDto(loboRow(), 'others') },
+  };
+
+  it('the seer Bia gets it redacted as others; the rest leaves her out', () => {
+    const veil = seenVeil(veilOf([loboRow({ controllerIds: [CAIO_ID] })]), [BIA_ID]);
+
+    const cut = changeVeilOf(change, true, [], { veil, combat: null });
+
+    expect(cut.cuts).toEqual([
+      { audience: MASTERS, event: change.privileged },
+      { audience: CAIO, event: change.privileged },
+      { audience: { kind: 'seer', userId: BIA_ID }, event: change.others },
+      { audience: { kind: 'rest', controllerIds: [CAIO_ID, BIA_ID] }, event: null },
+    ]);
+  });
+
+  it('Bia, who stopped controlling it but sees by magic sight, gets it as others, not token:deleted', () => {
+    const veil = seenVeil(veilOf([loboRow({ controllerIds: [CAIO_ID] })]), [BIA_ID]);
+
+    const cut = changeVeilOf(change, true, [BIA_ID], { veil, combat: null });
+
+    expect(cut.lost).toEqual([]);
+    expect(cut.cuts.find(({ audience }) => audience.kind === 'seer')?.event).toBe(change.others);
+  });
+});
+
+describe('the seers of a grid that change', () => {
+  const hidden = [audiencesOf(loboRow()), audiencesOf(sombraRow())];
+  const shapeOf = (cuts: ReturnType<typeof seersCutsOf>) =>
+    cuts.map((cut) => [
+      cut.userId,
+      cut.name,
+      cut.name === 'token:createdMany'
+        ? cut.event.tokens.map(({ id, canControl }) => [id, canControl])
+        : cut.event.tokenIds,
+    ]);
+
+  it('Caio starting to see gets token:createdMany with both hidden ones as others', () => {
+    const veil = seenVeil(veilOf([loboRow(), sombraRow()]), [CAIO_ID]);
+
+    const cuts = seersCutsOf(BASE, { gained: [CAIO_ID], lost: [], hidden, veil, combat: null });
+
+    expect(shapeOf(cuts)).toEqual([
+      [
+        CAIO_ID,
+        'token:createdMany',
+        [
+          [LOBO_ID, false],
+          [SOMBRA_ID, false],
+        ],
+      ],
+    ]);
+  });
+
+  it('Bia stopping to see loses only the Sombra: the Lobo is hers', () => {
+    const veil = veilOf([loboRow(), sombraRow()]);
+
+    const cuts = seersCutsOf(BASE, { gained: [], lost: [BIA_ID], hidden, veil, combat: null });
+
+    expect(shapeOf(cuts)).toEqual([[BIA_ID, 'token:deletedMany', [SOMBRA_ID]]]);
+  });
+
+  it('nobody changing, or nothing to receive, cuts nothing', () => {
+    const veil = veilOf([loboRow()]);
+    const onlyHers = [audiencesOf(loboRow())];
+
+    expect(seersCutsOf(BASE, { gained: [], lost: [], hidden, veil, combat: null })).toEqual([]);
+    expect(
+      seersCutsOf(BASE, { gained: [BIA_ID], lost: [], hidden: onlyHers, veil, combat: null }),
+    ).toEqual([]);
+  });
+});
+
 describe('hiding and showing', () => {
+  it('hiding the Lobo with the seer Caio: Caio keeps seeing it and gets the flag, not token:deletedMany', () => {
+    const after = seenVeil(veilOf([loboRow(), sombraRow()]), [CAIO_ID]);
+    const before = seenVeil(veilOf([sombraRow()]), [CAIO_ID]);
+
+    const cuts = hiddenCutsOf(BASE, [audiencesOf(loboRow())], true, {
+      before,
+      after,
+      combat: null,
+    });
+
+    const caio = cuts.find(({ audience }) => 'userId' in audience && audience.userId === CAIO_ID);
+    expect([caio?.audience.kind, caio?.name]).toEqual(['seer', 'token:hiddenChanged']);
+  });
+
   const after = veilOf([loboRow(), sombraRow()]);
   const before = veilOf([sombraRow()]);
   const changed = [audiencesOf(loboRow())];
