@@ -43,6 +43,8 @@ const STATUS_BY_CODE: Readonly<Record<RefusalCode, number>> = {
   USERNAME_TAKEN: 409,
   USER_NOT_FOUND: 404,
   SELF_ACTION: 409,
+  REGISTRATION_CLOSED: 403,
+  HUMAN_CHECK_FAILED: 400,
   RATE_LIMITED: 429,
   // A conflict here, not the login's 403: the admin's session is fine, the target is suspended.
   ACCOUNT_SUSPENDED: 409,
@@ -58,6 +60,8 @@ const PUBLIC_MESSAGE: Readonly<Record<RefusalCode, string>> = {
   USERNAME_TAKEN: 'This @ is already taken',
   USER_NOT_FOUND: 'Account not found',
   SELF_ACTION: 'Admins cannot do this to their own account',
+  REGISTRATION_CLOSED: 'The public sign-up is closed',
+  HUMAN_CHECK_FAILED: 'The anti-bot check did not pass; try again',
   RATE_LIMITED: 'Too many attempts',
   ACCOUNT_SUSPENDED: 'The account is suspended',
 };

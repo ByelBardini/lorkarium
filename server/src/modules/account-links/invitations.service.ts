@@ -7,7 +7,6 @@ import type {
   InvitationOriginDto,
 } from '@lorkarium/contracts';
 import { isUniqueViolation } from '../../lib/postgres-error';
-import { invitationMail } from '../account-security/admin-mail.mapper';
 import type { SecurityNoticesService } from '../account-security/security-notices.service';
 import { emailIndexOf, toSealedEmail } from '../auth/auth.mapper';
 import type { AuthService, IssuedSession } from '../auth/auth.service';
@@ -32,6 +31,7 @@ import {
 import {
   invitationEmailOf,
   invitationLinkOf,
+  invitationMailOf,
   termsAcceptanceAt,
   toAccountLinkBo,
   toAdminInvitationDto,
@@ -214,17 +214,10 @@ export class InvitationsService {
     const listing = await this.deps.invitations.findListing(invitationId);
     if (!listing) throw new InvitationNotFoundError(invitationId);
     const invitation = toAdminInvitationDto(listing, this.deps.cipher);
-    const link = invitationLinkOf(this.deps.appPublicUrl, listing.origin, token);
     const publicUrl = this.deps.appPublicUrl;
-    const validFor = { days: invitationTtlOf('admin') / DAY_MS };
-    await this.deps.notices.send(
-      invitationMail({
-        to: invitation.email,
-        link,
-        validFor,
-        publicUrl,
-      }),
-    );
+    const link = invitationLinkOf(publicUrl, listing.origin, token);
+    const mail = invitationMailOf(listing.origin, { to: invitation.email, link, publicUrl });
+    await this.deps.notices.send(mail);
     return { invitation, link };
   }
 
@@ -235,5 +228,3 @@ export class InvitationsService {
     return row;
   }
 }
-
-const DAY_MS = 24 * 60 * 60 * 1000;

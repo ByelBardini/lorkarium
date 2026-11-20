@@ -3,9 +3,11 @@ import {
   type AdminInvitationDto,
   type InvitationOriginDto,
 } from '@lorkarium/contracts';
+import { invitationMail, signUpLinkMail } from '../account-security/admin-mail.mapper';
+import type { MailMessage } from '../account-security/mailer.port';
 import type { DataCipherPort } from '../auth/data-cipher.port';
 import type { UserPo } from '../auth/users.po';
-import { AccountLinkBo } from './account-link.bo';
+import { AccountLinkBo, invitationTtlOf } from './account-link.bo';
 import type { InvitationListingRow } from './invitations.dao';
 import type { InvitationPo } from './invitations.po';
 import type { PasswordResetPo } from './password-resets.po';
@@ -68,3 +70,22 @@ export function invitationLinkOf(
 ): string {
   return linkOf(publicUrl, origin === 'self' ? '/sign-up/confirm' : '/invite', token);
 }
+
+export type InvitationMailTarget = Readonly<{ to: string; link: string; publicUrl: string }>;
+
+/** The e-mail of an invitation's link, by who asked for it: the admin's invitation or the
+ *  sign-up's confirmation, each with its own validity.
+ *
+ *  Example: `invitationMailOf('self', { to, link, publicUrl }).subject // 'Confirme seu cadastro no Lorkarium'` */
+export function invitationMailOf(
+  origin: InvitationOriginDto,
+  target: InvitationMailTarget,
+): MailMessage {
+  if (origin === 'self') {
+    return signUpLinkMail({ ...target, validFor: { hours: invitationTtlOf('self') / HOUR_MS } });
+  }
+  return invitationMail({ ...target, validFor: { days: invitationTtlOf('admin') / DAY_MS } });
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
