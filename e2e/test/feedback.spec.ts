@@ -22,8 +22,7 @@ test.describe('feedback', () => {
       .click();
     await bia.getByRole('menuitem', { name: 'Relatar bug ou sugerir' }).click();
     const form = bia.getByRole('dialog', { name: 'Relatar um bug ou sugerir' });
-    await expect(form.getByRole('radio', { name: 'Navegador' })).toBeChecked();
-    await expect(form.getByLabel('Navegador ou versão do app')).toHaveValue(/^Chrome \d+$/);
+    await expect(form.getByText(/^Navegador · Chrome \d+$/)).toBeVisible();
     await form.getByLabel('Passos para reproduzir').fill('Abri a mesa e arrastei o token');
     await form.getByLabel('O que você esperava').fill('O token andar');
     await form.getByLabel('O que aconteceu').fill(happened);
