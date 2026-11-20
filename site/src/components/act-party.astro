@@ -1,9 +1,9 @@
 ---
-import { PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
+import { PUBLIC_APP_URL } from 'astro:env/client';
 import ActFeatures from '@/components/act-features.astro';
 import ActSection from '@/components/act-section.astro';
 import SecondaryLink from '@/components/secondary-link.astro';
-import { inviteMailto, landingCopy } from '@/copy/landing-copy';
+import { landingCopy, signUpUrlOf } from '@/copy/landing-copy';
 ---
 
 <ActSection id="grupo" tone="band">
@@ -29,9 +29,9 @@ import { inviteMailto, landingCopy } from '@/copy/landing-copy';
     </ol>
     <div data-reveal="2" class="flex flex-col items-start gap-5 border-l-2 border-gold/50 pl-6">
       <p class="m-0 text-[17px] leading-relaxed text-label">
-        O acesso é por convite. Peça o seu e chame o grupo quando a cena estiver pronta.
+        A conta é grátis e sai pelo e-mail. Crie a sua e chame o grupo quando a cena estiver pronta.
       </p>
-      <SecondaryLink href={inviteMailto(PUBLIC_CONTACT_EMAIL)}>Pedir convite</SecondaryLink>
+      <SecondaryLink href={signUpUrlOf(PUBLIC_APP_URL)}>Criar conta</SecondaryLink>
     </div>
   </div>
   <div class="mt-[clamp(48px,6vw,80px)] grid lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:gap-20">

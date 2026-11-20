@@ -58,27 +58,21 @@ describe('FaqList', () => {
     );
   });
 
-  it('ends every answer that asks for an invite with the "Pedir convite" link', async () => {
+  it('asks for no invite in any answer', async () => {
     const faq = await renderAstro(FaqList);
 
-    const inviteAnswers = [...faq.querySelectorAll('details p')].filter((answer) =>
-      answer.querySelector('a[href*="subject="]'),
-    );
-    expect(inviteAnswers.length).toBe(1);
-    expect(
-      inviteAnswers.every((answer) => answer.lastElementChild?.textContent === 'Pedir convite'),
-    ).toBe(true);
+    expect(faq.querySelector('a[href*="subject="]')).toBeNull();
+    expect(faq.body.textContent).not.toMatch(/convite/i);
   });
 
-  it('links the account question to an invite request e-mail', async () => {
+  it('ends the account answer with the "Criar conta" link to the app', async () => {
     const faq = await renderAstro(FaqList);
 
     const account = [...faq.querySelectorAll('details')].find((item) =>
       item.querySelector('summary')?.textContent?.includes('Como consigo uma conta?'),
     );
-    const invite = account?.querySelector<HTMLAnchorElement>('a[href^="mailto:"]');
-    expect(invite?.href).toBe(
-      'mailto:contato@lorkarium.test?subject=Convite%20para%20o%20Lorkarium',
-    );
+    const signUp = account?.querySelector('p')?.lastElementChild;
+    expect(signUp?.textContent).toBe('Criar conta');
+    expect(signUp?.getAttribute('href')).toBe('https://mesa.lorkarium.test/sign-up');
   });
 });
