@@ -1,6 +1,6 @@
 # Housekeeping
 
-Limpeza de hora em hora das tabelas que só crescem: recibos de comando com mais de 24 h, sessões de login vencidas e desafios 2FA vencidos. Módulo `server/src/modules/housekeeping/`, sem rota nem evento.
+Limpeza de hora em hora das tabelas que só crescem: recibos de comando com mais de 24 h, sessões de login, desafios 2FA e links do cadastro público vencidos, e comunicados com mais de 5 anos. Módulo `server/src/modules/housekeeping/`, sem rota nem evento.
 
 ## Arquivos
 
