@@ -99,7 +99,7 @@ Contas do backoffice (`adminUserDto`, lista, papel, plano, exclusão), convites 
 
 ### Textos legais (`legal/`)
 
-- `legal-documents.dto.ts` — `LEGAL_DOCUMENTS_VERSION` (`'2026-11-19'`: a versão dos três textos — Termos de uso, Política de privacidade e Política de uso aceitável — que o aceite grava; muda junto com o `updatedAt` da landing) e `legalDocumentDto` (`terms` | `privacy` | `acceptable-use`, tipo `LegalDocument`: os caminhos `GET /api/legal/<documento>`). Ver [`legal.md`](legal.md).
+- `legal-documents.dto.ts` — `LEGAL_DOCUMENTS_VERSION` (`'2026-11-20'`: a versão dos três textos — Termos de uso, Política de privacidade e Política de uso aceitável — que o aceite grava; muda junto com o `updatedAt` da landing) e `legalDocumentDto` (`terms` | `privacy` | `acceptable-use`, tipo `LegalDocument`: os caminhos `GET /api/legal/<documento>`). Ver [`legal.md`](legal.md).
 
 ### Tempo real comum (`http/realtime-ack.dto.ts`)
 

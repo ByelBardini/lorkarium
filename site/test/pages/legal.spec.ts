@@ -71,7 +71,7 @@ describe('the legal pages', () => {
 
     expect(document.querySelector('meta[name="robots"]')).toBeNull();
     expect(document.querySelector('main article p')?.textContent).toBe(
-      'Atualizado em 19 de novembro de 2026',
+      'Atualizado em 20 de novembro de 2026',
     );
   });
 });
