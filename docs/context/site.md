@@ -28,6 +28,7 @@ Ideia que se repete: **a mesa de campanha** — o grid do tabuleiro e os três c
 | `PUBLIC_APP_URL`       | `astro:env/client` (obrigatória, URL)        | "Já tenho conta", "jogue pelo navegador"            |
 | `PUBLIC_CONTACT_EMAIL` | `astro:env/client` (obrigatória)             | "Pedir convite" (`inviteMailto`), FAQ, rodapé       |
 | `LEGAL_DRAFTS_ALLOWED` | `astro:env/server` (padrão `false`)          | só com `true` Termos/Privacidade em rascunho passam |
+| `GUIDE_DRAFTS_ALLOWED` | `astro:env/server` (padrão `false`)          | só com `true` os guias em rascunho viram página     |
 | `LEGAL_SUPPLIER_NAME`  | `astro:env/server` (obrigatória)             | o nome do fornecedor no `<address>` dos Termos      |
 | `LEGAL_SUPPLIER_CPF`   | `astro:env/server`, **secret** (obrigatória) | só a máscara vai ao HTML (`maskedCpfOf`)            |
 
@@ -35,7 +36,8 @@ O CPF é `server` + `secret` de propósito: o valor cru nunca vai ao bundle do c
 
 ## Páginas e seções
 
-- `src/layouts/site-layout.astro` — `<head>` (título, descrição, canonical, Open Graph, `twitter:card`, JSON-LD `SoftwareApplication` com `offers.price "0"`/BRL, `noindex` opcional), link "Pular para o conteúdo", `SiteHeader`, `<main id="conteudo">`, `SiteFooter`.
+- `src/layouts/site-layout.astro` — `<head>` (título, descrição, canonical, ícones por URL estável, manifest, Open Graph com `og:image:alt` e imagem por página, preload da fonte do h1, JSON-LD em `@graph`, `noindex` opcional; detalhe em [`site/seo.md`](site/seo.md)), link "Pular para o conteúdo", `SiteHeader`, `<main id="conteudo">`, `SiteFooter`. O `h1` da home abre com “Mesa virtual para RPG” (o sobretítulo dentro do `h1`) antes do slogan.
+- Guias `/recursos/<slug>/` e o hub `/recursos/`: coleção `guides`, rascunho por `GUIDE_DRAFTS_ALLOWED`; ver [`site/seo.md`](site/seo.md).
 - `src/pages/index.astro` — uma noite de jogo em atos, na ordem: `hero` (`#topo`), `act-scene` (`#cena`, I), `act-party` (`#grupo`, II), `act-initiative` (`#iniciativa`, III), `act-combat` (`#combate`, IV), `act-dice` (`#dados`, V), `act-chat` (`#chat`, VI), `download-panel` (`#baixar`, “Baixe e jogue”), `faq-list` (`#perguntas`, “Perguntas da mesa”). `combate`, `dados`, `chat`, `baixar` e `perguntas` mantêm o `id` antigo (links externos); `recursos` e `como` sumiram. O `<script>` da página liga o `enhanceDownloadCtas`.
 - `src/pages/obrigado.astro` — `noindex` e fora do sitemap: passo a passo (instalador, SmartScreen, convite), link manual, aviso de fallback, "Pedir convite" e o navegador. O `<script>` liga o `startDesktopDownload`.
 - `src/pages/planos.astro` — “Planos”: sem sobretítulo, `h1` “Sua mesa, seu ritmo.” com o apoio “O Grátis já leva uma campanha inteira.” em Cormorant itálico ouro, aviso `[data-plans-notice]` (toda conta começa no Grátis; os pagos são assinados no app, por cartão ou Pix, e a renovação se cancela quando quiser), indexável e no sitemap (a página vende; só `/obrigado/` fica de fora). O período (Mensal, Semestral, Anual, começa no anual, com “até N%” por `bestSavingPercent`) é um rádio **só de CSS**: cada bloco de preço `[data-period]` aparece pelo `group-has-[#periodo-…:checked]/precos:flex` (nenhum script novo no CSP). Quatro colunas `[data-plan]` em grade de fios: status, selo `[data-plan-seal]` (`@lorkarium/brand/seals/<plano>.svg` na cor do plano, `--color-seal-*` do `global.css`; o Grátis com o cristal do logo apagado), nome, preço (`price-number.astro`, algarismos alinhados), o status `[data-plan-status]` (“Toda conta começa aqui” no Grátis, “Cartão ou Pix” nos pagos) e a ação `[data-plan-cta]`: “Pedir convite” no Grátis, “Assinar no app” (`${PUBLIC_APP_URL}/planos`) nos pagos; o Narrador destacado (`[data-plan-tag]` “Para quem mestra”). Depois “Como os limites funcionam”, o `FaqList` com `plansCopy.faqs` (o componente aceita `faqs` e `title`; padrão, os da landing) e a faixa “Ainda não tem conta?”. Texto e preços em `src/copy/plans-copy.ts` (os `limits` de cada plano repetem à mão a grade do `PLAN_LIMITS` do contracts e as `rules` dizem quem define o limite (o banner do perfil só na Lenda; as rolagens salvas pelo maior entre a pessoa e a mesa, 15 e 5 do Apoiador em qualquer mesa) e a queda de plano, com o excedente só leitura: mudou a grade, mude os dois) (`priceCents` em centavos, o mesmo catálogo do serviço de cobrança: mudar os dois juntos); a conta em `src/lib/plan-price.ts` (`brl`, `priceView`, `bestSavingPercent`, `PLAN_PERIODS`).
@@ -76,11 +78,15 @@ Termos de uso, Política de privacidade e Política de uso aceitável (`/uso/`) 
 - `test/support/render-astro.ts` — `renderAstro(Componente, { props, slots, path })` → `Document` (Container API + JSDOM) e `renderAstroHtml`. Componente `.astro` **não** renderiza no ambiente `jsdom` do Vitest (`NoMatchingRenderer`): os specs dos scripts rodam no ambiente Node e montam o DOM com `new JSDOM(html)`.
 - Fakes nomeados em `test/support/`: `DiceRendererFake` (`played`, `clears`) e `DiceRendererLoaderFake(throws)` (`loads`, `stages`, `refuse()` = sem WebGL), `recordedThrow(values)` em `recorded-throw-factory.ts`, `UnitRandomFake`, `ViewportWatchFake` (`enter(el)`, `leave(el)`, `watched`; `enter` num elemento não observado lança), `MotionPreferenceFake` (`reduce()`), `FrameSchedulerFake` (`flush()`, `pending`), `StepTimerFake` (`advance(ms)`, `pending`), `IntersectionObserverFake` e `MatchMediaFake` (só para os specs das portas), `HttpGetFake`, `SessionCacheFake`, `FetchFake`, `ReleaseSourceFake` (`hold()`/`answer()` para o estado "carregando"; `RELEASE_0_3_1`), `PageNavigatorFake`, `LinkClipboardFake` (`refuse()`), `github-release.ts` (respostas da API).
 - Guardas: `test/styles/brand-tokens.spec.ts` (toda `var(--brand-*)` do site existe no `@lorkarium/brand`), `test/pages/index.spec.ts` (ordem das seções, todo `href="#x"` tem `id="x"`, toda `<img>` com `alt`/`width`/`height`), `test/copy/landing-copy.spec.ts` (o teto de 8 barras no texto).
-- E2E em `e2e/test/site/download.spec.ts` pela config própria (ver [`ci/e2e.md`](ci/e2e.md)).
+- E2E em `e2e/test/site/download.spec.ts` e `seo-crawl.spec.ts` (rastreia o sitemap do build) pela config própria (ver [`ci/e2e.md`](ci/e2e.md)).
 
 ## Capturas
 
 As capturas reais do app (`src/assets/screens/`, `feature-*.png`) e como refazê-las, o `og.png` e a imagem do repositório no GitHub (`.github/social-preview.png`): [`site/capturas.md`](site/capturas.md).
+
+## SEO
+
+Ícones, `@graph` do JSON-LD, títulos, sitemap com `lastmod`, guias (coleção `guides`, hubs, rascunho), guarda de SEO, imagens dos hubs, app fora do índice e o roteiro do Search Console: [`site/seo.md`](site/seo.md).
 
 ## Armadilhas
 
