@@ -72,6 +72,10 @@ O `h1` "Minha conta" (sem frase de apoio) e, logo embaixo, o `Tabs` do design sy
   - `two-factor-form.tsx` — o formulário senha/código dos três: recusa de senha ou de código limpa, foca e escreve sob o campo ("Código incorreto. Confira o app e tente de novo."); o resto vai ao alerta.
 - `sessions-list.tsx` — linha "Onde você está conectado" (cada aparelho num cartão `bg-card` com borda; "Sair de todos os outros" embaixo da lista): este aparelho primeiro ("Este aparelho", sem "Sair"), os outros por `lastSeenAt` ("Firefox no Linux" por `deviceLabel` do `@lorkarium/contracts`, "ativo há 2 dias"); "Sair" (`aria-label` "Sair de <aparelho>"); "Sair de todos os outros" (só com outra sessão) pede confirmação em `AlertDialog`. Um fetcher para a lista inteira: a linha encerrada some antes de a resposta assentar.
 
+### Privacidade (`data-export-section.tsx`, aba Segurança)
+
+Abaixo de "Conta e segurança", na mesma aba (`TabsContent` em coluna, `gap-14`): "Seus dados" → "Baixar meus dados" (o ZIP, um por dia; `EXPORT_TOO_SOON` diz "Você poderá baixar de novo às 14:30.") e "Pagamentos" → "Dados de pagamento" (o JSON do serviço de cobrança), cada linha com a própria falha. A `AccountPage` recebe `dataExport` (`dataExportApi`, `fileDownload`, `now` do `AppDependencies`). Detalhe em [`../data-export.md`](../data-export.md).
+
 ### Seu plano (`plan-section.tsx`)
 
 A aba Plano (`?aba=plano`): cartão do plano, personalizações, uso e a grade dos planos (`PlanGridTable`, `plan-grid.ts`), em [`account-plan.md`](account-plan.md).
