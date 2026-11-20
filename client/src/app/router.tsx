@@ -38,6 +38,7 @@ import { useLeaveDeletedTable } from '@/features/sessions/use-leave-deleted-tabl
 import { useSignOutWhenRefused } from '@/features/sessions/use-sign-out-when-refused';
 import { safeRedirectTarget } from '@/lib/safe-redirect';
 import type { AccountLinksApi } from '@/services/account-links-api';
+import type { SignUpApi } from '@/services/sign-up-api';
 import type { AccountPlanApi } from '@/services/account-plan-api';
 import type { BillingApi } from '@/services/billing-api';
 import type { DataExportApi } from '@/services/data-export-api';
@@ -140,6 +141,8 @@ export type AppDependencies = Readonly<{
   badgesAdminApi: BadgesAdminApi;
   /** The public side of the invitation and new-password links. */
   accountLinksApi: AccountLinksApi;
+  /** The public sign-up and the new-password request, with their settings. */
+  signUpApi: SignUpApi;
   /** The grids and folders of a table (the library). */
   libraryApi: LibraryApi;
   /** The maps of the library: their regions, the main map, showing a region to the room. */
@@ -262,30 +265,10 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
           handle: place('Entrar'),
           Component: loginRoute(deps),
         },
-        {
-          path: 'account/email/confirm',
-          middleware: [guard(deps, 'anyone')],
-          handle: place('Confirmar e-mail'),
-          ...emailConfirmRoute(deps),
-        },
-        {
-          path: 'account/recover',
-          middleware: [guard(deps, 'anyone')],
-          handle: place('Recuperar conta'),
-          ...accountRecoveryRoute(deps),
-        },
-        {
-          path: 'invite',
-          middleware: [guard(deps, 'anyone')],
-          handle: place('Convite'),
-          ...inviteRoute(deps),
-        },
-        {
-          path: 'reset-password',
-          middleware: [guard(deps, 'anyone')],
-          handle: place('Nova senha'),
-          ...passwordResetRoute(deps),
-        },
+        anyonePage(deps, 'account/email/confirm', 'Confirmar e-mail', emailConfirmRoute(deps)),
+        anyonePage(deps, 'account/recover', 'Recuperar conta', accountRecoveryRoute(deps)),
+        anyonePage(deps, 'invite', 'Convite', inviteRoute(deps)),
+        anyonePage(deps, 'reset-password', 'Nova senha', passwordResetRoute(deps)),
         {
           path: 'admin',
           middleware: [guard(deps, 'admin')],
@@ -339,6 +322,16 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
       ],
     },
   ];
+}
+
+// A page outside the shell that opens signed in or not (the e-mailed links, the sign-up).
+function anyonePage(
+  deps: AppDependencies,
+  path: string,
+  name: string,
+  parts: Pick<RouteObject, 'action' | 'loader' | 'Component'>,
+): RouteObject {
+  return { path, middleware: [guard(deps, 'anyone')], handle: place(name), ...parts };
 }
 
 function place(name: string): PlaceHandle {
