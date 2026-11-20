@@ -7,7 +7,7 @@ import { DICE_THROW_MODELS_MAX } from '../dice/dice.dto';
 import { SAVED_ROLL_FOLDERS_MAX, SAVED_ROLLS_MAX } from '../dice/saved-roll.dto';
 import { DOCUMENT_TABS_MAX } from '../documents/document-tab.dto';
 import { AURA_KINDS, type PlanLimits } from './plan-limits.dto';
-import type { PlanCountResource, UserPlan } from './user-plan.dto';
+import type { PlanCountResource, PlanLimitHolder, UserPlan } from './user-plan.dto';
 
 export { AURA_KINDS, planLimitsDto, type PlanLimits } from './plan-limits.dto';
 
@@ -74,6 +74,7 @@ const UNBOUNDED: PlanLimits = {
   animatedCampaignArt: true,
   privateCampaign: true,
   sheetScripts: true,
+  profileBanner: true,
 };
 
 const LENDA: PlanLimits = {
@@ -117,6 +118,7 @@ const NARRADOR: PlanLimits = {
   auraKinds: ['color'],
   desktopWindows: false,
   animatedCampaignArt: false,
+  profileBanner: false,
 };
 
 const FREE: PlanLimits = {
@@ -150,6 +152,7 @@ const FREE: PlanLimits = {
   animatedCampaignArt: false,
   privateCampaign: false,
   sheetScripts: false,
+  profileBanner: false,
 };
 
 /** The grid of each plan, as is (no role): the server resolves the effective limits
@@ -175,3 +178,36 @@ export const PLAN_FAIR_USE_RESOURCES: Readonly<Record<UserPlan, readonly PlanCou
   lenda: ['scenes', 'libraryMaps', 'sheetTemplates', 'npcSheets'],
   amigo_do_dono: [],
 };
+
+/** The saved rolls and folders a person keeps at a table. */
+export type SavedRollCeilings = Pick<PlanLimits, 'maxSavedRolls' | 'maxSavedRollFolders'>;
+
+function savedRollCeilingsOf(limits: PlanLimits): SavedRollCeilings {
+  return { maxSavedRolls: limits.maxSavedRolls, maxSavedRollFolders: limits.maxSavedRollFolders };
+}
+
+/** What each plan gives its own holder at any table, whoever owns it: the grid of the plan, but
+ *  the Apoiador, whose tables stay on Grátis, keeps the rolls of the Narrador for itself.
+ *
+ *  Example: `PERSONAL_SAVED_ROLL_LIMITS.apoiador.maxSavedRolls // 15` */
+export const PERSONAL_SAVED_ROLL_LIMITS: Readonly<Record<UserPlan, SavedRollCeilings>> = {
+  free: savedRollCeilingsOf(FREE),
+  apoiador: savedRollCeilingsOf(NARRADOR),
+  narrador: savedRollCeilingsOf(NARRADOR),
+  lenda: savedRollCeilingsOf(LENDA),
+  amigo_do_dono: savedRollCeilingsOf(UNBOUNDED),
+};
+
+/** The limits a member's saved rolls are checked against, and whose they are. */
+export type SavedRollLimits = Readonly<{ limits: PlanLimits; holder: PlanLimitHolder }>;
+
+/** The saved rolls of a member: the greater of the table's grid and the person's own (a tie
+ *  stays with the table). The other keys are the table's; `plan` names the grid that won.
+ *
+ *  Example: `savedRollLimitsOf(PLAN_LIMITS.free, 'apoiador').limits.maxSavedRolls // 15` */
+export function savedRollLimitsOf(table: PlanLimits, personalPlan: UserPlan): SavedRollLimits {
+  const personal = PERSONAL_SAVED_ROLL_LIMITS[personalPlan];
+  // The grids grow together on both keys, so the rolls alone pick the winner.
+  if (personal.maxSavedRolls <= table.maxSavedRolls) return { limits: table, holder: 'table' };
+  return { limits: { ...table, ...personal, plan: personalPlan }, holder: 'account' };
+}

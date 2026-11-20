@@ -1,4 +1,12 @@
 import { z } from 'zod';
+import {
+  SCREENSHOT_MAX_BYTES,
+  SCREENSHOT_MIME_TYPES,
+  SCREENSHOTS_MAX,
+  screenshotDto,
+  screenshotIdsDto,
+  screenshotResponseDto,
+} from '../screenshots/screenshot.dto';
 
 export const USER_REPORT_DETAILS_MAX_LENGTH = 1000;
 
@@ -19,47 +27,86 @@ export const userReportReasonDto = z.enum(USER_REPORT_REASONS, {
 });
 export type UserReportReason = z.infer<typeof userReportReasonDto>;
 
-/** Body of `POST /api/users/:userId/reports`: a reason and optional details (trimmed, up to 1000;
- *  only spaces become `null`). The reporter comes from the session (strict).
+/** A report carries a conversation in parts without turning into a file store. */
+export const USER_REPORT_ATTACHMENTS_MAX = SCREENSHOTS_MAX;
+export const USER_REPORT_ATTACHMENT_MAX_BYTES = SCREENSHOT_MAX_BYTES;
+/** The screenshot types `POST /api/reports/attachments` accepts (the `Content-Type` of the body). */
+export const USER_REPORT_ATTACHMENT_MIME_TYPES = SCREENSHOT_MIME_TYPES;
+export const USER_REPORT_ADMIN_NOTE_MAX_LENGTH = 2000;
+
+function trimmedOrNull(max: number) {
+  return z
+    .string()
+    .trim()
+    .max(max)
+    .transform((text) => (text === '' ? null : text))
+    .nullable()
+    .optional();
+}
+
+/** Body of `POST /api/users/:userId/reports`: a reason, optional details (trimmed, up to 1000;
+ *  only spaces become `null`), the table where it happened (one both accounts sit at) and the ids
+ *  of up to 5 screenshots the reporter uploaded first. The reporter comes from the session (strict).
  *
  *  Example: `userReportRequestDto.parse({ reason: 'spam', details: ' ' }).details // null` */
 export const userReportRequestDto = z.strictObject({
   reason: userReportReasonDto,
-  details: z
-    .string()
-    .trim()
-    .max(USER_REPORT_DETAILS_MAX_LENGTH)
-    .transform((details) => (details === '' ? null : details))
-    .nullable()
-    .optional(),
+  details: trimmedOrNull(USER_REPORT_DETAILS_MAX_LENGTH),
+  campaignId: z.uuid().nullable().optional(),
+  attachmentIds: screenshotIdsDto.optional(),
 });
 export type UserReportRequestDto = z.infer<typeof userReportRequestDto>;
+
+/** A screenshot as it was kept (normalized, without metadata): what the backoffice lays out. */
+export const userReportAttachmentDto = screenshotDto;
+export type UserReportAttachmentDto = z.infer<typeof userReportAttachmentDto>;
+
+/** Response of `POST /api/reports/attachments`: the id the report then cites. */
+export const userReportAttachmentResponseDto = screenshotResponseDto;
+export type UserReportAttachmentResponseDto = z.infer<typeof userReportAttachmentResponseDto>;
+
+/** Params of `GET /api/admin/reports/:reportId/attachments/:attachmentId`. */
+export const userReportAttachmentParamsDto = z.strictObject({
+  reportId: z.uuid(),
+  attachmentId: z.uuid(),
+});
 
 /** Lifecycle of a report: open until the admin resolves or dismisses it. */
 export const USER_REPORT_STATUSES = ['open', 'resolved', 'dismissed'] as const;
 export const userReportStatusDto = z.enum(USER_REPORT_STATUSES);
 export type UserReportStatus = z.infer<typeof userReportStatusDto>;
 
-/** Body of `PATCH /api/admin/reports/:reportId`: an open report never comes back to `open`.
+/** Body of `PATCH /api/admin/reports/:reportId`: an open report never comes back to `open`. The
+ *  admin's note (trimmed, up to 2000; only spaces become `null`) stays in the backoffice.
  *
- *  Example: `resolveUserReportRequestDto.parse({ status: 'dismissed' })` */
+ *  Example: `resolveUserReportRequestDto.parse({ status: 'dismissed', note: 'no proof' })` */
 export const resolveUserReportRequestDto = z.strictObject({
   status: z.enum(['resolved', 'dismissed']),
+  note: trimmedOrNull(USER_REPORT_ADMIN_NOTE_MAX_LENGTH),
 });
 export type ResolveUserReportRequestDto = z.infer<typeof resolveUserReportRequestDto>;
 
-/** One side of a report as the backoffice shows it: the account and its @. */
-export const userReportPartyDto = z.strictObject({ id: z.uuid(), username: z.string() });
+/** One side of a report as the backoffice shows it: the @ kept when the report was made, and the
+ *  account id, `null` once that account is deleted (the report outlives it). */
+export const userReportPartyDto = z.strictObject({ id: z.uuid().nullable(), username: z.string() });
 
-/** A report in the backoffice queue: never shown to the reporter. `resolvedBy` is the admin's @,
- *  `null` while open or once that admin's account is gone. */
+/** The reported side also keeps the name it had when reported. */
+export const userReportTargetDto = userReportPartyDto.extend({ name: z.string() });
+
+/** A report in the backoffice queue: never shown to the reporter. `campaignId` is the table where
+ *  it happened (`null` with no table, or once the table is deleted; `campaignName` stays).
+ *  `resolvedBy` is the admin's @, `null` while open or once that admin's account is gone. */
 export const userReportDto = z.strictObject({
   id: z.uuid(),
   reason: userReportReasonDto,
   details: z.string().nullable(),
   status: userReportStatusDto,
   reporter: userReportPartyDto,
-  target: userReportPartyDto,
+  target: userReportTargetDto,
+  campaignId: z.uuid().nullable(),
+  campaignName: z.string().nullable(),
+  attachments: z.array(userReportAttachmentDto),
+  adminNote: z.string().nullable(),
   createdAt: z.iso.datetime(),
   resolvedAt: z.iso.datetime().nullable(),
   resolvedBy: z.string().nullable(),
