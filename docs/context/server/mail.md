@@ -10,13 +10,13 @@ Detalhe do hub [`server.md`](../server.md) (seção Env): como o server manda e-
 
 ## Por ambiente
 
-| Ambiente   | `SMTP_URL`                               | Para onde vai                                                                       |
-| ---------- | ---------------------------------------- | ----------------------------------------------------------------------------------- |
-| dev        | `smtp://localhost:1025` (`.env.example`) | Mailpit do `pnpm db:up` (`axllent/mailpit:v1.27.0`); caixa em http://localhost:8025 |
-| integração | não definida (`LogMailer`, logger mudo)  | os specs passam um `MailerFake` ao `buildApp`                                       |
-| CI         | não definida no job de integração        | idem; o `smtp-mailer.spec.ts` usa o Mailpit da action `.github/actions/mailpit`     |
-| e2e        | forçada vazia no `playwright.config.ts`  | log do server (`LogMailer`), mesmo com o `server/.env` apontando para o Mailpit     |
-| produção   | obrigatória                              | o relay SMTP do provedor                                                            |
+| Ambiente   | `SMTP_URL`                                       | Para onde vai                                                                                                                                             |
+| ---------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| dev        | `smtp://localhost:1025` (`.env.example`)         | Mailpit do `pnpm db:up` (`axllent/mailpit:v1.27.0`); caixa em http://localhost:8025                                                                       |
+| integração | não definida (`LogMailer`, logger mudo)          | os specs passam um `MailerFake` ao `buildApp`                                                                                                             |
+| CI         | não definida no job de integração                | idem; o `smtp-mailer.spec.ts` usa o Mailpit da action `.github/actions/mailpit`                                                                           |
+| e2e        | `E2E_SMTP_URL` ou vazia (`playwright.config.ts`) | log do server (`LogMailer`), mesmo com o `server/.env` apontando para o Mailpit; com `E2E_SMTP_URL`, um Mailpit descartável (no CI, só o grupo `account`) |
+| produção   | obrigatória                                      | o relay SMTP do provedor                                                                                                                                  |
 
 - `smtp-mailer.spec.ts` lê `MAILPIT_SMTP_URL`/`MAILPIT_API_URL` (no CI, 1025/8025 da action; sem eles, 1026/8026, o Mailpit descartável da receita do `/testar`) e confere a entrega pela API HTTP do Mailpit (`/api/v1/messages`, `/api/v1/message/<id>`).
 - `APP_PUBLIC_URL` sem valor fora de produção vale `http://localhost:5173` (o client do `pnpm dev`): o link do e-mail de dev abre a tela local.
