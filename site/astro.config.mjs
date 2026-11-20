@@ -9,9 +9,7 @@ const SITE_URL = process.env.SITE_URL;
 export default defineConfig({
   site: SITE_URL ?? 'http://localhost:4321',
   trailingSlash: 'always',
-  integrations: [
-    sitemap({ filter: (page) => !['/obrigado/', '/planos/'].some((path) => page.includes(path)) }),
-  ],
+  integrations: [sitemap({ filter: (page) => !page.includes('/obrigado/') })],
   env: {
     schema: {
       PUBLIC_APP_URL: envField.string({ context: 'client', access: 'public', url: true }),
@@ -21,6 +19,10 @@ export default defineConfig({
         access: 'public',
         default: false,
       }),
+      // Who sells (Decreto 7.962/2013, art. 2º). `server` on purpose: the raw CPF never reaches the
+      // client bundle; the build writes only its mask into the HTML (src/lib/supplier-identity.ts).
+      LEGAL_SUPPLIER_NAME: envField.string({ context: 'server', access: 'public' }),
+      LEGAL_SUPPLIER_CPF: envField.string({ context: 'server', access: 'secret' }),
     },
   },
   security: {

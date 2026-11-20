@@ -8,13 +8,14 @@ function renderPlans(): Promise<Document> {
 }
 
 describe('the plans page', () => {
-  it('says up front that the paid plans are not open yet and the prices may change', async () => {
+  it('says up front that every account starts free and the paid plans are signed in the app', async () => {
     const page = await renderPlans();
 
     expect(page.querySelector('main h1')?.textContent).toMatch(/Sua mesa, seu ritmo/);
     const notice = page.querySelector('[data-plans-notice]')?.textContent ?? '';
-    expect(notice).toMatch(/abrem depois do acesso antecipado/);
-    expect(notice).toMatch(/podem mudar/);
+    expect(notice).toMatch(/Toda conta começa no Grátis/);
+    expect(notice).toMatch(/assinados no app/);
+    expect(notice).not.toMatch(/acesso antecipado/);
   });
 
   it('chooses the period with three radios, the annual one checked, each with its saving', async () => {
@@ -53,14 +54,31 @@ describe('the plans page', () => {
     expect(page.querySelector('[data-plan="Lenda"] [data-plan-seal] svg path')).not.toBeNull();
   });
 
-  it('asks the invitation on Grátis and a notice by e-mail on the paid plans', async () => {
+  it('asks the invitation on Grátis', async () => {
     const page = await renderPlans();
 
     const free = page.querySelector('[data-plan="Grátis"] [data-plan-cta]');
     expect(free?.textContent?.trim()).toBe('Pedir convite');
-    const lenda = page.querySelector('[data-plan="Lenda"] [data-plan-cta]');
-    expect(lenda?.textContent?.trim()).toBe('Me avise quando abrir');
-    expect(lenda?.getAttribute('href')).toMatch(/^mailto:.*subject=.*Lenda/);
+    expect(free?.getAttribute('href')).toMatch(/^mailto:contato@lorkarium\.test/);
+  });
+
+  it.each(['Apoiador', 'Narrador', 'Lenda'])(
+    'sends the %s plan to the subscription in the app',
+    async (name) => {
+      const page = await renderPlans();
+
+      const cta = page.querySelector(`[data-plan="${name}"] [data-plan-cta]`);
+      expect(cta?.textContent?.trim()).toBe('Assinar no app');
+      expect(cta?.getAttribute('href')).toBe('https://mesa.lorkarium.test/planos');
+    },
+  );
+
+  it('no longer asks to be told when the plans open', async () => {
+    const page = await renderPlans();
+
+    const mailtos = [...page.querySelectorAll('a[href^="mailto:"]')].map((a) => a.textContent);
+    expect(mailtos.join(' ')).not.toMatch(/Me avise quando/);
+    expect(page.body.textContent).not.toMatch(/Me avise quando abrir/);
   });
 
   it('marks the Narrador as the plan for whoever runs the table', async () => {
@@ -87,18 +105,26 @@ describe('the plans page', () => {
     expect(names).toEqual(['Grátis', 'Apoiador', 'Narrador', 'Lenda']);
   });
 
-  it('marks only the free plan as available today', async () => {
+  it('marks the free plan as where every account starts and the paid ones as card or Pix', async () => {
     const page = await renderPlans();
 
     const statuses = [...page.querySelectorAll('[data-plan] [data-plan-status]')].map((status) =>
       status.textContent?.trim(),
     );
     expect(statuses).toEqual([
-      'Disponível no acesso antecipado',
-      'Ainda não disponível',
-      'Ainda não disponível',
-      'Ainda não disponível',
+      'Toda conta começa aqui',
+      'Cartão ou Pix',
+      'Cartão ou Pix',
+      'Cartão ou Pix',
     ]);
+  });
+
+  it('tells how to cancel and the 7 days to give up in the questions', async () => {
+    const page = await renderPlans();
+
+    const answers = page.querySelector('#perguntas')?.textContent ?? '';
+    expect(answers).toMatch(/cancela a renovação/);
+    expect(answers).toMatch(/7 dias/);
   });
 
   it('prints every limit of every plan from the catalog', async () => {
@@ -109,20 +135,14 @@ describe('the plans page', () => {
     expect(missing).toEqual([]);
   });
 
-  it('stays out of search engines while under construction', async () => {
+  it('is indexable, now that it sells', async () => {
     const page = await renderPlans();
 
-    expect(page.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe('noindex');
+    expect(page.querySelector('meta[name="robots"]')).toBeNull();
   });
 });
 
 describe('plansCopy', () => {
-  it('opens only the free plan', () => {
-    expect(plansCopy.plans.filter((plan) => plan.available).map((plan) => plan.name)).toEqual([
-      'Grátis',
-    ]);
-  });
-
   it('keeps the prices of the billing catalog, in cents', () => {
     const prices = Object.fromEntries(plansCopy.plans.map((plan) => [plan.name, plan.priceCents]));
 
@@ -148,6 +168,17 @@ describe('plansCopy', () => {
     expect(limitsOf('Narrador')).not.toMatch(/Janelas|efeito|animad/);
     expect(limitsOf('Lenda')).toContain('Janelas de Chat e Imagens no app para Windows');
     expect(limitsOf('Lenda')).toContain('Auras com efeito ou imagem');
+  });
+
+  it('gives the Apoiador its own saved rolls and the banner of the profile to the Lenda only', () => {
+    const limitsOf = (name: string) =>
+      plansCopy.plans.find((plan) => plan.name === name)?.limits.join(' | ') ?? '';
+
+    expect(limitsOf('Apoiador')).toContain('15 rolagens salvas e 5 pastas em qualquer mesa');
+    expect(limitsOf('Lenda')).toContain('Banner no seu perfil');
+    for (const name of ['Grátis', 'Apoiador', 'Narrador'])
+      expect(limitsOf(name)).not.toMatch(/banner no seu perfil/i);
+    expect(plansCopy.rules.join(' ')).toContain('vale o maior');
   });
 
   it('tells that what passed the plan stays, read only', () => {

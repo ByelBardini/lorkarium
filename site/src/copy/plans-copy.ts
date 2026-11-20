@@ -2,13 +2,11 @@ import type { FaqCopy } from '@/copy/landing-copy';
 import type { PlanPrices } from '@/lib/plan-price';
 
 // The plans page mirrors the grid of docs/spec.md §3.11. The prices are the catalog of the billing
-// service (another repository): change both together. Shown as foreseen until the paid plans open.
+// service (another repository): change both together. The paid plans are signed in the app.
 
 export interface PlanCopy {
   name: string;
   pitch: string;
-  /** Whether a new account can be on this plan today; the others are not open yet. */
-  available: boolean;
   limits: readonly string[];
   /** The seal drawn on the plan (`@lorkarium/brand/seals/<seal>.svg`); Grátis has the logo's crystal. */
   seal: 'logo' | 'apoiador' | 'narrador' | 'lenda';
@@ -22,7 +20,6 @@ const plans: PlanCopy[] = [
   {
     name: 'Grátis',
     pitch: 'Para conhecer a mesa e jogar com um grupo pequeno. Toda conta nova começa aqui.',
-    available: true,
     seal: 'logo',
     priceCents: null,
     limits: [
@@ -39,7 +36,6 @@ const plans: PlanCopy[] = [
     name: 'Apoiador',
     pitch:
       'Para quem apoia o Lorkarium. As mesas seguem o Grátis; a sua conta ganha personalização.',
-    available: false,
     seal: 'apoiador',
     priceCents: { mensal: 490, semestral: 2690, anual: 4690 },
     limits: [
@@ -47,12 +43,12 @@ const plans: PlanCopy[] = [
       'Cor personalizada no perfil, nos dados e nas cores salvas',
       'Textura própria para os seus dados',
       'Foto de perfil em GIF animado',
+      '15 rolagens salvas e 5 pastas em qualquer mesa',
     ],
   },
   {
     name: 'Narrador',
     pitch: 'Para quem mestra uma ou duas campanhas fixas e quer o tabuleiro completo.',
-    available: false,
     seal: 'narrador',
     priceCents: { mensal: 1490, semestral: 7990, anual: 14290 },
     tag: 'Para quem mestra',
@@ -71,7 +67,6 @@ const plans: PlanCopy[] = [
     name: 'Lenda',
     pitch:
       'Para o mestre dedicado: mesas grandes, campanhas longas e o grupo inteiro com a plateia.',
-    available: false,
     seal: 'lenda',
     priceCents: { mensal: 2490, semestral: 13390, anual: 23890 },
     limits: [
@@ -82,6 +77,7 @@ const plans: PlanCopy[] = [
       'Auras com efeito ou imagem',
       'Foto, capa e banner da mesa em GIF animado',
       'Janelas de Chat e Imagens no app para Windows',
+      'Banner no seu perfil',
       'Tudo o que o Narrador libera',
     ],
   },
@@ -89,7 +85,8 @@ const plans: PlanCopy[] = [
 
 const rules: string[] = [
   'Os limites de uma mesa seguem o plano de quem é dono dela e valem para todos que jogam ali.',
-  'A personalização da conta (cor, textura do dado, foto animada) segue o plano de cada pessoa.',
+  'A personalização da conta (cor, textura do dado, foto animada; o banner do perfil na Lenda) segue o plano de cada pessoa.',
+  'As rolagens salvas também: na mesa de outra pessoa, vale o maior entre o seu plano e o da mesa.',
   'Trocar de plano não apaga nada: o que passou do limite continua na mesa, só leitura, e o jogo segue. Apagar um item libera a edição do próximo.',
 ];
 
@@ -100,9 +97,9 @@ const faqs: FaqCopy[] = [
       'Não. Os limites de uma mesa seguem o plano de quem é dono dela e valem para todos que jogam ali. Jogador e espectador entram de graça.',
   },
   {
-    question: 'Quando os planos pagos abrem?',
+    question: 'Como eu assino um plano?',
     answer:
-      'Depois do acesso antecipado, ainda sem data fechada. Use "Me avise quando abrir" no plano que interessa e mandamos um e-mail quando abrir.',
+      'Pelo app: entre na sua conta, abra Planos, escolha o plano, o período e a forma de pagamento e continue no Mercado Pago. O plano vale assim que o pagamento é confirmado.',
   },
   {
     question: 'Cartão ou Pix, como vai funcionar?',
@@ -120,14 +117,5 @@ const faqs: FaqCopy[] = [
       'Sim, nos 7 dias seguintes à primeira compra, como manda o Código de Defesa do Consumidor: o valor volta inteiro. Depois disso, cancelar a renovação mantém o plano até o fim do período já pago.',
   },
 ];
-
-/** The subject of the "Me avise quando abrir" e-mail of one plan.
- *
- * Example: `notifyMailto('contato@lorkarium.com.br', 'Lenda') // 'mailto:…?subject=Me%20avise%20quando%20o%20plano%20Lenda%20abrir'`
- */
-export function notifyMailto(contactEmail: string, planName: string): string {
-  const subject = `Me avise quando o plano ${planName} abrir`;
-  return `mailto:${contactEmail}?subject=${encodeURIComponent(subject)}`;
-}
 
 export const plansCopy = { plans, rules, faqs } as const;

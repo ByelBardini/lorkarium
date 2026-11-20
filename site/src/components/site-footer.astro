@@ -1,11 +1,20 @@
 ---
 import { PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
 import BrandWordmark from '@/components/brand-wordmark.astro';
+import { REPOSITORY_URL } from '@/lib/desktop-release';
 
-const footerLinks: ReadonlyArray<{ label: string; href: string }> = [
+interface FooterLink {
+  label: string;
+  href: string;
+  leavesSite?: boolean;
+}
+
+const footerLinks: ReadonlyArray<FooterLink> = [
   { label: 'Planos', href: '/planos/' },
   { label: 'Termos de uso', href: '/termos/' },
   { label: 'Privacidade', href: '/privacidade/' },
+  { label: 'Política de uso', href: '/uso/' },
+  { label: 'Código-fonte', href: REPOSITORY_URL, leavesSite: true },
   { label: 'Contato', href: `mailto:${PUBLIC_CONTACT_EMAIL}` },
 ];
 ---
@@ -15,8 +24,13 @@ const footerLinks: ReadonlyArray<{ label: string; href: string }> = [
     <BrandWordmark size="small" />
     <span class="hidden flex-1 md:block"></span>
     <nav aria-label="Rodapé" class="flex flex-wrap gap-5.5 text-[13px]">
-      {footerLinks.map(({ label, href }) => (
-        <a href={href} class="text-faint hover:text-parchment">
+      {footerLinks.map(({ label, href, leavesSite }) => (
+        <a
+          href={href}
+          target={leavesSite ? '_blank' : undefined}
+          rel={leavesSite ? 'noopener noreferrer' : undefined}
+          class="text-faint hover:text-parchment"
+        >
           {label}
         </a>
       ))}
