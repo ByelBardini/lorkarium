@@ -147,6 +147,9 @@ jobs:
           PUBLIC_APP_URL: https://mesa.lorkarium.test
           PUBLIC_CONTACT_EMAIL: contato@lorkarium.test
           LEGAL_DRAFTS_ALLOWED: 'true'
+          # A test CPF with valid check digits; the real one is a Coolify Build Variable only.
+          LEGAL_SUPPLIER_NAME: Fornecedora de Teste
+          LEGAL_SUPPLIER_CPF: '52998224725'
 
   e2e:
     name: e2e (${{ matrix.group }})
@@ -311,6 +314,8 @@ jobs:
             PUBLIC_APP_URL=https://mesa.lorkarium.test
             PUBLIC_CONTACT_EMAIL=contato@lorkarium.test
             LEGAL_DRAFTS_ALLOWED=true
+            LEGAL_SUPPLIER_NAME=Fornecedora de Teste
+            LEGAL_SUPPLIER_CPF=52998224725
           # Own scope: the app image's mode=max cache would evict this one in the default scope.
           cache-from: type=gha,scope=site
           cache-to: type=gha,mode=max,scope=site
