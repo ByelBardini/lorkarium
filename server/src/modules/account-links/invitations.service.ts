@@ -137,7 +137,8 @@ export class InvitationsService {
     const email = invitationEmailOf(row, this.deps.cipher);
     const prefix = usernameLookupPrefix(usernameStemOf(email));
     const taken = await this.deps.users.usernamesStartingWith(prefix);
-    return { email, suggestedUsername: usernameFromEmail(email, taken) };
+    // Every invitation comes from the backoffice until the public sign-up gives it a column.
+    return { email, suggestedUsername: usernameFromEmail(email, taken), origin: 'admin' };
   }
 
   /** The account is born from the invitation (the nickname equal to the @) and signed in. */
