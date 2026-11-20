@@ -101,6 +101,7 @@ import { wireAccessLog } from './wire-access-log';
 import { wireAssetSweep } from './wire-asset-sweep';
 import { wireAssetStorage } from './wire-asset-storage';
 import { mailerOf, wireAccountSecurity } from './wire-account-security';
+import { keepOutOfSearch } from './search-noindex';
 import { serveClient } from './serve-client';
 import { trustProxyOf } from './trust-proxy';
 import { wireBackoffice } from './wire-backoffice';
@@ -141,6 +142,7 @@ const REDACTED_LOG_PATHS = ['req.headers.cookie', 'res.headers["set-cookie"]'];
 export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> {
   const trustProxy = trustProxyOf(deps.env.trustProxyHops);
   const app = Fastify({ logger: loggerOptions(deps.env), trustProxy });
+  keepOutOfSearch(app);
   await app.register(cookie);
   const hasher = new Argon2PasswordHasher();
   const clock = deps.clock ?? new SystemClock();
