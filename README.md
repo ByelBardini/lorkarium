@@ -1,8 +1,10 @@
 # Lorkarium
 
+[![Licença: AGPL-3.0](https://img.shields.io/badge/licen%C3%A7a-AGPL--3.0-blue)](LICENSE.md)
+
 **Mesa virtual para combates de RPG de mesa.** Grid, tokens, iniciativa, barras, condições, visão e luz, dados 3D, fichas e chat, tudo sincronizado em tempo real com o grupo, pelo app para Windows ou pelo navegador. Funciona com qualquer sistema: D&D, Tormenta20, Ordem Paranormal ou aquele que vocês inventaram.
 
-[**Baixar para Windows**](https://github.com/ByelBardini/lorkarium/releases/latest) · Windows 10 ou 11, 64 bits · grátis durante o acesso antecipado, com conta por convite
+[**Baixar para Windows**](https://github.com/ByelBardini/lorkarium/releases/latest) · Windows 10 ou 11, 64 bits · grátis, com planos pagos opcionais e conta por convite
 
 ![A sala de jogo do Lorkarium: grid na floresta, tokens dos aliados e dos inimigos e o painel de combate](site/src/assets/screens/hero.png)
 
@@ -247,6 +249,8 @@ Antes de abrir um PR: `pnpm test && pnpm lint && pnpm typecheck`. O CI roda as m
 
 ## Contribuindo
 
+O passo a passo para abrir um PR (testes, commits assinados com DCO e o que não aceitamos) está no [CONTRIBUTING.md](CONTRIBUTING.md). Quem participa segue o [Código de Conduta](CODE_OF_CONDUCT.md), e falha de segurança se relata em particular, como diz o [SECURITY.md](SECURITY.md).
+
 - [AGENTS.md](AGENTS.md): stack, layout, camadas do server (PO, DAO, BO, DTO, VO) e o índice da documentação por área.
 - [CLAUDE.md](CLAUDE.md): estilo de código, testes e regras para quem trabalha no repositório, gente ou agente de IA.
 - [docs/context/](docs/context/): o detalhe de cada área (contratos, eventos, tabelas, armadilhas). É a fonte da verdade de quem mexe no código e acompanha cada mudança.
@@ -255,10 +259,11 @@ Commits seguem o padrão convencional (`feat`, `fix`, `docs`…), em português.
 
 ## Licença
 
-O código é aberto para leitura, estudo e uso próprio, mas não para competir com o Lorkarium.
+O Lorkarium é **open source**: use, estude, modifique e redistribua. Quem oferecer uma versão modificada como serviço pela rede tem que publicar o código dela para quem usa.
 
-- **Repositório:** [Functional Source License 1.1, MIT Future License](LICENSE.md) (FSL-1.1-MIT). Pode usar, copiar, modificar e redistribuir para qualquer fim que não seja oferecer um produto ou serviço comercial concorrente. Dois anos depois de cada versão ser publicada, ela passa a valer também sob a licença MIT.
-- **`packages/game-core` e `packages/dice-renderer`:** [MIT](packages/game-core/LICENSE), livres para qualquer uso, inclusive comercial.
-- **Conteúdo de terceiros** (smileys do Noto Emoji, memes e sons) não é coberto por nenhuma das duas; a lista está no [NOTICE.md](NOTICE.md).
+- **Repositório:** [GNU Affero General Public License v3](LICENSE.md) (AGPL-3.0-only).
+- **`packages/game-core` e `packages/dice-renderer`:** [MIT](packages/game-core/LICENSE), livres para qualquer uso, inclusive em código fechado.
+- **Versões antigas:** até o commit `6564d100`, o repositório estava sob a FSL-1.1-MIT, e essas versões continuam nela (o [NOTICE.md](NOTICE.md) dá o detalhe).
+- **Conteúdo de terceiros** (smileys do Noto Emoji, memes e sons) não é coberto por nenhuma das licenças; a lista está no [NOTICE.md](NOTICE.md).
 
-O nome e o logo do Lorkarium não estão licenciados.
+O nome e o logo do Lorkarium são marca da Evolutiva Sistemas e não estão licenciados: uma cópia modificada não pode usar o nome nem se apresentar como o Lorkarium.

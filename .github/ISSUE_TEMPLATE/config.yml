@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Falha de segurança
+    url: https://github.com/ByelBardini/lorkarium/security/advisories/new
+    about: Relate em particular, nunca numa issue pública.
+  - name: Suporte, conta, planos e pagamentos
+    url: https://lorkarium.com.br/
+    about: Fale com a gente pelo e-mail de contato no rodapé do site.
