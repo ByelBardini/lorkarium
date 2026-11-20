@@ -131,14 +131,14 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | deploy           | Runbook: imagem, Coolify, AWS S3 e IAM, envs, DNS, primeiro deploy, voltar            | [`docs/context/deploy.md`](docs/context/deploy.md)                     |
 | health           | `GET /api/health` (ping no Postgres, 200/503, pública)                                | [`docs/context/health.md`](docs/context/health.md)                     |
 | access-log       | Registro de acesso (Marco Civil art. 15): IP, hora e conta no S3 por 6 meses          | [`docs/context/access-log.md`](docs/context/access-log.md)             |
-| housekeeping     | Limpeza de hora em hora: recibos, sessões, 2FA e cadastros vencidos, em lotes         | [`docs/context/housekeeping.md`](docs/context/housekeeping.md)         |
+| housekeeping     | Limpeza de hora em hora: recibos, sessões, links vencidos, medidas, em lotes          | [`docs/context/housekeeping.md`](docs/context/housekeeping.md)         |
 | friends          | Amigos: pedidos pelo @, par canônico, bloqueio mútuo, tetos, mesas do dono, presença  | [`docs/context/friends.md`](docs/context/friends.md)                   |
 | direct-messages  | Mensagens privadas efêmeras entre amigos online: `dm:*`, "digitando", baldes próprios | [`docs/context/direct-messages.md`](docs/context/direct-messages.md)   |
 | reputation       | Voto 👍/👎 entre quem divide mesa: tabela, resumo com mínimo de votos, rotas          | [`docs/context/reputation.md`](docs/context/reputation.md)             |
 | reports          | Denúncias: motivo, mesa em comum, prints, fila do admin, retorno, guarda de 6 meses   | [`docs/context/reports.md`](docs/context/reports.md)                   |
 | feedback         | Relatos de bug e sugestões: fila do admin, rascunho, issue no GitHub pela App, e-mail | [`docs/context/feedback.md`](docs/context/feedback.md)                 |
 | broadcasts       | Comunicados por e-mail: segmentos, prévia, teste, total digitado, fila em lotes       | [`docs/context/broadcasts.md`](docs/context/broadcasts.md)             |
-| sanctions        | Medidas contra contas: aviso, remoção, suspensão com prazo, exclusão, contestação     | [`docs/context/sanctions.md`](docs/context/sanctions.md)               |
+| sanctions        | Medidas contra contas: aviso, remoção, suspensão, exclusão agendada, contestação      | [`docs/context/sanctions.md`](docs/context/sanctions.md)               |
 | data-export      | "Baixar meus dados": ZIP em streaming, o que entra e o que não, 1 por dia, pagamentos | [`docs/context/data-export.md`](docs/context/data-export.md)           |
 
 Área sem linha aqui ainda não tem doc: o `/atualizar-contexto` cria o hub junto com o primeiro código da área. Até lá, a referência é o `docs/spec.md`.

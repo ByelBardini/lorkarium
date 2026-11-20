@@ -87,7 +87,8 @@ O primeiro deploy migra o banco vazio inteiro (as `0000…` de `server/drizzle/`
 - [ ] Socket.IO: DevTools → Network → WS mostra `wss://app.example.com/api/socket.io/?EIO=4&transport=websocket` com 101; abrir a mesa em duas abas e mover um token aparece na outra.
 - [ ] Backoffice → Teste de e-mail para um endereço seu: chega, fora do spam, com links em `https://app.example.com`.
 - [ ] Cache em disco: abrir um mapa duas vezes (outra aba, ou recarregar) e, no terminal do container (Coolify → _Terminal_), `du -sh /var/cache/lorkarium/assets` cresce depois da primeira abertura; nenhum `asset disk cache failed; served from S3` no log.
-- [ ] _Backup now_ no banco e o objeto no bucket de backups.
+- [ ] _Backup now_ no banco e o objeto no bucket de backups. Confira a _Lifecycle rule_ de 30 dias do bucket de backups e a de 184 dias do bucket dos registros de acesso: a Privacidade (§8) promete os dois prazos e só o console da AWS os cumpre.
+- [ ] Log do container com rotação de até 30 dias (a Privacidade §8 promete "Registro técnico do servidor: até 30 dias"): no Coolify, as opções de log do Docker da Application (`max-size`/`max-file`) ou a limpeza de logs do servidor, ajustadas para não passar disso.
 - [ ] Registros de acesso: logo depois do deploy, `access-log/boots/AAAA/MM/DD/…jsonl.gz` no bucket deles; 5 min depois, o primeiro lote `access-log/AAAA/MM/DD/…-0.jsonl.gz`. Baixe um e confira com `zcat … | jq .` que tem o seu IP (não o do Traefik) e a sua conta.
 
 ## Atualizar e voltar
