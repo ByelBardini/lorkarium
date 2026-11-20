@@ -153,7 +153,7 @@ O gabarito visual de uma magia (formas, casas pintadas, raio, giro e deslocament
 
 ## Visão e luz
 
-O detalhe (cone e campo, polígono de visão, alcance, olho, nível de visão, porta vista, a luz e o bloqueador) mora em [`game-core/visao-e-luz.md`](game-core/visao-e-luz.md).
+O detalhe (cone e campo, polígono de visão, alcance, olho, nível de visão, porta vista, visão mágica, a luz e o bloqueador) mora em [`game-core/visao-e-luz.md`](game-core/visao-e-luz.md).
 
 ## Armadilhas
 

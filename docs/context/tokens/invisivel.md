@@ -6,6 +6,7 @@ Detalhe do hub [`tokens.md`](../tokens.md). O mestre esconde tokens dos jogadore
 
 - O mestre e os **controladores** do token (o público `privileged` da redação; o do token ligado são os do personagem). O espectador no Controle continua inerte: não está no `sceneUserRoom`, então cai no "resto".
 - O `hidden` vai igual aos dois públicos no `TokenDto` (`toTokenDto`): quem recebe o token pode saber que está escondido.
+- O **vidente** (controla um token com visão mágica no grid) recebe todo escondido do grid, redigido como "outros": o público `seer` do véu, o snapshot e a troca de quem vê estão em [`visao-magica.md`](visao-magica.md).
 
 ## Tabela e DAO
 
@@ -16,7 +17,7 @@ Detalhe do hub [`tokens.md`](../tokens.md). O mestre esconde tokens dos jogadore
 ## O véu (`token-veil.mapper.ts`, puro)
 
 - `TokenVeil = { tokens: VeiledToken[] }`, `VeiledToken = { tokenId, controllerIds, light: VeiledLightDto | null }` (a luz só acesa, do centro da pegada pelo `tokenCenter`; com a patrulha ligada, + `walk` `{ patrol, col, row, width, height }`, ver [`patrulha.md`](patrulha.md)). `pausesSeenBy(seenBy)` tira dos cortes as `patrolPauses` dos escondidos. `veilOf(rows)` (só as linhas `hidden`), `sceneVeilOf(veilOfScene)`, `joinedVeil(a, b)`.
-- `veilCutsOf(veil, alsoUserIds?)` → os públicos: `masters` (nada tirado), um `controller` por controlador de algum escondido (tira os que ele não controla) e `rest` (tira todos; a sala do grid sem mestres e sem esses controladores). Véu vazio → **nenhum** corte.
+- `veilCutsOf(veil, alsoUserIds?)` → os públicos: `masters` (nada tirado), um `controller` por controlador de algum escondido (tira os que ele não controla), um `seer` por vidente do `veil.seerIds` (nada tirado; [`visao-magica.md`](visao-magica.md)) e `rest` (tira todos; a sala do grid sem mestres e sem esses). Véu vazio → **nenhum** corte.
 - `cutsOf(evento, véu, seenBy)` → `VeilCuts` (um `VeiledCut { audience, event | null }` por público); `NO_VEIL` (`[]`) = o evento sai inteiro como antes. Os `seenBy`: `tokenSeenBy` (evento de um token), `entriesSeenBy(chave)` (`moves`, `faces`, `resizes`, `drags`, `applied`), `tokenIdsSeenBy` (camada, estilo). Lote que fica vazio → `null`.
 - `combat-veil.mapper.ts` (módulo `combat`): `combatSeenBy` (entrada só com invisíveis sai; mista perde os ids; sem token fica; a vez numa entrada que saiu → `currentCombatantId: null`), `combatEventSeenBy`, `turnChangedSeenBy` (tira as `conditionChanges` dos invisíveis), `deletedSeenBy` (`token:deletedMany`: `null` só sem id e sem combate) e `deletedTokenSeenBy`.
 - `token-hidden.mapper.ts`: `creationCutsOf` (a mistura do `token:createdMany` por público, sem o que ele não vê), `changeVeilOf` (`token:created`/`updated` de um escondido: inteiro a mestres e controladores, `board:advanced` ao resto, `token:deleted` com o combate cortado a quem perdeu o controle), `hiddenCutsOf` (esconder/revelar, abaixo), `veiledLightsCutsOf(depois, tocados)` (a lista nova de cada público a quem um tocado é invisível; mestres nunca) e `invisibleFor(público, véu)`.
