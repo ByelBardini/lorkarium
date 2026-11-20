@@ -83,7 +83,7 @@ describe('the public sign-up (/sign-up)', () => {
       failure: { kind: 'human_check_failed' },
     });
     renderSignUp();
-    await screen.findByLabelText('E-mail');
+    await waitFor(() => expect(turnstile.rendered).toHaveLength(1));
     act(() => turnstile.solve());
     await send('ana@exemplo.com');
     expect(await screen.findByRole('alert')).toHaveTextContent(
