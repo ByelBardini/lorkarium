@@ -13,7 +13,7 @@ export const INVITATION_LINK_DEAD =
 export const RESET_LINK_DEAD =
   'Esse link venceu ou já foi usado. Peça um novo a quem administra o Lorkarium.';
 export const TERMS_NOT_ACCEPTED =
-  'Para criar a conta, aceite os Termos de uso, a Política de privacidade e a Política de uso.';
+  'Para criar a conta, confirme que tem 18 anos ou mais e aceite os Termos de uso, a Política de privacidade e a Política de uso.';
 
 type MessageKind = Exclude<
   AccountLinksFailure['kind'],

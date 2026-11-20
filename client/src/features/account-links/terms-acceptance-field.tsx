@@ -9,7 +9,8 @@ export type TermsAcceptanceFieldProps = Readonly<{
   error: string | undefined;
 }>;
 
-/** The box the person ticks to accept the Terms of use, the Privacy policy and the Acceptable use
+/** The box the person ticks to declare being 18 or older (the Terms already require it) and to
+ *  accept the Terms of use, the Privacy policy and the Acceptable use
  *  policy (the clickwrap the server records, one version for the three); each text opens in a new
  *  tab without ticking it.
  *
@@ -35,7 +36,7 @@ export function TermsAcceptanceField({
           htmlFor={id}
           className="block cursor-pointer text-sm leading-snug font-normal text-muted-foreground"
         >
-          Li e aceito os <LegalDocumentLink document="terms" />, a{' '}
+          Tenho 18 anos ou mais e li e aceito os <LegalDocumentLink document="terms" />, a{' '}
           <LegalDocumentLink document="privacy" /> e a{' '}
           <LegalDocumentLink document="acceptable-use" />
         </Label>
