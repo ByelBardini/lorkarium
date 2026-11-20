@@ -116,12 +116,11 @@ A landing de `site/` ([`site.md`](site.md)) é outra Application do Coolify, no 
 
 Nesta ordem; cada passo só depois do anterior conferido ([`account-links.md`](account-links.md), [`client/sign-up.md`](client/sign-up.md)).
 
-1. **Revisão jurídica do ECA Digital** (Lei 15.211/2025): a avaliação de "acesso provável" por menores, documentada com o advogado. Se ela pedir aferição de idade além da autodeclaração, o cadastro fica fechado até essa entrega.
-2. **Turnstile**: no painel da Cloudflare, um widget (modo _Managed_) com o hostname do app (`app.<tld>`; o desktop abre o mesmo domínio); _Site Key_ e _Secret Key_ no Coolify (`TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`, [`deploy/envs.md`](deploy/envs.md)). Sem as duas a produção não sobe.
-3. **E-mail**: SPF, DKIM e DMARC do `MAIL_FROM` conferidos (seção E-mail); o cadastro aumenta o volume.
-4. Deploy com `REGISTRATION_OPEN=false` e teste do "Esqueci minha senha" com uma conta própria (vale com o cadastro fechado).
-5. `REGISTRATION_OPEN=true`, _Restart_ e um cadastro com um e-mail próprio, do pedido ao login. Fechar de novo = `false` e _Restart_; o convite do backoffice segue valendo.
-6. Só então, o deploy da landing com "Criar conta" (seção Landing).
+1. **Turnstile**: no painel da Cloudflare, um widget (modo _Managed_) com o hostname do app (`app.<tld>`; o desktop abre o mesmo domínio); _Site Key_ e _Secret Key_ no Coolify (`TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`, [`deploy/envs.md`](deploy/envs.md)). Sem as duas a produção não sobe.
+2. **E-mail**: SPF, DKIM e DMARC do `MAIL_FROM` conferidos (seção E-mail); o cadastro aumenta o volume.
+3. Deploy com `REGISTRATION_OPEN=false` e teste do "Esqueci minha senha" com uma conta própria (vale com o cadastro fechado).
+4. `REGISTRATION_OPEN=true`, _Restart_ e um cadastro com um e-mail próprio, do pedido ao login. Fechar de novo = `false` e _Restart_; o convite do backoffice segue valendo.
+5. Só então, o deploy da landing com "Criar conta" (seção Landing).
 
 ## Serviço de cobrança (outra Application)
 

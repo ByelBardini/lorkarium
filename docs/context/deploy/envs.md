@@ -43,6 +43,6 @@ Lidas por `server/src/config/env.ts`; a regra completa de cada uma está em [`se
 | `GITHUB_ISSUES_REPOSITORY`        | padrão         | não     | `ByelBardini/lorkarium`                                                                                                            |
 | `TURNSTILE_SITE_KEY`              | **obrig.**     | não     | a _Site Key_ do widget do Turnstile no painel da Cloudflare, com o hostname do app; vai ao client pelo `GET /api/sign-up/settings` |
 | `TURNSTILE_SECRET_KEY`            | **obrig.**     | **sim** | a _Secret Key_ do mesmo widget; o "esqueci a senha" confere o token com ela mesmo com o cadastro fechado                           |
-| `REGISTRATION_OPEN`               | padrão         | não     | `false` (padrão). **Só `true` depois da revisão jurídica do ECA Digital** (avaliação de "acesso provável" documentada)             |
+| `REGISTRATION_OPEN`               | padrão         | não     | `false` (padrão); `true` abre o cadastro público ([`../deploy.md`](../deploy.md), Abrir o cadastro público)                        |
 
 O erro de boot cita cada variável errada e redige os segredos; ele aparece no log do deploy no Coolify.
