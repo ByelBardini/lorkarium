@@ -85,7 +85,7 @@ A conta nasce pelo convite do admin ou pelo cadastro público (`POST /api/sign-u
 
 ## Seed de desenvolvimento
 
-- `pnpm db:seed-dev` (entrada `server/src/dev-seed.ts`) cria **Bia** (`@bia`, `bia@lorkarium.dev`) e **Caio** (`@caio`, `caio@lorkarium.dev`), papel `user`, senha `lorkarium-dev` (`DEV_PLAYERS` e `DEV_PLAYER_PASSWORD` em `dev-players-seed.bo.ts`). Serve para testar a mesa com duas pessoas enquanto o cadastro não existe.
+- `pnpm db:seed-dev` (entrada `server/src/dev-seed.ts`) cria **Bia** (`@bia`, `bia@lorkarium.dev`) e **Caio** (`@caio`, `caio@lorkarium.dev`), papel `user`, senha `lorkarium-dev` (`DEV_PLAYERS` e `DEV_PLAYER_PASSWORD` em `dev-players-seed.bo.ts`). Serve para testar a mesa com duas pessoas sem passar pelo cadastro por e-mail.
 - `DevPlayersSeedBo(nodeEnv)`: `requireAllowed()` lança `DevSeedRefusedError` (`DEV_SEED_REFUSED`, cita o `NODE_ENV`) em `production`; `decide(emailsExistentes)` → `{ create, skipped }`. Conta que já existe nunca é reescrita (nem senha nem papel).
 - `DevSeedRefusedError` fica fora do `AuthError`: nunca chega à borda HTTP, então não tem status.
 

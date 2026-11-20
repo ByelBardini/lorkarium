@@ -1,6 +1,6 @@
 # Account links (convite e nova senha)
 
-Os links de uso único: o **convite** (do backoffice, 7 dias; ou pedido pela própria pessoa no cadastro público, 24 h; a pessoa escolhe o @ e a senha e a conta nasce logada) e o **link de nova senha** (1 h; um por conta; do admin ou pedido pela própria pessoa no "Esqueci minha senha"). Vive em `server/src/modules/account-links/`. Quem lista e cuida das contas é o [`user-admin.md`](user-admin.md); as telas `/invite` e `/reset-password` estão em [`client/account-links.md`](client/account-links.md).
+Os links de uso único: o **convite** (do backoffice, 7 dias; ou pedido pela própria pessoa no cadastro público, 24 h; a pessoa escolhe o @ e a senha e a conta nasce logada) e o **link de nova senha** (1 h; um por conta; do admin ou pedido pela própria pessoa no "Esqueci minha senha"). Vive em `server/src/modules/account-links/`. Quem lista e cuida das contas é o [`user-admin.md`](user-admin.md); as telas `/invite` e `/reset-password` estão em [`client/account-links.md`](client/account-links.md), e `/sign-up`, `/sign-up/confirm` e `/forgot-password` em [`client/sign-up.md`](client/sign-up.md).
 
 ## Estrutura
 
