@@ -29,6 +29,9 @@ export const RECEIPT_TTL_MS = 24 * 60 * 60_000;
 // The record of who got a service notice is the proof of the warning (CDC art. 27: 5 years); the
 // two extra days cover the leap years.
 export const BROADCAST_RETENTION_MS = (5 * 365 + 2) * 24 * 60 * 60_000;
+// An admin's expired invitation stays a month in the backoffice list, for the admin to resend it;
+// after that the address of someone who never joined is not kept (Privacidade §8).
+export const ADMIN_INVITATION_KEPT_MS = 30 * 24 * 60 * 60_000;
 export const HOUSEKEEPING_BATCH_MAX = 1000;
 const SWEEP_TASK = 'housekeeping-sweep';
 
@@ -39,6 +42,10 @@ const AGE_LIMIT_MS: Readonly<Record<SweptTable, number>> = {
   sessions: 0,
   challenges: 0,
   signups: 0,
+  admin_invitations: ADMIN_INVITATION_KEPT_MS,
+  email_changes: 0,
+  password_resets: 0,
+  recovery_tokens: 0,
   broadcasts: BROADCAST_RETENTION_MS,
   banned_emails: BANNED_EMAIL_KEPT_MS,
 };

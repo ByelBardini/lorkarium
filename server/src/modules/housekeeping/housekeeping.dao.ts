@@ -9,6 +9,10 @@ export type SweptTable =
   | 'sessions'
   | 'challenges'
   | 'signups'
+  | 'admin_invitations'
+  | 'email_changes'
+  | 'password_resets'
+  | 'recovery_tokens'
   | 'broadcasts'
   | 'banned_emails';
 
@@ -20,8 +24,14 @@ const DATED_BY: Readonly<Record<SweptTable, DatedRows>> = {
   sheet_receipts: { table: 'sheet_actions', column: 'created_at' },
   sessions: { table: 'auth_sessions', column: 'expires_at' },
   challenges: { table: 'two_factor_challenges', column: 'expires_at' },
-  // Only the public sign-up's links: an admin's expired invitation stays for the list to resend.
+  // The public sign-up's links go once expired; an admin's invitation is aged apart (the service
+  // keeps it a while after it expires, for the list to resend).
   signups: { table: 'invitations', column: 'expires_at', only: sql`origin = 'self'` },
+  admin_invitations: { table: 'invitations', column: 'expires_at', only: sql`origin = 'admin'` },
+  // The short-lived links of the account (Privacidade §8): past their deadline they serve nobody.
+  email_changes: { table: 'email_change_requests', column: 'expires_at' },
+  password_resets: { table: 'password_resets', column: 'expires_at' },
+  recovery_tokens: { table: 'account_recovery_tokens', column: 'expires_at' },
   // A notice by when it was written; its deliveries go with it (cascade).
   broadcasts: { table: 'mail_broadcasts', column: 'created_at' },
   // The e-mail of an account deleted for a violation, by when it was banned.
