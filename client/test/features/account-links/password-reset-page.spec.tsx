@@ -7,7 +7,7 @@ import { testDependencies, type TestDependencies } from '../../support/app-depen
 import { ANA } from '../../support/auth-api-fake';
 
 const LINK = '/reset-password#token=abc';
-const DEAD = 'Esse link venceu ou já foi usado. Peça um novo a quem administra o Lorkarium.';
+const DEAD = 'Esse link venceu ou já foi usado.';
 
 describe('new password by link (/reset-password)', () => {
   let deps: TestDependencies;
@@ -79,6 +79,16 @@ describe('new password by link (/reset-password)', () => {
     renderAt(LINK);
     expect(await screen.findByText(DEAD)).toBeInTheDocument();
     expect(screen.queryByLabelText('Senha nova', { selector: 'input' })).toBeNull();
+  });
+
+  it('a dead link offers to ask for another one at /forgot-password', async () => {
+    deps.accountLinksApi.answers.answer('inspectPasswordReset', {
+      ok: false,
+      failure: { kind: 'link_invalid' },
+    });
+    const router = renderAt(LINK);
+    await userEvent.click(await screen.findByRole('link', { name: 'Pedir outro' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/forgot-password'));
   });
 
   it('without a token nothing is asked', async () => {

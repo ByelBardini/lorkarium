@@ -11,12 +11,14 @@ const IDENTIFIER_LABEL = 'E-mail ou usuário';
 describe('LoginForm', () => {
   let api: AuthApiFake;
   let authenticated: AuthUserDto[];
+  let forgotten: string[];
 
   function renderForm(rememberByDefault: boolean): void {
     render(
       <LoginForm
         authApi={api}
         onAuthenticated={(user) => authenticated.push(user)}
+        onForgotPassword={(identifier) => forgotten.push(identifier)}
         rememberByDefault={rememberByDefault}
       />,
     );
@@ -25,6 +27,7 @@ describe('LoginForm', () => {
   beforeEach(() => {
     api = new AuthApiFake();
     authenticated = [];
+    forgotten = [];
     renderForm(false);
   });
 
@@ -36,6 +39,13 @@ describe('LoginForm', () => {
     await userEvent.type(screen.getByLabelText('Senha'), password);
     await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
   }
+
+  it('"Esqueci minha senha" hands over what was typed in the e-mail or @ field', async () => {
+    await userEvent.type(screen.getByLabelText(IDENTIFIER_LABEL), '@biaflor');
+    await userEvent.click(screen.getByRole('button', { name: 'Esqueci minha senha' }));
+    expect(forgotten).toEqual(['@biaflor']);
+    expect(api.loginCalls).toEqual([]);
+  });
 
   async function failWith(failure: AuthFailure): Promise<void> {
     api.answerLoginWith({ ok: false, failure });

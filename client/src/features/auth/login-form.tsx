@@ -22,6 +22,8 @@ export type LoginFormProps = Readonly<{
   onAuthenticated: (user: AuthUserDto) => void;
   /** Whether "Manter conectado" starts checked. */
   rememberByDefault: boolean;
+  /** "Esqueci minha senha", with what was typed in the e-mail or @ field. */
+  onForgotPassword: (identifier: string) => void;
 }>;
 
 type LoginValues = { identifier: string; password: string; rememberMe: boolean };
@@ -55,7 +57,7 @@ const EXPIRED_NOTICE = 'O tempo para o código acabou. Entre de novo.';
 /** The login in one or two steps: e-mail or @ + password (validated by the contracts DTO), and,
  *  for an account with 2FA, the app's code or a recovery code. Every refusal is shown.
  *
- *  Example: `<LoginForm authApi={authApi} onAuthenticated={(user) => navigate(next)} rememberByDefault={false} />` */
+ *  Example: `<LoginForm authApi={authApi} onAuthenticated={(user) => navigate(next)} rememberByDefault={false} onForgotPassword={goToForgot} />` */
 export function LoginForm(props: LoginFormProps): React.JSX.Element {
   const [step, setStep] = useState<LoginStep>({
     kind: 'credentials',
@@ -142,11 +144,21 @@ function CredentialsForm(props: CredentialsFormProps): React.JSX.Element {
           describedBy={errors.password ? `${ids.password}-error` : undefined}
         />
       </FormField>
-      <RememberMe
-        id={ids.remember}
-        checked={values.rememberMe}
-        onChange={(rememberMe) => change({ rememberMe })}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <RememberMe
+          id={ids.remember}
+          checked={values.rememberMe}
+          onChange={(rememberMe) => change({ rememberMe })}
+        />
+        <Button
+          type="button"
+          variant="link"
+          className="h-auto p-0 text-sm"
+          onClick={() => props.onForgotPassword(values.identifier)}
+        >
+          Esqueci minha senha
+        </Button>
+      </div>
       <SubmitButton submitting={submitting} />
     </form>
   );
