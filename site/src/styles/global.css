@@ -141,6 +141,9 @@
   & code {
     @apply rounded-sm bg-surface px-1.5 py-0.5 text-[0.9em] text-parchment;
   }
+  & ol {
+    @apply list-decimal space-y-2 pl-6 marker:text-faint;
+  }
 }
 
 /* Hidden only once the reveal script marks <html data-motion>: without JS or with reduced motion

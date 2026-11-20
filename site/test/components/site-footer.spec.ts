@@ -1,5 +1,7 @@
+import { getCollection } from 'astro:content';
 import { describe, expect, it } from 'vitest';
 import SiteFooter from '@/components/site-footer.astro';
+import { guideNavLinksOf } from '@/lib/guides';
 import { renderAstro } from '../support/render-astro';
 
 const REPOSITORY = 'https://github.com/ByelBardini/lorkarium';
@@ -41,11 +43,13 @@ describe('the site footer', () => {
     expect(newTab.map((link) => link.textContent?.trim())).toEqual(['Código-fonte']);
   });
 
-  it('lists the plans, the three legal texts, the source code and the contact, in that order', async () => {
+  it('lists the plans, the guide hubs, the three legal texts, the source code and the contact, in that order', async () => {
     const page = await renderAstro(SiteFooter);
 
+    const hubs = guideNavLinksOf(await getCollection('guides'), true).map((link) => link.label);
     expect(footerLinks(page).map((link) => link.textContent?.trim())).toEqual([
       'Planos',
+      ...hubs,
       'Termos de uso',
       'Privacidade',
       'Política de uso',

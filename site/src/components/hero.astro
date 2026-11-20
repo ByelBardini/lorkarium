@@ -21,8 +21,11 @@ import SecondaryLink from '@/components/secondary-link.astro';
     />
   </div>
   <div class="site-wrap pt-30 pb-[clamp(56px,9vh,110px)]">
-    <p class="eyebrow m-0 mb-5.5">Mesa virtual para RPG</p>
     <h1 class="headline m-0 max-w-[19ch]">
+      {/* The searched term opens the h1; it keeps the eyebrow look, not the headline's. */}
+      <span class="mb-5.5 block font-sans leading-normal">
+        <span class="eyebrow">Mesa virtual para RPG</span>
+      </span>{' '}
       <span class="block text-ember">Role a iniciativa.</span>{' '}
       <span class="block text-parchment">E que comece o combate.</span>
     </h1>

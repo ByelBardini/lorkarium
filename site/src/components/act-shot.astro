@@ -6,9 +6,11 @@ interface Props {
   image: ImageMetadata;
   alt: string;
   sizes: string;
+  /** Above the fold (the LCP image): loaded eagerly and first. */
+  priority?: boolean;
 }
 
-const { image, alt, sizes } = Astro.props;
+const { image, alt, sizes, priority = false } = Astro.props;
 const widths = [400, 640, 960, 1440, image.width].filter((width) => width <= image.width);
 ---
 
@@ -19,7 +21,8 @@ const widths = [400, 640, 960, 1440, image.width].filter((width) => width <= ima
     formats={['avif', 'webp']}
     widths={[...new Set(widths)]}
     sizes={sizes}
-    loading="lazy"
+    loading={priority ? 'eager' : 'lazy'}
+    fetchpriority={priority ? 'high' : 'auto'}
     class="block h-auto w-full"
   />
 </figure>

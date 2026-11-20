@@ -1,7 +1,10 @@
 ---
 import { PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
+import { getCollection } from 'astro:content';
+import { GUIDE_DRAFTS_ALLOWED } from 'astro:env/server';
 import BrandWordmark from '@/components/brand-wordmark.astro';
 import { REPOSITORY_URL } from '@/lib/desktop-release';
+import { guideNavLinksOf } from '@/lib/guides';
 
 interface FooterLink {
   label: string;
@@ -11,6 +14,7 @@ interface FooterLink {
 
 const footerLinks: ReadonlyArray<FooterLink> = [
   { label: 'Planos', href: '/planos/' },
+  ...guideNavLinksOf(await getCollection('guides'), GUIDE_DRAFTS_ALLOWED),
   { label: 'Termos de uso', href: '/termos/' },
   { label: 'Privacidade', href: '/privacidade/' },
   { label: 'Política de uso', href: '/uso/' },
