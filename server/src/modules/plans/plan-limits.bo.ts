@@ -3,9 +3,12 @@ import {
   PLAN_LIMITS,
   type PlanCountResource,
   type PlanFeatureResource,
+  type PlanLimitHolder,
   type PlanLimits,
+  type SavedRollLimits,
   type UserPlan,
   higherPlanOf,
+  savedRollLimitsOf,
 } from '@lorkarium/contracts';
 import { PlanLimitError } from './plans.error';
 
@@ -68,6 +71,28 @@ export function customizationAllowed(account: PlanAccount): boolean {
   return effectivePlanOf(account) === 'apoiador' || effectiveLimitsOf(account).customColor;
 }
 
+/** Whether the account may show and send the 3:1 banner of its profile: the grids that have it
+ *  (Lenda, and the technical one of the admin and the Dono do Lorkarium).
+ *
+ *  Example: `profileBannerAllowed({ role: 'user', plan: 'narrador', lorkariumOwner: false }) // false` */
+export function profileBannerAllowed(account: PlanAccount): boolean {
+  return effectiveLimitsOf(account).profileBanner;
+}
+
+/** The ceilings a member's saved rolls are checked against, and whose plan gave them. */
+export type MemberSavedRollLimits = SavedRollLimits;
+
+/** The ceilings of a member's saved rolls and folders at a table: the greater of the owner's
+ *  grid and the member's own (`savedRollLimitsOf`), with whose it is.
+ *
+ *  Example: `memberSavedRollLimitsOf({ tableOwner, member }).limits.maxSavedRolls // 15 for an Apoiador at a Grátis table` */
+export function memberSavedRollLimitsOf(
+  accounts: Readonly<{ tableOwner: PlanAccount; member: PlanAccount }>,
+): MemberSavedRollLimits {
+  const table = effectiveLimitsOf(accounts.tableOwner);
+  return savedRollLimitsOf(table, effectiveLimitsOf(accounts.member).plan);
+}
+
 /** The counted resources whose excess goes read only when the plan goes down (the NPC sheets,
  *  the tables and the members only refuse the new one). */
 export type PlanEditableResource = Extract<
@@ -103,18 +128,29 @@ export class PlanLimitsBo {
    *  nothing always passes (who is already past keeps what it has), and so does a ceiling equal to
    *  the technical one: that one keeps its own error of today, the same for every plan.
    *
+   *  `holder` goes on the refusal when the limits are not the resource's usual owner's.
+   *
    *  Example: `PlanLimitsBo.requireRoom('scenes', countOfScenes, 1, limits)` */
   static requireRoom(
     resource: PlanCountResource,
     stored: number,
     adding: number,
     limits: PlanLimits,
+    holder?: PlanLimitHolder,
   ): void {
     const key = PLAN_COUNT_LIMIT_KEY[resource];
     const limit = limits[key];
     if (limit === null || adding <= 0 || stored + adding <= limit) return;
     if (isTechnicalCeiling(limit, PLAN_LIMITS.amigo_do_dono[key])) return;
-    const refusal = { reason: 'room', resource, stored, adding, limit, plan: limits.plan } as const;
+    const refusal = {
+      reason: 'room' as const,
+      resource,
+      stored,
+      adding,
+      limit,
+      plan: limits.plan,
+      holder,
+    };
     const message = `would have ${stored + adding} ${resource}; plan ${limits.plan} allows at most ${limit}`;
     throw new PlanLimitError(refusal, message);
   }
@@ -148,7 +184,12 @@ export class PlanLimitsBo {
    *  Call it only on a change of configuration: play and deleting never pass through here.
    *
    *  Example: `PlanLimitsBo.requireEditable('scenes', 3, PLAN_LIMITS.free) // throws: scene 4 of plan free is read only (plan allows 3)` */
-  static requireEditable(resource: PlanEditableResource, rank: number, limits: PlanLimits): void {
+  static requireEditable(
+    resource: PlanEditableResource,
+    rank: number,
+    limits: PlanLimits,
+    holder?: PlanLimitHolder,
+  ): void {
     if (!PlanLimitsBo.isReadOnly(resource, rank, limits)) return;
     const limit = limits[PLAN_COUNT_LIMIT_KEY[resource]] as number;
     const refusal = {
@@ -158,6 +199,7 @@ export class PlanLimitsBo {
       adding: 0,
       limit,
       plan: limits.plan,
+      holder,
     } as const;
     const item = `${EDITABLE_ITEM_NAME[resource]} ${rank + 1}`;
     const message = `${item} of plan ${limits.plan} is read only (plan allows ${limit})`;

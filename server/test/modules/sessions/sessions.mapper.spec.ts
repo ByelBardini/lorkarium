@@ -138,12 +138,26 @@ describe('sessions mapper', () => {
   it('a member with a chosen color, a photo, a banner and a bio carries them as the table sees them', () => {
     const ana = campaignMemberRow({
       ...{ colorChoice: 'rose', avatarId: PHOTO_ID, bannerId: BANNER_ID, bio: 'Mestre' },
-      account: { role: 'user', plan: 'apoiador', activePaidPlan: null, lorkariumOwner: false },
+      account: { role: 'user', plan: 'lenda', activePaidPlan: null, lorkariumOwner: false },
     });
     const [member] = toSessionStateDto(VHARN_ID, [ana], presenceRoster({ version: 1 }), AT).members;
     expect(member).toMatchObject({
       ...{ color: 'rose', avatarId: PHOTO_ID, bannerId: BANNER_ID, bio: 'Mestre' },
     });
+  });
+
+  it('the banner of an Apoiador or a Narrador does not reach the table: it is Lenda only', () => {
+    for (const plan of ['apoiador', 'narrador'] as const) {
+      const account = { role: 'user', plan, activePaidPlan: null, lorkariumOwner: false } as const;
+      const ana = campaignMemberRow({ bannerId: BANNER_ID, account });
+      const [member] = toSessionStateDto(
+        VHARN_ID,
+        [ana],
+        presenceRoster({ version: 1 }),
+        AT,
+      ).members;
+      expect({ plan, bannerId: member?.bannerId }).toEqual({ plan, bannerId: null });
+    }
   });
 
   it('a banner kept from a lapsed plan (Grátis now) does not reach the table', () => {

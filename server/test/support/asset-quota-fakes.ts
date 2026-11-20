@@ -1,4 +1,3 @@
-import type { AssetRemovalLog } from '../../src/modules/assets/asset-object-removal';
 import type {
   AssetReferencesDao,
   LooseAssetRow,
@@ -96,16 +95,6 @@ export class FlakyRemovalStorageFake implements Pick<AssetStoragePort, 'remove'>
   async remove(key: string): Promise<void> {
     if (this.failing.has(key)) throw new Error(`S3 DeleteObject of ${key} answered 503`);
     this.removed.push(key);
-  }
-}
-
-/** Keeps every warning written, with its fields. */
-export class RemovalLogFake implements AssetRemovalLog {
-  readonly warnings: Readonly<{ fields: Readonly<Record<string, unknown>>; message: string }>[] =
-    [];
-
-  warn(fields: Readonly<Record<string, unknown>>, message: string): void {
-    this.warnings.push({ fields, message });
   }
 }
 

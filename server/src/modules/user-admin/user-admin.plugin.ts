@@ -5,7 +5,8 @@ import { runInTransaction } from '../../database/transaction';
 import { InvitationsDao } from '../account-links/invitations.dao';
 import { PasswordResetsDao } from '../account-links/password-resets.dao';
 import type { SecurityNoticesService } from '../account-security/security-notices.service';
-import type { AssetStoragePort } from '../assets/asset-storage.port';
+import { StorageDeletionsDao } from '../assets/storage-deletions.dao';
+import { FeedbackAttachmentsDao } from '../feedback/feedback-attachments.dao';
 import { AuthSessionsDao } from '../auth/auth-sessions.dao';
 import type { ClockPort } from '../auth/clock.port';
 import type { DataCipherPort } from '../auth/data-cipher.port';
@@ -17,6 +18,7 @@ import { MailSamplesService } from './mail-samples.service';
 import type { OwnerLimitsPort } from './owner-limits.port';
 import type { RevokedSeatsPort } from './revoked-seats.port';
 import { UserAdminDao } from './user-admin.dao';
+import { BannedEmailIndexesDao } from '../sanctions/banned-email-indexes.dao';
 import { userAdminRoutes } from './user-admin.routes';
 import { UserAdminService, type UserAdminTransactionRunner } from './user-admin.service';
 
@@ -32,21 +34,26 @@ export type UserAdminModuleOptions = Readonly<{
   profiles: ProfileChangedPort;
   /** The campaigns module's settings service: a changed plan reaches the owner's tables. */
   ownedTables: OwnerLimitsPort;
-  storage: Pick<AssetStoragePort, 'remove'>;
   notices: Pick<SecurityNoticesService, 'send'>;
   cipher: DataCipherPort;
   clock: ClockPort;
   appPublicUrl: string;
   /** The app's mailer, for the mail test (a failure is shown, not swallowed). */
   mailer: MailerPort;
+  /** The landing, for the mail test's rule links. */
+  sitePublicUrl: string;
+}>;
+
+export type UserAdminModule = Readonly<{
+  plugin: (app: FastifyInstance) => Promise<void>;
+  /** For the sanctions module: a ban goes through this deletion. */
+  service: UserAdminService;
 }>;
 
 /** Wires the backoffice over the accounts (`/admin/users`). Needs `app.authGuards`.
  *
  *  Example: `await app.register(createUserAdminModule(options).plugin, { prefix: '/api' })` */
-export function createUserAdminModule(
-  options: UserAdminModuleOptions,
-): Readonly<{ plugin: (app: FastifyInstance) => Promise<void> }> {
+export function createUserAdminModule(options: UserAdminModuleOptions): UserAdminModule {
   const transaction: UserAdminTransactionRunner = (work) =>
     runInTransaction(options.db, (tx) =>
       work({
@@ -55,14 +62,18 @@ export function createUserAdminModule(
         passwordResets: new PasswordResetsDao(tx),
         invitations: new InvitationsDao(tx),
         adminSeats: new CampaignMembersDao(tx),
+        deletions: new StorageDeletionsDao(tx),
+        bannedEmails: new BannedEmailIndexesDao(tx),
+        feedbackShots: new FeedbackAttachmentsDao(tx),
       }),
     );
-  const { db, mailer, ...rest } = options;
+  const { db, mailer, sitePublicUrl, ...rest } = options;
   const service = new UserAdminService({ ...rest, accounts: new UserAdminDao(db), transaction });
   const mailTest = new MailSamplesService({
     mailer,
     appPublicUrl: options.appPublicUrl,
+    sitePublicUrl,
     clock: options.clock,
   });
-  return { plugin: userAdminRoutes(service, mailTest) };
+  return { plugin: userAdminRoutes(service, mailTest), service };
 }

@@ -6,17 +6,14 @@ import type {
 } from '@lorkarium/contracts';
 import type { InvitationsDao } from '../account-links/invitations.dao';
 import type { PasswordResetsDao } from '../account-links/password-resets.dao';
-import {
-  accessRestoredMail,
-  accessSuspendedMail,
-  promotedToAdminMail,
-} from '../account-security/admin-mail.mapper';
+import { accessRestoredMail, promotedToAdminMail } from '../account-security/admin-mail.mapper';
 import { recipientOf } from '../account-security/security-mail.mapper';
 import type { SecurityNoticesService } from '../account-security/security-notices.service';
-import type { AssetStoragePort } from '../assets/asset-storage.port';
+import type { StorageDeletionsDao } from '../assets/storage-deletions.dao';
 import type { AuthSessionsDao } from '../auth/auth-sessions.dao';
 import type { ClockPort } from '../auth/clock.port';
 import type { DataCipherPort } from '../auth/data-cipher.port';
+import type { FeedbackAttachmentsDao } from '../feedback/feedback-attachments.dao';
 import type { SessionEndedPort } from '../auth/session-ended.port';
 import type { UserPo } from '../auth/users.po';
 import type { CampaignMembersDao, RevokedAdminSeat } from '../campaigns/campaign-members.dao';
@@ -25,6 +22,7 @@ import { avatarKeyOf, bannerKeyOf, diceTextureKeyOf } from '../profiles/profiles
 import type { OwnerLimitsPort } from './owner-limits.port';
 import type { RevokedSeatsPort } from './revoked-seats.port';
 import { deletionVerdict, requireOtherAccount } from './user-admin.bo';
+import type { BannedEmailIndexesDao } from '../sanctions/banned-email-indexes.dao';
 import type { AccountListingRow, UserAdminDao } from './user-admin.dao';
 import { OwnsSharedCampaignsError, UserNotFoundError } from './user-admin.error';
 import { toAdminUserDto, toDeletionCheckDto } from './user-admin.mapper';
@@ -33,13 +31,28 @@ import { toAdminUserDto, toDeletionCheckDto } from './user-admin.mapper';
 export type UserAdminWriteDaos = Readonly<{
   accounts: Pick<
     UserAdminDao,
-    'findAccount' | 'setRole' | 'setPlan' | 'setSuspendedAt' | 'lockOwnedCampaigns' | 'delete'
+    | 'findAccount'
+    | 'setRole'
+    | 'setPlan'
+    | 'setSuspendedAt'
+    | 'lockOwnedCampaigns'
+    | 'storageKeysOfOwnedCampaigns'
+    | 'delete'
   >;
   sessions: Pick<AuthSessionsDao, 'deleteAllOf'>;
   passwordResets: Pick<PasswordResetsDao, 'deleteOfUser'>;
   invitations: Pick<InvitationsDao, 'deleteAdminRoleIssuedBy'>;
   adminSeats: Pick<CampaignMembersDao, 'revokeAdminSeatsOf'>;
+  /** The objects of a deleted account (its images and its tables' files) wait here, on the same `tx`. */
+  deletions: Pick<StorageDeletionsDao, 'enqueue'>;
+  /** A deletion for a violation keeps the e-mail's blind index, on the same `tx`. */
+  bannedEmails: Pick<BannedEmailIndexesDao, 'ban'>;
+  /** The screenshots the account sent with a bug report or a suggestion (they go by cascade). */
+  feedbackShots: Pick<FeedbackAttachmentsDao, 'storageKeysOfUploader'>;
 }>;
+
+/** A deletion that is a measure (a ban): the e-mail's index is kept so it is not invited again. */
+export type AccountBan = Readonly<{ bannedAt: Date }>;
 
 export type UserAdminTransactionRunner = <T>(
   work: (daos: UserAdminWriteDaos) => Promise<T>,
@@ -61,7 +74,6 @@ export type UserAdminDeps = Readonly<{
   profiles: ProfileChangedPort;
   /** Every live table the account owns hears its new limits (`session:campaignUpdated`). */
   ownedTables: OwnerLimitsPort;
-  storage: Pick<AssetStoragePort, 'remove'>;
   notices: Pick<SecurityNoticesService, 'send'>;
   cipher: DataCipherPort;
   clock: ClockPort;
@@ -126,34 +138,16 @@ export class UserAdminService {
     return daos.adminSeats.revokeAdminSeatsOf(userId);
   }
 
-  /** Idempotent: suspending a suspended account changes nothing and tells nobody. */
-  async suspend(actor: AdminActor, userId: string): Promise<AdminUserDto> {
-    requireOtherAccount(actor.id, userId, 'suspend');
-    const now = this.deps.clock.now();
-    const outcome = await this.deps.transaction(async (daos) => {
-      const found = await this.requireAccount(daos.accounts, userId);
-      if (found.suspendedAt !== null) return { row: found, ended: null };
-      await daos.accounts.setSuspendedAt(userId, now);
-      const ended = await daos.sessions.deleteAllOf(userId);
-      await daos.passwordResets.deleteOfUser(userId);
-      await daos.invitations.deleteAdminRoleIssuedBy(userId);
-      return { row: { ...found, suspendedAt: now }, ended };
-    });
-    if (outcome.ended) {
-      for (const sessionId of outcome.ended) this.deps.sessionEnded.sessionEnded(sessionId);
-      await this.tellAccount(outcome.row, accessSuspendedMail);
-    }
-    return toAdminUserDto(outcome.row, this.deps.cipher);
-  }
+  // Suspending is a measure with a rule and reasons: the sanctions module does it.
 
-  /** Idempotent: an active account stays as it is. */
+  /** Lifts a suspension early (and its end). Idempotent: an active account stays as it is. */
   async reactivate(actor: AdminActor, userId: string): Promise<AdminUserDto> {
     requireOtherAccount(actor.id, userId, 'reactivate');
     const outcome = await this.deps.transaction(async ({ accounts }) => {
       const found = await this.requireAccount(accounts, userId);
       if (found.suspendedAt === null) return { row: found, changed: false };
       await accounts.setSuspendedAt(userId, null);
-      return { row: { ...found, suspendedAt: null }, changed: true };
+      return { row: { ...found, suspendedAt: null, suspendedUntil: null }, changed: true };
     });
     if (outcome.changed) await this.tellAccount(outcome.row, accessRestoredMail);
     return toAdminUserDto(outcome.row, this.deps.cipher);
@@ -167,24 +161,28 @@ export class UserAdminService {
     return toDeletionCheckDto(deletionVerdict(owned));
   }
 
-  async delete(actor: AdminActor, userId: string): Promise<void> {
+  /** Deletes the account; `ban` (a deletion that is a measure) also keeps the e-mail's index in
+   *  the same transaction. */
+  async delete(actor: AdminActor, userId: string, ban: AccountBan | null = null): Promise<void> {
     requireOtherAccount(actor.id, userId, 'delete');
-    const { row, ended } = await this.deps.transaction(async (daos) => {
+    const { ended } = await this.deps.transaction(async (daos) => {
       const found = await this.requireAccount(daos.accounts, userId);
       const verdict = deletionVerdict(await daos.accounts.lockOwnedCampaigns(userId));
       if (verdict.kind === 'blocked')
         throw new OwnsSharedCampaignsError(userId, verdict.blockingCampaigns);
+      if (ban) await daos.bannedEmails.ban(found.emailIndex, ban.bannedAt);
+      // Read under the lock, before the cascade takes the rows: an upload in flight finished first.
+      const tableKeys = await daos.accounts.storageKeysOfOwnedCampaigns(userId);
+      const shotKeys = await daos.feedbackShots.storageKeysOfUploader(userId);
+      await daos.deletions.enqueue([...tableKeys, ...accountImageKeysOf(found), ...shotKeys]);
       const sessions = await daos.sessions.deleteAllOf(userId);
       // Before the row goes: its foreign key would null who issued them.
       await daos.invitations.deleteAdminRoleIssuedBy(userId);
       await daos.accounts.delete(userId);
-      return { row: found, ended: sessions };
+      return { ended: sessions };
     });
     for (const sessionId of ended) this.deps.sessionEnded.sessionEnded(sessionId);
     this.deps.memberships.forgetUser(userId);
-    if (row.avatarId) await this.deps.storage.remove(avatarKeyOf(row.avatarId));
-    if (row.diceTextureId) await this.deps.storage.remove(diceTextureKeyOf(row.diceTextureId));
-    if (row.bannerId) await this.deps.storage.remove(bannerKeyOf(row.bannerId));
   }
 
   private async requireAccount(
@@ -196,10 +194,7 @@ export class UserAdminService {
     return found;
   }
 
-  private async tellAccount(
-    row: UserPo,
-    mail: typeof accessSuspendedMail | typeof accessRestoredMail,
-  ): Promise<void> {
+  private async tellAccount(row: UserPo, mail: typeof accessRestoredMail): Promise<void> {
     const person = recipientOf(row, this.deps.cipher);
     await this.deps.notices.send(mail({ person, publicUrl: this.deps.appPublicUrl }));
   }
@@ -209,4 +204,13 @@ export class UserAdminService {
     const publicUrl = this.deps.appPublicUrl;
     await this.deps.notices.send(promotedToAdminMail({ person, publicUrl }));
   }
+}
+
+// The photo, the dice texture and the banner of the account, each only when it has one.
+function accountImageKeysOf(row: UserPo): string[] {
+  const keys: string[] = [];
+  if (row.avatarId) keys.push(avatarKeyOf(row.avatarId));
+  if (row.diceTextureId) keys.push(diceTextureKeyOf(row.diceTextureId));
+  if (row.bannerId) keys.push(bannerKeyOf(row.bannerId));
+  return keys;
 }

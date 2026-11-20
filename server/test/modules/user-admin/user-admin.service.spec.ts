@@ -14,12 +14,14 @@ import {
 } from '../../support/auth-fakes';
 import { authSessionPo, userPo } from '../../support/auth-factories';
 import { ProfileChangedFake } from '../../support/profiles-fakes';
+import { FeedbackShotKeysFake } from '../../support/feedback-fakes';
+import { StagedDeletionQueueFake } from '../../support/storage-deletions-fakes';
 import {
   AdminSeatsFake,
+  BannedEmailsFake,
   MembershipsForgetFake,
   OwnerLimitsFake,
   RevokedSeatsFake,
-  StorageRemoveFake,
   UserAdminDaoFake,
 } from '../../support/user-admin-fakes';
 
@@ -34,7 +36,9 @@ describe('UserAdminService', () => {
   let resets: PasswordResetsDaoFake;
   let sessionEnded: SessionEndedFake;
   let memberships: MembershipsForgetFake;
-  let storage: StorageRemoveFake;
+  let deletions: StagedDeletionQueueFake;
+  let bannedEmails: BannedEmailsFake;
+  let feedbackShots: FeedbackShotKeysFake;
   let mailer: MailerFake;
   let journal: string[];
   let adminSeats: AdminSeatsFake;
@@ -65,7 +69,9 @@ describe('UserAdminService', () => {
     resets = new PasswordResetsDaoFake();
     sessionEnded = new SessionEndedFake();
     memberships = new MembershipsForgetFake();
-    storage = new StorageRemoveFake();
+    deletions = new StagedDeletionQueueFake();
+    bannedEmails = new BannedEmailsFake();
+    feedbackShots = new FeedbackShotKeysFake();
     mailer = new MailerFake();
     journal = [];
     adminSeats = new AdminSeatsFake(journal);
@@ -80,21 +86,24 @@ describe('UserAdminService', () => {
       passwordResets: resets,
       invitations,
       adminSeats,
+      deletions,
+      bannedEmails,
+      feedbackShots,
     };
     service = new UserAdminService({
       accounts,
       invitations: { listPending: async () => [] },
-      transaction: async (work) => {
-        const result = await work(daos);
-        journal.push('commit');
-        return result;
-      },
+      transaction: (work) =>
+        deletions.around(async () => {
+          const result = await work(daos);
+          journal.push('commit');
+          return result;
+        }),
       sessionEnded,
       memberships,
       juggernauts,
       profiles,
       ownedTables,
-      storage,
       notices: new SecurityNoticesService(mailer, () => undefined),
       cipher: new DataCipherFake(),
       clock: new ClockFake(NOW),
@@ -134,49 +143,13 @@ describe('UserAdminService', () => {
     });
   });
 
-  describe('suspend', () => {
-    it('marks the account, drops its sessions and links, and signs it out after the commit', async () => {
-      await resets.replace({ userId: BIA_ID, tokenHash: 'h', createdAt: NOW, expiresAt: NOW });
-      const user = await service.suspend(ADMIN, BIA_ID);
-      expect(user.status).toBe('suspended');
-      expect(journal).toEqual(['commit', 'ended sha:bia-1', 'ended sha:bia-2']);
-      expect(resets.rows).toEqual([]);
-      expect([...sessions.rows.keys()]).toEqual(['sha:lucas']);
-    });
-
-    it('tells the account it was suspended', async () => {
-      await service.suspend(ADMIN, BIA_ID);
-      expect(mailer.sent.map((mail) => [mail.to, mail.subject])).toEqual([
-        ['bia@x.com', 'Seu acesso ao Lorkarium foi suspenso'],
-      ]);
-    });
-
-    it('suspending again changes nothing and tells nobody (idempotent)', async () => {
-      await service.suspend(ADMIN, BIA_ID);
-      journal.length = 0;
-      await service.suspend(ADMIN, BIA_ID);
-      expect(journal).toEqual(['commit']);
-      expect(mailer.sent).toHaveLength(1);
-    });
-
-    it('the admin on their own account is SELF_ACTION and nothing is written', async () => {
-      await expect(service.suspend(ADMIN, ADMIN.id)).rejects.toMatchObject({ code: 'SELF_ACTION' });
-      expect(journal).toEqual([]);
-    });
-
-    it('an unknown account is USER_NOT_FOUND', async () => {
-      const unknown = '44444444-4444-4444-8444-444444444444';
-      await expect(service.suspend(ADMIN, unknown)).rejects.toMatchObject({
-        code: 'USER_NOT_FOUND',
-      });
-    });
-  });
-
+  // Suspending is a measure now: server/test/modules/sanctions/sanctions.service.spec.ts.
   describe('reactivate', () => {
-    it('clears the suspension and welcomes back', async () => {
-      await service.suspend(ADMIN, BIA_ID);
+    it('clears the suspension and its end and welcomes back', async () => {
+      await accounts.setSuspendedAt(BIA_ID, NOW, new Date('2026-12-01T00:00:00Z'));
       const user = await service.reactivate(ADMIN, BIA_ID);
       expect(user.status).toBe('active');
+      expect((await accounts.findAccount(BIA_ID))?.suspendedUntil).toBeNull();
       expect(mailer.sent.at(-1)?.subject).toBe('Seu acesso ao Lorkarium voltou');
     });
 
@@ -254,11 +227,6 @@ describe('UserAdminService', () => {
       expect(left()).toEqual(['by-bia-user', 'by-lucas-admin']);
     });
 
-    it('a suspension deletes them', async () => {
-      await service.suspend(ADMIN, BIA_ID);
-      expect(left()).toEqual(['by-bia-user', 'by-lucas-admin']);
-    });
-
     it('an account deletion deletes them', async () => {
       await service.delete(ADMIN, BIA_ID);
       expect(left()).toEqual(['by-bia-user', 'by-lucas-admin']);
@@ -308,12 +276,68 @@ describe('UserAdminService', () => {
   });
 
   describe('delete', () => {
-    it('locks, deletes, then signs out, forgets the memberships and removes the photo, texture and banner', async () => {
+    it('locks, deletes, then signs out and forgets the memberships', async () => {
       await service.delete(ADMIN, BIA_ID);
       expect(accounts.deleted).toEqual([BIA_ID]);
       expect(journal).toEqual(['commit', 'ended sha:bia-1', 'ended sha:bia-2']);
       expect(memberships.forgotten).toEqual([BIA_ID]);
-      expect(storage.removed).toEqual([
+    });
+
+    it("queues the files of her 2 solo tables, her photo, texture and banner and her feedback screenshots in the deletion's transaction", async () => {
+      accounts.owned.set(BIA_ID, [
+        { id: 'vharn', name: 'Vharn', otherMembers: 0 },
+        { id: 'quelm', name: 'Quelm', otherMembers: 0 },
+      ]);
+      accounts.ownedKeys.set(BIA_ID, ['assets/v1', 'assets/v2', 'assets/v3', 'assets/q1']);
+      feedbackShots.keys.set(BIA_ID, ['feedback/f1']);
+
+      await service.delete(ADMIN, BIA_ID);
+
+      expect(deletions.committed).toEqual([
+        'assets/v1',
+        'assets/v2',
+        'assets/v3',
+        'assets/q1',
+        'avatars/33333333-3333-4333-8333-333333333333',
+        'dice-textures/44444444-4444-4444-8444-444444444444',
+        'banners/55555555-5555-4555-8555-555555555555',
+        'feedback/f1',
+      ]);
+    });
+
+    it("a deletion that is a ban keeps the e-mail's index inside the transaction", async () => {
+      const banJournal = journal;
+      bannedEmails.ban = async (index, at) => {
+        banJournal.push(`ban ${index} ${at.toISOString()}`);
+      };
+
+      await service.delete(ADMIN, BIA_ID, { bannedAt: NOW });
+
+      expect(journal.slice(0, 2)).toEqual([
+        'ban idx:email-index:bia@x.com 2026-10-24T12:00:00.000Z',
+        'commit',
+      ]);
+    });
+
+    it('a plain deletion (asked by the person) keeps no index', async () => {
+      await service.delete(ADMIN, BIA_ID);
+
+      expect(bannedEmails.banned.size).toBe(0);
+    });
+
+    it('a blocked ban keeps no index', async () => {
+      accounts.owned.set(BIA_ID, [{ id: 'vharn', name: 'Vharn', otherMembers: 1 }]);
+
+      await expect(service.delete(ADMIN, BIA_ID, { bannedAt: NOW })).rejects.toMatchObject({
+        code: 'OWNS_SHARED_CAMPAIGNS',
+      });
+      expect(bannedEmails.banned.size).toBe(0);
+    });
+
+    it('an account that owns no table queues only its own images', async () => {
+      await service.delete(ADMIN, BIA_ID);
+
+      expect(deletions.committed).toEqual([
         'avatars/33333333-3333-4333-8333-333333333333',
         'dice-textures/44444444-4444-4444-8444-444444444444',
         'banners/55555555-5555-4555-8555-555555555555',
@@ -322,6 +346,7 @@ describe('UserAdminService', () => {
 
     it('owning a table with others is OWNS_SHARED_CAMPAIGNS and nothing is deleted nor told', async () => {
       accounts.owned.set(BIA_ID, [{ id: 'vharn', name: 'Vharn', otherMembers: 3 }]);
+      accounts.ownedKeys.set(BIA_ID, ['assets/v1']);
       await expect(service.delete(ADMIN, BIA_ID)).rejects.toMatchObject({
         code: 'OWNS_SHARED_CAMPAIGNS',
         blockingCampaigns: [{ id: 'vharn', name: 'Vharn', otherMembers: 3 }],
@@ -329,12 +354,13 @@ describe('UserAdminService', () => {
       expect(accounts.deleted).toEqual([]);
       expect(sessionEnded.ended).toEqual([]);
       expect(memberships.forgotten).toEqual([]);
+      expect(deletions.committed).toEqual([]);
     });
 
-    it('an account without a photo removes nothing from the bucket', async () => {
+    it('an account without images nor tables queues nothing', async () => {
       await service.delete(ADMIN, CAIO_ID);
       expect(accounts.deleted).toEqual([CAIO_ID]);
-      expect(storage.removed).toEqual([]);
+      expect(deletions.committed).toEqual([]);
     });
   });
 

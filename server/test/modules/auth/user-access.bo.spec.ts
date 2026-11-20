@@ -21,16 +21,48 @@ describe('UserAccessBo', () => {
   });
 
   it('an active account passes requireActive', () => {
-    expect(() => new UserAccessBo(userPo({ suspendedAt: null })).requireActive()).not.toThrow();
+    const access = new UserAccessBo(userPo({ suspendedAt: null }));
+    expect(() => access.requireActive(NOW)).not.toThrow();
   });
 
-  it('a suspended account is refused with ACCOUNT_SUSPENDED citing its id', () => {
-    const access = new UserAccessBo(userPo({ suspendedAt: new Date('2026-10-20T12:00:00Z') }));
-    expect(() => access.requireActive()).toThrow(
+  it('a suspension without an end is refused with ACCOUNT_SUSPENDED citing its id', () => {
+    const access = new UserAccessBo(userPo({ suspendedAt: SUSPENDED_AT }));
+    expect(() => access.requireActive(NOW)).toThrow(
       expect.objectContaining({
         code: 'ACCOUNT_SUSPENDED',
         message: expect.stringContaining('expected an active account'),
       }),
     );
   });
+
+  it('a suspension that ends tomorrow is refused citing the end', () => {
+    const until = new Date('2026-11-20T12:00:00Z');
+    const access = new UserAccessBo(userPo({ suspendedAt: SUSPENDED_AT, suspendedUntil: until }));
+    expect(() => access.requireActive(NOW)).toThrow(
+      expect.objectContaining({
+        code: 'ACCOUNT_SUSPENDED',
+        message: expect.stringContaining('until 2026-11-20T12:00:00.000Z'),
+      }),
+    );
+  });
+
+  it('a suspension that ended an hour ago lets the account in', () => {
+    const until = new Date('2026-11-19T11:00:00Z');
+    const access = new UserAccessBo(userPo({ suspendedAt: SUSPENDED_AT, suspendedUntil: until }));
+    expect(() => access.requireActive(NOW)).not.toThrow();
+  });
+
+  it('a suspension that ends exactly now lets the account in', () => {
+    const access = new UserAccessBo(userPo({ suspendedAt: SUSPENDED_AT, suspendedUntil: NOW }));
+    expect(() => access.requireActive(NOW)).not.toThrow();
+  });
+
+  it('a suspension one millisecond from its end still holds', () => {
+    const until = new Date(NOW.getTime() + 1);
+    const access = new UserAccessBo(userPo({ suspendedAt: SUSPENDED_AT, suspendedUntil: until }));
+    expect(access.isSuspendedAt(NOW)).toBe(true);
+  });
 });
+
+const NOW = new Date('2026-11-19T12:00:00Z');
+const SUSPENDED_AT = new Date('2026-11-18T12:00:00Z');

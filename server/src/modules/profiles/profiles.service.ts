@@ -15,6 +15,7 @@ import type { UsersDao } from '../auth/users.dao';
 import {
   PlanLimitsBo,
   customizationAllowed,
+  profileBannerAllowed,
   effectiveLimitsOf,
   type PlanAccount,
 } from '../plans/plan-limits.bo';
@@ -346,13 +347,18 @@ function diceTextureSpaceOf(profiles: ImageColumns): ImageSpace {
 function bannerSpaceOf(profiles: ImageColumns): ImageSpace {
   return {
     subject: 'banner',
-    // Only a paid plan reaches it (`requirePlan`); the GIF moves like the photo's.
+    // Only the Lenda reaches it (`requirePlan`); the GIF moves like the photo's.
     shapeFor: (account) => ({
       width: BANNER_WIDTH,
       height: BANNER_HEIGHT,
-      animated: customizationAllowed(account),
+      animated: profileBannerAllowed(account),
     }),
-    requirePlan: (account) => requireCustomization('profileBanner', account),
+    requirePlan: (account) =>
+      PlanLimitsBo.requireFeature(
+        'profileBanner',
+        profileBannerAllowed(account),
+        effectiveLimitsOf(account),
+      ),
     keyOf: bannerKeyOf,
     idOf: (row) => row.bannerId,
     swap: (userId, imageId) => profiles.swapBanner(userId, imageId),

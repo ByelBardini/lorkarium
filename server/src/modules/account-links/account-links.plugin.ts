@@ -14,6 +14,7 @@ import type { SessionEndedPort } from '../auth/session-ended.port';
 import type { SessionTokenPort } from '../auth/session-token.port';
 import { TwoFactorChallengesDao } from '../auth/two-factor-challenges.dao';
 import { UsersDao } from '../auth/users.dao';
+import { BannedEmailIndexesDao } from '../sanctions/banned-email-indexes.dao';
 import { accountLinksRoutes } from './account-links.routes';
 import { InvitationsDao } from './invitations.dao';
 import { InvitationsService, type AcceptanceTransactionRunner } from './invitations.service';
@@ -56,6 +57,7 @@ function createInvitations(options: AccountLinksModuleOptions): InvitationsServi
   return new InvitationsService({
     invitations: new InvitationsDao(options.db),
     users: new UsersDao(options.db),
+    bannedEmails: new BannedEmailIndexesDao(options.db),
     transaction,
     sessions: options.sessions,
     linkTokens: options.tokens,

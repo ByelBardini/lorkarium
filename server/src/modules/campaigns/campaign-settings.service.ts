@@ -1,8 +1,7 @@
 import type { CampaignDetailDto, UpdateCampaignRequestDto } from '@lorkarium/contracts';
 import { isUniqueViolation } from '../../lib/postgres-error';
-import { removeAssetObjects, type AssetRemovalLog } from '../assets/asset-object-removal';
-import type { AssetStoragePort } from '../assets/asset-storage.port';
 import type { AssetsDao } from '../assets/assets.dao';
+import type { StorageDeletionsDao } from '../assets/storage-deletions.dao';
 import type { ClockPort } from '../auth/clock.port';
 import type { PasswordHasherPort } from '../auth/password-hasher.port';
 import { effectiveLimitsOf } from '../plans/plan-limits.bo';
@@ -18,11 +17,12 @@ import { toCampaignInfoDto, toCampaignPatch, toCampaignSettingsBo } from './camp
 import { MAX_CODE_ATTEMPTS, type CampaignsService } from './campaigns.service';
 import type { PresenceReaderPort } from './presence-reader.port';
 
-/** The DAOs of the deletion's transaction: the table locked, the keys of its files read, then
- *  the row deleted (the files go by cascade). */
+/** The DAOs of the deletion's transaction: the table locked, the keys of its files read and queued
+ *  for removal, then the row deleted (the files go by cascade). */
 export type CampaignRemovalScope = Readonly<{
   campaigns: Pick<CampaignsDao, 'lockById' | 'delete'>;
   assets: Pick<AssetsDao, 'storageKeysOf'>;
+  deletions: Pick<StorageDeletionsDao, 'enqueue'>;
 }>;
 
 export type CampaignRemovalTransactionRunner = <T>(
@@ -37,9 +37,6 @@ export type CampaignSettingsServiceDeps = Readonly<{
     'findById' | 'findOwnerPlan' | 'update' | 'replaceJoinCode' | 'idsOwnedBy'
   >;
   removal: CampaignRemovalTransactionRunner;
-  /** Where the objects of a deleted table's files are removed, after the commit. */
-  objects: Pick<AssetStoragePort, 'remove'>;
-  log: AssetRemovalLog;
   members: Pick<CampaignMembersDao, 'findMembership'>;
   /** The photo, the cover and the banner must be assets of the same table, sent for their slot. */
   assets: Pick<AssetsDao, 'findInCampaign'>;
@@ -94,16 +91,16 @@ export class CampaignSettingsService {
   async delete(userId: string, campaignId: string): Promise<void> {
     const settings = await this.settingsOf(userId, campaignId);
     settings.requireOwnerPowersAtTable('delete the campaign');
-    const keys = await this.deps.removal(async ({ campaigns, assets }) => {
+    const deleted = await this.deps.removal(async ({ campaigns, assets, deletions }) => {
       // The lock makes an upload in flight finish first, so its key is read too.
-      if (!(await campaigns.lockById(campaignId))) return null;
-      const stored = await assets.storageKeysOf(campaignId);
-      return (await campaigns.delete(campaignId)) ? stored : null;
+      if (!(await campaigns.lockById(campaignId))) return false;
+      // Queued with the row's deletion: a rollback keeps both, a commit removes the objects later.
+      await deletions.enqueue(await assets.storageKeysOf(campaignId));
+      return campaigns.delete(campaignId);
     });
-    if (!keys) throw new CampaignNotFoundError({ campaignId, userId });
+    if (!deleted) throw new CampaignNotFoundError({ campaignId, userId });
     this.deps.memberships.forgetCampaign(campaignId);
     await this.deps.changed.campaignDeleted(campaignId);
-    await removeAssetObjects(this.deps.objects, keys, this.deps.log);
   }
 
   /** The owner's plan changed (backoffice): each table they own is read again and its live room

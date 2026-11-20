@@ -10,16 +10,29 @@ const ROLE_RANK: Readonly<Record<UserRole, number>> = { user: 0, admin: 1 };
  *
  *  Example: `new UserAccessBo(row).requireRole('admin') // throws FORBIDDEN_ROLE for a user` */
 export class UserAccessBo {
-  constructor(private readonly user: Pick<UserPo, 'id' | 'role' | 'suspendedAt'>) {}
+  constructor(
+    private readonly user: Pick<UserPo, 'id' | 'role' | 'suspendedAt' | 'suspendedUntil'>,
+  ) {}
 
   requireRole(required: UserRole): void {
     if (ROLE_RANK[this.user.role] >= ROLE_RANK[required]) return;
     throw new ForbiddenRoleError(this.user.id, this.user.role, required);
   }
 
+  /** Whether a suspension holds at `now`: one with an end stops holding at that instant, before
+   *  the hourly housekeeping clears the columns.
+   *
+   *  Example: `new UserAccessBo(row).isSuspendedAt(clock.now()) // false once suspended_until passed` */
+  isSuspendedAt(now: Date): boolean {
+    if (this.user.suspendedAt === null) return false;
+    const until = this.user.suspendedUntil;
+    return until === null || until.getTime() > now.getTime();
+  }
+
   /** A suspended account gets no session (login, second step, or one already open). */
-  requireActive(): void {
-    if (this.user.suspendedAt === null) return;
-    throw new AccountSuspendedError(this.user.id, this.user.suspendedAt);
+  requireActive(now: Date): void {
+    const { suspendedAt, suspendedUntil } = this.user;
+    if (suspendedAt === null || !this.isSuspendedAt(now)) return;
+    throw new AccountSuspendedError(this.user.id, suspendedAt, suspendedUntil);
   }
 }

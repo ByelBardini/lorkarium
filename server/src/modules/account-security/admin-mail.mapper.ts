@@ -4,6 +4,8 @@ import { greeting, toMailMessage, type MailRecipient } from './security-mail.map
 
 const ACCOUNT_STATE = 'Aviso sobre o estado da sua conta.';
 const CANNOT_TURN_OFF = 'Este tipo de e-mail não pode ser desligado.';
+/** The footer of every e-mail about the account's standing (suspension, a measure, admin role). */
+export const ACCOUNT_STATE_FOOTER = `${ACCOUNT_STATE} ${CANNOT_TURN_OFF}`;
 
 export type InvitationMailInput = Readonly<{
   to: string;
@@ -79,26 +81,8 @@ export function passwordLinkMail({
 
 export type AccountStateMailInput = Readonly<{ person: MailRecipient; publicUrl: string }>;
 
-/** Example: `accessSuspendedMail({ person, publicUrl }).subject // 'Seu acesso ao Lorkarium foi suspenso'` */
-export function accessSuspendedMail({ person, publicUrl }: AccountStateMailInput): MailMessage {
-  return toMailMessage(
-    person.to,
-    {
-      subject: 'Seu acesso ao Lorkarium foi suspenso',
-      preheader: 'Se achar que foi engano, fale com quem administra o Lorkarium.',
-      tone: 'alert',
-      icon: 'pause',
-      title: 'Seu acesso foi suspenso',
-      paragraphs: [
-        `${greeting(person)} Um administrador suspendeu o acesso da conta @${person.username}. Você foi desconectado e não consegue entrar enquanto a suspensão valer.`,
-        'Suas mesas e personagens continuam guardados.',
-      ],
-      note: 'Se achar que foi engano, fale com quem administra o Lorkarium.',
-      footer: [`${ACCOUNT_STATE} ${CANNOT_TURN_OFF}`],
-    },
-    publicUrl,
-  );
-}
+// The suspension's e-mail carries the rule, the reasons and the appeal: `accountSuspendedForMail`
+// in the sanctions module.
 
 /** Example: `accessRestoredMail({ person, publicUrl }).subject // 'Seu acesso ao Lorkarium voltou'` */
 export function accessRestoredMail({ person, publicUrl }: AccountStateMailInput): MailMessage {

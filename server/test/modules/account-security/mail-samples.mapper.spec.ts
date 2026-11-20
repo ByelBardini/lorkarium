@@ -4,10 +4,12 @@ import { describe, expect, it } from 'vitest';
 import { mailSamples } from '../../../src/modules/account-security/mail-samples.mapper';
 
 const PUBLIC_URL = 'https://mesa.example.com';
+// The landing: only the use policy's rule links of the measures point there.
+const SITE_URL = 'https://lorkarium.example.com';
 const TO = 'preview@lorkarium.dev';
 const EMAIL_IMAGES = fileURLToPath(new URL('../../../../client/public/email/', import.meta.url));
 
-const catalog = mailSamples(TO, PUBLIC_URL, new Date('2026-10-24T16:37:00Z'));
+const catalog = mailSamples(TO, PUBLIC_URL, new Date('2026-10-24T16:37:00Z'), SITE_URL);
 
 function attributeValues(html: string, attribute: 'href' | 'src'): string[] {
   return [...html.matchAll(new RegExp(`${attribute}="([^"]*)"`, 'g'))].map(
@@ -26,9 +28,15 @@ describe('mailSamples', () => {
       ['two-factor-off', '2FA desligado'],
       ['invitation', 'Convite'],
       ['password-link', 'Link de nova senha'],
-      ['access-suspended', 'Acesso suspenso'],
+      ['sanction-warning', 'Aviso por violação'],
+      ['content-removed', 'Conteúdo removido'],
+      ['account-suspended', 'Conta suspensa'],
+      ['account-banned', 'Conta excluída por violação'],
       ['access-restored', 'Acesso reativado'],
       ['promoted-to-admin', 'Agora é admin'],
+      ['report-reviewed', 'Denúncia analisada'],
+      ['feedback-published', 'Relato publicado'],
+      ['broadcast', 'Comunicado'],
     ]);
   });
 
@@ -49,9 +57,14 @@ describe('mailSamples', () => {
         expect(`${mail.html}${mail.text}`).not.toMatch(/undefined|\bnull\b|NaN|\[object/);
       });
 
-      it('every link and image is absolute on the public url', () => {
+      it('every link and image is absolute on the public url (a rule link on the landing /uso/, a published issue on GitHub)', () => {
         const urls = [...attributeValues(mail.html, 'href'), ...attributeValues(mail.html, 'src')];
-        const own = urls.filter((url) => !url.startsWith('https://fonts.googleapis.com/'));
+        const own = urls.filter(
+          (url) =>
+            !url.startsWith('https://fonts.googleapis.com/') &&
+            !url.startsWith(`${SITE_URL}/uso/#`) &&
+            !url.startsWith('https://github.com/ByelBardini/lorkarium/issues/'),
+        );
         for (const url of own) expect(url.startsWith(PUBLIC_URL)).toBe(true);
       });
 

@@ -106,7 +106,7 @@ describe("dice with physics hold to the table owner's plan", () => {
   });
 });
 
-describe("saved rolls and folders hold to the table owner's plan", () => {
+describe("saved rolls and folders of a Grátis member hold to the table owner's plan", () => {
   it('at Ana’s free table, Bia’s 4th saved roll is 403 PLAN_LIMIT savedRolls, limit 3', async () => {
     await setAccountPlan(live.connection.db, live.ana.id, 'free');
     await keepRollsOf(live.bia, live.vharn, 3);
@@ -131,6 +131,7 @@ describe("saved rolls and folders hold to the table owner's plan", () => {
       limit: 0,
       plan: 'free',
       reason: 'room',
+      holder: 'table',
     });
   });
 

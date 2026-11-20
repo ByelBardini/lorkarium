@@ -1,5 +1,6 @@
 import type { UserPo } from '../../src/modules/auth/users.po';
 import type { RevokedAdminSeat } from '../../src/modules/campaigns/campaign-members.dao';
+import type { BannedEmailIndexesDao } from '../../src/modules/sanctions/banned-email-indexes.dao';
 import type { OwnerLimitsPort } from '../../src/modules/user-admin/owner-limits.port';
 import type { RevokedSeatsPort } from '../../src/modules/user-admin/revoked-seats.port';
 import type {
@@ -8,8 +9,8 @@ import type {
   UserAdminDao,
 } from '../../src/modules/user-admin/user-admin.dao';
 
-/** In-memory accounts for the backoffice, each with its campaign count and the tables it owns;
- *  `deleted` keeps the ids removed. */
+/** In-memory accounts for the backoffice, each with its campaign count, the tables it owns and the
+ *  storage keys of those tables' files (`ownedKeys`); `deleted` keeps the ids removed. */
 export class UserAdminDaoFake implements Pick<
   UserAdminDao,
   | 'listAccounts'
@@ -18,10 +19,12 @@ export class UserAdminDaoFake implements Pick<
   | 'setPlan'
   | 'setSuspendedAt'
   | 'lockOwnedCampaigns'
+  | 'storageKeysOfOwnedCampaigns'
   | 'delete'
 > {
   readonly deleted: string[] = [];
   readonly owned = new Map<string, OwnedCampaignRow[]>();
+  readonly ownedKeys = new Map<string, string[]>();
   private readonly rows: AccountListingRow[];
 
   constructor(rows: ReadonlyArray<UserPo & { campaignCount?: number; lorkariumOwner?: boolean }>) {
@@ -50,12 +53,20 @@ export class UserAdminDaoFake implements Pick<
     this.patch(userId, { plan });
   }
 
-  async setSuspendedAt(userId: string, suspendedAt: Date | null): Promise<void> {
-    this.patch(userId, { suspendedAt });
+  async setSuspendedAt(
+    userId: string,
+    suspendedAt: Date | null,
+    suspendedUntil: Date | null = null,
+  ): Promise<void> {
+    this.patch(userId, { suspendedAt, suspendedUntil: suspendedAt ? suspendedUntil : null });
   }
 
   async lockOwnedCampaigns(userId: string): Promise<OwnedCampaignRow[]> {
     return this.owned.get(userId) ?? [];
+  }
+
+  async storageKeysOfOwnedCampaigns(userId: string): Promise<string[]> {
+    return this.ownedKeys.get(userId) ?? [];
   }
 
   async delete(userId: string): Promise<void> {
@@ -71,21 +82,30 @@ export class UserAdminDaoFake implements Pick<
   }
 }
 
+/** Keeps the banned e-mail indexes by when they were banned; writes `ban <index>` to `journal`
+ *  (to read that it happened inside the deletion's transaction). */
+export class BannedEmailsFake implements Pick<BannedEmailIndexesDao, 'ban' | 'isBannedSince'> {
+  readonly banned = new Map<string, Date>();
+
+  constructor(private readonly journal: string[] = []) {}
+
+  async ban(emailIndex: string, bannedAt: Date): Promise<void> {
+    this.banned.set(emailIndex, bannedAt);
+    this.journal.push(`ban ${emailIndex}`);
+  }
+
+  async isBannedSince(emailIndex: string, since: Date): Promise<boolean> {
+    const at = this.banned.get(emailIndex);
+    return at !== undefined && at.getTime() > since.getTime();
+  }
+}
+
 /** Records every account whose memberships were forgotten. */
 export class MembershipsForgetFake {
   readonly forgotten: string[] = [];
 
   forgetUser(userId: string): void {
     this.forgotten.push(userId);
-  }
-}
-
-/** Records every key removed from the bucket. */
-export class StorageRemoveFake {
-  readonly removed: string[] = [];
-
-  async remove(key: string): Promise<void> {
-    this.removed.push(key);
   }
 }
 

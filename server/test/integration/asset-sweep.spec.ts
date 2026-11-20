@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { accountPlanDto } from '@lorkarium/contracts';
 import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { assetSweepOver } from '../../src/app/wire-asset-sweep';
+import { assetSweepOver, storageDeletionsOver } from '../../src/app/wire-asset-sweep';
 import { readEnv } from '../../src/config/env';
 import { runInTransaction } from '../../src/database/transaction';
 import { S3AssetStorage } from '../../src/infrastructure/asset-storage/s3-asset-storage';
@@ -13,10 +13,12 @@ import {
 import type { AssetStoragePort } from '../../src/modules/assets/asset-storage.port';
 import type { AssetSweepService } from '../../src/modules/assets/asset-sweep.service';
 import { assets } from '../../src/modules/assets/assets.po';
+import { storageDeletions } from '../../src/modules/assets/storage-deletions.po';
 import { scenes } from '../../src/modules/scenes/scenes.po';
 import { ClockFake } from '../support/auth-fakes';
-import { FlakyRemovalStorageFake, RemovalLogFake } from '../support/asset-quota-fakes';
+import { FlakyRemovalStorageFake } from '../support/asset-quota-fakes';
 import { newAssetPo } from '../support/assets-factories';
+import { DeletionLogFake } from '../support/storage-deletions-fakes';
 import type { SignedInUser } from '../support/sign-in';
 import type { Table } from '../support/tables';
 import { useTokenTable } from '../support/token-table';
@@ -56,24 +58,34 @@ async function storageOf(user: SignedInUser): Promise<number> {
   return accountPlanDto.parse(response.json()).usage.storageBytes;
 }
 
-function sweepWith(
-  storage: Pick<AssetStoragePort, 'remove'>,
-  log = new RemovalLogFake(),
-): AssetSweepService {
-  const clock = new ClockFake(new Date());
-  return assetSweepOver({ db: live.connection.db, storage, clock, log });
+function sweep(): AssetSweepService {
+  return assetSweepOver({ db: live.connection.db, clock: new ClockFake(new Date()) });
+}
+
+// The queue's keys are due from Postgres's now(); the container's clock may run a few ms ahead.
+function drainWith(storage: Pick<AssetStoragePort, 'remove'>, log = new DeletionLogFake()) {
+  const clock = new ClockFake(new Date(Date.now() + 60_000));
+  return storageDeletionsOver({ db: live.connection.db, storage, clock, log });
+}
+
+async function queuedKeys(): Promise<string[]> {
+  const rows = await live.connection.db.select().from(storageDeletions);
+  return rows.map((row) => row.key).sort();
 }
 
 describe('the sweep of loose files', () => {
-  it('a file nothing uses for 25 h loses its row and its object, and the usage drops', async () => {
+  it('a file nothing uses for 25 h loses its row, its key waits in the queue and the drain removes it', async () => {
     const storage = bucket();
     const loose = await looseFile(storage, live.vharn, 25);
     expect(await storageOf(live.ana)).toBe(0);
 
-    expect(await sweepWith(storage).sweep()).toEqual({ deleted: 1, removed: 1 });
+    expect(await sweep().sweep()).toEqual({ deleted: 1 });
 
     expect(await rowExists(loose)).toBe(false);
+    expect(await queuedKeys()).toEqual([`assets/${loose}`]);
+    expect(await drainWith(storage).drain()).toEqual({ removed: 1, failed: 0 });
     expect(await storage.open(`assets/${loose}`)).toBeNull();
+    expect(await queuedKeys()).toEqual([]);
     storage.destroy();
   });
 
@@ -81,9 +93,10 @@ describe('the sweep of loose files', () => {
     const storage = bucket();
     const fresh = await looseFile(storage, live.vharn, 23);
 
-    expect(await sweepWith(storage).sweep()).toEqual({ deleted: 0, removed: 0 });
+    expect(await sweep().sweep()).toEqual({ deleted: 0 });
 
     expect(await rowExists(fresh)).toBe(true);
+    expect(await queuedKeys()).toEqual([]);
     expect(await storageOf(live.ana)).toBe(700);
     storage.destroy();
   });
@@ -96,22 +109,24 @@ describe('the sweep of loose files', () => {
       .set({ backgroundAssetId: background })
       .where(eq(scenes.campaignId, live.vharn.id));
 
-    await sweepWith(storage).sweep();
+    await sweep().sweep();
 
     expect(await rowExists(background)).toBe(true);
     expect(await storageOf(live.ana)).toBe(700);
     storage.destroy();
   });
 
-  it('a failed removal keeps the row deleted and goes to the log (the object is orphaned)', async () => {
+  it('a failed removal keeps the key in the queue for the next drain (no orphan)', async () => {
     const storage = bucket();
     const loose = await looseFile(storage, live.quelm, 25);
+    await sweep().sweep();
     const flaky = new FlakyRemovalStorageFake(new Set([`assets/${loose}`]));
-    const log = new RemovalLogFake();
+    const log = new DeletionLogFake();
 
-    expect(await sweepWith(flaky, log).sweep()).toEqual({ deleted: 1, removed: 0 });
+    expect(await drainWith(flaky, log).drain()).toEqual({ removed: 0, failed: 1 });
 
     expect(await rowExists(loose)).toBe(false);
+    expect(await queuedKeys()).toEqual([`assets/${loose}`]);
     expect(log.warnings).toHaveLength(1);
     storage.destroy();
   });
@@ -122,10 +137,10 @@ describe('the sweep of loose files', () => {
 
     const outcome = await runInTransaction(live.connection.db, async (tx) => {
       expect(await new AssetReferencesDao(tx).claimSweep()).toBe(true);
-      return sweepWith(storage).sweep();
+      return sweep().sweep();
     });
 
-    expect(outcome).toEqual({ deleted: 0, removed: 0 });
+    expect(outcome).toEqual({ deleted: 0 });
     expect(await rowExists(loose)).toBe(true);
     storage.destroy();
   });
@@ -145,7 +160,7 @@ describe('the sweep of loose files', () => {
 });
 
 describe('deleting a table', () => {
-  it("removes the objects of all its files after the commit, and leaves the other table's", async () => {
+  it("queues the keys of all its files with the deletion, and the drain leaves the other table's", async () => {
     const storage = bucket();
     const vharnFile = await live.sendImage(live.ana, live.vharn);
     const quelmFile = await live.sendImage(live.caio, live.quelm);
@@ -158,6 +173,8 @@ describe('deleting a table', () => {
 
     expect(response.statusCode).toBe(204);
     expect(await rowExists(vharnFile.id)).toBe(false);
+    expect(await queuedKeys()).toEqual([`assets/${vharnFile.id}`]);
+    await drainWith(storage).drain();
     expect(await storage.open(`assets/${vharnFile.id}`)).toBeNull();
     const kept = await storage.open(`assets/${quelmFile.id}`);
     expect(kept).not.toBeNull();

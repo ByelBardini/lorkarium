@@ -1,5 +1,6 @@
 import { LibraryImageReadPolicy } from '../modules/library/library-image-read-policy.service';
 import { wireHousekeeping } from '../modules/housekeeping/housekeeping.plugin';
+import { SuspensionEndedNoticeService } from '../modules/sanctions/suspension-ended-notice.service';
 import { libraryImageDaos } from '../modules/library/library.plugin';
 import { runInSnapshot, type Transaction } from '../database/transaction';
 import type { MemberSeatPort } from '../modules/campaigns/member-seat.port';
@@ -73,6 +74,9 @@ import { createLibraryModule } from '../modules/library/library.plugin';
 import { createSavedColorsModule } from '../modules/saved-colors/saved-colors.plugin';
 import { createReputationModule } from '../modules/reputation/reputation.plugin';
 import { createReportsModule } from '../modules/reports/reports.plugin';
+import type { IssueTrackerPort } from '../modules/feedback/issue-tracker.port';
+import { createDataExportModule } from '../modules/data-export/data-export.plugin';
+import { FflateArchiveWriter } from '../infrastructure/archive/fflate-archive-writer';
 import { createPlansModule } from '../modules/plans/plans.plugin';
 import { createSavedRollsModule } from '../modules/saved-rolls/saved-rolls.plugin';
 import { createTokensModule } from '../modules/tokens/tokens.plugin';
@@ -100,8 +104,10 @@ import { mailerOf, wireAccountSecurity } from './wire-account-security';
 import { serveClient } from './serve-client';
 import { trustProxyOf } from './trust-proxy';
 import { wireBackoffice } from './wire-backoffice';
+import { wireBroadcasts } from './wire-broadcasts';
 import { wireChat } from './wire-chat';
 import { wireDice } from './wire-dice';
+import { wireFeedback } from './wire-feedback';
 import { wireFriends } from './wire-friends';
 
 declare module 'fastify' {
@@ -111,15 +117,17 @@ declare module 'fastify' {
   }
 }
 
-/** `clock` defaults to the system clock, `mailer` to the one of `env.mailer` and
- *  `accessLogArchive` to the bucket of `env.accessLog`; integration specs pass fakes to cross a
- *  deadline or read what was sent or recorded. */
+/** `clock` defaults to the system clock, `mailer` to the one of `env.mailer`,
+ *  `accessLogArchive` to the bucket of `env.accessLog` and `issueTracker` to the GitHub App of
+ *  `env.issueTracker`; integration specs pass fakes to cross a deadline or read what was sent or
+ *  recorded. */
 export type AppDependencies = Readonly<{
   env: Env;
   db: Database;
   clock?: ClockPort;
   mailer?: MailerPort;
   accessLogArchive?: AccessLogArchivePort;
+  issueTracker?: IssueTrackerPort;
 }>;
 
 const API_PREFIX = '/api';
@@ -159,7 +167,9 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const storage = wireAssetStorage(app, deps.env, clock);
   // After the asset bucket is ensured: dev and CI keep the access log in that same bucket.
   const accessLog = wireAccessLog(app, { env, clock, archive: deps.accessLogArchive });
-  wireHousekeeping(app, { db: deps.db, clock, scheduler: new TimerScheduler() });
+  const restoredNotice = { notices: security.notices, cipher, appPublicUrl };
+  const suspensionEnded = new SuspensionEndedNoticeService(restoredNotice);
+  wireHousekeeping(app, { db: deps.db, clock, scheduler: new TimerScheduler(), suspensionEnded });
   const processor = new SharpImageProcessor();
   const fetcher = new GuardedImageFetcher();
   // The membership the asset read already warmed: a policy does not read it again.
@@ -214,8 +224,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   // Registered once the live session exists: each saved campaign change reaches its room.
   const { campaignChanged: changed, memberRoleChanged: roleChanged, memberRemoved } = outlets;
   const campaignOutlets = { changed, roleChanged, removed: memberRemoved, seatIn: outlets.seatIn };
-  const tableFiles = { objects: storage, log: app.log };
-  await app.register(campaigns.pluginWith({ ...campaignOutlets, ...tableFiles }), {
+  await app.register(campaigns.pluginWith(campaignOutlets), {
     prefix: API_PREFIX,
   });
   const friendsWiring = { db: deps.db, clock, removed: memberRemoved, memberships };
@@ -250,8 +259,19 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   await app.register(createSavedColorsModule({ db: deps.db }).plugin, { prefix: API_PREFIX });
   const reputation = createReputationModule({ db: deps.db });
   await app.register(reputation.plugin, { prefix: API_PREFIX });
-  await app.register(createReportsModule({ db: deps.db }).plugin, { prefix: API_PREFIX });
+  const reportsOptions = { db: deps.db, storage, processor, cipher, appPublicUrl };
+  const reports = createReportsModule({ ...reportsOptions, notices: security.notices });
+  await app.register(reports.plugin, { prefix: API_PREFIX });
+  const feedbackOptions = { ...reportsOptions, notices: security.notices, clock };
+  const github = { github: env.issueTracker, tracker: deps.issueTracker };
+  await wireFeedback(app, { ...feedbackOptions, ...github }, API_PREFIX);
   await app.register(createPlansModule({ db: deps.db, clock }).plugin, { prefix: API_PREFIX });
+  const exportOptions = { db: deps.db, storage, cipher, clock };
+  const dataExport = createDataExportModule({
+    ...exportOptions,
+    archives: new FflateArchiveWriter(),
+  });
+  await app.register(dataExport.plugin, { prefix: API_PREFIX });
   const { profileChanged } = outlets;
   const avatars = new SharpAvatarProcessor();
   const badges = createBadgesModule({ db: deps.db, storage, processor: avatars });
@@ -273,8 +293,12 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const links = { ...authOptions, sessions: auth.sessions, notices, recovery, appPublicUrl };
   const juggernauts = campaigns.juggernaut();
   const planOutlets = { profiles: profileChanged, ownedTables: campaigns.settings() };
-  const backoffice = { ...links, memberships, juggernauts, ...planOutlets, storage, mailer };
-  await wireBackoffice(app, { ...backoffice, badges }, API_PREFIX);
+  const backoffice = { ...links, memberships, juggernauts, ...planOutlets, mailer };
+  const measuresMailing = { sitePublicUrl: env.sitePublicUrl, mailReplyTo: env.mailReplyTo };
+  await wireBackoffice(app, { ...backoffice, ...measuresMailing, badges }, API_PREFIX);
+  const replyTo = env.mailReplyTo;
+  const broadcastMailing = { db: deps.db, cipher, mailer, clock, appPublicUrl, replyTo };
+  await wireBroadcasts(app, { ...broadcastMailing, twoFactor: auth.twoFactorCheck }, API_PREFIX);
   // After every /api route: its not-found handler answers the SPA for the rest.
   if (env.clientDistDir) await serveClient(app, env.clientDistDir);
   return app;

@@ -2,6 +2,7 @@ import { userReportResponseDto, userReportsPageDto } from '@lorkarium/contracts'
 import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { users } from '../../src/modules/auth/users.po';
+import { campaigns } from '../../src/modules/campaigns/campaigns.po';
 import type { SignedInUser } from '../support/sign-in';
 import { useTokenTable } from '../support/token-table';
 
@@ -74,6 +75,36 @@ describe('reporting an account over HTTP', () => {
     expect(codeOf(await report(live.bia, live.bia.id))).toEqual([400, 'REPORT_SELF']);
     expect(codeOf(await report(live.bia, UNKNOWN_ID))).toEqual([404, 'REPORT_TARGET_NOT_FOUND']);
     expect((await report(null, live.caio.id)).statusCode).toBe(401);
+  });
+
+  it('a table both play is kept with its name and survives the table being deleted', async () => {
+    const root = await admin('Root');
+    const payload = { reason: 'harassment', campaignId: live.vharn.id };
+    expect((await report(live.bia, live.caio.id, payload)).statusCode).toBe(201);
+
+    await live.connection.db.delete(campaigns).where(eq(campaigns.id, live.vharn.id));
+
+    const [listed] = await openReportsOf(root);
+    expect(listed).toMatchObject({ campaignId: null, campaignName: 'Os Sinos de Vharn' });
+  });
+
+  // Isolation: Quelm is Caio's table alone; Bia only shares Vharn with him.
+  it('a table only the reported account plays is 400 CAMPAIGN_NOT_SHARED and nothing is kept', async () => {
+    const payload = { reason: 'harassment', campaignId: live.quelm.id };
+
+    expect(codeOf(await report(live.bia, live.caio.id, payload))).toEqual([
+      400,
+      'CAMPAIGN_NOT_SHARED',
+    ]);
+    expect(await reportRowCount()).toBe(0);
+  });
+
+  it('a table the reporter only watches as a spectator is CAMPAIGN_NOT_SHARED', async () => {
+    const duda = await live.signUp('Duda');
+    await live.joinAsSpectator(duda, live.vharn);
+    const payload = { reason: 'spam', campaignId: live.vharn.id };
+
+    expect(codeOf(await report(duda, live.caio.id, payload))).toEqual([400, 'CAMPAIGN_NOT_SHARED']);
   });
 
   it('an unknown reason is 400 and nothing is kept', async () => {
@@ -156,12 +187,34 @@ describe('the backoffice queue of reports', () => {
     expect((await report(live.bia, live.caio.id)).statusCode).toBe(201);
   });
 
-  it('deleting the reported account takes its reports with it', async () => {
+  it('deleting both accounts keeps the report with null ids and the @ and name of the time', async () => {
+    const root = await admin('Root');
     await report(live.bia, live.caio.id);
 
     await live.connection.db.delete(users).where(eq(users.id, live.caio.id));
+    await live.connection.db.delete(users).where(eq(users.id, live.bia.id));
 
-    expect(await reportRowCount()).toBe(0);
+    expect(await reportRowCount()).toBe(1);
+    const [kept] = await openReportsOf(root);
+    expect(kept).toMatchObject({
+      reporter: { id: null, username: 'bia' },
+      target: { id: null, username: 'caio', name: 'Caio' },
+    });
+  });
+
+  it('closing keeps the admin note', async () => {
+    const root = await admin('Root');
+    await report(live.bia, live.caio.id);
+    const [open] = await openReportsOf(root);
+    const url = `/api/admin/reports/${open!.id}`;
+
+    const response = await live.http(root, {
+      method: 'PATCH',
+      url,
+      payload: { status: 'resolved', note: ' warned in Vharn ' },
+    });
+
+    expect(userReportResponseDto.parse(response.json()).report.adminNote).toBe('warned in Vharn');
   });
 
   it('deleting the admin keeps the closed report with resolvedBy null', async () => {
