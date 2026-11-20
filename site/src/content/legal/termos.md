@@ -1,6 +1,6 @@
 ---
 title: Termos de uso
-updatedAt: 19 de novembro de 2026
+updatedAt: 20 de novembro de 2026
 draft: false
 ---
 
@@ -21,7 +21,7 @@ O Lorkarium é uma ferramenta: não vendemos nem fornecemos livros, aventuras, r
 ## 3. Sua conta
 
 - **Idade mínima**: o Lorkarium é só para maiores de 18 anos. Ao criar a conta, você declara ter 18 anos ou mais.
-- **Convite**: as contas são criadas por convite. Você pode pedir um pelo e-mail de contato do site, e nós podemos aceitar ou recusar o pedido.
+- **Cadastro**: você cria a conta pelo app com um e-mail que é seu e o confirma pelo link que mandamos para ele. Também podemos convidar pessoas pelo e-mail. Podemos recusar ou encerrar um cadastro que viole estes termos.
 - **Dados verdadeiros**: informe um e-mail que é seu e mantenha-o atualizado; é por ele que você recupera o acesso e recebe os avisos de segurança e de cobrança.
 - **Uma conta por pessoa**: a conta é pessoal e intransferível. Não compartilhe sua senha nem use a conta de outra pessoa. Uma conta secundária é permitida só para testar a sua própria mesa; as demais regras sobre contas estão na [Política de uso aceitável](/uso/).
 - **Segurança**: você é responsável pelo que acontece na sua conta. Use uma senha forte e exclusiva, ligue a verificação em duas etapas e nos avise em <privacidade@evolutivasistemas.com.br> se suspeitar de acesso indevido.
