@@ -3,10 +3,13 @@ export const SIGN_UP_RESEND_COOLDOWN_MS = 2 * 60 * 1000;
 
 export type SignUpDecision = 'send-link' | 'renew-link' | 'tell-account-exists' | 'nothing';
 
-/** What the server knows about the address asked for; `resetIssuedAt` = the account's pending
- *  new-password link, the one the "you already have an account" e-mail would replace. */
+/** An account a public form found: `resetIssuedAt` = its pending new-password link, the one a new
+ *  e-mail would replace. */
+export type FoundAccountFacts = Readonly<{ active: boolean; resetIssuedAt: Date | null }>;
+
+/** What the server knows about the address asked for. */
 export type SignUpFacts = Readonly<{
-  account: Readonly<{ active: boolean; resetIssuedAt: Date | null }> | null;
+  account: FoundAccountFacts | null;
   banned: boolean;
   pending: Readonly<{ sentAt: Date }> | null;
   now: Date;
@@ -19,6 +22,14 @@ export function sentWithinCooldown(at: Date | null, now: Date): boolean {
   return at !== null && now.getTime() - at.getTime() < SIGN_UP_RESEND_COOLDOWN_MS;
 }
 
+/** May a public form (sign-up, forgotten password) mail this account a new-password link? Not a
+ *  suspended one, and not twice within the cooldown.
+ *
+ *  Example: `mayMailPasswordLink({ active: true, resetIssuedAt: null }, now) // true` */
+export function mayMailPasswordLink(account: FoundAccountFacts, now: Date): boolean {
+  return account.active && !sentWithinCooldown(account.resetIssuedAt, now);
+}
+
 /** What a public sign-up request sends. The reply is the same whatever this decides: only the
  *  owner of the address learns, by e-mail, whether an account exists.
  *
@@ -28,16 +39,10 @@ export class SignUpBo {
 
   decide(): SignUpDecision {
     const { account, banned, pending, now } = this.facts;
-    if (account) return this.forAccount(account);
+    if (account) return mayMailPasswordLink(account, now) ? 'tell-account-exists' : 'nothing';
     // Says nothing and gives no way back, unlike the admin's invitation (who may know).
     if (banned) return 'nothing';
     if (!pending) return 'send-link';
     return sentWithinCooldown(pending.sentAt, now) ? 'nothing' : 'renew-link';
-  }
-
-  private forAccount(account: NonNullable<SignUpFacts['account']>): SignUpDecision {
-    if (!account.active) return 'nothing';
-    if (sentWithinCooldown(account.resetIssuedAt, this.facts.now)) return 'nothing';
-    return 'tell-account-exists';
   }
 }

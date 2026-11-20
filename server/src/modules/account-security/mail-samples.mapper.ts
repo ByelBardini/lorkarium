@@ -139,7 +139,13 @@ function backofficeSamples(
     sample(
       'password-link',
       'Link de nova senha',
-      passwordLinkMail({ person: lucas, link: resetLink, validFor: { hours: 1 }, publicUrl }),
+      passwordLinkMail({
+        person: lucas,
+        link: resetLink,
+        validFor: { hours: 1 },
+        publicUrl,
+        requestedBy: 'admin',
+      }),
     ),
     ...measures,
     sample('access-restored', 'Acesso reativado', accessRestoredMail({ person: pedro, publicUrl })),

@@ -97,6 +97,7 @@ describe('passwordLinkMail', () => {
     link: RESET_LINK,
     validFor: { hours: 1 },
     publicUrl: PUBLIC_URL,
+    requestedBy: 'admin',
   });
 
   it('says an admin sent the link for the account @', () => {
@@ -114,6 +115,24 @@ describe('passwordLinkMail', () => {
     expect(mail.text).toContain(
       'Se você não esperava este e-mail, ignore: sua senha continua a mesma.',
     );
+  });
+});
+
+describe('passwordLinkMail asked for by the person', () => {
+  const mail = passwordLinkMail({
+    person: LUCAS,
+    link: RESET_LINK,
+    validFor: { hours: 1 },
+    publicUrl: PUBLIC_URL,
+    requestedBy: 'self',
+  });
+
+  it('says the person asked, never an admin', () => {
+    expect(mail.text).toContain(
+      'Você pediu um link para criar uma senha nova para a conta @lucas.rola20.',
+    );
+    expect(`${mail.subject}${mail.text}`).not.toMatch(/administrador/i);
+    expect(mail.text).toContain(`Criar nova senha: ${RESET_LINK}`);
   });
 });
 
