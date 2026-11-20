@@ -42,4 +42,4 @@ Hub: [`../client.md`](../client.md). As páginas de quem ainda não tem conta ou
 
 ## Testes
 
-- `test/features/sign-up/{sign-up-page,sign-up-confirm-page,forgot-password-page}.spec.tsx` (pelo router, com o `TurnstileScriptFake` já carregado), `sign-up-messages.spec.ts` `test/features/auth/login-page.spec.tsx` ("Criar conta" com o cadastro aberto, fechado e sem ajustes) e `login-form.spec.tsx` ("Esqueci minha senha" entrega o que foi digitado). Fake: `SignUpApiFake` ([`account-links.md`](account-links.md)).
+- `test/features/sign-up/{sign-up-page,sign-up-confirm-page,forgot-password-page}.spec.tsx` (pelo router, com o `TurnstileScriptFake` já carregado), `sign-up-messages.spec.ts`, `test/features/auth/login-page.spec.tsx` ("Criar conta" com o cadastro aberto, fechado e sem ajustes) e `login-form.spec.tsx` ("Esqueci minha senha" entrega o que foi digitado). Fake: `SignUpApiFake` ([`account-links.md`](account-links.md)).
