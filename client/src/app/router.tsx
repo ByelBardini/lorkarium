@@ -22,7 +22,11 @@ import {
 } from '@/features/account/account-routes';
 import { inviteRoute, passwordResetRoute } from '@/features/account-links/account-link-routes';
 import { loginRoute } from '@/features/auth/login-route';
-import { signUpConfirmRoute, signUpRoute } from '@/features/sign-up/sign-up-routes';
+import {
+  forgotPasswordRoute,
+  signUpConfirmRoute,
+  signUpRoute,
+} from '@/features/sign-up/sign-up-routes';
 import { campaignTableRoute } from '@/features/campaigns/campaign-routes';
 import { exploreRoute } from '@/features/explore/explore-route';
 import { checkoutReturnRoute, plansRoute } from '@/features/billing/billing-routes';
@@ -269,6 +273,7 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
         anyonePage(deps, 'reset-password', 'Nova senha', passwordResetRoute(deps)),
         anyonePage(deps, 'sign-up', 'Criar conta', signUpRoute(deps)),
         anyonePage(deps, 'sign-up/confirm', 'Criar conta', signUpConfirmRoute(deps)),
+        anyonePage(deps, 'forgot-password', 'Esqueci minha senha', forgotPasswordRoute(deps)),
         {
           path: 'admin',
           middleware: [guard(deps, 'admin')],

@@ -21,7 +21,7 @@ Hub: [`../client.md`](../client.md). As páginas públicas de quem recebeu um li
 ## `/reset-password` (`password-reset-page.tsx`)
 
 - "Nova senha para @biaflor"; "Senha nova" e "Repita a senha nova"; "Trocar senha" ("Trocando…"). Sucesso: a ação faz `signedOut()` (todas as sessões caíram no server) e a página diz "Senha trocada. Entre com a nova senha." + "Entrar" (→ `/login`).
-- Link morto ou sem token: "Esse link venceu ou já foi usado. Peça um novo a quem administra o Lorkarium."
+- Link morto ou sem token: "Esse link venceu ou já foi usado." + "Pedir outro" (→ `/forgot-password`, [`sign-up.md`](sign-up.md)). O link vem do backoffice ou do "Esqueci minha senha".
 
 ## Serviço
 

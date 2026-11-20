@@ -4,6 +4,7 @@ import type { AppDependencies } from '@/app/router';
 import { accountLinksAction } from '@/features/account-links/account-links-action';
 import { signOutOfTab } from '@/features/account-links/account-link-routes';
 import type { SignUpResult } from '@/services/sign-up-api';
+import { ForgotPasswordPage } from './forgot-password-page';
 import { signUpAction, signUpSettingsLoader } from './sign-up-action';
 import { SignUpConfirmPage } from './sign-up-confirm-page';
 import { SignUpPage } from './sign-up-page';
@@ -37,6 +38,21 @@ export function signUpConfirmRoute(deps: AppDependencies): RouteParts {
     action: accountLinksAction(deps),
     Component: function SignUpConfirmRoute(): React.JSX.Element {
       return <SignUpConfirmPage sessionStore={sessionStore} signOut={signOut} />;
+    },
+  };
+}
+
+/** "Esqueci minha senha" (`/forgot-password`), outside the shell and open to anyone; it works
+ *  with the registration closed too.
+ *
+ *  Example: `anyonePage(deps, 'forgot-password', 'Esqueci minha senha', forgotPasswordRoute(deps))` */
+export function forgotPasswordRoute(deps: AppDependencies): RouteParts {
+  return {
+    loader: signUpSettingsLoader(deps),
+    action: signUpAction(deps),
+    Component: function ForgotPasswordRoute(): React.JSX.Element {
+      const settings = useLoaderData<SignUpResult<SignUpSettingsDto>>();
+      return <ForgotPasswordPage settings={settings} />;
     },
   };
 }

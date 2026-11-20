@@ -1,11 +1,11 @@
-# Client · Cadastro público
+# Client · Cadastro público e "Esqueci minha senha"
 
-Hub: [`../client.md`](../client.md). As páginas de quem ainda não tem conta: pedir o cadastro pelo e-mail e criar a conta pelo link. O serviço (`SignUpApi`) e o link do convite do admin estão em [`account-links.md`](account-links.md); o widget do Turnstile em [`estrutura.md`](estrutura.md).
+Hub: [`../client.md`](../client.md). As páginas de quem ainda não tem conta ou perdeu a senha: pedir o cadastro pelo e-mail, criar a conta pelo link e pedir o link de nova senha. O serviço (`SignUpApi`) e o link do convite do admin estão em [`account-links.md`](account-links.md); o widget do Turnstile em [`estrutura.md`](estrutura.md).
 
 ## Rotas (`src/features/sign-up/sign-up-routes.tsx`)
 
-- `/sign-up` e `/sign-up/confirm` — filhas do root, **fora do shell**, guarda `anyone`, moldura `AuthFrame`, montadas pelo `anyonePage(deps, path, name, parts)` do `router.tsx` (o mesmo de `/invite`, `/reset-password` e das páginas de e-mail da conta).
-- `/sign-up`: `loader` `signUpSettingsLoader(deps)` (o `SignUpResult` do `GET /api/sign-up/settings`, falha incluída) e `action` `signUpAction(deps)` (`sign-up-action.ts`: JSON validado por `z.discriminatedUnion` sobre o `signUpRequestDto`; devolve `{ intent, sent: true }` ou `{ intent, failure }`).
+- `/sign-up`, `/sign-up/confirm` e `/forgot-password` — filhas do root, **fora do shell**, guarda `anyone`, moldura `AuthFrame`, montadas pelo `anyonePage(deps, path, name, parts)` do `router.tsx` (o mesmo de `/invite`, `/reset-password` e das páginas de e-mail da conta).
+- `/sign-up`: `loader` `signUpSettingsLoader(deps)` (o `SignUpResult` do `GET /api/sign-up/settings`, falha incluída) e `action` `signUpAction(deps)` (`sign-up-action.ts`: JSON validado por `z.discriminatedUnion` sobre o `signUpRequestDto`; devolve `{ intent, sent: true }` ou `{ intent, failure }`). `/forgot-password` tem o mesmo `loader` e a mesma `action`, com a intenção `request-reset` sobre o `passwordResetRequestDto`.
 - `/sign-up/confirm`: `action` `accountLinksAction(deps)` (o `inspect` e o `accept` do convite, que valem para as duas origens).
 - `/login` também usa o `signUpSettingsLoader` (`features/auth/login-route.tsx`): "Criar conta" só aparece com `registrationOpen`; ajustes que não chegam escondem o link.
 
@@ -27,6 +27,14 @@ Hub: [`../client.md`](../client.md). As páginas de quem ainda não tem conta: p
 - Link morto (no `inspect` ou no aceite) ou sem token: "Esse link venceu ou já foi usado." + "Pedir outro" (→ `/sign-up`).
 - Aberta logada: o mesmo aviso do `/sign-up`.
 
+## `/forgot-password` (`forgot-password-page.tsx`)
+
+- "Esqueci minha senha" + "Diga seu e-mail ou seu @: mandamos um link para você criar uma senha nova." Vale com o cadastro fechado (o `registrationOpen` não conta aqui).
+- "Esqueci minha senha" no login (botão ao lado de "Manter conectado", `LoginForm.onForgotPassword(identifier)`) navega para cá com o que estava em "E-mail ou usuário" no **estado da navegação** (`{ state: { identifier } }`, lido por `useLocation` e validado por Zod), nunca na URL.
+- Campo "E-mail ou @" validado pelo `passwordResetRequestDto.shape.identifier` (o `loginIdentifierDto`: `@BiaFlor` vai como `biaflor`): vazio → "Informe seu e-mail ou @."; fora do formato → "Informe um e-mail, como voce@exemplo.com, ou seu @, como @bia."; focado, nada enviado.
+- "Mandar link" espera o widget como o `/sign-up` (sem site key, `skipped`). Enviado: "Se existir uma conta com esse e-mail ou @, mandamos um link. Ele vale 1 hora." (`role="status"`), **igual para qualquer valor**. Recusas pelo mesmo `signUpFailureMessage` (`rate_limited` em minutos).
+- O link chega como `/reset-password#token=…` ([`account-links.md`](account-links.md)); morto, ele oferece "Pedir outro" (→ `/forgot-password`).
+
 ## Peças compartilhadas
 
 - `public-request-form.tsx` — `PublicRequestForm`: o formulário de um campo das páginas públicas (campo, widget, `Alert`, botão que espera o token, aviso de enviado por `sent(valor)`), sobre o `signUpAction`.
@@ -34,4 +42,4 @@ Hub: [`../client.md`](../client.md). As páginas de quem ainda não tem conta: p
 
 ## Testes
 
-- `test/features/sign-up/{sign-up-page,sign-up-confirm-page}.spec.tsx` (pelo router, com o `TurnstileScriptFake` já carregado), `sign-up-messages.spec.ts` e `test/features/auth/login-page.spec.tsx` ("Criar conta" com o cadastro aberto, fechado e sem ajustes). Fake: `SignUpApiFake` ([`account-links.md`](account-links.md)).
+- `test/features/sign-up/{sign-up-page,sign-up-confirm-page,forgot-password-page}.spec.tsx` (pelo router, com o `TurnstileScriptFake` já carregado), `sign-up-messages.spec.ts` `test/features/auth/login-page.spec.tsx` ("Criar conta" com o cadastro aberto, fechado e sem ajustes) e `login-form.spec.tsx` ("Esqueci minha senha" entrega o que foi digitado). Fake: `SignUpApiFake` ([`account-links.md`](account-links.md)).
