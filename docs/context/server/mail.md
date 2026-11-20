@@ -6,6 +6,7 @@ Detalhe do hub [`server.md`](../server.md) (seção Env): como o server manda e-
 
 - `readEnv` entrega `mailer: MailerConfig` — `{ kind: 'smtp', url, from }` quando há `SMTP_URL`, `{ kind: 'log', from }` sem ele — e `appPublicUrl` (sem a barra final). Em produção o schema exige `SMTP_URL` e `APP_PUBLIC_URL` (o log e o `localhost` nunca valem lá). `SMTP_URL` leva a senha: é redigida no erro de boot, e o `SmtpMailer` só cita o host.
 - `wireAccountSecurity` (`src/app/wire-account-security.ts`) cria o `SmtpMailer` (`nodemailer`, fechado no `onClose`) ou o `LogMailer` (escreve `{ mail: { from, to, subject, text } }` no pino, com o link dentro — por isso só fora de produção). `AppDependencies.mailer` vence os dois.
+- **Reply-To:** `MailMessage.replyTo?: string` (opcional) e o `SmtpMailer` o repassa ao `nodemailer`; sem ele, o e-mail sai sem o cabeçalho. O valor vem de `MAIL_REPLY_TO` (`env.mailReplyTo: string | null`, e-mail normalizado em minúsculas, opcional em todo ambiente) e só vai nos e-mails que a pessoa pode responder: a medida contra a conta (contestação) e o comunicado. Os avisos de segurança continuam sem, do no-reply. O `smtp-mailer.spec.ts` confere o cabeçalho pela API do Mailpit (`ReplyTo`).
 
 ## Por ambiente
 

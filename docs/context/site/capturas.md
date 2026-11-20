@@ -1,0 +1,22 @@
+# Site — capturas e imagens de compartilhamento
+
+Detalhe de [`../site.md`](../site.md).
+
+## Capturas do app
+
+`src/assets/screens/{hero,dice,chat}.png` (2880×1800, a sala inteira) e `tracker.png` (720×1240, recorte do painel de combate) são capturas reais do app a 1440×900 em escala 2, atualizadas em 2026-10-29; o `product-shot` serve AVIF/WebP pelo `<Picture>`. Refazer quando a interface mudar (a captura usa Playwright; os scripts não foram versionados):
+
+`feature-board.png` (530×290, Ato I) foi refeita em 2026-10-31 com a trilha nova do arraste (casa a casa, ver [`client/board-renderer.md`](client/board-renderer.md)): na mesa privada “Capturas do site” da Bia, banco isolado `lorkarium_showcase` (código 4ESH-JSLU), Kael arrastado sem soltar da coluna 6/linha 9, 2 casas em diagonal e 4 em linha reta, até ao lado da Lyra (coluna 13/linha 6), rótulo “6 casas · 9 m”. Zoom 79% (“Enquadrar cena” em 1280×720, escala 2); o ponteiro para ~2,4 s na casa da curva (o app fixa a curva após 2 s parado) e termina a −18, +12 px do centro da casa de destino, para o token não cobrir o rótulo; recorte `sharp.extract({ left: 740, top: 520, width: 1060, height: 580 })` → `resize(530, 290)`. O arraste é cancelado com Escape (o Kael fica na origem). `feature-play.png` (390×390, cone em Brasa junto a Lyra, de 2026-10-29) não está mais na página. `feature-combat.png` continua sendo o recorte de `tracker.png` (`left: 24, top: 602, width: 672, height: 368`). Os enquadramentos usam `sharp`, sem redesenhar ou alterar o conteúdo.
+
+1. Ambiente isolado, sem tocar no `pnpm dev`: banco `lorkarium_showcase` no Postgres de dev (`CREATE DATABASE`, `db:migrate` e `db:seed-dev` com esse `DATABASE_URL`; para recomeçar, `TRUNCATE campaigns CASCADE`), server na 3334 (`PORT=3334 SMTP_URL= S3_BUCKET=lorkarium-showcase APP_PUBLIC_URL=http://localhost:5175`) e client por `client/vite.e2e-tmp.config.ts --port 5175 --strictPort` (a 5174 pode estar com o Vite do `pnpm dev` quando a 5173 está ocupada por outro projeto).
+2. Mesa da Bia "Os Sinos de Vharn" (D&D 5e), Caio entra pelo código e vira jogador; fundo de estrada na floresta 1920×1152 (20 × 12 casas), salvo só depois do "Imagem escolhida".
+3. Tokens: Kael, Lyra e Thoren (aliados do Caio), Ogro das Cinzas (2×2) e Bandido 1–6; PV variados pelo "Editar PV de X".
+4. Iniciativa: Lyra 19, Bandido 15 (Juntos), Kael 14, Ogro 11, Thoren 8; "Próximo turno" até a rodada 3; Envenenado 2 no Ogro, Concentrando sem limite na Lyra, Abençoado 8 em Kael e Thoren; a vez no Ogro.
+5. Captura atual: cópia isolada `lorkarium_site_20261029` do banco `lorkarium_showcase`, migrada, lendo as imagens do bucket `lorkarium-showcase`; Bia e Caio conectados. "Enquadrar cena", zoom 82% e arraste com o botão direito para a área livre à esquerda do painel. O `clip` do Playwright sai com uma mancha branca sobre o WebGL: o tracker é recortado da tela inteira pelo `sharp` (`left: 2160, top: 174, width: 720, height: 1240`, pixels da imagem).
+6. Dados: Bia salva "Espada longa" (`1d20+5` e `1d8+3`) e "Bola de fogo" (`8d6`); rola vantagem e `1d20+4d6+5` pela bandeja. Capturar assim que o primeiro `roll-total` mostra o número, antes dos modelos 3D sumirem; nenhuma face é escolhida ou resultado alterado.
+7. Chat: numa visita limpa, Bia narra o ogro na estrada, Caio fala como Kael, Bia sussurra para Caio e pede vantagem, Caio usa `/r 2d20kh1+5`. A última fala de Kael permite capturar o balão sobre o token junto da conversa, sussurro e rolagem. O histórico é só local: repetir as mensagens para refazer o print.
+
+## Imagens de compartilhamento
+
+- `public/og.png` (1200×630, Open Graph da landing): refeito em 2026-10-31 no visual da repaginada — a cena SVG do hero à direita, “Mapas e combate / para o seu RPG” em Cinzel caixa alta com a brasa —, pelo Chromium do Playwright com as fontes da marca e comprimido pelo `sharp` em PNG de paleta. Refazer só se a marca ou a manchete mudar.
+- `.github/social-preview.png` (1280×640, 158 KB, a imagem do repositório no GitHub): gerada em 2026-11-18 do mesmo jeito, a partir do `site/dist` (build de produção) servido ao Chromium do Playwright por `page.route`, com movimento reduzido: só o hero, o wordmark do header (logo + LORKARIUM), “Mesa virtual open source” (brasa) / “para RPG de mesa” (pergaminho) e a linha “Grid, iniciativa, dados 3D e fichas em tempo real. No navegador e no Windows · AGPL-3.0”; depois `sharp` `png({ palette: true })`. O script foi temporário. O GitHub não tem API para ela: sobe à mão em Settings → General → Social preview. Refazer junto com o `og.png`.
