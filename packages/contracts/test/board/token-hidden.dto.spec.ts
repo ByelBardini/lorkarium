@@ -43,6 +43,7 @@ const WOLF = {
   aura: null,
   hidden: true,
   blocksSight: false,
+  magicSight: null,
   canControl: true,
   bars: [],
   conditions: [],

@@ -75,6 +75,7 @@ const UNBOUNDED: PlanLimits = {
   privateCampaign: true,
   sheetScripts: true,
   profileBanner: true,
+  magicSight: true,
 };
 
 const LENDA: PlanLimits = {
@@ -153,6 +154,7 @@ const FREE: PlanLimits = {
   privateCampaign: false,
   sheetScripts: false,
   profileBanner: false,
+  magicSight: false,
 };
 
 /** The grid of each plan, as is (no role): the server resolves the effective limits

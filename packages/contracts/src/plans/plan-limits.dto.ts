@@ -57,5 +57,7 @@ export const planLimitsDto = z.strictObject({
   sheetScripts: z.boolean(),
   /** The 3:1 banner on top of the account's own profile card. */
   profileBanner: z.boolean(),
+  /** A token sees invisible tokens (its magic sight); past the plan it is kept, but not turned on. */
+  magicSight: z.boolean(),
 });
 export type PlanLimits = z.infer<typeof planLimitsDto>;
