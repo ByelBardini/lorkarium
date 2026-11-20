@@ -69,6 +69,8 @@ const PUBLIC_MESSAGE: Readonly<Record<RefusalCode, string>> = {
 export type AccountLinksRoutesServices = Readonly<{
   invitations: InvitationsService;
   passwordResets: PasswordResetsService;
+  /** More public routes in this context (the sign-up), under the same limiter and error handler. */
+  registerMore: (app: FastifyInstance) => void;
 }>;
 
 /** HTTP edge of the one-time links: the admin issues invitations and new-password links
@@ -86,6 +88,7 @@ export function accountLinksRoutes(
     registerPasswordResetAdminRoute(app, services.passwordResets);
     registerInvitationPublicRoutes(app, services.invitations);
     registerPasswordResetPublicRoutes(app, services.passwordResets);
+    services.registerMore(app);
   };
 }
 

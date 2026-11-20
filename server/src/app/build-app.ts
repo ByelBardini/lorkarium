@@ -75,6 +75,7 @@ import { createSavedColorsModule } from '../modules/saved-colors/saved-colors.pl
 import { createReputationModule } from '../modules/reputation/reputation.plugin';
 import { createReportsModule } from '../modules/reports/reports.plugin';
 import type { IssueTrackerPort } from '../modules/feedback/issue-tracker.port';
+import type { HumanCheckPort } from '../modules/account-links/human-check.port';
 import { createDataExportModule } from '../modules/data-export/data-export.plugin';
 import { FflateArchiveWriter } from '../infrastructure/archive/fflate-archive-writer';
 import { createPlansModule } from '../modules/plans/plans.plugin';
@@ -110,6 +111,7 @@ import { wireChat } from './wire-chat';
 import { wireDice } from './wire-dice';
 import { wireFeedback } from './wire-feedback';
 import { wireFriends } from './wire-friends';
+import { humanCheckOf } from './human-check-of';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -119,9 +121,9 @@ declare module 'fastify' {
 }
 
 /** `clock` defaults to the system clock, `mailer` to the one of `env.mailer`,
- *  `accessLogArchive` to the bucket of `env.accessLog` and `issueTracker` to the GitHub App of
- *  `env.issueTracker`; integration specs pass fakes to cross a deadline or read what was sent or
- *  recorded. */
+ *  `accessLogArchive` to the bucket of `env.accessLog`, `issueTracker` to the GitHub App of
+ *  `env.issueTracker` and `humanCheck` to the Turnstile of `env.signUp`; integration specs pass
+ *  fakes to cross a deadline or read what was sent or recorded. */
 export type AppDependencies = Readonly<{
   env: Env;
   db: Database;
@@ -129,6 +131,7 @@ export type AppDependencies = Readonly<{
   mailer?: MailerPort;
   accessLogArchive?: AccessLogArchivePort;
   issueTracker?: IssueTrackerPort;
+  humanCheck?: HumanCheckPort;
 }>;
 
 const API_PREFIX = '/api';
@@ -292,7 +295,16 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const profiles = createProfilesModule(profilesOptions);
   await app.register(profiles.plugin, { prefix: API_PREFIX });
   const { notices, recovery } = security;
-  const links = { ...authOptions, sessions: auth.sessions, notices, recovery, appPublicUrl };
+  const humanCheck = deps.humanCheck ?? humanCheckOf(app, env.signUp.humanCheck);
+  const signUp = { signUp: env.signUp, humanCheck };
+  const links = {
+    ...authOptions,
+    sessions: auth.sessions,
+    notices,
+    recovery,
+    appPublicUrl,
+    ...signUp,
+  };
   const juggernauts = campaigns.juggernaut();
   const planOutlets = { profiles: profileChanged, ownedTables: campaigns.settings() };
   const backoffice = { ...links, memberships, juggernauts, ...planOutlets, mailer };

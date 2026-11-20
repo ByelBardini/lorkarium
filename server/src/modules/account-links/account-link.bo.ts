@@ -1,4 +1,4 @@
-import type { InvitationOriginDto } from '@lorkarium/contracts';
+import type { InvitationPo } from './invitations.po';
 import { AccountLinkInvalidError, LinkSelfActionError } from './account-links.error';
 
 // The market: an invitation lasts days (Jira, 7), a new-password link an hour (OWASP, Ibexa).
@@ -10,7 +10,7 @@ export const SIGN_UP_LINK_TTL_MS = 24 * 60 * 60 * 1000;
 /** How long an invitation lives, by who asked for it.
  *
  *  Example: `invitationTtlOf('self') // 24 h in ms` */
-export function invitationTtlOf(origin: InvitationOriginDto): number {
+export function invitationTtlOf(origin: InvitationPo['origin']): number {
   return origin === 'self' ? SIGN_UP_LINK_TTL_MS : INVITATION_TTL_MS;
 }
 

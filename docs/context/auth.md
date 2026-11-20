@@ -4,6 +4,8 @@ Contas, login por e-mail ou @ e senha, sessão por cookie e papel global (`user`
 
 Detalhe: [`auth/cifra.md`](auth/cifra.md) — `DataCipherPort`, e-mail cifrado com índice cego, a regra do @, as migrações `0037`–`0039` e o `pnpm db:encrypt-emails`. [`auth/duas-etapas.md`](auth/duas-etapas.md) — tabelas do 2FA, `TotpPort`, `TwoFactorBo`/`TwoFactorCheckService` e o login em duas etapas (`lk_2fa`, desafio). [`auth/armadilhas.md`](auth/armadilhas.md) — as pegadinhas do módulo. Senha, sessões ativas, troca de e-mail e o 2FA da conta: [`account-security.md`](account-security.md).
 
+A conta nasce pelo convite do admin ou pelo cadastro público (`POST /api/sign-up`, desligado por `REGISTRATION_OPEN`), os dois pelo aceite do link em [`account-links.md`](account-links.md).
+
 ## Estrutura
 
 - `server/src/modules/auth/*.port.ts` — portas do módulo (abaixo)
