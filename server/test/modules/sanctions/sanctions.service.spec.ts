@@ -1,12 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { SecurityNoticesService } from '../../../src/modules/account-security/security-notices.service';
+import { SanctionNoticeService } from '../../../src/modules/sanctions/sanction-notice.service';
 import {
   SanctionsService,
   type SanctionsDeps,
   type SanctionWriteDaos,
 } from '../../../src/modules/sanctions/sanctions.service';
 import { PasswordResetsDaoFake } from '../../support/account-links-fakes';
-import { MailerFake } from '../../support/account-security-fakes';
 import { authSessionPo, userPo } from '../../support/auth-factories';
 import {
   AuthSessionsDaoFake,
@@ -26,8 +25,11 @@ const ADMIN = { id: 'ad000000-0000-4000-8000-000000000001', name: 'Fernanda' };
 const CAIO_ID = 'ca100000-0000-4000-8000-000000000002';
 const REPORT_ID = '7e700000-0000-4000-8000-000000000003';
 const CONTACT = 'contato@lorkarium.example.com';
+const APP = 'https://mesa.example.com';
 const UNTIL = '2026-11-25T15:00:00.000Z';
 const HARASSMENT = { rule: 'harassment', statement: 'Ameaçou um jogador real.' } as const;
+// 15 days after NOW: the appeal window of a ban.
+const DELETION_DUE = '2026-12-04T12:00:00.000Z';
 
 describe('SanctionsService', () => {
   let accounts: UserAdminDaoFake;
@@ -42,6 +44,11 @@ describe('SanctionsService', () => {
 
   function serviceWith(overrides: Partial<SanctionsDeps> = {}): SanctionsService {
     const daos: SanctionWriteDaos = { accounts, sanctions, sessions, passwordResets: resets };
+    const mailing = { cipher: new DataCipherFake(), clock: new ClockFake(NOW), appPublicUrl: APP };
+    const notice = new SanctionNoticeService({
+      ...{ ...mailing, notices, sanctions, replyTo: CONTACT },
+      sitePublicUrl: 'https://lorkarium.example.com',
+    });
     return new SanctionsService({
       accounts,
       sanctions,
@@ -50,14 +57,7 @@ describe('SanctionsService', () => {
         journal.push('commit');
         return result;
       },
-      deletion,
-      sessionEnded,
-      notices,
-      cipher: new DataCipherFake(),
-      clock: new ClockFake(NOW),
-      appPublicUrl: 'https://mesa.example.com',
-      sitePublicUrl: 'https://lorkarium.example.com',
-      replyTo: CONTACT,
+      ...{ deletion, sessionEnded, notice, notices, ...mailing },
       ...overrides,
     });
   }
@@ -154,15 +154,19 @@ describe('SanctionsService', () => {
       expect(journal).toEqual([]);
     });
 
-    it('an e-mail that fails keeps the measure and the suspension', async () => {
-      const mailer = new MailerFake();
-      mailer.failWith = new Error('smtp down');
-      const failing = serviceWith({ notices: new SecurityNoticesService(mailer, () => undefined) });
+    it('an e-mail that fails keeps the measure and the suspension, unrecorded for the retry', async () => {
+      notices.failing = true;
 
-      const issued = await failing.issue(ADMIN, CAIO_ID, { kind: 'suspension', ...HARASSMENT });
+      const issued = await service.issue(ADMIN, CAIO_ID, { kind: 'suspension', ...HARASSMENT });
 
-      expect(issued?.user.status).toBe('suspended');
-      expect(sanctions.rows).toHaveLength(1);
+      expect(issued.user.status).toBe('suspended');
+      expect(sanctions.rows).toEqual([expect.objectContaining({ notifiedAt: null })]);
+    });
+
+    it('an e-mail that left records when', async () => {
+      await service.issue(ADMIN, CAIO_ID, { kind: 'suspension', ...HARASSMENT });
+
+      expect(sanctions.rows).toEqual([expect.objectContaining({ notifiedAt: NOW })]);
     });
   });
 
@@ -192,19 +196,23 @@ describe('SanctionsService', () => {
   });
 
   describe('a ban', () => {
-    it('e-mails first, then deletes keeping the e-mail index, and answers nothing', async () => {
+    it('suspends and signs out now, schedules the deletion 15 days ahead and e-mails the date', async () => {
       const issued = await service.issue(ADMIN, CAIO_ID, { kind: 'ban', ...HARASSMENT });
 
-      expect(issued).toBeNull();
+      expect(issued.sanction).toMatchObject({ kind: 'ban', deletionDueAt: DELETION_DUE });
+      expect(issued.user.status).toBe('suspended');
+      expect(await accounts.findAccount(CAIO_ID)).toMatchObject({ suspendedUntil: null });
       expect(journal).toEqual([
         `check ${CAIO_ID}`,
-        'mail Sua conta no Lorkarium foi excluída',
-        `delete ${CAIO_ID} banned 2026-11-19T12:00:00.000Z`,
+        'commit',
+        'ended sha:caio-1',
+        'mail Sua conta no Lorkarium será excluída',
       ]);
       expect(notices.sent[0]?.replyTo).toBe(CONTACT);
+      expect(notices.sent[0]?.text).toContain('será excluída em 04/12/2026 às 09:00');
     });
 
-    it('a blocked deletion (OWNS_SHARED_CAMPAIGNS) e-mails nobody and deletes nothing', async () => {
+    it('a blocked deletion (OWNS_SHARED_CAMPAIGNS) stores nothing and e-mails nobody', async () => {
       deletion.blocking = [{ id: 'vharn', name: 'Vharn', otherMembers: 2 }];
 
       const issue = service.issue(ADMIN, CAIO_ID, { kind: 'ban', ...HARASSMENT });
@@ -214,6 +222,33 @@ describe('SanctionsService', () => {
         blockingCampaigns: [{ id: 'vharn', name: 'Vharn', otherMembers: 2 }],
       });
       expect(journal).toEqual([`check ${CAIO_ID}`]);
+      expect(sanctions.rows).toEqual([]);
+    });
+
+    it('taking the shared tables along skips the check and is stored for the deletion', async () => {
+      deletion.blocking = [{ id: 'vharn', name: 'Vharn', otherMembers: 2 }];
+
+      await service.issue(ADMIN, CAIO_ID, {
+        kind: 'ban',
+        ...HARASSMENT,
+        includeSharedCampaigns: true,
+      });
+
+      expect(journal).not.toContain(`check ${CAIO_ID}`);
+      expect(sanctions.rows).toEqual([expect.objectContaining({ deleteSharedCampaigns: true })]);
+    });
+
+    it('a ban for the minimum age sends the age notice, with the refund', async () => {
+      await service.issue(ADMIN, CAIO_ID, {
+        kind: 'ban',
+        rule: 'minimum_age',
+        statement: 'Disse no chat que tem 15 anos.',
+      });
+
+      expect(notices.sent[0]?.subject).toBe(
+        'Sua conta no Lorkarium será excluída pela idade mínima',
+      );
+      expect(notices.sent[0]?.text).toContain('devolvemos o valor integral');
     });
 
     it('a ban of another admin is TARGET_IS_ADMIN before any check', async () => {
@@ -273,6 +308,32 @@ describe('SanctionsService', () => {
 
       expect(answer.user.status).toBe('suspended');
       expect(notices.sent).toEqual([]);
+    });
+
+    it('reverting a ban lifts the suspension and cancels the deletion', async () => {
+      const ban = await service.issue(ADMIN, CAIO_ID, { kind: 'ban', ...HARASSMENT });
+      journal.length = 0;
+
+      const answer = await service.recordAppeal(ADMIN, ban.sanction.id, {
+        outcome: 'reverted',
+        note: 'Era outra pessoa.',
+      });
+
+      expect(answer.sanction.deletionDueAt).toBeNull();
+      expect(answer.user.status).toBe('active');
+      expect(journal).toEqual(['commit', 'mail Seu acesso ao Lorkarium voltou']);
+    });
+
+    it('upholding a ban keeps the deletion date and the suspension', async () => {
+      const ban = await service.issue(ADMIN, CAIO_ID, { kind: 'ban', ...HARASSMENT });
+
+      const answer = await service.recordAppeal(ADMIN, ban.sanction.id, {
+        outcome: 'upheld',
+        note: 'O print confirma.',
+      });
+
+      expect(answer.sanction.deletionDueAt).toBe(DELETION_DUE);
+      expect(answer.user.status).toBe('suspended');
     });
 
     it('reverting a warning only records', async () => {

@@ -24,6 +24,7 @@ client/                  # Front React + Vite (dev em http://localhost:5173); al
 client/src/lib/utils.ts  # O `cn` gerado pelo shadcn (aliases do components.json)
 client/src/code-editor/  # CodeMirror 6 (o único lugar que o importa, por `lazy`): o campo de código do editor de modelo de ficha
 client/src/components/color-picker/ # Seletor de cor personalizada (popover, cores salvas); `hex-color-canvas.tsx` é o único import do `react-colorful`
+client/src/components/human-check/ # Widget do Cloudflare Turnstile (cadastro e "esqueci a senha"): o único lugar que carrega o script da Cloudflare
 client/src/components/image-crop/ # Diálogo de recorte por formato (foto 1:1, capa 2:1, banner 3:1); `crop-area.tsx` é o único import do `react-easy-crop`, por `lazy`
 client/src/emotes/       # Imagens dos memes e smileys do chat (PNG 96 px) e o `emoteImageUrlOf`; catálogo e troca em src/lib/emote-*.ts
 client/src/sheet-sandbox/ # Iframe isolado da ficha (srcdoc + CSP), SDK `window.lorkarium`, ponte do host e host da prévia
@@ -120,7 +121,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | assets           | Imagens da mesa: S3, cache em disco, envio, link seguro, leitura pela origem          | [`docs/context/assets.md`](docs/context/assets.md)                     |
 | mail             | E-mails do sistema: molde HTML/texto, catálogo de templates, PNGs, prévia             | [`docs/context/mail.md`](docs/context/mail.md)                         |
 | user-admin       | Backoffice das contas: lista, papel, suspensão, exclusão, teste de e-mail             | [`docs/context/user-admin.md`](docs/context/user-admin.md)             |
-| account-links    | Links de uso único: convite (escolhe @ e senha) e nova senha pelo admin               | [`docs/context/account-links.md`](docs/context/account-links.md)       |
+| account-links    | Convite, cadastro público por e-mail, nova senha (admin ou "esqueci"), Turnstile      | [`docs/context/account-links.md`](docs/context/account-links.md)       |
 | legal            | Termos, Privacidade e Uso no app: redirect à landing, aceite, versão, código-fonte    | [`docs/context/legal.md`](docs/context/legal.md)                       |
 | client           | SPA: estrutura, rotas, shell e home, testes, design system, desempenho                | [`docs/context/client.md`](docs/context/client.md)                     |
 | ci               | Testes por camada, cobertura, build, pipeline do GitHub Actions, e2e por grupo        | [`docs/context/ci.md`](docs/context/ci.md)                             |
@@ -130,14 +131,14 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | deploy           | Runbook: imagem, Coolify, AWS S3 e IAM, envs, DNS, primeiro deploy, voltar            | [`docs/context/deploy.md`](docs/context/deploy.md)                     |
 | health           | `GET /api/health` (ping no Postgres, 200/503, pública)                                | [`docs/context/health.md`](docs/context/health.md)                     |
 | access-log       | Registro de acesso (Marco Civil art. 15): IP, hora e conta no S3 por 6 meses          | [`docs/context/access-log.md`](docs/context/access-log.md)             |
-| housekeeping     | Limpeza de hora em hora: recibos de 24 h, sessões e desafios 2FA vencidos, em lotes   | [`docs/context/housekeeping.md`](docs/context/housekeeping.md)         |
+| housekeeping     | Limpeza de hora em hora: recibos, sessões, links vencidos, medidas, em lotes          | [`docs/context/housekeeping.md`](docs/context/housekeeping.md)         |
 | friends          | Amigos: pedidos pelo @, par canônico, bloqueio mútuo, tetos, mesas do dono, presença  | [`docs/context/friends.md`](docs/context/friends.md)                   |
 | direct-messages  | Mensagens privadas efêmeras entre amigos online: `dm:*`, "digitando", baldes próprios | [`docs/context/direct-messages.md`](docs/context/direct-messages.md)   |
 | reputation       | Voto 👍/👎 entre quem divide mesa: tabela, resumo com mínimo de votos, rotas          | [`docs/context/reputation.md`](docs/context/reputation.md)             |
 | reports          | Denúncias: motivo, mesa em comum, prints, fila do admin, retorno, guarda de 6 meses   | [`docs/context/reports.md`](docs/context/reports.md)                   |
 | feedback         | Relatos de bug e sugestões: fila do admin, rascunho, issue no GitHub pela App, e-mail | [`docs/context/feedback.md`](docs/context/feedback.md)                 |
 | broadcasts       | Comunicados por e-mail: segmentos, prévia, teste, total digitado, fila em lotes       | [`docs/context/broadcasts.md`](docs/context/broadcasts.md)             |
-| sanctions        | Medidas contra contas: aviso, remoção, suspensão com prazo, exclusão, contestação     | [`docs/context/sanctions.md`](docs/context/sanctions.md)               |
+| sanctions        | Medidas contra contas: aviso, remoção, suspensão, exclusão agendada, contestação      | [`docs/context/sanctions.md`](docs/context/sanctions.md)               |
 | data-export      | "Baixar meus dados": ZIP em streaming, o que entra e o que não, 1 por dia, pagamentos | [`docs/context/data-export.md`](docs/context/data-export.md)           |
 
 Área sem linha aqui ainda não tem doc: o `/atualizar-contexto` cria o hub junto com o primeiro código da área. Até lá, a referência é o `docs/spec.md`.

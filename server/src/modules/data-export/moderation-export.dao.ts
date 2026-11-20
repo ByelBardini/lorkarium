@@ -29,6 +29,7 @@ export type ReceivedSanctionRow = Pick<
   | 'appealOutcome'
   | 'appealNote'
   | 'appealDecidedAt'
+  | 'deletionDueAt'
 >;
 
 /** What the export reads of the moderation: the reports the person **made** (the ones about them
@@ -78,6 +79,7 @@ export class ModerationExportDao {
         appealOutcome: s.appealOutcome,
         appealNote: s.appealNote,
         appealDecidedAt: s.appealDecidedAt,
+        deletionDueAt: s.deletionDueAt,
       })
       .from(accountSanctions)
       .where(eq(s.userId, userId))

@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   PasswordResetsService,
+  type PasswordResetsDeps,
   type ResetCompletionDaos,
 } from '../../../src/modules/account-links/password-resets.service';
 import { SecurityNoticesService } from '../../../src/modules/account-security/security-notices.service';
-import { PasswordResetsDaoFake } from '../../support/account-links-fakes';
+import {
+  HeldNoticesFake,
+  HumanCheckFake,
+  PasswordResetsDaoFake,
+} from '../../support/account-links-fakes';
 import {
   EmailChangeRequestsDaoFake,
   MailerFake,
@@ -37,6 +42,8 @@ describe('PasswordResetsService', () => {
   let mailer: MailerFake;
   let clock: ClockFake;
   let journal: string[];
+  let humanCheck: HumanCheckFake;
+  let deps: PasswordResetsDeps;
   let service: PasswordResetsService;
 
   beforeEach(() => {
@@ -57,7 +64,9 @@ describe('PasswordResetsService', () => {
     emailChanges = new EmailChangeRequestsDaoFake();
     challenges = new TwoFactorChallengesDaoFake();
     const daos: ResetCompletionDaos = { resets, users, sessions, emailChanges, challenges };
-    service = new PasswordResetsService({
+    humanCheck = new HumanCheckFake();
+    deps = {
+      humanCheck,
       resets,
       users,
       transaction: async (work) => {
@@ -73,7 +82,8 @@ describe('PasswordResetsService', () => {
       notices: new SecurityNoticesService(mailer, () => undefined),
       recovery: new RecoveryIssuerFake(),
       appPublicUrl: 'https://mesa.example.com',
-    });
+    };
+    service = new PasswordResetsService(deps);
   });
 
   describe('issue', () => {
@@ -105,6 +115,73 @@ describe('PasswordResetsService', () => {
       await expect(service.issue(ADMIN_ID, ADMIN_ID)).rejects.toMatchObject({
         code: 'SELF_ACTION',
       });
+    });
+  });
+
+  describe('request (the person forgot the password)', () => {
+    const IP = '203.0.113.7';
+    const byEmail = { identifier: 'bia@x.com', humanCheckToken: 'tok' };
+
+    it('an e-mail finds the account by its index and mails a link it asked for', async () => {
+      await service.request(byEmail, IP);
+      expect(resets.rows).toMatchObject([{ userId: BIA_ID, tokenHash: 'sha:token-1' }]);
+      const [mail] = mailer.to('bia@x.com');
+      expect(mail?.subject).toBe('Crie uma senha nova no Lorkarium');
+      expect(mail?.text).toContain('https://mesa.example.com/reset-password#token=token-1');
+      expect(mail?.text).toContain('Você pediu um link');
+      expect(mail?.text).not.toMatch(/administrador/i);
+    });
+
+    it('an @ finds the account by the username', async () => {
+      const bia = users.rows.find((row) => row.id === BIA_ID);
+      await service.request({ identifier: bia?.username ?? '', humanCheckToken: 'tok' }, IP);
+      expect(resets.rows).toMatchObject([{ userId: BIA_ID }]);
+      expect(mailer.to('bia@x.com')).toHaveLength(1);
+    });
+
+    it.each([
+      ['an unknown e-mail', 'ninguem@x.com'],
+      ['an unknown @', 'ninguem'],
+    ])('%s stores and sends nothing, without an error', async (_case, identifier) => {
+      await expect(
+        service.request({ identifier, humanCheckToken: 'tok' }, IP),
+      ).resolves.toBeUndefined();
+      expect(resets.rows).toEqual([]);
+      expect(mailer.sent).toEqual([]);
+    });
+
+    it('a suspended account stores and sends nothing', async () => {
+      const at = users.rows.findIndex((row) => row.id === BIA_ID);
+      users.rows[at] = { ...userPo({ id: BIA_ID, email: 'bia@x.com' }), suspendedAt: NOW };
+      await service.request(byEmail, IP);
+      expect(resets.rows).toEqual([]);
+      expect(mailer.sent).toEqual([]);
+    });
+
+    it('a link created less than 2 minutes ago is kept and nothing is sent', async () => {
+      await service.request(byEmail, IP);
+      clock.current = new Date(NOW.getTime() + 60 * 1000);
+      await service.request(byEmail, IP);
+      expect(resets.rows.map((row) => row.tokenHash)).toEqual(['sha:token-1']);
+      expect(mailer.to('bia@x.com')).toHaveLength(1);
+    });
+
+    it('a refused anti-bot token is HUMAN_CHECK_FAILED before any lookup', async () => {
+      humanCheck.passes = false;
+      await expect(service.request(byEmail, IP)).rejects.toMatchObject({
+        code: 'HUMAN_CHECK_FAILED',
+      });
+      expect(humanCheck.checked).toEqual([{ token: 'tok', remoteIp: IP }]);
+      expect(resets.rows).toEqual([]);
+    });
+
+    it('the reply does not wait for the e-mail to leave', async () => {
+      const held = new HeldNoticesFake();
+      const quick = new PasswordResetsService({ ...deps, notices: held });
+      await quick.request(byEmail, IP);
+      expect(held.sent.map((mail) => mail.to)).toEqual(['bia@x.com']);
+      expect(held.delivered).toBe(0);
+      held.release();
     });
   });
 

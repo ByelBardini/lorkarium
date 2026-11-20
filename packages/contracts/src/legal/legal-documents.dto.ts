@@ -5,8 +5,8 @@ import { z } from 'zod';
  *  of `site/src/content/legal/{termos,privacidade,uso}.md`. Any of them changed → bump it with the
  *  `updatedAt`.
  *
- *  Example: `{ termsVersion: LEGAL_DOCUMENTS_VERSION } // '2026-11-19'` */
-export const LEGAL_DOCUMENTS_VERSION = '2026-11-19';
+ *  Example: `{ termsVersion: LEGAL_DOCUMENTS_VERSION } // '2026-11-20'` */
+export const LEGAL_DOCUMENTS_VERSION = '2026-11-20';
 
 /** The legal pages of the landing the app links to (`GET /api/legal/<document>` redirects there).
  *

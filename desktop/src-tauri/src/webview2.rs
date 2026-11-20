@@ -30,6 +30,14 @@ pub fn desktop_user_agent(base: &str, version: &str) -> String {
     agent
 }
 
+/// The installed app's version: the one tauri.conf.json reads from desktop/package.json, which the release
+/// stamps with the tag. Cargo's own version stays at its placeholder (feedback showed "Lorkarium 0.1.0").
+///
+/// Example: `shell_version(app.package_info()) // "1.4.2"`
+pub fn shell_version(package: &tauri::PackageInfo) -> String {
+    package.version.to_string()
+}
+
 /// Whether a page may read the clipboard without the browser's prompt: only the app's own origin.
 ///
 /// Example: `clipboard_read_permission("https://app.lorkarium.com.br/campaigns/1", &origin) // Allow`
@@ -44,18 +52,18 @@ pub fn clipboard_read_permission(uri: &str, app: &AppOrigin) -> PermissionDecisi
 /// the clipboard readable by the app's own text-field menu without the browser's prompt, and a failed load
 /// of the site handed to `send_back` (the window would be left on a page without a title bar).
 ///
-/// Example: `webview2::harden(&window, origins, env!("CARGO_PKG_VERSION"), send_back)`
+/// Example: `webview2::harden(&window, origins, shell_version(app.package_info()), send_back)`
 #[cfg(windows)]
 pub fn harden<R: tauri::Runtime>(
     window: &tauri::WebviewWindow<R>,
     origins: ShellOrigins,
-    version: &'static str,
+    version: String,
     send_back: impl Fn(StartupEvent) + Send + 'static,
 ) -> tauri::Result<()> {
     window.with_webview(move |platform| {
         // SAFETY: the controller is alive for the whole closure; WebView2 calls must run on this UI thread.
         if let Err(problem) =
-            unsafe { com::harden(&platform.controller(), origins, version, send_back) }
+            unsafe { com::harden(&platform.controller(), origins, &version, send_back) }
         {
             eprintln!("ajuste do WebView2 falhou: {problem}");
         }
@@ -65,16 +73,16 @@ pub fn harden<R: tauri::Runtime>(
 /// The chat window gets the main window's app look (no browser menu or shortcuts, same user agent, clipboard for
 /// the app); it has no load-failure return, since it never shows the splash.
 ///
-/// Example: `webview2::harden_chat(&window, origins.app.clone(), env!("CARGO_PKG_VERSION"))`
+/// Example: `webview2::harden_chat(&window, origins.app.clone(), shell_version(window.package_info()))`
 #[cfg(windows)]
 pub fn harden_chat<R: tauri::Runtime>(
     window: &tauri::WebviewWindow<R>,
     app: AppOrigin,
-    version: &'static str,
+    version: String,
 ) -> tauri::Result<()> {
     window.with_webview(move |platform| {
         // SAFETY: the controller is alive for the whole closure; WebView2 calls must run on this UI thread.
-        if let Err(problem) = unsafe { com::harden_chat(&platform.controller(), app, version) } {
+        if let Err(problem) = unsafe { com::harden_chat(&platform.controller(), app, &version) } {
             eprintln!("ajuste do WebView2 do chat falhou: {problem}");
         }
     })
@@ -240,6 +248,18 @@ mod tests {
             desktop_user_agent(&older, "0.2.0"),
             format!("{older} LorkariumTitleBar/1")
         );
+    }
+
+    #[test]
+    fn shell_version_is_the_stamped_app_version_not_the_cargo_placeholder() {
+        let package = tauri::PackageInfo {
+            name: "Lorkarium".into(),
+            version: "1.4.2".parse().unwrap(),
+            authors: "",
+            description: "",
+            crate_name: "lorkarium-desktop",
+        };
+        assert_eq!(shell_version(&package), "1.4.2");
     }
 
     #[test]

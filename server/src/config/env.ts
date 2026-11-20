@@ -9,6 +9,13 @@ import {
   toGitHubAppConfig,
   type GitHubAppConfig,
 } from './github-env';
+import {
+  requireTurnstilePair,
+  SIGN_UP_KEYS,
+  signUpEnvShape,
+  toSignUpConfig,
+  type SignUpConfig,
+} from './sign-up-env';
 
 // Enforced only in production: a local dev box may seed admin@admin.com / admin.
 export const ADMIN_PASSWORD_MIN_LENGTH = 12;
@@ -45,6 +52,7 @@ const ENV_KEYS = [
   'OWNER_USERNAME',
   ...GITHUB_APP_KEYS,
   GITHUB_ISSUES_REPOSITORY_KEY,
+  ...SIGN_UP_KEYS,
 ] as const;
 
 const ACCESS_LOG_KEYS = [
@@ -63,6 +71,7 @@ const SECRET_KEYS: ReadonlySet<string> = new Set([
   // smtp://user:password@host:port carries the password.
   'SMTP_URL',
   'GITHUB_APP_PRIVATE_KEY',
+  'TURNSTILE_SECRET_KEY',
 ]);
 
 export const S3_SECRET_MIN_LENGTH = 8;
@@ -210,6 +219,7 @@ const envSchema = z
     // The @ and not the e-mail: the e-mail is sealed at rest, the @ is what a query can compare.
     OWNER_USERNAME: usernameDto.optional(),
     ...githubEnvShape,
+    ...signUpEnvShape,
   })
   .superRefine(requireAdminPair)
   .superRefine(requireStrongAdminPasswordInProduction)
@@ -217,7 +227,8 @@ const envSchema = z
   .superRefine(requireSiteInProduction)
   .superRefine(requireAccessLog)
   .superRefine(requireAssetCacheDir)
-  .superRefine(requireGitHubAppTrio);
+  .superRefine(requireGitHubAppTrio)
+  .superRefine(requireTurnstilePair);
 
 type ParsedEnv = z.infer<typeof envSchema>;
 
@@ -281,6 +292,7 @@ export type Env = Readonly<{
   ownerUsername: string | null;
   /** The GitHub App that publishes feedback as issues; null = publishing answers 503. */
   issueTracker: GitHubAppConfig | null;
+  signUp: SignUpConfig;
 }>;
 
 export class InvalidEnvError extends Error {
@@ -446,6 +458,7 @@ function toEnv(parsed: ParsedEnv): Env {
     accessLog: toAccessLogConfig(parsed),
     ownerUsername: parsed.OWNER_USERNAME ?? null,
     issueTracker: toGitHubAppConfig(parsed),
+    signUp: toSignUpConfig(parsed),
   };
 }
 

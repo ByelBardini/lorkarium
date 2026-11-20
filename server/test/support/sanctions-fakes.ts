@@ -10,8 +10,11 @@ import type {
   AccountSanctionPo,
   NewAccountSanctionPo,
 } from '../../src/modules/sanctions/account-sanctions.po';
-import type { AccountDeletion } from '../../src/modules/sanctions/sanctions.service';
-import type { AccountBan, AdminActor } from '../../src/modules/user-admin/user-admin.service';
+import type {
+  AccountDeletionOptions,
+  AdminActor,
+  UserAdminService,
+} from '../../src/modules/user-admin/user-admin.service';
 
 /** In-memory `account_sanctions`: ids handed out in order, the @ of who applied from `usernames`,
  *  and `reports` = the `reportId → targetId` that exist. */
@@ -21,9 +24,14 @@ export class AccountSanctionsDaoFake implements Pick<
   | 'findById'
   | 'listOf'
   | 'lockById'
-  | 'latestSuspensionIdOf'
+  | 'latestSuspendingIdOf'
   | 'recordAppeal'
   | 'reportIsAbout'
+  | 'cancelDeletion'
+  | 'cancelDeletionsOf'
+  | 'markNotified'
+  | 'unnotified'
+  | 'dueBans'
 > {
   readonly rows: AccountSanctionPo[] = [];
   readonly reports = new Map<string, string>();
@@ -42,6 +50,9 @@ export class AccountSanctionsDaoFake implements Pick<
       appealNote: null,
       appealDecidedBy: null,
       appealDecidedAt: null,
+      deletionDueAt: null,
+      deleteSharedCampaigns: false,
+      notifiedAt: null,
       ...row,
     };
     this.rows.push(stored);
@@ -64,19 +75,49 @@ export class AccountSanctionsDaoFake implements Pick<
     return this.rows.find((each) => each.id === sanctionId);
   }
 
-  async latestSuspensionIdOf(userId: string): Promise<string | null> {
-    const suspensions = (await this.listOf(userId)).filter((row) => row.kind === 'suspension');
-    return suspensions[0]?.id ?? null;
+  async latestSuspendingIdOf(userId: string): Promise<string | null> {
+    const suspending = (await this.listOf(userId)).filter(
+      (row) => row.kind === 'suspension' || row.kind === 'ban',
+    );
+    return suspending[0]?.id ?? null;
   }
 
   async recordAppeal(sanctionId: string, change: AppealColumns): Promise<void> {
-    const at = this.rows.findIndex((each) => each.id === sanctionId);
-    const row = this.rows[at];
-    if (row) this.rows[at] = { ...row, ...change };
+    this.update((row) => row.id === sanctionId, change);
   }
 
   async reportIsAbout(reportId: string, userId: string): Promise<boolean> {
     return this.reports.get(reportId) === userId;
+  }
+
+  async cancelDeletion(sanctionId: string): Promise<void> {
+    this.update((row) => row.id === sanctionId, { deletionDueAt: null });
+  }
+
+  async cancelDeletionsOf(userId: string): Promise<void> {
+    this.update((row) => row.userId === userId, { deletionDueAt: null });
+  }
+
+  async markNotified(sanctionId: string, at: Date): Promise<void> {
+    this.update((row) => row.id === sanctionId, { notifiedAt: at });
+  }
+
+  async unnotified(limit: number): Promise<AccountSanctionPo[]> {
+    return this.rows.filter((row) => row.notifiedAt === null).slice(0, limit);
+  }
+
+  async dueBans(now: Date, limit: number): Promise<AccountSanctionPo[]> {
+    return this.rows
+      .filter((row) => row.deletionDueAt !== null && row.deletionDueAt <= now)
+      .filter((row) => row.notifiedAt !== null)
+      .filter((row) => row.appealReceivedAt === null || row.appealOutcome === 'upheld')
+      .slice(0, limit);
+  }
+
+  private update(match: (row: AccountSanctionPo) => boolean, change: object): void {
+    this.rows.forEach((row, at) => {
+      if (match(row)) this.rows[at] = { ...row, ...change };
+    });
   }
 
   private withUsernames(row: AccountSanctionPo): AccountSanctionRow {
@@ -90,22 +131,38 @@ export class AccountSanctionsDaoFake implements Pick<
   }
 }
 
-/** The best-effort notices, keeping each e-mail and writing `mail <subject>` to `journal`. */
-export class NoticesJournalFake implements Pick<SecurityNoticesService, 'send'> {
+/** The best-effort notices, keeping each e-mail and writing `mail <subject>` to `journal`;
+ *  `failing` makes every e-mail fail (nothing kept, `mail failed <subject>` written). */
+export class NoticesJournalFake implements Pick<SecurityNoticesService, 'send' | 'deliver'> {
   readonly sent: MailMessage[] = [];
+  failing = false;
 
   constructor(private readonly journal: string[]) {}
 
   async send(message: MailMessage): Promise<void> {
+    await this.deliver(message);
+  }
+
+  async deliver(message: MailMessage): Promise<boolean> {
+    if (this.failing) {
+      this.journal.push(`mail failed ${message.subject}`);
+      return false;
+    }
     this.sent.push(message);
     this.journal.push(`mail ${message.subject}`);
+    return true;
   }
 }
 
-/** The backoffice's deletion as a ban sees it: `blocking` answers the check, and each call is
- *  written to `journal` (`check <id>`, `delete <id> banned <iso>`) to read the order. */
-export class AccountDeletionFake implements AccountDeletion {
+/** The backoffice's deletion as the measures see it: `blocking` answers the check; each call is
+ *  written to `journal` (`check <id>`, `delete <id> banned <iso|no> shared <yes|no>`) to read the
+ *  order; `failFor` makes the deletion of that account throw. */
+export class AccountDeletionFake implements Pick<
+  UserAdminService,
+  'deletionCheck' | 'executeDeletion'
+> {
   blocking: UserDeletionCheckDto['blockingCampaigns'] = [];
+  failFor: string | null = null;
 
   constructor(private readonly journal: string[]) {}
 
@@ -114,7 +171,10 @@ export class AccountDeletionFake implements AccountDeletion {
     return { blockingCampaigns: this.blocking, soloCampaigns: 0 };
   }
 
-  async delete(_actor: AdminActor, userId: string, ban: AccountBan | null = null): Promise<void> {
-    this.journal.push(`delete ${userId} banned ${ban?.bannedAt.toISOString() ?? 'no'}`);
+  async executeDeletion(userId: string, options: AccountDeletionOptions): Promise<void> {
+    if (this.failFor === userId) throw new Error(`deletion of ${userId} failed`);
+    const banned = options.ban?.bannedAt.toISOString() ?? 'no';
+    const shared = options.includeSharedCampaigns ? 'yes' : 'no';
+    this.journal.push(`delete ${userId} banned ${banned} shared ${shared}`);
   }
 }

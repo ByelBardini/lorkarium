@@ -1,6 +1,10 @@
 import { inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DatabaseConnection } from '../../src/database/database';
+import { invitations } from '../../src/modules/account-links/invitations.po';
+import { passwordResets } from '../../src/modules/account-links/password-resets.po';
+import { accountRecoveryTokens } from '../../src/modules/account-security/account-recovery-tokens.po';
+import { emailChangeRequests } from '../../src/modules/account-security/email-change-requests.po';
 import { authSessions } from '../../src/modules/auth/auth-sessions.po';
 import { twoFactorChallenges } from '../../src/modules/auth/two-factor-challenges.po';
 import { UsersDao } from '../../src/modules/auth/users.dao';
@@ -15,7 +19,11 @@ import { sheetActions } from '../../src/modules/sheets/sheets.po';
 import { ClockFake } from '../support/auth-fakes';
 import { newUserPo } from '../support/auth-factories';
 import { newCampaignPo } from '../support/campaigns-factories';
-import { HousekeepingFailureLogFake, SuspensionEndedFake } from '../support/housekeeping-fakes';
+import {
+  HousekeepingFailureLogFake,
+  SanctionFollowUpFake,
+  SuspensionEndedFake,
+} from '../support/housekeeping-fakes';
 import { SchedulerFake } from '../support/sessions-fakes';
 import { openTestDatabase, truncateAllTables } from '../support/test-database';
 
@@ -48,6 +56,7 @@ describe('the housekeeping on Postgres', () => {
       dao,
       expired: dao,
       suspensionEnded,
+      sanctionFollowUp: new SanctionFollowUpFake(),
       reportRetention: createReportRetention(connection.db, deps.clock),
       feedbackRetention: createFeedbackRetention(connection.db, deps.clock),
       log,
@@ -101,6 +110,77 @@ describe('the housekeeping on Postgres', () => {
       .from(twoFactorChallenges);
     expect(sessions).toEqual([{ id: 'valid' }]);
     expect(steps).toEqual([{ id: 'valid' }]);
+  });
+
+  it('deletes the expired sign-up links and the admin invitations expired a month ago, keeps the rest', async () => {
+    const link = (name: string, origin: 'admin' | 'self', expiresAt: Date) => ({
+      tokenHash: `sha:${name}`,
+      emailCipher: `sealed-${name}`,
+      emailIndex: `idx-${name}`,
+      role: 'user' as const,
+      origin,
+      sentAt: HOURS_AGO(200),
+      expiresAt,
+    });
+    await connection.db
+      .insert(invitations)
+      .values([
+        link('self-expired', 'self', HOURS_AGO(1)),
+        link('self-live', 'self', HOURS_AGO(-1)),
+        link('admin-expired', 'admin', HOURS_AGO(1)),
+        link('admin-forgotten', 'admin', HOURS_AGO(31 * 24)),
+      ]);
+
+    await sweep();
+
+    const left = await connection.db.select({ tokenHash: invitations.tokenHash }).from(invitations);
+    expect(left.map(({ tokenHash }) => tokenHash).sort()).toEqual([
+      'sha:admin-expired',
+      'sha:self-live',
+    ]);
+  });
+
+  it('deletes the expired e-mail changes, new-password links and "Não fui eu" links, keeps the live ones', async () => {
+    const otherId = (await new UsersDao(connection.db).insert(newUserPo({ email: 'bia@mesa.com' })))
+      .id;
+    const change = (id: string, owner: string, expiresAt: Date) => ({
+      ...{ id, userId: owner, emailCipher: `sealed-${id}`, emailIndex: `idx-${id}` },
+      expiresAt,
+    });
+    await connection.db
+      .insert(emailChangeRequests)
+      .values([change('expired', userId, HOURS_AGO(1)), change('live', otherId, HOURS_AGO(-1))]);
+    const reset = (tokenHash: string, owner: string, expiresAt: Date) => ({
+      ...{ tokenHash, userId: owner, createdAt: HOURS_AGO(2) },
+      expiresAt,
+    });
+    await connection.db
+      .insert(passwordResets)
+      .values([reset('expired', userId, HOURS_AGO(1)), reset('live', otherId, HOURS_AGO(-1))]);
+    const recovery = (id: string, expiresAt: Date) => ({
+      ...{ id, userId, kind: 'cancel-email-change' as const },
+      expiresAt,
+    });
+    await connection.db
+      .insert(accountRecoveryTokens)
+      .values([recovery('expired', HOURS_AGO(1)), recovery('live', HOURS_AGO(-1))]);
+
+    await sweep();
+
+    const changes = await connection.db
+      .select({ id: emailChangeRequests.id })
+      .from(emailChangeRequests);
+    const resets = await connection.db
+      .select({ id: passwordResets.tokenHash })
+      .from(passwordResets);
+    const recoveries = await connection.db
+      .select({ id: accountRecoveryTokens.id })
+      .from(accountRecoveryTokens);
+    expect([changes, resets, recoveries]).toEqual([
+      [{ id: 'live' }],
+      [{ id: 'live' }],
+      [{ id: 'live' }],
+    ]);
   });
 
   it('empties a backlog larger than one batch in the same sweep', async () => {

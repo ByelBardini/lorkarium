@@ -339,7 +339,7 @@ Extensão aprovada em 11/11/2026. Cada conta tem **um plano só** — Grátis, A
 - **Armazenamento.** A cota soma os arquivos das mesas de que a pessoa é dona; o arquivo que nenhum conteúdo usa mais é liberado, e excluir a mesa apaga os dela.
 - **Selos.** Cada conta mostra um selo só, o mais alto: Dono do Lorkarium (a logo, marfim), Admin (espada erguida, brasa), Amigo do Dono (cálice, rosa), Lenda (brasão, dourado), Narrador (pena, azul) e Apoiador (chama, violeta). São ícones próprios no traço da logo, só o símbolo, colado ao @ da pessoa em todo lugar que mostra o @ (ou ao nome, onde a tela não mostra o @), com o nome em palavras para leitor de tela e no tooltip; chegam às mesas abertas sem recarregar, também quando o backoffice troca o papel. O Grátis não tem selo. A conta mostra "Seu plano", com os limites e o uso.
 
-Contratos, regra efetiva, onde cada limite é conferido e provas: [context/plans.md](context/plans.md). Pagamento e preços na tela: [context/billing.md](context/billing.md) (o serviço de cobrança é outra aplicação). Fora desta entrega: cadastro aberto, modo só leitura de mesa e transferência de posse da mesa.
+Contratos, regra efetiva, onde cada limite é conferido e provas: [context/plans.md](context/plans.md). Pagamento e preços na tela: [context/billing.md](context/billing.md) (o serviço de cobrança é outra aplicação). Fora desta entrega: modo só leitura de mesa e transferência de posse da mesa.
 
 ---
 
@@ -679,7 +679,7 @@ Registra identificadores de comandos processados para evitar duplicidade de oper
 
 **Autenticação**
 
-- POST /auth/register
+- POST /sign-up (pede o link por e-mail; a conta nasce no aceite do link, como o convite) e POST /password-resets/request ("esqueci minha senha")
 - POST /auth/login
 - POST /auth/logout
 - GET /auth/me

@@ -60,7 +60,8 @@ fn open_main_window<R: Runtime>(
     #[cfg(windows)]
     {
         let send_back = startup_commands::send_back_to_splash(app.clone(), origins.splash.clone());
-        webview2::harden(&window, origins, env!("CARGO_PKG_VERSION"), send_back)?;
+        let version = webview2::shell_version(app.package_info());
+        webview2::harden(&window, origins, version, send_back)?;
     }
     #[cfg(not(windows))]
     let _ = (window, origins);

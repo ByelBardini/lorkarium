@@ -9,10 +9,18 @@ export const accountLinkTokenDto = z.strictObject({ token: linkTokenDto });
 
 export type AccountLinkTokenDto = z.infer<typeof accountLinkTokenDto>;
 
-/** Response of `POST /api/invitations/inspect`: for which address, and an @ to start from. */
+/** Who started the invitation: an admin of the backoffice, or the person through the public
+ *  sign-up. It picks the page of the link and the texts. */
+export const invitationOriginDto = z.enum(['admin', 'self']);
+
+export type InvitationOriginDto = z.infer<typeof invitationOriginDto>;
+
+/** Response of `POST /api/invitations/inspect`: for which address, an @ to start from, and the
+ *  origin of the link. */
 export const invitationInspectResponseDto = z.strictObject({
   email: z.email(),
   suggestedUsername: z.string(),
+  origin: invitationOriginDto,
 });
 
 export type InvitationInspectResponseDto = z.infer<typeof invitationInspectResponseDto>;

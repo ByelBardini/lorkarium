@@ -51,45 +51,7 @@ Detalhe e JSON em [`deploy/aws.md`](deploy/aws.md). Resumo:
 
 ## Envs (produção)
 
-Lidas por `server/src/config/env.ts`; a regra completa de cada uma está em [`server.md`](server.md) (Env). "Obrig." = o boot recusa sem ela em produção; "Na prática" = tem padrão, mas o padrão está errado para esta infra. `KEY=` vazio vale como ausente.
-
-| Variável                          | Produção       | Segredo | Valor / como gerar                                                                                                      |
-| --------------------------------- | -------------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`                        | já na imagem   | não     | `production` (não sobrescreva)                                                                                          |
-| `PORT`                            | já na imagem   | não     | `3333` (o mesmo do _Ports Exposes_)                                                                                     |
-| `HOST`                            | padrão         | não     | `0.0.0.0` (padrão; não mude, ou o Traefik não alcança o container)                                                      |
-| `CLIENT_DIST_DIR`                 | já na imagem   | não     | `/app/client/dist`; sem ela o server não serve a SPA                                                                    |
-| `DATABASE_URL`                    | **obrig.**     | **sim** | a _Postgres URL (internal)_ do recurso Database: `postgres://<usuário>:<senha>@<id-do-recurso>:5432/lorkarium`          |
-| `DATABASE_POOL_MAX`               | padrão         | não     | `10`; abaixo do `max_connections` do Postgres (100)                                                                     |
-| `DATABASE_STATEMENT_TIMEOUT_MS`   | padrão         | não     | `5000`                                                                                                                  |
-| `DATABASE_LOCK_TIMEOUT_MS`        | padrão         | não     | `2000`                                                                                                                  |
-| `TRUST_PROXY`                     | **na prática** | não     | `1` atrás do Traefik (nuvem cinza); `2` com a nuvem laranja. Padrão `0` junta todo mundo num balde do rate limit        |
-| `APP_PUBLIC_URL`                  | **obrig.**     | não     | `https://app.example.com`, sem barra final: base dos links dos e-mails                                                  |
-| `SITE_PUBLIC_URL`                 | **obrig.**     | não     | `https://example.com`, sem barra final: a landing; Termos e Privacidade do app redirecionam para lá (ver `legal.md`)    |
-| `ADMIN_EMAIL`                     | opcional       | não     | e-mail do primeiro admin, criado no boot se não existir (nunca troca senha nem papel depois)                            |
-| `ADMIN_PASSWORD`                  | opcional       | **sim** | 12+ caracteres em produção (`openssl rand -base64 18`); só junto com `ADMIN_EMAIL`                                      |
-| `OWNER_USERNAME`                  | opcional       | não     | o @ (sem o `@`) da conta **Dono do Lorkarium**: sem limite de plano e o selo Dono. Vazio = ninguém                      |
-| `S3_ENDPOINT`                     | **obrig.**     | não     | `https://s3.sa-east-1.amazonaws.com`                                                                                    |
-| `S3_REGION`                       | **na prática** | não     | `sa-east-1` (o padrão `us-east-1` assina para a região errada)                                                          |
-| `S3_BUCKET`                       | **obrig.**     | não     | o bucket dos assets, já criado                                                                                          |
-| `S3_ACCESS_KEY_ID`                | **obrig.**     | não     | a chave do `lorkarium-app`                                                                                              |
-| `S3_SECRET_ACCESS_KEY`            | **obrig.**     | **sim** | o segredo da mesma chave (8+ caracteres)                                                                                |
-| `S3_FORCE_PATH_STYLE`             | **na prática** | não     | `false` na AWS (o padrão `true` é para SeaweedFS/MinIO)                                                                 |
-| `DATA_ENCRYPTION_KEY`             | **obrig.**     | **sim** | `openssl rand -base64 32` (32 bytes). **Guarde uma cópia fora do servidor**: perdê-la perde os e-mails e o 2FA cifrados |
-| `SMTP_URL`                        | **obrig.**     | **sim** | `smtp://` ou `smtps://` do provedor (seção E-mail); usuário e senha **URL-encoded**                                     |
-| `MAIL_FROM`                       | **na prática** | não     | `Lorkarium <no-reply@app.example.com>`, no domínio com SPF/DKIM                                                         |
-| `MAIL_REPLY_TO`                   | **na prática** | não     | o e-mail de contato (o mesmo do "Contato" do site): recebe a contestação de uma medida e a resposta a um comunicado     |
-| `ACCESS_LOG_S3_BUCKET`            | **obrig.**     | não     | o bucket dos registros de acesso, já criado com a regra de 184 dias ([`deploy/aws.md`](deploy/aws.md))                  |
-| `ACCESS_LOG_S3_ACCESS_KEY_ID`     | **obrig.**     | não     | a chave do `lorkarium-access-log` (só `s3:PutObject`); endpoint e região são os do `S3_*`                               |
-| `ACCESS_LOG_S3_SECRET_ACCESS_KEY` | **obrig.**     | **sim** | o segredo da mesma chave (8+ caracteres)                                                                                |
-| `ASSET_CACHE_DIR`                 | já na imagem   | não     | `/var/cache/lorkarium/assets`, onde vai o _Volume Mount_; caminho absoluto, e sem ela o cache em disco fica desligado   |
-| `ASSET_CACHE_MAX_MB`              | opcional       | não     | teto do cache em disco; padrão `10240` (10 GB). Deixe folga para o disco do VPS                                         |
-| `GITHUB_APP_ID`                   | opcional       | não     | o _App ID_ da GitHub App dos relatos (seção GitHub App); as três `GITHUB_APP_*` juntas ou nenhuma                       |
-| `GITHUB_APP_INSTALLATION_ID`      | opcional       | não     | o número no fim da URL da instalação (`…/settings/installations/<id>`)                                                  |
-| `GITHUB_APP_PRIVATE_KEY`          | opcional       | **sim** | o conteúdo do `.pem` gerado na App; numa linha só, com `\n` no lugar das quebras, também vale                           |
-| `GITHUB_ISSUES_REPOSITORY`        | padrão         | não     | `ByelBardini/lorkarium`                                                                                                 |
-
-O erro de boot cita cada variável errada e redige os segredos; ele aparece no log do deploy no Coolify.
+A tabela de cada variável no Coolify (obrigatória, segredo, valor e como gerar): [`deploy/envs.md`](deploy/envs.md).
 
 ## GitHub App (relatos viram issue)
 
@@ -125,7 +87,8 @@ O primeiro deploy migra o banco vazio inteiro (as `0000…` de `server/drizzle/`
 - [ ] Socket.IO: DevTools → Network → WS mostra `wss://app.example.com/api/socket.io/?EIO=4&transport=websocket` com 101; abrir a mesa em duas abas e mover um token aparece na outra.
 - [ ] Backoffice → Teste de e-mail para um endereço seu: chega, fora do spam, com links em `https://app.example.com`.
 - [ ] Cache em disco: abrir um mapa duas vezes (outra aba, ou recarregar) e, no terminal do container (Coolify → _Terminal_), `du -sh /var/cache/lorkarium/assets` cresce depois da primeira abertura; nenhum `asset disk cache failed; served from S3` no log.
-- [ ] _Backup now_ no banco e o objeto no bucket de backups.
+- [ ] _Backup now_ no banco e o objeto no bucket de backups. Confira a _Lifecycle rule_ de 30 dias do bucket de backups e a de 184 dias do bucket dos registros de acesso: a Privacidade (§8) promete os dois prazos e só o console da AWS os cumpre.
+- [ ] Log do container com rotação de até 30 dias (a Privacidade §8 promete "Registro técnico do servidor: até 30 dias"): no Coolify, as opções de log do Docker da Application (`max-size`/`max-file`) ou a limpeza de logs do servidor, ajustadas para não passar disso.
 - [ ] Registros de acesso: logo depois do deploy, `access-log/boots/AAAA/MM/DD/…jsonl.gz` no bucket deles; 5 min depois, o primeiro lote `access-log/AAAA/MM/DD/…-0.jsonl.gz`. Baixe um e confira com `zcat … | jq .` que tem o seu IP (não o do Traefik) e a sua conta.
 
 ## Atualizar e voltar
@@ -148,7 +111,17 @@ A landing de `site/` ([`site.md`](site.md)) é outra Application do Coolify, no 
 - Healthcheck: o `HEALTHCHECK` da imagem (`wget -q --spider http://127.0.0.1/`, do busybox); o do painel pode ficar ligado (path `/`, porta 80), já que a imagem tem `wget`.
 - Cache: `/_astro/*` `immutable` por 1 ano (nome com hash); HTML `no-cache`. Cabeçalhos `nosniff`, `Referrer-Policy`, `Permissions-Policy`, sem `Server`. O CSP vem do `<meta>` do `security.csp` do Astro, não do Caddy. Sem `try_files`: o `file_server` já redireciona `/termos` → `/termos/` (308), como o `trailingSlash: 'always'`.
 - Smoke local: `docker build -f site/Dockerfile -t lorkarium-site --build-arg SITE_URL=http://localhost:8080 --build-arg PUBLIC_APP_URL=… --build-arg PUBLIC_CONTACT_EMAIL=… --build-arg LEGAL_SUPPLIER_NAME=… --build-arg LEGAL_SUPPLIER_CPF=52998224725 --build-arg LEGAL_DRAFTS_ALLOWED=true .`, `docker run -d --name lorkarium-site -p 8080:80 lorkarium-site` e `bash infra/docker/site-smoke.sh lorkarium-site http://localhost:8080`. Os dois smokes cobram o SEO (robots, sitemap, ícone, redirect; `X-Robots-Tag` do app): [`site/seo.md`](site/seo.md).
-- **Antes de publicar:** a primeira release do desktop no ar (sem ela a API responde 404 e todo download cai na página de versões, vazia); um e-mail de contato que alguém leia (é por ele que chegam os pedidos de convite).
+- **Antes de publicar:** a primeira release do desktop no ar (sem ela a API responde 404 e todo download cai na página de versões, vazia); um e-mail de contato que alguém leia. A landing com "Criar conta" só vai ao ar depois de o cadastro estar aberto no app (seção abaixo): antes disso, o botão leva a "O cadastro está fechado".
+
+## Abrir o cadastro público
+
+Nesta ordem; cada passo só depois do anterior conferido ([`account-links.md`](account-links.md), [`client/sign-up.md`](client/sign-up.md)).
+
+1. **Turnstile**: no painel da Cloudflare, um widget (modo _Managed_) com o hostname do app (`app.<tld>`; o desktop abre o mesmo domínio); _Site Key_ e _Secret Key_ no Coolify (`TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`, [`deploy/envs.md`](deploy/envs.md)). Sem as duas a produção não sobe.
+2. **E-mail**: SPF, DKIM e DMARC do `MAIL_FROM` conferidos (seção E-mail); o cadastro aumenta o volume.
+3. Deploy com `REGISTRATION_OPEN=false` e teste do "Esqueci minha senha" com uma conta própria (vale com o cadastro fechado).
+4. `REGISTRATION_OPEN=true`, _Restart_ e um cadastro com um e-mail próprio, do pedido ao login. Fechar de novo = `false` e _Restart_; o convite do backoffice segue valendo.
+5. Só então, o deploy da landing com "Criar conta" (seção Landing).
 
 ## Serviço de cobrança (outra Application)
 

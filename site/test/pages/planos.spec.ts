@@ -54,12 +54,19 @@ describe('the plans page', () => {
     expect(page.querySelector('[data-plan="Lenda"] [data-plan-seal] svg path')).not.toBeNull();
   });
 
-  it('asks the invitation on Grátis', async () => {
+  it('sends Grátis to the sign-up page of the app', async () => {
     const page = await renderPlans();
 
     const free = page.querySelector('[data-plan="Grátis"] [data-plan-cta]');
-    expect(free?.textContent?.trim()).toBe('Pedir convite');
-    expect(free?.getAttribute('href')).toMatch(/^mailto:contato@lorkarium\.test/);
+    expect(free?.textContent?.trim()).toBe('Criar conta');
+    expect(free?.getAttribute('href')).toBe('https://mesa.lorkarium.test/sign-up');
+  });
+
+  it('asks for no invite anywhere on the plans page', async () => {
+    const page = await renderPlans();
+
+    expect(page.body.textContent).not.toMatch(/convite/i);
+    expect(page.querySelector('a[href*="subject="]')).toBeNull();
   });
 
   it.each(['Apoiador', 'Narrador', 'Lenda'])(

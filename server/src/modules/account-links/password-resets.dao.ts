@@ -32,6 +32,15 @@ export class PasswordResetsDao {
     return row;
   }
 
+  /** The account's pending link, if any (one per account). */
+  async findOfUser(userId: string): Promise<PasswordResetPo | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(passwordResets)
+      .where(eq(passwordResets.userId, userId));
+    return row;
+  }
+
   /** False when it was already gone (used by a concurrent request). */
   async delete(resetId: string): Promise<boolean> {
     const deleted = await this.db

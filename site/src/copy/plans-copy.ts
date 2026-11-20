@@ -114,7 +114,7 @@ const faqs: FaqCopy[] = [
   {
     question: 'Dá para desistir e pedir o dinheiro de volta?',
     answer:
-      'Sim, nos 7 dias seguintes à primeira compra, como manda o Código de Defesa do Consumidor: o valor volta inteiro. Depois disso, cancelar a renovação mantém o plano até o fim do período já pago.',
+      'Sim, nos 7 dias seguintes a cada compra que você faz (uma assinatura nova no cartão ou um pagamento por Pix), como manda o Código de Defesa do Consumidor: o valor volta inteiro. A renovação automática do cartão não tem reembolso; cancelar a renovação mantém o plano até o fim do período já pago.',
   },
 ];
 

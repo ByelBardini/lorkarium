@@ -13,6 +13,7 @@ import {
 import type { CharacterPublisherPort } from '../modules/characters/character-publisher.port';
 import { createCharactersModule } from '../modules/characters/characters.plugin';
 import type { PresenceReaderPort } from '../modules/campaigns/presence-reader.port';
+import type { AccountVisibilityPort } from '../modules/campaigns/account-visibility.port';
 import { CampaignsDao } from '../modules/campaigns/campaigns.dao';
 import { UserBlocksDao } from '../modules/friends/user-blocks.dao';
 import type { MemberRoleChangedPort } from '../modules/campaigns/member-role-changed.port';
@@ -34,6 +35,7 @@ const SILENT_LIBRARY = new Proxy({} as LibraryPublisherPort, { get: () => () => 
 const SILENT_CHARACTERS: CharacterPublisherPort = { charactersChanged: () => undefined };
 const NO_AUDIENCE = new Proxy({} as SceneAudiencePort, { get: () => async () => undefined });
 const NOBODY_ONLINE: PresenceReaderPort = { onlineUserIdsOf: () => new Set() };
+const NOBODY_VISIBLE: AccountVisibilityPort = { isVisiblyOnline: () => false };
 const NO_LIVE_TABLE: MemberRoleChangedPort = { memberRoleChanged: async () => undefined };
 
 /** Wires the stress seed over the real services (`pnpm db:seed-stress` and its integration spec).
@@ -57,6 +59,7 @@ export function buildStressSceneSeed(db: Database): StressSceneSeedService {
     codes: new CryptoCampaignCode(),
     clock,
     presence: NOBODY_ONLINE,
+    visibility: NOBODY_VISIBLE,
   });
   const { memberships } = campaignsModule;
   const characters = createCharactersModule({ db, members, publisher: SILENT_CHARACTERS, clock });

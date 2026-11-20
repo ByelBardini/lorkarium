@@ -116,7 +116,9 @@ describe('the plans page (/planos)', () => {
     const receipt = within(dialog).getByRole('list', { name: 'Resumo da compra' });
     expect(receipt).not.toHaveTextContent('Desconto');
     expect(receipt).toHaveTextContent(/Total hoje\s*R\$ 14,90/);
-    expect(dialog).toHaveTextContent('Próxima cobrança em 14/11/2026: R$ 14,90');
+    expect(dialog).toHaveTextContent(
+      'Próxima cobrança em 14/11/2026: R$ 14,90, e assim a cada período, pelo mesmo valor, até você cancelar.',
+    );
     expect(dialog).toHaveTextContent('7 dias');
   });
 

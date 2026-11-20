@@ -47,7 +47,7 @@ async function acceptAsMarina(marina: Page, link: string): Promise<void> {
   await marina.getByLabel('Repita a senha', { exact: true }).fill(MARINA.password);
   await marina
     .getByRole('checkbox', {
-      name: 'Li e aceito os Termos de uso, a Política de privacidade e a Política de uso',
+      name: 'Tenho 18 anos ou mais e li e aceito os Termos de uso, a Política de privacidade e a Política de uso',
     })
     .check();
   await marina.getByRole('button', { name: 'Criar minha conta' }).click();

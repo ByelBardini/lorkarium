@@ -17,9 +17,16 @@ import type { AccountListingRow, UserAdminDao } from '../user-admin/user-admin.d
 import { OwnsSharedCampaignsError, UserNotFoundError } from '../user-admin/user-admin.error';
 import { toAdminUserDto } from '../user-admin/user-admin.mapper';
 import type { AdminActor, UserAdminService } from '../user-admin/user-admin.service';
-import { appealChangeOf, liftsSuspension, requireSanctionable } from './account-sanction.bo';
+import {
+  appealChangeOf,
+  liftsSuspension,
+  requireSanctionable,
+  suspends,
+} from './account-sanction.bo';
 import type { AccountSanctionsDao } from './account-sanctions.dao';
-import { sanctionMailOf, toAccountSanctionDto } from './sanctions.mapper';
+import type { AccountSanctionPo } from './account-sanctions.po';
+import type { SanctionNoticeService } from './sanction-notice.service';
+import { toAccountSanctionDto, toNewAccountSanctionPo } from './sanctions.mapper';
 import { SanctionNotFoundError, SanctionReportNotFoundError } from './sanctions.error';
 
 /** The DAOs a measure's transaction hands out, bound to the open `tx`. */
@@ -27,7 +34,12 @@ export type SanctionWriteDaos = Readonly<{
   accounts: Pick<UserAdminDao, 'findAccount' | 'setSuspendedAt'>;
   sanctions: Pick<
     AccountSanctionsDao,
-    'insert' | 'lockById' | 'latestSuspensionIdOf' | 'recordAppeal' | 'reportIsAbout'
+    | 'insert'
+    | 'lockById'
+    | 'latestSuspendingIdOf'
+    | 'recordAppeal'
+    | 'reportIsAbout'
+    | 'cancelDeletion'
   >;
   sessions: Pick<AuthSessionsDao, 'deleteAllOf'>;
   passwordResets: Pick<PasswordResetsDao, 'deleteOfUser'>;
@@ -37,8 +49,9 @@ export type SanctionTransactionRunner = <T>(
   work: (daos: SanctionWriteDaos) => Promise<T>,
 ) => Promise<T>;
 
-/** The deletion of the backoffice, which a ban goes through (and which keeps the e-mail's index). */
-export type AccountDeletion = Pick<UserAdminService, 'deletionCheck' | 'delete'>;
+/** What the backoffice's deletion would take: a ban refuses up front a deletion its shared tables
+ *  would block later (the deletion itself runs in the hourly sweep). */
+export type AccountDeletion = Pick<UserAdminService, 'deletionCheck'>;
 
 export type SanctionsDeps = Readonly<{
   accounts: Pick<UserAdminDao, 'findAccount'>;
@@ -46,41 +59,59 @@ export type SanctionsDeps = Readonly<{
   transaction: SanctionTransactionRunner;
   deletion: AccountDeletion;
   sessionEnded: SessionEndedPort;
+  /** The measure's e-mail, recorded once it left (the hourly sweep retries the rest). */
+  notice: Pick<SanctionNoticeService, 'notify'>;
+  /** The best-effort "access is back" of a reverted measure. */
   notices: Pick<SecurityNoticesService, 'send'>;
   cipher: DataCipherPort;
   clock: ClockPort;
   appPublicUrl: string;
-  /** The landing: the e-mail links the rule to its heading of `/uso/`. */
-  sitePublicUrl: string;
-  /** `MAIL_REPLY_TO`: the appeal is an answer to the e-mail; null = the site's Contato. */
-  replyTo: string | null;
 }>;
 
-type MeasureOutcome = Readonly<{ target: AccountListingRow; sanctionId: string; ended: string[] }>;
+type MeasureInput = Readonly<{
+  actor: AdminActor;
+  userId: string;
+  request: IssueSanctionRequestDto;
+  until: Date | null;
+  now: Date;
+}>;
+
+type MeasureOutcome = Readonly<{
+  target: AccountListingRow;
+  sanction: AccountSanctionPo;
+  ended: string[];
+}>;
+
+type AppealInput = Readonly<{
+  actor: AdminActor;
+  sanctionId: string;
+  request: RecordAppealRequestDto;
+  now: Date;
+}>;
 
 /** The measures against an account (use policy §13–§14): each one is persisted with its rule and
- *  reasons before the person is told by e-mail; a suspension signs the account out, a ban goes
- *  through the backoffice's deletion. Who applied it never reaches the person.
+ *  reasons before the person is told by e-mail. A suspension signs the account out; a ban too, and
+ *  its deletion waits for the appeal window (the hourly sweep runs it). Who applied it never
+ *  reaches the person.
  *
  *  Example: `await sanctions.issue(admin, caioId, { kind: 'warning', rule: 'spam', statement })` */
 export class SanctionsService {
   constructor(private readonly deps: SanctionsDeps) {}
 
-  /** The measure and the account as it is now; `null` for a ban (the account is gone). */
+  /** The measure and the account as it is now (suspended after a suspension or a ban). */
   async issue(
     actor: AdminActor,
     userId: string,
     request: IssueSanctionRequestDto,
-  ): Promise<SanctionResponseDto | null> {
+  ): Promise<SanctionResponseDto> {
     const now = this.deps.clock.now();
-    if (request.kind === 'ban') return this.ban(actor, userId, request, now);
     const until = request.until ? new Date(request.until) : null;
-    const outcome = await this.deps.transaction((daos) =>
-      this.record(daos, { actor, userId, request, until, now }),
-    );
+    const input = { actor, userId, request, until, now };
+    if (request.kind === 'ban') await this.requireDeletable(input);
+    const outcome = await this.deps.transaction((daos) => this.record(daos, input));
     for (const sessionId of outcome.ended) this.deps.sessionEnded.sessionEnded(sessionId);
-    await this.tell(outcome.target, request, until);
-    return this.responseOf(outcome.sanctionId, outcome.target);
+    await this.deps.notice.notify(outcome.sanction, outcome.target);
+    return this.responseOf(outcome.sanction.id, outcome.target);
   }
 
   async history(userId: string): Promise<AccountSanctionsResponseDto> {
@@ -89,98 +120,60 @@ export class SanctionsService {
     return { sanctions: rows.map(toAccountSanctionDto) };
   }
 
-  /** The appeal arrived, or its decision; a reverted suspension that still holds ends here, with
-   *  the "access is back" e-mail after the commit. */
+  /** The appeal arrived, or its decision. A reverted ban deletes nothing anymore; a reverted
+   *  suspension or ban that still holds ends here, with "access is back" after the commit. */
   async recordAppeal(
     actor: AdminActor,
     sanctionId: string,
     request: RecordAppealRequestDto,
   ): Promise<SanctionResponseDto> {
     const now = this.deps.clock.now();
-    const outcome = await this.deps.transaction(async (daos) => {
-      const sanction = await daos.sanctions.lockById(sanctionId);
-      if (!sanction) throw new SanctionNotFoundError(sanctionId);
-      await daos.sanctions.recordAppeal(
-        sanctionId,
-        appealChangeOf(sanction, request, actor.id, now),
-      );
-      const target = await requireAccount(daos.accounts, sanction.userId);
-      const latest = await daos.sanctions.latestSuspensionIdOf(sanction.userId);
-      if (!liftsSuspension(sanction, request.outcome, latest, target, now))
-        return { target, lifted: false };
-      await daos.accounts.setSuspendedAt(sanction.userId, null);
-      return { target: { ...target, suspendedAt: null, suspendedUntil: null }, lifted: true };
-    });
+    const input = { actor, sanctionId, request, now };
+    const outcome = await this.deps.transaction((daos) => this.decide(daos, input));
     if (outcome.lifted) await this.tellRestored(outcome.target);
     return this.responseOf(sanctionId, outcome.target);
   }
 
-  private async record(
+  private async decide(
     daos: SanctionWriteDaos,
-    input: Readonly<{
-      actor: AdminActor;
-      userId: string;
-      request: IssueSanctionRequestDto;
-      until: Date | null;
-      now: Date;
-    }>,
-  ): Promise<MeasureOutcome> {
+    { actor, sanctionId, request, now }: AppealInput,
+  ): Promise<Readonly<{ target: AccountListingRow; lifted: boolean }>> {
+    const sanction = await daos.sanctions.lockById(sanctionId);
+    if (!sanction) throw new SanctionNotFoundError(sanctionId);
+    await daos.sanctions.recordAppeal(sanctionId, appealChangeOf(sanction, request, actor.id, now));
+    if (request.outcome === 'reverted' && sanction.kind === 'ban')
+      await daos.sanctions.cancelDeletion(sanctionId);
+    const target = await requireAccount(daos.accounts, sanction.userId);
+    const latest = await daos.sanctions.latestSuspendingIdOf(sanction.userId);
+    if (!liftsSuspension(sanction, request.outcome, latest, target, now))
+      return { target, lifted: false };
+    await daos.accounts.setSuspendedAt(sanction.userId, null);
+    return { target: { ...target, suspendedAt: null, suspendedUntil: null }, lifted: true };
+  }
+
+  private async record(daos: SanctionWriteDaos, input: MeasureInput): Promise<MeasureOutcome> {
     const { actor, userId, request, until, now } = input;
     const target = await requireAccount(daos.accounts, userId);
     requireSanctionable(actor.id, target, { kind: request.kind, until }, now);
     await requireReportAbout(daos.sanctions, request.reportId, userId);
-    const sanction = await daos.sanctions.insert({
-      userId,
-      kind: request.kind,
-      rule: request.rule,
-      statement: request.statement,
-      until,
-      reportId: request.reportId ?? null,
-      issuedBy: actor.id,
-      issuedAt: now,
-    });
-    if (request.kind !== 'suspension') return { target, sanctionId: sanction.id, ended: [] };
+    const row = toNewAccountSanctionPo({ userId, request, until, issuedBy: actor.id, now });
+    const sanction = await daos.sanctions.insert(row);
+    if (!suspends(request.kind)) return { target, sanction, ended: [] };
     await daos.accounts.setSuspendedAt(userId, now, until);
     const ended = await daos.sessions.deleteAllOf(userId);
     await daos.passwordResets.deleteOfUser(userId);
-    const suspended = { ...target, suspendedAt: now, suspendedUntil: until };
-    return { target: suspended, sanctionId: sanction.id, ended };
+    return { target: { ...target, suspendedAt: now, suspendedUntil: until }, sanction, ended };
   }
 
-  // The e-mail goes before the DELETE: afterwards there is no address left to open. A deletion
-  // that turns blocked in between leaves a sent e-mail and the account: the admin sees the 409.
-  private async ban(
-    actor: AdminActor,
-    userId: string,
-    request: IssueSanctionRequestDto,
-    now: Date,
-  ): Promise<null> {
+  // The deletion runs later, with nobody to see a refusal: tables with other members that would
+  // block it refuse the ban now, unless the admin chose to take them along. The rule's own
+  // refusals (oneself, an admin) come before the check.
+  private async requireDeletable({ actor, userId, request, now }: MeasureInput): Promise<void> {
     const target = await requireAccount(this.deps.accounts, userId);
     requireSanctionable(actor.id, target, { kind: 'ban', until: null }, now);
-    await requireReportAbout(this.deps.sanctions, request.reportId, userId);
+    if (request.includeSharedCampaigns) return;
     const { blockingCampaigns } = await this.deps.deletion.deletionCheck(actor, userId);
     if (blockingCampaigns.length > 0) throw new OwnsSharedCampaignsError(userId, blockingCampaigns);
-    await this.tell(target, request, null);
-    await this.deps.deletion.delete(actor, userId, { bannedAt: now });
-    return null;
-  }
-
-  private async tell(
-    target: UserPo,
-    request: IssueSanctionRequestDto,
-    until: Date | null,
-  ): Promise<void> {
-    const { appPublicUrl, sitePublicUrl, replyTo, cipher } = this.deps;
-    const mail = sanctionMailOf(request.kind, {
-      person: recipientOf(target, cipher),
-      rule: request.rule,
-      statement: request.statement,
-      until,
-      publicUrl: appPublicUrl,
-      siteUrl: sitePublicUrl,
-      replyTo,
-    });
-    await this.deps.notices.send(mail);
   }
 
   private async tellRestored(target: UserPo): Promise<void> {

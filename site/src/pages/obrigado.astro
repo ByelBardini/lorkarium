@@ -1,6 +1,6 @@
 ---
-import { PUBLIC_APP_URL, PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
-import { inviteMailto } from '@/copy/landing-copy';
+import { PUBLIC_APP_URL } from 'astro:env/client';
+import { signUpUrlOf } from '@/copy/landing-copy';
 import SiteLayout from '@/layouts/site-layout.astro';
 import { RELEASES_PAGE_URL } from '@/lib/desktop-release';
 
@@ -15,7 +15,7 @@ const installSteps = [
   },
   {
     title: 'Entre na sua conta',
-    text: 'Abra o Lorkarium e entre com o nome de usuário e a senha definidos ao aceitar o convite.',
+    text: 'Abra o Lorkarium e entre com o nome de usuário e a senha definidos ao criar a conta.',
   },
 ];
 ---
@@ -66,9 +66,9 @@ const installSteps = [
       </ol>
       <div class="flex flex-col gap-2 text-[15px] leading-relaxed text-muted">
         <p class="m-0">
-          Ainda não tem convite?{' '}
-          <a href={inviteMailto(PUBLIC_CONTACT_EMAIL)} class="font-semibold">
-            Pedir convite
+          Ainda não tem conta?{' '}
+          <a href={signUpUrlOf(PUBLIC_APP_URL)} class="font-semibold">
+            Criar conta
           </a>
         </p>
         <p class="m-0">

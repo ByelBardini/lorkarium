@@ -39,8 +39,9 @@ export function AuthFrame({
           </header>
           {children}
         </div>
+        {/* Wider than the 380 px form column: the four legal links don't fit in it on one line. */}
         {(legalLinks || footer) && (
-          <footer className="mt-10 flex w-full max-w-[380px] flex-col items-center gap-3">
+          <footer className="mt-10 flex w-full max-w-[480px] flex-col items-center gap-3">
             {legalLinks && <LegalLinks />}
             {footer}
           </footer>

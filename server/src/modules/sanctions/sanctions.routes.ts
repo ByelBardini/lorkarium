@@ -61,7 +61,6 @@ export function sanctionsRoutes(
       const fields = { adminId: actor.id, targetUserId: userId, kind: body.kind };
       request.log.info({ ...fields, action: 'apply a measure to' }, 'backoffice action');
       const issued = await service.issue(actor, userId, body);
-      if (!issued) return reply.code(204).send();
       return reply.code(201).send(issued satisfies SanctionResponseDto);
     });
     app.get('/admin/users/:userId/sanctions', admin, async (request) => {

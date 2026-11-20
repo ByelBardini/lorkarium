@@ -4,6 +4,8 @@ Contas, login por e-mail ou @ e senha, sessão por cookie e papel global (`user`
 
 Detalhe: [`auth/cifra.md`](auth/cifra.md) — `DataCipherPort`, e-mail cifrado com índice cego, a regra do @, as migrações `0037`–`0039` e o `pnpm db:encrypt-emails`. [`auth/duas-etapas.md`](auth/duas-etapas.md) — tabelas do 2FA, `TotpPort`, `TwoFactorBo`/`TwoFactorCheckService` e o login em duas etapas (`lk_2fa`, desafio). [`auth/armadilhas.md`](auth/armadilhas.md) — as pegadinhas do módulo. Senha, sessões ativas, troca de e-mail e o 2FA da conta: [`account-security.md`](account-security.md).
 
+A conta nasce pelo convite do admin ou pelo cadastro público (`POST /api/sign-up`, desligado por `REGISTRATION_OPEN`), os dois pelo aceite do link em [`account-links.md`](account-links.md).
+
 ## Estrutura
 
 - `server/src/modules/auth/*.port.ts` — portas do módulo (abaixo)
@@ -41,7 +43,7 @@ Detalhe: [`auth/cifra.md`](auth/cifra.md) — `DataCipherPort`, e-mail cifrado c
 - Rotas, guardas e splash em [`client.md`](client.md) (seção Rotas). Login bem-sucedido: `sessionStore.signedIn(user)` + navegação para o `next` seguro; Sair (no menu do usuário do shell, ver [`client/home.md`](client/home.md)): `POST /api/auth/logout`, `signedOut()`, `/login`.
 - `AuthFrame` (`features/auth/auth-frame.tsx`): a moldura das telas antes do app (painel ilustrado em `lg+`, ornamento, `h1`, `lead`, conteúdo, rodapé opcional); a `LoginPage` e as páginas `/invite` e `/reset-password` usam.
 - `LoginPage` (`features/auth/login-page.tsx`): duas colunas em `lg+` (painel `bg-panel` com `LoginHeroArt`, SVG estático `aria-hidden`, e a manchete como `p` de display); abaixo de `lg`, só o formulário com a `BrandMark` compacta. O `h1` é "Bem-vindo de volta". `<title>Lorkarium · Entrar</title>`. No pé da coluna do formulário, `DeveloperCredit` (`features/auth/developer-credit.tsx`): "Desenvolvido por Evolutiva Sistemas", centralizado, com o símbolo e "Evolutiva Sistemas" como link para https://evolutivasistemas.com.br (nova aba, `noopener noreferrer`) (`src/assets/evolutiva-mark.png`, 96px reduzido de `LOGO BRANCA 2.png` da raiz, `alt=""` porque o texto já nomeia). Só no login: crédito de fornecedor dentro do app logado é ruído.
-- Escondidos até existirem: "Esqueceu a senha?", "Entrar com código da mesa".
+- "Esqueci minha senha" ao lado de "Manter conectado" (→ `/forgot-password` com o que foi digitado). Sob o formulário, "Ainda não tem conta? Criar conta" (→ `/sign-up`) só com o cadastro aberto (`loginRoute` em `login-route.tsx` lê os ajustes; ver [`client/sign-up.md`](client/sign-up.md)). Escondido até existir: "Entrar com código da mesa".
 - Rodapé do `AuthFrame` (login e `/reset-password`): `LegalLinks` (`features/auth/legal-links.tsx`, `nav` "Documentos legais": "Termos de uso · Política de privacidade", `LegalDocumentLink` em nova aba) acima do `footer`; `legalLinks={false}` desliga (o `/invite`, cuja caixa de aceite já os tem). Ver [`legal.md`](legal.md).
 - Boot: `GET /api/auth/me` decide `authenticated`/`anonymous` no `sessionStore` (a guarda do client só evita mostrar a tela errada; quem decide é o server). Só a resposta dele decide: `offline`/`unexpected` (deploy, 502 do Traefik) é perguntado de novo por `whoAmIOnceAnswered` (`src/app/boot-session.ts`, 1 s dobrando até 10 s), com `reconnecting: true` no store e "Reconectando ao servidor…" na splash — senão uma recarga no meio do deploy caía no login com o cookie válido, e o desktop não tem F5.
 - Serviço `HttpAuthApi` e store em [`client.md`](client.md); a tela vive em `client/src/features/auth/`.
@@ -83,7 +85,7 @@ Detalhe: [`auth/cifra.md`](auth/cifra.md) — `DataCipherPort`, e-mail cifrado c
 
 ## Seed de desenvolvimento
 
-- `pnpm db:seed-dev` (entrada `server/src/dev-seed.ts`) cria **Bia** (`@bia`, `bia@lorkarium.dev`) e **Caio** (`@caio`, `caio@lorkarium.dev`), papel `user`, senha `lorkarium-dev` (`DEV_PLAYERS` e `DEV_PLAYER_PASSWORD` em `dev-players-seed.bo.ts`). Serve para testar a mesa com duas pessoas enquanto o cadastro não existe.
+- `pnpm db:seed-dev` (entrada `server/src/dev-seed.ts`) cria **Bia** (`@bia`, `bia@lorkarium.dev`) e **Caio** (`@caio`, `caio@lorkarium.dev`), papel `user`, senha `lorkarium-dev` (`DEV_PLAYERS` e `DEV_PLAYER_PASSWORD` em `dev-players-seed.bo.ts`). Serve para testar a mesa com duas pessoas sem passar pelo cadastro por e-mail.
 - `DevPlayersSeedBo(nodeEnv)`: `requireAllowed()` lança `DevSeedRefusedError` (`DEV_SEED_REFUSED`, cita o `NODE_ENV`) em `production`; `decide(emailsExistentes)` → `{ create, skipped }`. Conta que já existe nunca é reescrita (nem senha nem papel).
 - `DevSeedRefusedError` fica fora do `AuthError`: nunca chega à borda HTTP, então não tem status.
 

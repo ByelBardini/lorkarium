@@ -35,6 +35,10 @@ const LEFT_OUT = [
   '- Denúncias feitas sobre você: protegem quem denunciou.',
   '- Chat da mesa e mensagens privadas: não são guardados no servidor.',
   '- Conteúdo de mesas em que você não está mais.',
+  '',
+  'O resto, por e-mail',
+  '',
+  '- Os prints que você anexou a denúncias e relatos, os modelos de ficha que você escreveu, a autoria de desenhos, áreas e tokens nas mesas, as imagens que você deixou em mesas de que saiu, os comunicados que você recebeu e os registros de acesso: peça a privacidade@evolutivasistemas.com.br, a partir do e-mail da conta. Respondemos em até 15 dias.',
 ];
 
 /** The `LEIA-ME.txt` of the archive, in pt-BR: what each part is, what is left out and why, and

@@ -8,13 +8,8 @@ import { PasswordResetPage } from './password-reset-page';
  *
  *  Example: `{ path: 'invite', middleware: [guard(deps, 'anyone')], ...inviteRoute(deps) }` */
 export function inviteRoute(deps: AppDependencies): Pick<RouteObject, 'action' | 'Component'> {
-  const { authApi, sessionStore, openTables } = deps;
-  // Like the shell's "Sair": the tab's tables close before the session ends on the server.
-  const signOut = async (): Promise<void> => {
-    openTables.getState().closeAll();
-    await authApi.logout();
-    sessionStore.getState().signedOut();
-  };
+  const { sessionStore } = deps;
+  const signOut = signOutOfTab(deps);
   return {
     action: accountLinksAction(deps),
     Component: function InviteRoute(): React.JSX.Element {
@@ -30,4 +25,20 @@ export function passwordResetRoute(
   deps: AppDependencies,
 ): Pick<RouteObject, 'action' | 'Component'> {
   return { action: accountLinksAction(deps), Component: PasswordResetPage };
+}
+
+/** "Sair e continuar" of the pages that create an account. Like the shell's "Sair": the tab's
+ *  tables close before the session ends on the server.
+ *
+ *  Example: `<SignedOutFirst signOut={signOutOfTab(deps)} … />` */
+export function signOutOfTab({
+  authApi,
+  sessionStore,
+  openTables,
+}: AppDependencies): () => Promise<void> {
+  return async () => {
+    openTables.getState().closeAll();
+    await authApi.logout();
+    sessionStore.getState().signedOut();
+  };
 }

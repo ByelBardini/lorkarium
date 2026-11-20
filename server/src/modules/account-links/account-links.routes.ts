@@ -4,6 +4,7 @@ import {
   accountLinkTokenDto,
   adminUserParamsDto,
   completePasswordResetRequestDto,
+  passwordResetRequestDto,
   createInvitationRequestDto,
   invitationParamsDto,
   type AcceptInvitationResponseDto,
@@ -26,6 +27,7 @@ import {
 } from './account-links.error';
 import type { InvitationsService, Inviter } from './invitations.service';
 import type { PasswordResetsService } from './password-resets.service';
+import { mailingFormOptions } from './sign-up.routes';
 import { withPlanLimitReply } from '../plans/plan-limit-response';
 
 // Spec §8.4: links an admin issues, per admin; the public routes, per IP.
@@ -43,6 +45,8 @@ const STATUS_BY_CODE: Readonly<Record<RefusalCode, number>> = {
   USERNAME_TAKEN: 409,
   USER_NOT_FOUND: 404,
   SELF_ACTION: 409,
+  REGISTRATION_CLOSED: 403,
+  HUMAN_CHECK_FAILED: 400,
   RATE_LIMITED: 429,
   // A conflict here, not the login's 403: the admin's session is fine, the target is suspended.
   ACCOUNT_SUSPENDED: 409,
@@ -58,6 +62,8 @@ const PUBLIC_MESSAGE: Readonly<Record<RefusalCode, string>> = {
   USERNAME_TAKEN: 'This @ is already taken',
   USER_NOT_FOUND: 'Account not found',
   SELF_ACTION: 'Admins cannot do this to their own account',
+  REGISTRATION_CLOSED: 'The public sign-up is closed',
+  HUMAN_CHECK_FAILED: 'The anti-bot check did not pass; try again',
   RATE_LIMITED: 'Too many attempts',
   ACCOUNT_SUSPENDED: 'The account is suspended',
 };
@@ -65,6 +71,8 @@ const PUBLIC_MESSAGE: Readonly<Record<RefusalCode, string>> = {
 export type AccountLinksRoutesServices = Readonly<{
   invitations: InvitationsService;
   passwordResets: PasswordResetsService;
+  /** More public routes in this context (the sign-up), under the same limiter and error handler. */
+  registerMore: (app: FastifyInstance) => void;
 }>;
 
 /** HTTP edge of the one-time links: the admin issues invitations and new-password links
@@ -82,6 +90,7 @@ export function accountLinksRoutes(
     registerPasswordResetAdminRoute(app, services.passwordResets);
     registerInvitationPublicRoutes(app, services.invitations);
     registerPasswordResetPublicRoutes(app, services.passwordResets);
+    services.registerMore(app);
   };
 }
 
@@ -168,6 +177,12 @@ function registerPasswordResetPublicRoutes(
     const input = completePasswordResetRequestDto.parse(request.body);
     await service.complete(input.token, input.newPassword, request.headers['user-agent'] ?? null);
     return reply.code(204).send();
+  });
+  // "Esqueci minha senha": 202 with no body whether or not an account matched.
+  app.post('/password-resets/request', mailingFormOptions(), async (request, reply) => {
+    const input = passwordResetRequestDto.parse(request.body);
+    await service.request(input, request.ip);
+    return reply.code(202).send();
   });
 }
 

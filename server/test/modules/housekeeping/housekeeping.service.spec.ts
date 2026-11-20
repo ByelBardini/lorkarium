@@ -10,6 +10,7 @@ import {
   ExpiredSuspensionsDaoFake,
   HousekeepingDaoFake,
   HousekeepingFailureLogFake,
+  SanctionFollowUpFake,
   SuspensionEndedFake,
 } from '../../support/housekeeping-fakes';
 import { FeedbackRetentionFake } from '../../support/feedback-fakes';
@@ -20,6 +21,8 @@ const NOW = new Date('2026-11-10T12:00:00Z');
 const A_DAY_AGO = new Date('2026-11-09T12:00:00Z');
 // 5 × 365 days plus 2 before NOW: one day past the calendar 5 years (one leap day in between).
 const FIVE_YEARS_AGO = new Date('2021-11-09T12:00:00Z');
+// An admin's expired invitation stays a month in the list, for the admin to resend it.
+const THIRTY_DAYS_AGO = new Date('2026-10-11T12:00:00Z');
 const TASK = 'housekeeping-sweep';
 
 describe('HousekeepingService', () => {
@@ -40,7 +43,8 @@ describe('HousekeepingService', () => {
     const reportRetention = new ReportRetentionFake();
     const feedbackRetention = new FeedbackRetentionFake();
     const deps = { dao, expired, suspensionEnded, reportRetention, feedbackRetention };
-    service = new HousekeepingService({ ...deps, clock, scheduler, log });
+    const sanctionFollowUp = new SanctionFollowUpFake();
+    service = new HousekeepingService({ ...deps, sanctionFollowUp, clock, scheduler, log });
   });
 
   async function hourPasses(): Promise<void> {
@@ -60,6 +64,11 @@ describe('HousekeepingService', () => {
       { swept: 'sheet_receipts', cut: A_DAY_AGO, limit: HOUSEKEEPING_BATCH_MAX },
       { swept: 'sessions', cut: NOW, limit: HOUSEKEEPING_BATCH_MAX },
       { swept: 'challenges', cut: NOW, limit: HOUSEKEEPING_BATCH_MAX },
+      { swept: 'signups', cut: NOW, limit: HOUSEKEEPING_BATCH_MAX },
+      { swept: 'admin_invitations', cut: THIRTY_DAYS_AGO, limit: HOUSEKEEPING_BATCH_MAX },
+      { swept: 'email_changes', cut: NOW, limit: HOUSEKEEPING_BATCH_MAX },
+      { swept: 'password_resets', cut: NOW, limit: HOUSEKEEPING_BATCH_MAX },
+      { swept: 'recovery_tokens', cut: NOW, limit: HOUSEKEEPING_BATCH_MAX },
       { swept: 'broadcasts', cut: FIVE_YEARS_AGO, limit: HOUSEKEEPING_BATCH_MAX },
       { swept: 'banned_emails', cut: FIVE_YEARS_AGO, limit: HOUSEKEEPING_BATCH_MAX },
     ]);
@@ -84,8 +93,24 @@ describe('HousekeepingService', () => {
       'sessions',
       'sessions',
       'challenges',
+      'signups',
+      'admin_invitations',
+      'email_changes',
+      'password_resets',
+      'recovery_tokens',
       'broadcasts',
       'banned_emails',
+    ]);
+  });
+
+  it('a full batch of expired sign-up links asks for the next one right away', async () => {
+    dao.deletions.signups = [HOUSEKEEPING_BATCH_MAX, 1];
+
+    await service.sweep();
+
+    expect(dao.sweptTables().filter((swept) => swept === 'signups')).toEqual([
+      'signups',
+      'signups',
     ]);
   });
 
@@ -130,6 +155,7 @@ describe('HousekeepingService, suspensions past their end', () => {
       ...deps,
       expired,
       suspensionEnded,
+      sanctionFollowUp: new SanctionFollowUpFake(),
       reportRetention,
       feedbackRetention: new FeedbackRetentionFake(),
       scheduler,
@@ -180,12 +206,14 @@ describe('HousekeepingService, suspensions past their end', () => {
 });
 
 describe("HousekeepingService, the reports' and the feedback's retention", () => {
+  let sanctionFollowUp: SanctionFollowUpFake;
   let reportRetention: ReportRetentionFake;
   let feedbackRetention: FeedbackRetentionFake;
   let log: HousekeepingFailureLogFake;
   let service: HousekeepingService;
 
   beforeEach(() => {
+    sanctionFollowUp = new SanctionFollowUpFake();
     reportRetention = new ReportRetentionFake();
     feedbackRetention = new FeedbackRetentionFake();
     log = new HousekeepingFailureLogFake();
@@ -193,6 +221,7 @@ describe("HousekeepingService, the reports' and the feedback's retention", () =>
       dao: new HousekeepingDaoFake(),
       expired: new ExpiredSuspensionsDaoFake(),
       suspensionEnded: new SuspensionEndedFake(),
+      sanctionFollowUp,
       reportRetention,
       feedbackRetention,
       clock: new ClockFake(NOW),
@@ -206,6 +235,22 @@ describe("HousekeepingService, the reports' and the feedback's retention", () =>
 
     expect(reportRetention.purges).toBe(1);
     expect(feedbackRetention.purges).toBe(1);
+  });
+
+  it("each sweep runs the measures' follow-up once (missed e-mails, due bans)", async () => {
+    await service.sweep();
+
+    expect(sanctionFollowUp.sweeps).toBe(1);
+  });
+
+  it('a follow-up that fails is logged and the sweep does not reject', async () => {
+    sanctionFollowUp.failure = new Error('smtp down');
+
+    await expect(service.sweep()).resolves.toBeUndefined();
+
+    expect(log.errors.map((entry) => entry.message)).toEqual([
+      'housekeeping sweep failed; retrying in an hour',
+    ]);
   });
 
   it("a feedback purge that fails is logged after the reports' one ran", async () => {

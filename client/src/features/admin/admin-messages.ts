@@ -96,5 +96,6 @@ export const REPORT_REASON_LABEL: Readonly<Record<UserReportReason, string>> = {
   cheating: 'Trapaça',
   inappropriate_content: 'Conteúdo impróprio',
   impersonation: 'Se passar por outra pessoa',
+  underage: 'Menor de 18 anos',
   other: 'Outro',
 };

@@ -8,8 +8,20 @@ import type {
   CampaignRemovalTransactionRunner,
 } from '../../src/modules/campaigns/campaign-settings.service';
 import type { PresenceReaderPort } from '../../src/modules/campaigns/presence-reader.port';
+import type { AccountVisibilityPort } from '../../src/modules/campaigns/account-visibility.port';
 import type { CampaignsDaoFake } from './campaigns-fakes';
 import type { StagedDeletionQueueFake } from './storage-deletions-fakes';
+
+/** Every account shows online except the invisible ones given.
+ *
+ *  Example: `new AccountVisibilityFake([BIA_ID]).isVisiblyOnline(BIA_ID) // false` */
+export class AccountVisibilityFake implements AccountVisibilityPort {
+  constructor(private readonly invisible: readonly string[] = []) {}
+
+  isVisiblyOnline(userId: string): boolean {
+    return !this.invisible.includes(userId);
+  }
+}
 
 /** Who is online, by campaign id; a table not listed has nobody.
  *

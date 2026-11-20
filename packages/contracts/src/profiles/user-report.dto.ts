@@ -18,6 +18,8 @@ export const USER_REPORT_REASONS = [
   'cheating',
   'inappropriate_content',
   'impersonation',
+  // ECA Digital: an account that seems to belong to someone under 18 (the service is 18+ only).
+  'underage',
   'other',
 ] as const;
 

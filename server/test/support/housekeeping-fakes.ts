@@ -46,6 +46,17 @@ export class SuspensionEndedFake implements SuspensionEndedPort {
 }
 
 /** Keeps every error the housekeeping logs. */
+/** The measures' follow-up of the hourly sweep: counts the sweeps; `failure` makes it throw. */
+export class SanctionFollowUpFake {
+  sweeps = 0;
+  failure: Error | null = null;
+
+  async sweep(): Promise<void> {
+    if (this.failure) throw this.failure;
+    this.sweeps += 1;
+  }
+}
+
 export class HousekeepingFailureLogFake implements HousekeepingFailureLog {
   readonly errors: Readonly<{ fields: object; message: string }>[] = [];
 

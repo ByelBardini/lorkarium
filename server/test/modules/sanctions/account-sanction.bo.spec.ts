@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   appealChangeOf,
+  banDeletionDueOf,
+  bansEmailFor,
   liftsSuspension,
   requireSanctionable,
+  suspends,
 } from '../../../src/modules/sanctions/account-sanction.bo';
 import { userPo } from '../../support/auth-factories';
 import { accountSanctionPo } from '../../support/sanctions-factories';
@@ -146,5 +149,30 @@ describe('liftsSuspension', () => {
 
   it('reverting a suspension that already ended lifts nothing', () => {
     expect(liftsSuspension(suspension, 'reverted', suspension.id, caio, NOW)).toBe(false);
+  });
+
+  it('reverting the latest ban of a suspended account lifts it too (a ban suspends)', () => {
+    const ban = accountSanctionPo({ kind: 'ban' });
+    expect(liftsSuspension(ban, 'reverted', ban.id, suspendedCaio, NOW)).toBe(true);
+  });
+});
+
+describe('a ban', () => {
+  it('deletes 15 days after it is applied (the appeal window of §14)', () => {
+    expect(banDeletionDueOf(NOW)).toEqual(new Date('2026-12-04T12:00:00Z'));
+  });
+
+  it('keeps the e-mail out for every rule but the minimum age', () => {
+    expect(bansEmailFor('harassment')).toBe(true);
+    expect(bansEmailFor('minimum_age')).toBe(false);
+  });
+
+  it.each([
+    ['suspension', true],
+    ['ban', true],
+    ['warning', false],
+    ['content_removal', false],
+  ] as const)('a %s suspends the account: %s', (kind, expected) => {
+    expect(suspends(kind)).toBe(expected);
   });
 });

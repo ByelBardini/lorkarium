@@ -14,6 +14,7 @@ import type { TwoFactorCheckService } from '../auth/two-factor-check.service';
 import { TwoFactorChallengesDao } from '../auth/two-factor-challenges.dao';
 import { TwoFactorDao } from '../auth/two-factor.dao';
 import { UsersDao } from '../auth/users.dao';
+import { BannedEmailIndexesDao } from '../sanctions/banned-email-indexes.dao';
 import { AccountRecoveryTokensDao } from './account-recovery-tokens.dao';
 import { registerAccountRecoveryRoutes } from './account-recovery.routes';
 import { AccountRecoveryService, type RecoveryTransactionRunner } from './account-recovery.service';
@@ -151,6 +152,7 @@ function createEmailChange(
     mailer: options.mailer,
     appPublicUrl: options.appPublicUrl,
     recovery: parts.recovery,
+    bannedEmails: new BannedEmailIndexesDao(options.db),
   });
 }
 

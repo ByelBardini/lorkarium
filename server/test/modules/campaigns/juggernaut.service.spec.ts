@@ -3,7 +3,7 @@ import { CampaignsService } from '../../../src/modules/campaigns/campaigns.servi
 import { JuggernautService } from '../../../src/modules/campaigns/juggernaut.service';
 import { ClockFake, PasswordHasherFake } from '../../support/auth-fakes';
 import { ANA_ID } from '../../support/auth-factories';
-import { PresenceReaderFake } from '../../support/campaign-settings-fakes';
+import { AccountVisibilityFake, PresenceReaderFake } from '../../support/campaign-settings-fakes';
 import {
   CampaignCodeFake,
   CampaignsDaoFake,
@@ -56,6 +56,7 @@ describe('JuggernautService', () => {
     const runner = new TransactionRunnerFake({ campaigns, members, scenes, conditions });
     const detail = new CampaignsService({
       ...{ campaigns, members, scenes, memberships: members, presence, clock },
+      visibility: new AccountVisibilityFake(),
       ...{
         transaction: runner.run,
         codes: new CampaignCodeFake([]),

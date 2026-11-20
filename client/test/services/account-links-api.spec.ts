@@ -13,10 +13,14 @@ describe('HttpAccountLinksApi', () => {
   });
 
   it('inspectInvitation POSTs the token and answers the address and the @', async () => {
-    transport.respondWith(200, { email: 'marina@exemplo.com', suggestedUsername: 'marina' });
+    transport.respondWith(200, {
+      email: 'marina@exemplo.com',
+      suggestedUsername: 'marina',
+      origin: 'admin',
+    });
     expect(await api.inspectInvitation('t1')).toEqual({
       ok: true,
-      value: { email: 'marina@exemplo.com', suggestedUsername: 'marina' },
+      value: { email: 'marina@exemplo.com', suggestedUsername: 'marina', origin: 'admin' },
     });
     expect(transport.requests[0]).toEqual({
       method: 'POST',

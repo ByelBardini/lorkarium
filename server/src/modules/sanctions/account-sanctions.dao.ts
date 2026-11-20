@@ -1,4 +1,15 @@
-import { and, desc, eq, getTableColumns } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  getTableColumns,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  or,
+} from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { DatabaseExecutor } from '../../database/transaction';
 import { users } from '../auth/users.po';
@@ -67,15 +78,70 @@ export class AccountSanctionsDao {
     return row;
   }
 
-  /** The id of the account's newest suspension, or null. */
-  async latestSuspensionIdOf(userId: string): Promise<string | null> {
+  /** The id of the account's newest suspending measure (a suspension or a ban), or null. */
+  async latestSuspendingIdOf(userId: string): Promise<string | null> {
+    const suspending = inArray(accountSanctions.kind, ['suspension', 'ban']);
     const [row] = await this.db
       .select({ id: accountSanctions.id })
       .from(accountSanctions)
-      .where(and(eq(accountSanctions.userId, userId), eq(accountSanctions.kind, 'suspension')))
+      .where(and(eq(accountSanctions.userId, userId), suspending))
       .orderBy(desc(accountSanctions.issuedAt), desc(accountSanctions.id))
       .limit(1);
     return row?.id ?? null;
+  }
+
+  /** A reverted ban deletes nothing anymore. */
+  async cancelDeletion(sanctionId: string): Promise<void> {
+    await this.db
+      .update(accountSanctions)
+      .set({ deletionDueAt: null })
+      .where(eq(accountSanctions.id, sanctionId));
+  }
+
+  /** "Reativar acesso" lifts every pending deletion of the account with its suspension. */
+  async cancelDeletionsOf(userId: string): Promise<void> {
+    await this.db
+      .update(accountSanctions)
+      .set({ deletionDueAt: null })
+      .where(and(eq(accountSanctions.userId, userId), isNotNull(accountSanctions.deletionDueAt)));
+  }
+
+  async markNotified(sanctionId: string, at: Date): Promise<void> {
+    await this.db
+      .update(accountSanctions)
+      .set({ notifiedAt: at })
+      .where(eq(accountSanctions.id, sanctionId));
+  }
+
+  /** Up to `limit` measures whose e-mail never left, the oldest first. */
+  async unnotified(limit: number): Promise<AccountSanctionPo[]> {
+    return this.db
+      .select()
+      .from(accountSanctions)
+      .where(isNull(accountSanctions.notifiedAt))
+      .orderBy(asc(accountSanctions.issuedAt))
+      .limit(limit);
+  }
+
+  /** Up to `limit` bans whose deletion is due at `now`: the person was told (the e-mail left) and
+   *  no appeal waits for its decision (none arrived, or it was upheld). */
+  async dueBans(now: Date, limit: number): Promise<AccountSanctionPo[]> {
+    const noPendingAppeal = or(
+      isNull(accountSanctions.appealReceivedAt),
+      eq(accountSanctions.appealOutcome, 'upheld'),
+    );
+    return this.db
+      .select()
+      .from(accountSanctions)
+      .where(
+        and(
+          lte(accountSanctions.deletionDueAt, now),
+          isNotNull(accountSanctions.notifiedAt),
+          noPendingAppeal,
+        ),
+      )
+      .orderBy(asc(accountSanctions.deletionDueAt))
+      .limit(limit);
   }
 
   async recordAppeal(sanctionId: string, change: AppealColumns): Promise<void> {

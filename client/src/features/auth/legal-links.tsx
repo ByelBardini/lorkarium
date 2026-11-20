@@ -11,7 +11,7 @@ export function LegalLinks(): React.JSX.Element {
   return (
     <nav
       aria-label="Documentos legais"
-      className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-placeholder"
+      className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-placeholder"
     >
       <LegalDocumentLink document="terms" className={LINK_CLASS} />
       <span aria-hidden="true">·</span>

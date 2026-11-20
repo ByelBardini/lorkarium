@@ -1,12 +1,15 @@
 import {
   accessRestoredMail,
+  accountExistsMail,
   invitationMail,
   passwordLinkMail,
+  signUpLinkMail,
   promotedToAdminMail,
 } from './admin-mail.mapper';
 import {
   accountBannedMail,
   accountSuspendedForMail,
+  ageRemovalMail,
   contentRemovedMail,
   sanctionWarningMail,
 } from '../sanctions/sanction-mail.mapper';
@@ -51,7 +54,10 @@ function broadcastSample(person: MailRecipient, publicUrl: string): MailMessage 
 // A measure as the backoffice would write it; the sample has no reply-to (the env's).
 function sanctionSamples(to: string, publicUrl: string, siteUrl: string, at: Date): MailSample[] {
   const pedro = { to, name: 'Pedro', username: 'pedrinho' };
-  const measure = { person: pedro, publicUrl, siteUrl, replyTo: null, until: null } as const;
+  const measure = {
+    ...{ person: pedro, publicUrl, siteUrl, replyTo: null },
+    ...{ until: null, deletionDueAt: null },
+  } as const;
   const harassment = 'Mandou mensagens ameaçando um jogador real no chat da mesa "Vharn".';
   const until = new Date(at.getTime() + 7 * 24 * 60 * 60_000);
   const spam = {
@@ -65,12 +71,19 @@ function sanctionSamples(to: string, publicUrl: string, siteUrl: string, at: Dat
     statement: 'O mapa "Forte" de um livro pago.',
   } as const;
   const suspension = { ...measure, rule: 'harassment', statement: harassment, until } as const;
-  const ban = { ...measure, rule: 'harassment', statement: harassment } as const;
+  const deletionDueAt = new Date(at.getTime() + 15 * 24 * 60 * 60_000);
+  const ban = { ...measure, rule: 'harassment', statement: harassment, deletionDueAt } as const;
+  const age = {
+    ...{ ...measure, deletionDueAt },
+    rule: 'minimum_age',
+    statement: 'Disse no chat da mesa "Vharn" que tem 15 anos.',
+  } as const;
   return [
     sample('sanction-warning', 'Aviso por violação', sanctionWarningMail(spam)),
     sample('content-removed', 'Conteúdo removido', contentRemovedMail(removal)),
     sample('account-suspended', 'Conta suspensa', accountSuspendedForMail(suspension)),
-    sample('account-banned', 'Conta excluída por violação', accountBannedMail(ban)),
+    sample('account-banned', 'Exclusão por violação agendada', accountBannedMail(ban)),
+    sample('account-age-removal', 'Exclusão por idade agendada', ageRemovalMail(age)),
   ];
 }
 
@@ -79,7 +92,7 @@ function sanctionSamples(to: string, publicUrl: string, siteUrl: string, at: Dat
  *  notices: the moment of the send, so the sample reads like a real one. `siteUrl` is the
  *  landing, where the measures' rule links go.
  *
- *  Example: `mailSamples('preview@lorkarium.dev', 'http://localhost:5173', clock.now(), 'http://localhost:4321').length // 16` */
+ *  Example: `mailSamples('preview@lorkarium.dev', 'http://localhost:5173', clock.now(), 'http://localhost:4321').length // 17` */
 export function mailSamples(
   to: string,
   publicUrl: string,
@@ -136,10 +149,28 @@ function backofficeSamples(
         publicUrl,
       }),
     ),
+    ...signUpSamples(to, publicUrl, lucas),
     sample(
       'password-link',
       'Link de nova senha',
-      passwordLinkMail({ person: lucas, link: resetLink, validFor: { hours: 1 }, publicUrl }),
+      passwordLinkMail({
+        person: lucas,
+        link: resetLink,
+        validFor: { hours: 1 },
+        publicUrl,
+        requestedBy: 'admin',
+      }),
+    ),
+    sample(
+      'password-link-requested',
+      'Link de nova senha (pedido pela pessoa)',
+      passwordLinkMail({
+        person: lucas,
+        link: resetLink,
+        validFor: { hours: 1 },
+        publicUrl,
+        requestedBy: 'self',
+      }),
     ),
     ...measures,
     sample('access-restored', 'Acesso reativado', accessRestoredMail({ person: pedro, publicUrl })),
@@ -162,4 +193,16 @@ function feedbackSample(person: MailRecipient, publicUrl: string): MailMessage {
 
 function sample(id: string, name: string, message: MailMessage): MailSample {
   return { id, name, message };
+}
+
+// The two e-mails of the public sign-up: the confirmation link and the "you already have one".
+function signUpSamples(to: string, publicUrl: string, person: MailRecipient): MailSample[] {
+  const link = `${publicUrl}/sign-up/confirm#token=amostra`;
+  const resetLink = `${publicUrl}/reset-password#token=amostra`;
+  const confirmation = signUpLinkMail({ to, link, validFor: { hours: 24 }, publicUrl });
+  const exists = accountExistsMail({ person, link: resetLink, validFor: { hours: 1 }, publicUrl });
+  return [
+    sample('sign-up-link', 'Confirmação do cadastro', confirmation),
+    sample('account-exists', 'Você já tem conta (cadastro)', exists),
+  ];
 }

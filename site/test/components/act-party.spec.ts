@@ -31,10 +31,12 @@ describe('ActParty', () => {
     expect(titles).toEqual(['Personagens da mesa', 'Amigos e perfil']);
   });
 
-  it('asks for an invite by e-mail', async () => {
+  it('sends to the sign-up page of the app, with no invite left', async () => {
     const act = await renderAstro(ActParty);
 
-    const invite = act.querySelector('a[href^="mailto:contato@lorkarium.test"]');
-    expect(invite?.textContent?.trim()).toBe('Pedir convite');
+    const signUp = act.querySelector('a[href="https://mesa.lorkarium.test/sign-up"]');
+    expect(signUp?.textContent?.trim()).toBe('Criar conta');
+    expect(act.body.textContent).not.toMatch(/convite/i);
+    expect(act.querySelector('a[href^="mailto:"]')).toBeNull();
   });
 });

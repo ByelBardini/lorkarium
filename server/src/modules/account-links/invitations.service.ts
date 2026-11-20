@@ -4,9 +4,9 @@ import type {
   CreateInvitationRequestDto,
   InvitationInspectResponseDto,
   InvitationLinkResponseDto,
+  InvitationOriginDto,
 } from '@lorkarium/contracts';
 import { isUniqueViolation } from '../../lib/postgres-error';
-import { invitationMail } from '../account-security/admin-mail.mapper';
 import type { SecurityNoticesService } from '../account-security/security-notices.service';
 import { emailIndexOf, toSealedEmail } from '../auth/auth.mapper';
 import type { AuthService, IssuedSession } from '../auth/auth.service';
@@ -19,7 +19,7 @@ import type { UsersDao } from '../auth/users.dao';
 import type { UserPo } from '../auth/users.po';
 import { banLapseCutOf } from '../sanctions/account-sanction.bo';
 import type { BannedEmailIndexesDao } from '../sanctions/banned-email-indexes.dao';
-import { INVITATION_TTL_MS, linkExpiry } from './account-link.bo';
+import { invitationTtlOf, linkExpiry } from './account-link.bo';
 import {
   AccountLinkInvalidError,
   AlreadyInvitedError,
@@ -30,7 +30,8 @@ import {
 } from './account-links.error';
 import {
   invitationEmailOf,
-  linkOf,
+  invitationLinkOf,
+  invitationMailOf,
   termsAcceptanceAt,
   toAccountLinkBo,
   toAdminInvitationDto,
@@ -111,17 +112,20 @@ export class InvitationsService {
         emailCipher: this.deps.cipher.seal('invitation-email', input.email, id),
         emailIndex,
         role: invitedRole,
+        origin: 'admin',
         invitedBy: inviter.id,
-        ...this.terms(),
+        ...this.terms('admin'),
       }),
     );
     return this.mailed(id, token);
   }
 
-  /** A new token and 7 more days: the old link dies. */
+  /** A new token and a new deadline (by the origin): the old link dies. */
   async resend(invitationId: string): Promise<InvitationLinkResponseDto> {
+    const listing = await this.deps.invitations.findListing(invitationId);
+    if (!listing) throw new InvitationNotFoundError(invitationId);
     const token = this.deps.linkTokens.generate();
-    const renewal = { tokenHash: this.deps.linkTokens.hash(token), ...this.terms() };
+    const renewal = { tokenHash: this.deps.linkTokens.hash(token), ...this.terms(listing.origin) };
     const renewed = await this.deps.invitations.renew(invitationId, renewal);
     if (!renewed) throw new InvitationNotFoundError(invitationId);
     return this.mailed(invitationId, token);
@@ -137,7 +141,7 @@ export class InvitationsService {
     const email = invitationEmailOf(row, this.deps.cipher);
     const prefix = usernameLookupPrefix(usernameStemOf(email));
     const taken = await this.deps.users.usernamesStartingWith(prefix);
-    return { email, suggestedUsername: usernameFromEmail(email, taken) };
+    return { email, suggestedUsername: usernameFromEmail(email, taken), origin: row.origin };
   }
 
   /** The account is born from the invitation (the nickname equal to the @) and signed in. */
@@ -201,26 +205,19 @@ export class InvitationsService {
     }
   }
 
-  private terms(): Readonly<{ sentAt: Date; expiresAt: Date }> {
+  private terms(origin: InvitationOriginDto): Readonly<{ sentAt: Date; expiresAt: Date }> {
     const now = this.deps.clock.now();
-    return { sentAt: now, expiresAt: linkExpiry(now, INVITATION_TTL_MS) };
+    return { sentAt: now, expiresAt: linkExpiry(now, invitationTtlOf(origin)) };
   }
 
   private async mailed(invitationId: string, token: string): Promise<InvitationLinkResponseDto> {
     const listing = await this.deps.invitations.findListing(invitationId);
     if (!listing) throw new InvitationNotFoundError(invitationId);
     const invitation = toAdminInvitationDto(listing, this.deps.cipher);
-    const link = linkOf(this.deps.appPublicUrl, '/invite', token);
     const publicUrl = this.deps.appPublicUrl;
-    const validFor = { days: INVITATION_TTL_MS / DAY_MS };
-    await this.deps.notices.send(
-      invitationMail({
-        to: invitation.email,
-        link,
-        validFor,
-        publicUrl,
-      }),
-    );
+    const link = invitationLinkOf(publicUrl, listing.origin, token);
+    const mail = invitationMailOf(listing.origin, { to: invitation.email, link, publicUrl });
+    await this.deps.notices.send(mail);
     return { invitation, link };
   }
 
@@ -231,5 +228,3 @@ export class InvitationsService {
     return row;
   }
 }
-
-const DAY_MS = 24 * 60 * 60 * 1000;

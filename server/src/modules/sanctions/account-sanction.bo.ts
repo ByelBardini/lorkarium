@@ -20,6 +20,25 @@ export function banLapseCutOf(now: Date): Date {
   return new Date(now.getTime() - BANNED_EMAIL_KEPT_MS);
 }
 
+// Use policy §14: the appeal is answered in 15 days; a ban waits as long before it deletes, so the
+// person can appeal while the account (and the proof) still exists.
+export const BAN_APPEAL_WINDOW_MS = 15 * 24 * 60 * 60_000;
+
+/** When a ban applied at `now` deletes the account, unless an appeal holds it.
+ *
+ *  Example: `banDeletionDueOf(new Date('2026-11-20T12:00:00Z')) // 2026-12-05T12:00:00.000Z` */
+export function banDeletionDueOf(now: Date): Date {
+  return new Date(now.getTime() + BAN_APPEAL_WINDOW_MS);
+}
+
+/** Whether a ban for `rule` keeps the e-mail out for 5 years: not one for the minimum age, which
+ *  is no misconduct (the person may come back at 18).
+ *
+ *  Example: `bansEmailFor('minimum_age') // false` */
+export function bansEmailFor(rule: AccountSanctionPo['rule']): boolean {
+  return rule !== 'minimum_age';
+}
+
 type SanctionKind = AccountSanctionPo['kind'];
 type AppealOutcome = NonNullable<AccountSanctionPo['appealOutcome']>;
 
@@ -86,17 +105,25 @@ export function appealChangeOf(
   };
 }
 
-/** A reverted suspension ends the suspension only when it is the account's latest one and still
- *  holds; an older one, an ended one or any other kind is only recorded.
+/** A reverted suspension or ban (a ban suspends too) ends the suspension only when it is the
+ *  account's latest suspending measure and still holds; an older one, an ended one or any other
+ *  kind is only recorded.
  *
  *  Example: `liftsSuspension(sanction, 'reverted', latestId, caio, now) // true` */
 export function liftsSuspension(
   sanction: Pick<AccountSanctionPo, 'id' | 'kind'>,
   outcome: AppealOutcome | 'received',
-  latestSuspensionId: string | null,
+  latestSuspendingId: string | null,
   target: SanctionTarget,
   now: Date,
 ): boolean {
-  if (outcome !== 'reverted' || sanction.kind !== 'suspension') return false;
-  return sanction.id === latestSuspensionId && new UserAccessBo(target).isSuspendedAt(now);
+  if (outcome !== 'reverted' || !suspends(sanction.kind)) return false;
+  return sanction.id === latestSuspendingId && new UserAccessBo(target).isSuspendedAt(now);
+}
+
+/** Whether a measure of `kind` suspends the account: a suspension, and a ban until it deletes.
+ *
+ *  Example: `suspends('ban') // true` */
+export function suspends(kind: SanctionKind): boolean {
+  return kind === 'suspension' || kind === 'ban';
 }

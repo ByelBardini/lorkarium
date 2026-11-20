@@ -18,6 +18,7 @@ import { createAppUpdateStore } from '@/stores/app-update-store';
 import { createDicePreferencesStore } from '@/stores/dice-preferences-store';
 import { createChatPreferencesStore } from '@/stores/chat-preferences-store';
 import { AccountLinksApiFake } from './account-links-api-fake';
+import { SignUpApiFake } from './sign-up-api-fake';
 import { AccountPlanApiFake } from './account-plan-api-fake';
 import { BillingApiFake, BillingWaitsFake, CheckoutNavigationFake } from './billing-api-fake';
 import { DataExportApiFake } from './data-export-api-fake';
@@ -88,6 +89,7 @@ export type TestDependencies = AppDependencies & {
   broadcastsApi: BroadcastsApiFake;
   badgesAdminApi: BadgesAdminApiFake;
   accountLinksApi: AccountLinksApiFake;
+  signUpApi: SignUpApiFake;
   libraryApi: LibraryApiFake;
   libraryMapsApi: LibraryMapsApiFake;
   documentsApi: DocumentsApiFake;
@@ -250,6 +252,7 @@ export function testDependencies(): TestDependencies {
     broadcastsApi: new BroadcastsApiFake(),
     badgesAdminApi: new BadgesAdminApiFake(),
     accountLinksApi: new AccountLinksApiFake(),
+    signUpApi: new SignUpApiFake(),
     libraryApi: new LibraryApiFake(),
     libraryMapsApi,
     documentsApi,

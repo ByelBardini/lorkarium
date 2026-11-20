@@ -17,9 +17,9 @@ export interface StepCopy {
 export interface FaqCopy {
   question: string;
   answer: string;
-  /** Answers that ask for an invite end with the "Pedir convite" e-mail link. */
-  invite?: boolean;
-  /** A page the answer ends with, after the invite link (a page of the site or the repository). */
+  /** Answers that send to the sign-up end with the "Criar conta" link to the app. */
+  signUp?: boolean;
+  /** A page the answer ends with, after the sign-up link (a page of the site or the repository). */
   link?: { label: string; href: string };
 }
 
@@ -277,8 +277,8 @@ const encounter: EncounterCopy = {
 
 const steps: StepCopy[] = [
   {
-    title: 'Peça o convite',
-    text: 'O acesso é por convite. Com o link, você escolhe seu nome de usuário e a senha e entra pelo aplicativo para Windows ou pelo navegador.',
+    title: 'Crie sua conta',
+    text: 'Cadastre-se com o seu e-mail e abra o link que chega nele. Lá você escolhe seu nome de usuário e a senha e entra pelo aplicativo para Windows ou pelo navegador.',
   },
   {
     title: 'Passe o código',
@@ -292,7 +292,7 @@ const steps: StepCopy[] = [
 
 const requirements: RequirementCopy[] = [
   { label: 'Sistema', value: 'Windows 10 ou 11, 64 bits' },
-  { label: 'Conta', value: 'Acesso por convite' },
+  { label: 'Conta', value: 'Grátis, pelo e-mail' },
   { label: 'Instalação', value: 'Sem permissão de administrador' },
   { label: 'Internet', value: 'Conexão necessária durante a sessão' },
 ];
@@ -313,8 +313,8 @@ const faqs: FaqCopy[] = [
   {
     question: 'Como consigo uma conta?',
     answer:
-      'O acesso é por convite. Solicite um pelo e-mail de contato. Ao receber o link, você poderá criar seu nome de usuário e sua senha.',
-    invite: true,
+      'O cadastro é feito pelo app, com o seu e-mail, e é só para maiores de 18 anos. Abra o link que chega no e-mail para escolher seu nome de usuário e sua senha.',
+    signUp: true,
   },
   {
     question: 'Funciona no Mac, no Linux ou no celular?',
@@ -379,12 +379,10 @@ export function actById(id: ActId): ActCopy {
   return act;
 }
 
-export const INVITE_SUBJECT = 'Convite para o Lorkarium';
-
 /**
- * The `mailto:` that asks for an invite, with the subject filled in.
- * Example: `inviteMailto('contato@lorkarium.com.br') // 'mailto:contato@…?subject=Convite%20para%20o%20Lorkarium'`
+ * The sign-up page of the app, where an account is created by e-mail.
+ * Example: `signUpUrlOf('https://mesa.lorkarium.com.br') // 'https://mesa.lorkarium.com.br/sign-up'`
  */
-export function inviteMailto(contactEmail: string): string {
-  return `mailto:${contactEmail}?subject=${encodeURIComponent(INVITE_SUBJECT)}`;
+export function signUpUrlOf(appUrl: string): string {
+  return new URL('/sign-up', appUrl).href;
 }

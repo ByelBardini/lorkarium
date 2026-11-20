@@ -217,6 +217,21 @@ describe('backoffice over the accounts (/api/admin/users)', () => {
       expect((await call('GET', '/auth/me', ana.token)).json()).not.toEqual({ user: null });
     });
 
+    it('?includeSharedCampaigns=true deletes Ana with Vharn, even with Caio in it', async () => {
+      const vharn = await createTable(app, ana, 'Vharn');
+      await joinByCode(app, caio, vharn);
+
+      const url = `/admin/users/${ana.id}?includeSharedCampaigns=true`;
+      expect((await call('DELETE', url, admin.token)).statusCode).toBe(204);
+
+      const left = await connection.db.execute(
+        sql`SELECT count(*)::int AS n FROM campaigns WHERE id = ${vharn.id}`,
+      );
+      expect(left.rows[0]).toEqual({ n: 0 });
+      const wrong = `/admin/users/${caio.id}?includeSharedCampaigns=yes`;
+      expect((await call('DELETE', wrong, admin.token)).statusCode).toBe(400);
+    });
+
     it("deleting Bia, a member of Ana's table, keeps the table and Caio's own table intact", async () => {
       const vharn = await createTable(app, ana, 'Vharn');
       const quelm = await createTable(app, caio, 'Quelm');
@@ -276,7 +291,7 @@ describe('backoffice over the accounts (/api/admin/users)', () => {
   describe('mail test', () => {
     it('the admin lists the 17 system e-mails and a player is 403', async () => {
       const response = await call('GET', '/admin/mail-samples', admin.token);
-      expect(mailSamplesResponseDto.parse(response.json()).samples).toHaveLength(17);
+      expect(mailSamplesResponseDto.parse(response.json()).samples).toHaveLength(21);
       expect(codeOf(await call('GET', '/admin/mail-samples', ana.token))).toBe('FORBIDDEN_ROLE');
     });
 

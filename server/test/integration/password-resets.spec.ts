@@ -127,4 +127,58 @@ describe('new-password link from the backoffice', () => {
     await post('/password-resets/complete', { token, newPassword: NEW_PASSWORD });
     expect((await login(NEW_PASSWORD)).json()).toEqual({ status: 'two-factor-required' });
   });
+
+  describe('"Esqueci minha senha" (POST /password-resets/request, sign-up closed)', () => {
+    const RESET_LINK = /\/reset-password#token=([^\s"<]+)/;
+
+    function ask(identifier: string): Promise<LightMyRequestResponse> {
+      return post('/password-resets/request', { identifier, humanCheckToken: 'tok' });
+    }
+
+    it.each([
+      ['an existing e-mail', 'Bia@Mesa.com', 1],
+      ['an existing @', '@bia', 1],
+      ['an unknown e-mail', 'ninguem@mesa.com', 0],
+    ])('%s: the same 202 with no body', async (_case, identifier, mails) => {
+      const response = await ask(identifier);
+      expect(response.statusCode).toBe(202);
+      expect(response.body).toBe('');
+      expect(mailer.to('bia@mesa.com')).toHaveLength(mails);
+    });
+
+    it('a suspended account: the same 202 and no e-mail', async () => {
+      await connection.db
+        .update(users)
+        .set({ suspendedAt: new Date() })
+        .where(eq(users.id, bia.id));
+      const response = await ask('bia');
+      expect(response.statusCode).toBe(202);
+      expect(response.body).toBe('');
+      expect(mailer.to('bia@mesa.com')).toEqual([]);
+    });
+
+    it('the mailed link sets the new password through complete', async () => {
+      await ask('bia');
+      const token = mailer.lastTokenFor('bia@mesa.com', RESET_LINK);
+      const done = await post('/password-resets/complete', { token, newPassword: NEW_PASSWORD });
+      expect(done.statusCode).toBe(204);
+      expect((await login(NEW_PASSWORD)).statusCode).toBe(200);
+    });
+
+    it('an invalid body is 400 INVALID_BODY', async () => {
+      const response = await post('/password-resets/request', { identifier: 'bia' });
+      expect(response.statusCode).toBe(400);
+      expect(apiErrorDto.parse(response.json()).code).toBe('INVALID_BODY');
+    });
+
+    it('the 6th request of an IP in 10 minutes is 429 RATE_LIMITED', async () => {
+      for (let attempt = 1; attempt <= 5; attempt += 1) {
+        expect((await ask(`pessoa${attempt}@mesa.com`)).statusCode).toBe(202);
+      }
+      const response = await ask('pessoa6@mesa.com');
+      expect(response.statusCode).toBe(429);
+      expect(Number(response.headers['retry-after'])).toBeGreaterThan(0);
+      expect(apiErrorDto.parse(response.json()).code).toBe('RATE_LIMITED');
+    });
+  });
 });
