@@ -20,7 +20,8 @@ O Lorkarium é uma ferramenta: não vendemos nem fornecemos livros, aventuras, r
 
 ## 3. Sua conta
 
-- **Idade mínima**: o Lorkarium é só para maiores de 18 anos. Ao criar a conta, você declara ter 18 anos ou mais.
+- **Idade mínima**: o Lorkarium é só para maiores de 18 anos. Ao criar a conta, você declara ter 18 anos ou mais. Se soubermos que uma conta é de alguém com menos de 18 anos, ela é suspensa e excluída como diz a seção 8.
+- **Classificação indicativa**: não recomendado para menores de 18 anos (autoclassificação). As mesas podem tratar de violência, terror e outros temas pesados, e o Lorkarium tem chat, mensagens privadas e mesas públicas com pessoas que você não conhece.
 - **Cadastro**: você cria a conta pelo app com um e-mail que é seu e o confirma pelo link que mandamos para ele. Também podemos convidar pessoas pelo e-mail. Podemos recusar ou encerrar um cadastro que viole estes termos.
 - **Dados verdadeiros**: informe um e-mail que é seu e mantenha-o atualizado; é por ele que você recupera o acesso e recebe os avisos de segurança e de cobrança.
 - **Uma conta por pessoa**: a conta é pessoal e intransferível. Não compartilhe sua senha nem use a conta de outra pessoa. Uma conta secundária é permitida só para testar a sua própria mesa; as demais regras sobre contas estão na [Política de uso aceitável](/uso/).
@@ -40,7 +41,7 @@ O Lorkarium é uma ferramenta: não vendemos nem fornecemos livros, aventuras, r
 - **O conteúdo continua sendo seu.** Para o Lorkarium funcionar, você nos dá uma licença gratuita, não exclusiva e limitada ao tempo em que o conteúdo estiver no serviço, para guardá-lo, copiá-lo, convertê-lo de formato, redimensioná-lo e exibi-lo a quem você escolheu mostrá-lo. Não usamos seu conteúdo para divulgação do Lorkarium sem a sua autorização, e não o usamos para treinar inteligência artificial.
 - **Você garante que pode usar o que envia.** Mapas, artes, tokens e trechos de livros costumam ter direitos autorais (Lei nº 9.610/1998). Só envie o que você criou, o que tem licença para usar ou o que a lei permite usar. As regras sobre livros comerciais e conteúdo gerado por IA estão na [Política de uso aceitável](/uso/).
 - **Imagens por link**: ao importar uma imagem por um endereço da internet, o Lorkarium baixa e guarda uma cópia dela na mesa. A responsabilidade pelo direito de uso é sua.
-- Não conferimos o conteúdo antes de ele ser publicado e não respondemos pelo conteúdo criado pelos usuários, mas agimos quando recebemos uma denúncia (seção 7).
+- Não conferimos o conteúdo antes de ele ser publicado. Quem cria ou envia um conteúdo responde por ele; quando somos notificados de um conteúdo ilícito ou que viola estes termos, agimos como diz a seção 7.
 
 ## 6. O que não é permitido
 
@@ -48,13 +49,22 @@ As regras de conduta estão na [Política de uso aceitável](/uso/). Em resumo, 
 
 Estas regras valem para o uso do serviço Lorkarium. O que você pode fazer com o código do Lorkarium é dito pela licença dele (seção 12), não por estes termos.
 
-## 7. Denúncias e remoção de conteúdo
+## 7. Denúncias, notificações e remoção de conteúdo
 
-Para denunciar uma conta ou uma conduta, use o botão de denúncia no card de perfil da pessoa ou escreva para o e-mail de contato no rodapé deste site, informando a mesa ou a conta envolvida, o conteúdo e o motivo. Em casos de direito autoral, inclua a prova de que você é o titular ou o representante dele.
+Qualquer pessoa, com ou sem conta no Lorkarium, pode nos notificar de um conteúdo ilícito ou que viole estes termos:
 
-- Analisamos as denúncias e aplicamos as medidas da [Política de uso aceitável](/uso/), conforme a gravidade.
+- **Quem tem conta**: pelo botão de denúncia no card de perfil da pessoa, escolhendo o motivo (inclusive "Parece ter menos de 18 anos").
+- **Qualquer pessoa**: pelo e-mail de contato no rodapé deste site.
+
+**O que informar**: seu nome e um e-mail para resposta; a conta, a mesa ou o lugar onde está o conteúdo; o que é o conteúdo; e por que ele é ilícito ou viola as regras. Em casos de direito autoral, inclua a prova de que você é o titular ou o representante dele. As mensagens privadas e o chat não ficam guardados no servidor: o print da conversa é a prova.
+
+**O que fazemos**:
+
+- Confirmamos o recebimento da notificação feita por e-mail. Cada notificação é analisada por uma pessoa, nunca só por um sistema automático, e aplicamos as medidas da [Política de uso aceitável](/uso/), conforme a gravidade.
+- Avisamos quem notificou quando a análise termina. A medida tomada não é revelada, para proteger também a outra pessoa.
+- Quem recebe a medida é avisado por e-mail, com a regra violada, o motivo e o caminho da contestação. Quem notificou não é identificado para a pessoa notificada.
+- Conteúdo de abuso ou exploração sexual de crianças ou adolescentes, terrorismo, indução ao suicídio ou à automutilação, discriminação ou violência contra a mulher é removido assim que o recebemos. O de abuso infantil também é comunicado às autoridades.
 - Imagens de nudez ou de atos sexuais de caráter privado divulgadas sem autorização são removidas após a notificação da vítima ou de quem a represente, como manda o art. 21 do Marco Civil da Internet.
-- Conteúdo de abuso ou exploração sexual de crianças ou adolescentes é removido e comunicado às autoridades.
 - Cumprimos ordens judiciais de remoção de conteúdo e de fornecimento de dados, nos termos da lei.
 
 ## 8. Suspensão e encerramento
@@ -62,7 +72,9 @@ Para denunciar uma conta ou uma conduta, use o botão de denúncia no card de pe
 - **Por você**: você pode parar de usar o Lorkarium quando quiser e pedir a exclusão da conta em <privacidade@evolutivasistemas.com.br>. Se você tiver um plano pago ativo, avisamos antes de excluir: ao confirmar, você abre mão do tempo pago que falta, e a renovação é cancelada. O que acontece com os seus dados está na [Política de privacidade](/privacidade/).
 - **Por nós**: podemos avisar, remover conteúdo, suspender ou excluir uma conta que viole estes termos, a [Política de uso aceitável](/uso/) ou a lei. Em casos graves, como risco à segurança de outras pessoas ou do serviço, a medida é imediata. Toda medida é comunicada por e-mail, com a regra violada, o motivo, o prazo (quando houver) e o caminho da contestação: basta responder a esse e-mail. A contestação é respondida em até 15 dias.
 - **Suspensão temporária**: a suspensão com data marcada termina sozinha nessa data, e você recebe um e-mail quando o acesso volta. Enquanto ela dura, você não entra no Lorkarium, mas o seu plano pago não é tocado: o período continua correndo e a renovação segue como estava.
-- **Exclusão por violação**: só a exclusão da conta por violar estes termos ou a Política de uso aceitável faz perder o tempo pago que falta; a renovação é cancelada antes da exclusão. Uma conta excluída por violação não pode ser recriada com o mesmo e-mail. O direito de arrependimento da seção 9 continua valendo se a contratação estiver dentro dos 7 dias.
+- **Exclusão por violação**: a conta é suspensa na hora e excluída 15 dias depois, se você não contestar. Com uma contestação, a exclusão espera a revisão; se a contestação for aceita, a conta volta. A renovação é cancelada na hora. Só a exclusão da conta por violar estes termos ou a Política de uso aceitável faz perder o tempo pago que falta. Uma conta excluída por violação não pode ser recriada com o mesmo e-mail por 5 anos, nem receber esse e-mail numa troca de endereço. O direito de arrependimento da seção 9 continua valendo se a contratação estiver dentro dos 7 dias.
+- **Menor de 18 anos**: a conta de quem tem menos de 18 anos é suspensa e excluída da mesma forma. Se a pessoa provar pela contestação que tem 18 anos ou mais, a conta volta. Se houver plano pago, devolvemos o valor integral, e o e-mail não fica bloqueado.
+- **Mesas com outros membros**: se você for dono de mesas em que outras pessoas jogam, antes de excluir a sua conta combinamos com você o que fazer com elas. Elas podem ser excluídas junto, e os membros perdem o acesso.
 - **Fim do serviço**: se decidirmos encerrar o Lorkarium, avisaremos com pelo menos 30 dias de antecedência, paramos as renovações e devolvemos, proporcionalmente, o valor do período pago que não poderá ser usado.
 
 ## 9. Planos e pagamento
@@ -70,11 +82,11 @@ Para denunciar uma conta ou uma conduta, use o botão de denúncia no card de pe
 - **Planos.** O plano **Grátis** não tem custo. Os planos pagos (**Apoiador**, **Narrador** e **Lenda**) liberam mais mesas, mais armazenamento e mais recursos, e podem ser mensais, semestrais ou anuais. O que cada plano libera e quanto custa está na página [Planos](/planos/); os limites de um plano podem ser mostrados lá.
 - **Pagamento.** O pagamento é feito no checkout do **Mercado Pago**, por cartão ou Pix. Nenhum dado de cartão passa pelo Lorkarium. O comprovante é o do Mercado Pago; por enquanto, não emitimos nota fiscal.
 - **Cartão renova sozinho.** No cartão, o plano é renovado e cobrado automaticamente no fim de cada período, pelo mesmo valor, até você cancelar. **No Pix**, o pagamento vale pelo período contratado e não se renova.
-- **Cancelar a renovação.** Você pode cancelar a renovação a qualquer momento, em "Seu plano". O plano continua valendo até o fim do período já pago, e nada mais é cobrado.
+- **Cancelar a renovação.** Você pode cancelar a renovação a qualquer momento, em Minha conta, na seção "Seu plano". O plano continua valendo até o fim do período já pago, e nada mais é cobrado.
 - **Carência.** Terminado o período pago sem renovação, o plano ainda vale por mais 7 dias, para dar tempo de pagar de novo.
 - **Upgrade.** Ao contratar um plano maior, ele vale na hora. O tempo que sobrava do plano menor não é reembolsado: ele volta, com o mesmo tamanho, quando o plano maior terminar.
 - **Queda de plano.** Quando o plano termina ou cai para um menor, nada é apagado: o que passa dos limites do plano novo fica só para leitura, até você liberar espaço ou voltar a um plano que o comporte.
-- **Arrependimento (art. 49 do CDC).** Você pode desistir da **primeira contratação de cada plano** em até 7 dias, com reembolso integral, pedindo pelo e-mail de contato no rodapé deste site. As **renovações** não têm reembolso, nem proporcional; para não ser cobrado de novo, cancele a renovação antes do fim do período.
+- **Arrependimento (art. 49 do CDC).** Você pode desistir de **toda compra que você mesmo faz**, em até 7 dias, com reembolso integral, pedindo pelo e-mail de contato no rodapé deste site. Isso vale para cada assinatura nova no cartão e para cada pagamento por Pix. A **renovação automática do cartão** não tem reembolso, nem proporcional; para não ser cobrado de novo, cancele a renovação antes do fim do período.
 - **Contestação de pagamento (chargeback).** Se um pagamento for contestado junto ao banco ou ao Mercado Pago, o plano pago termina na hora e a conta volta ao Grátis, sem nada apagado. A suspensão da conta fica reservada a fraude repetida.
 - **Mudança de preço ou das condições.** Avisaremos por e-mail com pelo menos **30 dias de antecedência**, e a mudança só vale a partir da renovação seguinte ao aviso. Até lá, o seu plano segue como foi contratado.
 - **Mesa paga.** O mestre pode cobrar dos jogadores para conduzir uma mesa. Essa cobrança é combinada entre eles, fora do Lorkarium: nós não participamos dela nem respondemos por ela.
@@ -97,7 +109,7 @@ O aplicativo para Windows faz parte do código aberto do Lorkarium e segue a mes
 
 Estes termos não afastam os direitos que o Código de Defesa do Consumidor (Lei nº 8.078/1990) garante a você. Dentro do que a lei permite, não respondemos por:
 
-- conteúdo criado, enviado ou compartilhado pelos usuários, inclusive em mensagens privadas e fichas com código;
+- conteúdo criado, enviado ou compartilhado pelos usuários, inclusive em mensagens privadas e fichas com código, ressalvado o que a lei nos atribui depois de notificados (seção 7);
 - perdas causadas pelo próprio usuário ou por membros da mesa, como a exclusão de uma mesa pelo dono, ou pelo uso indevido da sua senha que não tenha sido causado por falha nossa;
 - combinados entre usuários, como a cobrança de uma mesa paga;
 - interrupções causadas por manutenção, por serviços de terceiros, pela sua conexão ou por motivos de força maior.
