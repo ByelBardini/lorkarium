@@ -1,4 +1,8 @@
-import { LEGAL_DOCUMENTS_VERSION, type AdminInvitationDto } from '@lorkarium/contracts';
+import {
+  LEGAL_DOCUMENTS_VERSION,
+  type AdminInvitationDto,
+  type InvitationOriginDto,
+} from '@lorkarium/contracts';
 import type { DataCipherPort } from '../auth/data-cipher.port';
 import type { UserPo } from '../auth/users.po';
 import { AccountLinkBo } from './account-link.bo';
@@ -47,8 +51,20 @@ export function toAccountLinkBo(row: InvitationPo | PasswordResetPo): AccountLin
  *  Example: `linkOf('https://mesa.example.com', '/invite', 'abc') // 'https://mesa.example.com/invite#token=abc'` */
 export function linkOf(
   publicUrl: string,
-  path: '/invite' | '/reset-password',
+  path: '/invite' | '/sign-up/confirm' | '/reset-password',
   token: string,
 ): string {
   return `${publicUrl}${path}#token=${encodeURIComponent(token)}`;
+}
+
+/** The link of an invitation: the sign-up's has its own page (the invitation's text asks whoever
+ *  invited for a new one).
+ *
+ *  Example: `invitationLinkOf(url, 'self', 'abc') // 'https://…/sign-up/confirm#token=abc'` */
+export function invitationLinkOf(
+  publicUrl: string,
+  origin: InvitationOriginDto,
+  token: string,
+): string {
+  return linkOf(publicUrl, origin === 'self' ? '/sign-up/confirm' : '/invite', token);
 }

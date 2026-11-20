@@ -1,6 +1,7 @@
 import { LEGAL_DOCUMENTS_VERSION } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import {
+  invitationLinkOf,
   linkOf,
   termsAcceptanceAt,
   toAdminInvitationDto,
@@ -11,6 +12,20 @@ describe('linkOf', () => {
   it('puts the token in the fragment, encoded', () => {
     expect(linkOf('https://mesa.example.com', '/invite', 'a+b/c')).toBe(
       'https://mesa.example.com/invite#token=a%2Bb%2Fc',
+    );
+  });
+});
+
+describe('invitationLinkOf', () => {
+  it('an invitation from the backoffice opens /invite', () => {
+    expect(invitationLinkOf('https://mesa.example.com', 'admin', 'abc')).toBe(
+      'https://mesa.example.com/invite#token=abc',
+    );
+  });
+
+  it('a link the person asked for at the sign-up opens /sign-up/confirm', () => {
+    expect(invitationLinkOf('https://mesa.example.com', 'self', 'abc')).toBe(
+      'https://mesa.example.com/sign-up/confirm#token=abc',
     );
   });
 });
@@ -33,6 +48,7 @@ describe('toAdminInvitationDto', () => {
       emailCipher: 'sealed:invitation-email:inv-1:marina@exemplo.com',
       emailIndex: 'idx:email-index:marina@exemplo.com',
       role: 'user' as const,
+      origin: 'admin' as const,
       invitedBy: 'lucas-id',
       invitedByUsername: 'lucas',
       sentAt: new Date('2026-10-24T12:00:00Z'),

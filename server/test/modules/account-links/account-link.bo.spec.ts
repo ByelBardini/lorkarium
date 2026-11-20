@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AccountLinkBo,
   INVITATION_TTL_MS,
+  invitationTtlOf,
   linkExpiry,
   PASSWORD_RESET_TTL_MS,
   requireOtherAccount,
@@ -35,6 +36,15 @@ describe('linkExpiry', () => {
 
   it('a new-password link lives 1 hour', () => {
     expect(linkExpiry(now, PASSWORD_RESET_TTL_MS)).toEqual(new Date('2026-10-24T13:00:00Z'));
+  });
+});
+
+describe('invitationTtlOf', () => {
+  it.each([
+    ['admin', 7 * 24 * 60 * 60 * 1000],
+    ['self', 24 * 60 * 60 * 1000],
+  ] as const)('an invitation of origin %s lives %i ms', (origin, ttlMs) => {
+    expect(invitationTtlOf(origin)).toBe(ttlMs);
   });
 });
 

@@ -28,6 +28,7 @@ export class InvitationsDaoFake implements Pick<
   async insert(invitation: NewInvitationPo): Promise<InvitationPo> {
     const row: InvitationPo = {
       id: invitation.id ?? `invitation-${this.rows.length + 1}`,
+      origin: 'admin',
       invitedBy: null,
       ...invitation,
     };
@@ -36,7 +37,9 @@ export class InvitationsDaoFake implements Pick<
   }
 
   async listPending(): Promise<InvitationListingRow[]> {
-    const newest = [...this.rows].sort((a, b) => b.sentAt.getTime() - a.sentAt.getTime());
+    const newest = this.rows
+      .filter((row) => row.origin === 'admin')
+      .sort((a, b) => b.sentAt.getTime() - a.sentAt.getTime());
     return newest.map((row) => this.listing(row));
   }
 
