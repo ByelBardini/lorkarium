@@ -63,6 +63,8 @@ Não é permitido:
 
 ## 8. Contas
 
+O Lorkarium é só para maiores de 18 anos: ter uma conta com menos idade viola esta política, e a conta é suspensa e excluída como dizem os [Termos de uso](/termos/), seção 8.
+
 Cada pessoa tem **uma conta principal**. Uma conta secundária é permitida **só para testar a própria mesa** (ver o que um jogador ou espectador vê). Criar contas a mais para votar na própria reputação, para fugir de uma suspensão ou de um bloqueio, ou para contornar os limites do plano Grátis é infração.
 
 ## 9. Spam e divulgação
@@ -80,7 +82,7 @@ Testar a segurança do Lorkarium só com autorização. Encontrou uma falha? Con
 ## 12. Reputação e denúncias
 
 - **Reputação:** vote 👍 ou 👎 pela experiência real de jogo com a pessoa. Combinar votos, fazer campanha de 👎 contra alguém ou votar por vingança é infração.
-- **Denúncia:** pelo botão de denúncia no card de perfil da pessoa ou pelo e-mail de contato no rodapé deste site, informando a conta, a mesa e o que aconteceu. Pelo card, você escolhe a mesa onde aconteceu (entre as que vocês dividem) e pode anexar até **5 prints** (PNG, JPEG ou WebP, de até 5 MB cada). Como o chat e as mensagens privadas não ficam guardados no Lorkarium, o print é a prova de uma conversa. Em caso de direito autoral, inclua a prova de que você é o titular ou o representante dele.
+- **Denúncia:** pelo botão de denúncia no card de perfil da pessoa ou pelo e-mail de contato no rodapé deste site (aberto também a quem não tem conta), informando a conta, a mesa e o que aconteceu. Pelo card, você escolhe o motivo (inclusive "Parece ter menos de 18 anos"), a mesa onde aconteceu (entre as que vocês dividem) e pode anexar até **5 prints** (PNG, JPEG ou WebP, de até 5 MB cada). Como o chat e as mensagens privadas não ficam guardados no Lorkarium, o print é a prova de uma conversa. Em caso de direito autoral, inclua a prova de que você é o titular ou o representante dele.
 - Quando a denúncia é analisada, você recebe um e-mail avisando. Ele não diz qual medida foi tomada, para proteger também a outra pessoa.
 - Quem denuncia não é identificado para a pessoa denunciada. **Denúncia falsa, feita para prejudicar alguém, também é infração.**
 
@@ -95,11 +97,13 @@ As medidas seguem a gravidade e a repetição, nesta escala:
 
 Vão **direto à exclusão**: conteúdo sexual envolvendo crianças ou adolescentes, ameaça real a uma pessoa, divulgação de imagem íntima sem consentimento, invasão de contas ou do sistema e fraude. Conteúdo de abuso infantil também é comunicado às autoridades. O que acontece com um plano pago numa suspensão ou exclusão está nos [Termos de uso](/termos/).
 
-Toda medida é comunicada por e-mail, com a regra desta política que foi violada, o motivo, o prazo (na suspensão: a data em que ela termina, ou "sem prazo") e o caminho para contestar. A suspensão com data termina sozinha, e você recebe outro e-mail quando o acesso volta. Uma conta excluída por violação não pode ser recriada nem convidada de novo com o mesmo e-mail.
+Toda medida é comunicada por e-mail, com a regra desta política que foi violada, o motivo, o prazo (na suspensão: a data em que ela termina, ou "sem prazo"; na exclusão: a data em que a conta será excluída) e o caminho para contestar. Se o e-mail não sair, tentamos de novo de hora em hora, e a conta nunca é excluída antes de você ser avisado. A suspensão com data termina sozinha, e você recebe outro e-mail quando o acesso volta.
+
+A **exclusão** suspende a conta na hora e a exclui **15 dias** depois, se não houver contestação. Com uma contestação, a exclusão espera a revisão; se a contestação for aceita, a conta volta. Uma conta excluída por violação não pode ser recriada, convidada de novo nem receber o mesmo e-mail numa troca de endereço, por 5 anos. A conta de quem tem menos de 18 anos segue o mesmo prazo, sem bloquear o e-mail.
 
 ## 14. Contestação
 
-Discordou de uma medida? Responda ao e-mail que a comunicou (a resposta chega a nós) ou escreva para o e-mail de contato no rodapé deste site, explicando por quê. Registramos a contestação e o resultado no histórico da conta; se ela for aceita, uma suspensão em curso termina na hora. A contestação é revista por uma pessoa, nunca só por um sistema automático, e respondida em até **15 dias**. Quando houver mais de um administrador, a revisão é feita por alguém que não aplicou a medida.
+Discordou de uma medida? Responda ao e-mail que a comunicou (a resposta chega a nós) ou escreva para o e-mail de contato no rodapé deste site, explicando por quê. Numa exclusão, conteste antes da data marcada para ela. Registramos a contestação e o resultado no histórico da conta; se ela for aceita, uma suspensão em curso termina na hora, e uma exclusão marcada é cancelada. A contestação é revista por uma pessoa, nunca só por um sistema automático, e respondida em até **15 dias**. Quando houver mais de um administrador, a revisão é feita por alguém que não aplicou a medida.
 
 ## 15. Esta política e o código aberto
 
