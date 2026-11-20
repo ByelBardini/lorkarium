@@ -110,7 +110,18 @@ A landing de `site/` ([`site.md`](site.md)) é outra Application do Coolify, no 
 - Healthcheck: o `HEALTHCHECK` da imagem (`wget -q --spider http://127.0.0.1/`, do busybox); o do painel pode ficar ligado (path `/`, porta 80), já que a imagem tem `wget`.
 - Cache: `/_astro/*` `immutable` por 1 ano (nome com hash); HTML `no-cache`. Cabeçalhos `nosniff`, `Referrer-Policy`, `Permissions-Policy`, sem `Server`. O CSP vem do `<meta>` do `security.csp` do Astro, não do Caddy. Sem `try_files`: o `file_server` já redireciona `/termos` → `/termos/` (308), como o `trailingSlash: 'always'`.
 - Smoke local: `docker build -f site/Dockerfile -t lorkarium-site --build-arg SITE_URL=http://localhost:8080 --build-arg PUBLIC_APP_URL=… --build-arg PUBLIC_CONTACT_EMAIL=… --build-arg LEGAL_SUPPLIER_NAME=… --build-arg LEGAL_SUPPLIER_CPF=52998224725 --build-arg LEGAL_DRAFTS_ALLOWED=true .`, `docker run -d --name lorkarium-site -p 8080:80 lorkarium-site` e `bash infra/docker/site-smoke.sh lorkarium-site http://localhost:8080`. Os dois smokes cobram o SEO (robots, sitemap, ícone, redirect; `X-Robots-Tag` do app): [`site/seo.md`](site/seo.md).
-- **Antes de publicar:** a primeira release do desktop no ar (sem ela a API responde 404 e todo download cai na página de versões, vazia); um e-mail de contato que alguém leia (é por ele que chegam os pedidos de convite).
+- **Antes de publicar:** a primeira release do desktop no ar (sem ela a API responde 404 e todo download cai na página de versões, vazia); um e-mail de contato que alguém leia. A landing com "Criar conta" só vai ao ar depois de o cadastro estar aberto no app (seção abaixo): antes disso, o botão leva a "O cadastro está fechado".
+
+## Abrir o cadastro público
+
+Nesta ordem; cada passo só depois do anterior conferido ([`account-links.md`](account-links.md), [`client/sign-up.md`](client/sign-up.md)).
+
+1. **Revisão jurídica do ECA Digital** (Lei 15.211/2025): a avaliação de "acesso provável" por menores, documentada com o advogado. Se ela pedir aferição de idade além da autodeclaração, o cadastro fica fechado até essa entrega.
+2. **Turnstile**: no painel da Cloudflare, um widget (modo _Managed_) com o hostname do app (`app.<tld>`; o desktop abre o mesmo domínio); _Site Key_ e _Secret Key_ no Coolify (`TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`, [`deploy/envs.md`](deploy/envs.md)). Sem as duas a produção não sobe.
+3. **E-mail**: SPF, DKIM e DMARC do `MAIL_FROM` conferidos (seção E-mail); o cadastro aumenta o volume.
+4. Deploy com `REGISTRATION_OPEN=false` e teste do "Esqueci minha senha" com uma conta própria (vale com o cadastro fechado).
+5. `REGISTRATION_OPEN=true`, _Restart_ e um cadastro com um e-mail próprio, do pedido ao login. Fechar de novo = `false` e _Restart_; o convite do backoffice segue valendo.
+6. Só então, o deploy da landing com "Criar conta" (seção Landing).
 
 ## Serviço de cobrança (outra Application)
 

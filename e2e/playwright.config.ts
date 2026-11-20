@@ -17,7 +17,15 @@ process.env.DATA_ENCRYPTION_KEY ??= 'EJ0VAPvnCxgUGYKDbckfwbxEca0bm7NndOkKfFJQjeQ
 
 // The e2e server writes e-mail to its log (LogMailer) even if server/.env points at Mailpit: a run
 // must not depend on Mailpit being up nor fill the dev inbox. Empty counts as unset for the server.
-process.env.SMTP_URL = '';
+// Only E2E_SMTP_URL (a throwaway Mailpit, with E2E_MAILPIT_API_URL) delivers: the sign-up spec
+// reads the mailed links there and skips without it.
+process.env.SMTP_URL = process.env.E2E_SMTP_URL ?? '';
+
+// The public sign-up is open in the e2e, without Turnstile keys even if server/.env has some: the
+// client skips the widget and the server's SkippedHumanCheck accepts, so no run calls Cloudflare.
+process.env.REGISTRATION_OPEN = 'true';
+process.env.TURNSTILE_SITE_KEY = '';
+process.env.TURNSTILE_SECRET_KEY = '';
 
 // The e2e gets a database of its own (<db>_e2e), emptied on every run, so it never fills the dev
 // one. The server and its prepare step inherit this from the webServer environment.
@@ -93,7 +101,7 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
   'sheets-lork': ['sheets-lork'],
   'player-tokens': ['player-tokens'],
   // Borrows Bia and Caio for password and 2FA (undone at the end): kept away from the others.
-  account: ['account'],
+  account: ['account', 'sign-up'],
   // Invites, suspends and deletes accounts (Bia's table blocks her deletion): its own group too.
   backoffice: ['backoffice'],
   // Moves Bia between plans in the backoffice (back to her seeded plan after each test).
