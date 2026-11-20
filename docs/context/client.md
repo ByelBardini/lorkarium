@@ -1,6 +1,6 @@
 # Client
 
-SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/features/<área>/`, componente compartilhado em `src/components/`, rede em `src/services/`, estado em `src/stores/`, moldura do app em `src/app/shell/`, tabuleiro em `src/renderer/` (PixiJS, sem React; ver [`client/board-renderer.md`](client/board-renderer.md)), dados 3D pelo pacote `@lorkarium/dice-renderer` (o único lugar do `three`, ver [`dice-renderer.md`](dice-renderer.md); o client o carrega por `import()` em `src/features/dice/app-dice-renderer.ts`) som dos dados em `src/dice-audio/` (ver [`client/dice.md`](client/dice.md)) e som do chat em `src/chat-audio/` (ver [`client/chat-som.md`](client/chat-som.md)).
+SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/features/<área>/`, componente compartilhado em `src/components/`, rede em `src/services/`, estado em `src/stores/`, moldura do app em `src/app/shell/`, tabuleiro em `src/renderer/` (PixiJS, sem React; ver [`client/board-renderer.md`](client/board-renderer.md)), dados 3D pelo pacote `@lorkarium/dice-renderer` (o único lugar do `three`, ver [`dice-renderer.md`](dice-renderer.md); o client o carrega por `import()` em `src/features/dice/app-dice-renderer.ts`) som dos dados em `src/dice-audio/` (ver [`client/dice.md`](client/dice.md)) e som do chat em `src/chat-audio/` (ver [`client/chat-som.md`](client/chat-som.md)). O Cloudflare Turnstile (anti-bot do cadastro e do pedido de nova senha) só entra por `src/components/human-check/` (ver [`client/estrutura.md`](client/estrutura.md)).
 
 > **Detalhe por assunto em [`client/`](client/) — abra só o arquivo da tarefa.** Este hub guarda o índice; a estrutura transversal está em [`estrutura.md`](client/estrutura.md).
 
@@ -67,6 +67,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Brilho do ícone na barra de tarefas (desktop): pendente por mesa, foco, porta Tauri                   | [`chat-atencao.md`](client/chat-atencao.md)                     |
 | Rotas: tabela, guardas, `restoreOpenTables`, árvore, `next` do login                                  | [`rotas.md`](client/rotas.md)                                   |
 | Links de conta: `/invite` (escolher @ e senha) e `/reset-password`                                    | [`account-links.md`](client/account-links.md)                   |
+| Cadastro público e `/forgot-password`: e-mail + Turnstile, `/sign-up/confirm`, links no login         | [`sign-up.md`](client/sign-up.md)                               |
 | Barra de título do app desktop: `WindowTitleBar`, controles, lugar por rota, slot da sala             | [`title-bar.md`](client/title-bar.md)                           |
 | Menu dos campos de texto no app desktop: `isDesktopShell`, itens, `FieldEditing`, raiz                | [`text-field-menu.md`](client/text-field-menu.md)               |
 | Versão nova depois do deploy: impressão do build, aviso, recarga segura                               | [`app-update.md`](client/app-update.md)                         |

@@ -11,27 +11,29 @@ Hub: [`../client.md`](../client.md). As páginas públicas de quem recebeu um li
 ## `/invite` (`invite-accept-page.tsx`, `invite-accept-form.tsx`)
 
 - "Bem-vindo ao Lorkarium" + "Convite para marina@exemplo.com"; enquanto confere, "Conferindo o convite…".
-- Formulário: "Seu @" preenchido com a sugestão (`suggestedUsername`; dica "Letras minúsculas, números, ponto e _. Não muda depois."), "Senha" e "Repita a senha" (`PasswordField`, `new-password`), "Manter conectado", a caixa "Li e aceito os Termos de uso, a Política de privacidade e a Política de uso" (`terms-acceptance-field.tsx`: os três nomes são `LegalDocumentLink`, nova aba, sem marcar a caixa) e "Criar minha conta" ("Criando sua conta…"). Validação antes do pedido (`account-links-messages.ts`: `usernameProblem` sobre o `usernameDto` → "Use de 3 a 20 caracteres." / "Use só letras minúsculas, números, ponto e _."; `passwordProblems` → mínimo de 8, máximo 256, "As senhas não são iguais."; caixa desmarcada → `TERMS_NOT_ACCEPTED` "Para criar a conta, aceite os Termos de uso e a Política de privacidade." sob a caixa, com `aria-invalid`), foco no primeiro campo errado (@, senha, repetição, caixa). Sem a caixa nada é enviado; marcada, o pedido leva `acceptedTerms: true`.
+- Formulário: "Seu @" preenchido com a sugestão (`suggestedUsername`; dica "Letras minúsculas, números, ponto e _. Não muda depois."), "Senha" e "Repita a senha" (`PasswordField`, `new-password`), "Manter conectado", a caixa "Tenho 18 anos ou mais e li e aceito os Termos de uso, a Política de privacidade e a Política de uso" (a declaração de idade mora no aceite: os Termos já exigem 18+) (`terms-acceptance-field.tsx`: os três nomes são `LegalDocumentLink`, nova aba, sem marcar a caixa) e "Criar minha conta" ("Criando sua conta…"). Validação antes do pedido (`account-links-messages.ts`: `usernameProblem` sobre o `usernameDto` → "Use de 3 a 20 caracteres." / "Use só letras minúsculas, números, ponto e _."; `passwordProblems` → mínimo de 8, máximo 256, "As senhas não são iguais."; caixa desmarcada → `TERMS_NOT_ACCEPTED` "Para criar a conta, confirme que tem 18 anos ou mais e aceite os Termos de uso, a Política de privacidade e a Política de uso." sob a caixa, com `aria-invalid`), foco no primeiro campo errado (@, senha, repetição, caixa). Sem a caixa nada é enviado; marcada, o pedido leva `acceptedTerms: true`.
 - A página passa `legalLinks={false}` ao `AuthFrame`: a caixa já tem os dois links, o rodapé os repetiria.
 - `username_taken` → "@marina já tem dono. Tente outro." no campo do @, focado. `rate_limited`/`offline`/`email_taken`/… → `Alert`.
 - Aceito: a ação faz `sessionStore.signedIn(user)` e `redirect('/')` (a home saúda pelo apelido, que nasce igual ao @).
 - Link morto (no inspect ou no aceite) ou sem token: "Esse link venceu ou já foi usado. Peça um novo a quem te convidou.", sem formulário.
-- Aberta logada: "Você está conectado como @caio. Para aceitar este convite, saia primeiro." + "Sair e continuar" (fecha as mesas da aba, `authApi.logout()`, `signedOut()`, depois o formulário). Quem estava logado é lido **uma vez**, ao abrir (ver armadilhas).
+- Aberta logada: "Você está conectado como @caio. Para aceitar este convite, saia primeiro." + "Sair e continuar" (fecha as mesas da aba, `authApi.logout()`, `signedOut()`, depois o formulário). Quem estava logado é lido **uma vez**, ao abrir (ver armadilhas). O aviso é o `SignedOutFirst` (`signed-out-first.tsx`, prop `notice(@)`), e o "Sair" o `signOutOfTab(deps)` de `account-link-routes.tsx`; o cadastro público usa os dois ([`sign-up.md`](sign-up.md)).
 
 ## `/reset-password` (`password-reset-page.tsx`)
 
 - "Nova senha para @biaflor"; "Senha nova" e "Repita a senha nova"; "Trocar senha" ("Trocando…"). Sucesso: a ação faz `signedOut()` (todas as sessões caíram no server) e a página diz "Senha trocada. Entre com a nova senha." + "Entrar" (→ `/login`).
-- Link morto ou sem token: "Esse link venceu ou já foi usado. Peça um novo a quem administra o Lorkarium."
+- Link morto ou sem token: "Esse link venceu ou já foi usado." + "Pedir outro" (→ `/forgot-password`, [`sign-up.md`](sign-up.md)). O link vem do backoffice ou do "Esqueci minha senha".
 
 ## Serviço
 
 - `services/account-links-api.ts` — `AccountLinksApi` / `HttpAccountLinksApi`: `inspectInvitation`, `acceptInvitation`, `inspectPasswordReset`, `completePasswordReset`. Falhas `AccountLinksFailure`: `link_invalid` (404 `ACCOUNT_LINK_INVALID`), `username_taken`, `email_taken`, `invalid`, `rate_limited`, `offline`, `unexpected`.
 - `AppDependencies.accountLinksApi` (e `userAdminApi`, do backoffice).
+- `services/sign-up-api.ts` — `SignUpApi` / `HttpSignUpApi` (`AppDependencies.signUpApi`), as rotas públicas de quem não tem conta: `settings()` (`GET /api/sign-up/settings`, validado pelo `signUpSettingsDto`: `registrationOpen`, `humanCheckSiteKey`), `requestSignUp({ email, humanCheckToken })` (`POST /api/sign-up`) e `requestPasswordReset({ identifier, humanCheckToken })` (`POST /api/password-resets/request`); os dois pedidos dão `ok` no 202 sem corpo, que é igual exista a conta ou não. Falhas `SignUpFailure`: `registration_closed` (403 `REGISTRATION_CLOSED`), `human_check_failed` (400 `HUMAN_CHECK_FAILED`), `invalid` (outro 400), `rate_limited` com os segundos (`Retry-After` ou `retryAfterSeconds`), `offline`, `unexpected`. As telas: [`sign-up.md`](sign-up.md).
 
 ## Testes
 
 - `client/test/services/account-links-api.spec.ts`; pelo router `test/features/account-links/invite-accept-page.spec.tsx` (inclusive a caixa do aceite: links, desmarcada não envia) e `password-reset-page.spec.tsx`.
 - Fake: `test/support/account-links-api-fake.ts` — `AccountLinksApiFake` (sem roteiro: convite da Marina, link de nova senha da `@biaflor`; `MARINA`).
+- `test/services/sign-up-api.spec.ts`; fake `test/support/sign-up-api-fake.ts` — `SignUpApiFake` (sem roteiro: cadastro aberto, sem site key, todo pedido em 202; `withSiteKey()` põe o `TEST_SITE_KEY`). O widget: `test/components/human-check/human-check-widget.spec.tsx` com o `TurnstileScriptFake` (`test/support/turnstile-script-fake.ts`: `loadScript`/`failScript` disparam o `load`/`error` do `<script>` que o widget pôs; `preload` = script já carregado; `solve`, `expire`, `failChallenge` no último widget; `uninstall` no `afterEach`).
 
 ## Armadilhas
 

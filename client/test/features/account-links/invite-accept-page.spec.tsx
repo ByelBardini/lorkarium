@@ -8,7 +8,8 @@ import { ANA } from '../../support/auth-api-fake';
 
 const LINK = '/invite#token=abc';
 const DEAD = 'Esse link venceu ou já foi usado. Peça um novo a quem te convidou.';
-const TERMS_BOX = 'Li e aceito os Termos de uso, a Política de privacidade e a Política de uso';
+const TERMS_BOX =
+  'Tenho 18 anos ou mais e li e aceito os Termos de uso, a Política de privacidade e a Política de uso';
 
 describe('accepting an invitation (/invite)', () => {
   let deps: TestDependencies;
@@ -91,7 +92,7 @@ describe('accepting an invitation (/invite)', () => {
     await fill(null, 'senha-boa-1', 'senha-boa-1', false);
     const box = screen.getByRole('checkbox', { name: TERMS_BOX });
     expect(box).toHaveAccessibleDescription(
-      'Para criar a conta, aceite os Termos de uso, a Política de privacidade e a Política de uso.',
+      'Para criar a conta, confirme que tem 18 anos ou mais e aceite os Termos de uso, a Política de privacidade e a Política de uso.',
     );
     expect(box).toHaveAttribute('aria-invalid', 'true');
     expect(box).toHaveFocus();

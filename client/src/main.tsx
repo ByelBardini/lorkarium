@@ -13,6 +13,7 @@ import { tabInteractionFactory } from '@/features/board/tab-interaction';
 import { buildRoutes } from '@/app/router';
 import { NO_PERF_PROBE, RecordingPerfProbe } from '@/lib/perf-probe';
 import { HttpAccountLinksApi } from '@/services/account-links-api';
+import { HttpSignUpApi } from '@/services/sign-up-api';
 import { HttpAccountPlanApi } from '@/services/account-plan-api';
 import { HttpBillingApi } from '@/services/billing-api';
 import { HttpDataExportApi } from '@/services/data-export-api';
@@ -178,6 +179,7 @@ const router = createBrowserRouter(
     broadcastsApi: new HttpBroadcastsApi(transport),
     badgesAdminApi: new HttpBadgesAdminApi(transport),
     accountLinksApi: new HttpAccountLinksApi(transport),
+    signUpApi: new HttpSignUpApi(transport),
     libraryApi: new HttpLibraryApi(transport),
     libraryMapsApi,
     documentsApi,
