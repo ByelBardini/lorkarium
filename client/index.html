@@ -7,6 +7,9 @@
     <meta http-equiv="Content-Security-Policy" content="frame-src 'self'" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- The app stays out of search (the landing is the public face); the server also sends
+         X-Robots-Tag, which the dev server and the desktop shell do not. -->
+    <meta name="robots" content="noindex, nofollow" />
     <title>Lorkarium</title>
   </head>
   <body>

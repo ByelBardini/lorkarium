@@ -30,6 +30,12 @@ docker exec "$container" test -w /var/cache/lorkarium/assets ||
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$base/api/health")" = 200 ] || fail "GET /api/health is not 200"
 curl -sf "$base/" | grep -q '<div id="root">' || fail "GET / does not answer the client index.html"
 curl -sf "$base/campaigns/x" | grep -q '<div id="root">' || fail "a deep link does not fall back to index.html"
+# The app stays out of search: the landing is the public face (docs/context/server.md).
+for path in / /api/health; do
+  curl -s -D - -o /dev/null "$base$path" | grep -qi '^x-robots-tag: noindex, nofollow' ||
+    fail "GET $base$path must send X-Robots-Tag: noindex, nofollow"
+done
+curl -sf "$base/robots.txt" | grep -q '^Allow: /' || fail "GET $base/robots.txt must allow crawling"
 
 log="$(docker logs "$container" 2>&1)"
 migrated="$(grep -n 'migrations applied' <<<"$log" | head -1 | cut -d: -f1)"

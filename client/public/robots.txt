@@ -1,0 +1,4 @@
+# The app answers every request with X-Robots-Tag: noindex. Crawling stays allowed so search
+# engines can read that header; a Disallow would leave the bare URLs indexed.
+User-agent: *
+Allow: /
