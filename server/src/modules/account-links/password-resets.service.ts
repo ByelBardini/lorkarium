@@ -17,9 +17,10 @@ import type { SessionTokenPort } from '../auth/session-token.port';
 import type { TwoFactorChallengesDao } from '../auth/two-factor-challenges.dao';
 import type { UsersDao } from '../auth/users.dao';
 import type { UserPo } from '../auth/users.po';
-import { linkExpiry, PASSWORD_RESET_TTL_MS, requireOtherAccount } from './account-link.bo';
+import { PASSWORD_RESET_TTL_MS, requireOtherAccount } from './account-link.bo';
 import { AccountLinkInvalidError, LinkUserNotFoundError } from './account-links.error';
-import { linkOf, toAccountLinkBo } from './account-links.mapper';
+import { toAccountLinkBo } from './account-links.mapper';
+import { PasswordLinksService } from './password-links.service';
 import type { PasswordResetsDao } from './password-resets.dao';
 import type { PasswordResetPo } from './password-resets.po';
 
@@ -56,19 +57,18 @@ export type PasswordResetsDeps = Readonly<{
  *
  *  Example: `const { link } = await passwordResets.issue(admin.id, userId)` */
 export class PasswordResetsService {
-  constructor(private readonly deps: PasswordResetsDeps) {}
+  private readonly links: PasswordLinksService;
+
+  constructor(private readonly deps: PasswordResetsDeps) {
+    this.links = new PasswordLinksService(deps);
+  }
 
   async issue(actorId: string, userId: string): Promise<PasswordResetLinkResponseDto> {
     requireOtherAccount(actorId, userId);
     const user = await this.deps.users.findById(userId);
     if (!user) throw new LinkUserNotFoundError(userId);
-    const now = this.deps.clock.now();
-    toUserAccessBo(user).requireActive(now);
-    const token = this.deps.linkTokens.generate();
-    const expiresAt = linkExpiry(now, PASSWORD_RESET_TTL_MS);
-    const tokenHash = this.deps.linkTokens.hash(token);
-    await this.deps.resets.replace({ userId, tokenHash, createdAt: now, expiresAt });
-    const link = linkOf(this.deps.appPublicUrl, '/reset-password', token);
+    toUserAccessBo(user).requireActive(this.deps.clock.now());
+    const { link, expiresAt } = await this.links.issue(userId);
     await this.tellLink(user, link);
     return { link, expiresAt: expiresAt.toISOString() };
   }

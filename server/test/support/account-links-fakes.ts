@@ -3,11 +3,14 @@ import type {
   InvitationsDao,
 } from '../../src/modules/account-links/invitations.dao';
 import type { InvitationPo, NewInvitationPo } from '../../src/modules/account-links/invitations.po';
+import type { HumanCheckPort } from '../../src/modules/account-links/human-check.port';
 import type { PasswordResetsDao } from '../../src/modules/account-links/password-resets.dao';
 import type {
   NewPasswordResetPo,
   PasswordResetPo,
 } from '../../src/modules/account-links/password-resets.po';
+import type { MailMessage } from '../../src/modules/account-security/mailer.port';
+import type { SecurityNoticesService } from '../../src/modules/account-security/security-notices.service';
 
 /** In-memory invitations; `usernameOf` gives the @ of who invited, for the listing. */
 export class InvitationsDaoFake implements Pick<
@@ -85,7 +88,7 @@ export class InvitationsDaoFake implements Pick<
 /** In-memory password_resets, one per account like the unique index. */
 export class PasswordResetsDaoFake implements Pick<
   PasswordResetsDao,
-  'replace' | 'findByTokenHash' | 'delete' | 'deleteOfUser'
+  'replace' | 'findByTokenHash' | 'findOfUser' | 'delete' | 'deleteOfUser'
 > {
   rows: PasswordResetPo[] = [];
   private drawn = 0;
@@ -101,6 +104,10 @@ export class PasswordResetsDaoFake implements Pick<
     return this.rows.find((row) => row.tokenHash === tokenHash);
   }
 
+  async findOfUser(userId: string): Promise<PasswordResetPo | undefined> {
+    return this.rows.find((row) => row.userId === userId);
+  }
+
   async delete(resetId: string): Promise<boolean> {
     const before = this.rows.length;
     this.rows = this.rows.filter((row) => row.id !== resetId);
@@ -109,5 +116,37 @@ export class PasswordResetsDaoFake implements Pick<
 
   async deleteOfUser(userId: string): Promise<void> {
     this.rows = this.rows.filter((row) => row.userId !== userId);
+  }
+}
+
+/** The anti-bot check: passes while `passes` is true; keeps every token it was asked about. */
+export class HumanCheckFake implements HumanCheckPort {
+  passes = true;
+  readonly checked: Array<Readonly<{ token: string; remoteIp: string }>> = [];
+
+  async verify(token: string, remoteIp: string): Promise<boolean> {
+    this.checked.push({ token, remoteIp });
+    return this.passes;
+  }
+}
+
+/** Notices that hold each send until `release()`: proves a reply does not wait for the e-mail. */
+export class HeldNoticesFake implements Pick<SecurityNoticesService, 'send'> {
+  readonly sent: MailMessage[] = [];
+  delivered = 0;
+  private readonly waiting: Array<() => void> = [];
+
+  send(message: MailMessage): Promise<void> {
+    this.sent.push(message);
+    return new Promise((resolve) => {
+      this.waiting.push(() => {
+        this.delivered += 1;
+        resolve();
+      });
+    });
+  }
+
+  release(): void {
+    for (const deliver of this.waiting.splice(0)) deliver();
   }
 }

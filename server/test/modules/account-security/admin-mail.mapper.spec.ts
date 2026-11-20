@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   accessRestoredMail,
+  accountExistsMail,
   invitationMail,
   passwordLinkMail,
   promotedToAdminMail,
+  signUpLinkMail,
 } from '../../../src/modules/account-security/admin-mail.mapper';
 
 const PUBLIC_URL = 'https://mesa.example.com';
@@ -40,6 +42,52 @@ describe('invitationMail', () => {
     expect(mail.text).toContain(
       'Você recebeu porque um administrador do Lorkarium cadastrou este e-mail.',
     );
+  });
+});
+
+describe('signUpLinkMail', () => {
+  const link = 'https://mesa.example.com/sign-up/confirm#token=s1';
+  const mail = signUpLinkMail({
+    to: 'marina@exemplo.com',
+    link,
+    validFor: { hours: 24 },
+    publicUrl: PUBLIC_URL,
+  });
+
+  it('confirms the sign-up asked for with the address, naming no admin', () => {
+    expect(mail.to).toBe('marina@exemplo.com');
+    expect(mail.subject).toBe('Confirme seu cadastro no Lorkarium');
+    expect(mail.text).toContain('E-mail: marina@exemplo.com');
+    expect(`${mail.subject}${mail.text}`).not.toMatch(/administrador|convite/);
+  });
+
+  it('the button opens the confirmation, valid for 24 hours, and says how to ask again', () => {
+    expect(mail.text).toContain(`Criar minha conta: ${link}`);
+    expect(mail.text).toContain(
+      'O link vale 24 horas e só funciona uma vez. Se vencer, peça outro na tela de cadastro.',
+    );
+    expect(mail.html).toContain(`>${link}</a>`);
+  });
+});
+
+describe('accountExistsMail', () => {
+  const mail = accountExistsMail({
+    person: LUCAS,
+    link: RESET_LINK,
+    validFor: { hours: 1 },
+    publicUrl: PUBLIC_URL,
+  });
+
+  it('tells the owner the address already has the account @', () => {
+    expect(mail.to).toBe('lucas@exemplo.com');
+    expect(mail.subject).toBe('Você já tem uma conta no Lorkarium');
+    expect(mail.text).toContain('mas ele já é da conta @lucas.rola20.');
+    expect(mail.text).toContain('Sua conta: @lucas.rola20');
+  });
+
+  it('the button creates a new password with the one-hour link', () => {
+    expect(mail.text).toContain(`Criar nova senha: ${RESET_LINK}`);
+    expect(mail.text).toContain('O link vale 1 hora e só funciona uma vez.');
   });
 });
 
