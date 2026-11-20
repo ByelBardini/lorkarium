@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { BIA, CAIO } from './support/dev-players';
 import { test } from './support/player-pages';
@@ -32,6 +33,26 @@ async function openCardFromRoster(page: Page, name: string): Promise<Locator> {
   const card = page.getByRole('dialog', { name: `Perfil de ${name}` });
   await expect(card.getByText('Rolagens')).toBeVisible();
   return card;
+}
+
+const SCREENSHOT = fileURLToPath(new URL('./fixtures/mapa-1400x700.png', import.meta.url));
+
+// The thumbnail comes from the admin-only route: decoded means the server served the image.
+async function reviewScreenshotOf(admin: Page, row: Locator): Promise<void> {
+  await row.getByRole('button', { name: 'Abrir' }).click();
+  const detail = admin.getByRole('dialog', { name: 'Denúncia de @bia' });
+  const thumbnail = detail.getByRole('img', { name: 'Print 1' });
+  await expect(thumbnail).toHaveAttribute('src', /\/api\/admin\/reports\/.+\/attachments\//);
+  await expect
+    .poll(() =>
+      thumbnail.evaluate((img) => (img as unknown as { naturalWidth: number }).naturalWidth),
+    )
+    .toBe(1400);
+  await expect(
+    detail.getByRole('link', { name: 'Abrir o print 1 em tamanho real' }),
+  ).toHaveAttribute('target', '_blank');
+  await admin.keyboard.press('Escape');
+  await expect(detail).toHaveCount(0);
 }
 
 async function closeCard(page: Page, card: Locator): Promise<void> {
@@ -69,11 +90,12 @@ test.describe('profile card', () => {
     await expect(own.getByRole('button', { name: /^Aprovar/ })).toHaveCount(0);
   });
 
-  test('Bia reports Caio and the admin resolves it in Denúncias', async ({
+  test('Bia reports Caio at their table with a screenshot and the admin reviews it in Denúncias', async ({
     page: admin,
     newPlayerPage,
   }) => {
-    const { bia } = await seatBiaAndCaio(newPlayerPage, `Mesa da denúncia ${Date.now()}`);
+    const table = `Mesa da denúncia ${Date.now()}`;
+    const { bia } = await seatBiaAndCaio(newPlayerPage, table);
     const details = `Spam no chat ${Date.now()}`;
 
     const card = await openCardFromRoster(bia, 'Caio');
@@ -82,6 +104,9 @@ test.describe('profile card', () => {
     const report = bia.getByRole('dialog', { name: 'Denunciar Caio' });
     await report.getByRole('radio', { name: 'Spam' }).check();
     await report.getByLabel('Detalhes (opcional)').fill(details);
+    await report.getByLabel('Mesa onde aconteceu (opcional)').selectOption({ label: table });
+    await report.getByLabel('Anexar prints').setInputFiles(SCREENSHOT);
+    await expect(report.getByRole('img', { name: 'Print 1' })).toBeVisible();
     await report.getByRole('button', { name: 'Enviar denúncia' }).click();
     await expect(report.getByText('Denúncia enviada.')).toBeVisible();
 
@@ -92,11 +117,21 @@ test.describe('profile card', () => {
     });
     await expect(row).toContainText('@bia');
     await expect(row).toContainText('Spam');
+    await expect(row).toContainText(table);
+    await expect(row).toContainText('1 print');
+    await reviewScreenshotOf(admin, row);
+    await row.getByRole('button', { name: 'Aplicar medida' }).click();
+    const measure = admin.getByRole('dialog', { name: 'Aplicar medida a @caio' });
+    await expect(measure).toBeVisible();
+    await measure.getByRole('button', { name: 'Cancelar' }).click();
     await row.getByRole('button', { name: 'Resolver' }).click();
+    const resolve = admin.getByRole('dialog', { name: 'Resolver a denúncia' });
+    await resolve.getByLabel(/Nota/).fill('Conversa lida; sem medida.');
+    await resolve.getByRole('button', { name: 'Resolver' }).click();
     await expect(admin.getByText(details)).toHaveCount(0);
   });
 
-  test('a Grátis account shows no image banner on its card', async ({
+  test('a Grátis or Narrador account shows no image banner on its card, nor sends one', async ({
     page: admin,
     newPlayerPage,
   }) => {
@@ -117,6 +152,21 @@ test.describe('profile card', () => {
       const free = await openCardFromRoster(bia, 'Caio');
       await expect(free.getByTestId('profile-card-banner')).toBeVisible();
       await expect(free.getByTestId('profile-card-banner-image')).toHaveCount(0);
+      await closeCard(bia, free);
+
+      // The banner is Lenda only: the Narrador neither shows the one kept nor sends a new one.
+      await setPlanOf(admin, 'caio', 'narrador');
+      const narrador = await openCardFromRoster(bia, 'Caio');
+      await expect(narrador.getByTestId('profile-card-banner-image')).toHaveCount(0);
+      const refused = await caio.request.put('/api/account/banner', {
+        headers: { 'content-type': 'image/png' },
+        data: await readFile(new URL('./fixtures/mapa-1400x700.png', import.meta.url)),
+      });
+      expect(refused.status()).toBe(403);
+      expect((await refused.json()).planLimit).toMatchObject({
+        resource: 'profileBanner',
+        plan: 'narrador',
+      });
     } finally {
       await setPlanOf(admin, 'caio', 'amigo_do_dono');
       await caio.request.delete('/api/account/banner');
