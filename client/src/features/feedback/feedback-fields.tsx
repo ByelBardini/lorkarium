@@ -1,5 +1,4 @@
-import { FEEDBACK_KINDS, FEEDBACK_PLATFORMS, FEEDBACK_TEXT_MAX_LENGTH } from '@lorkarium/contracts';
-import { Input } from '@/components/ui/input';
+import { FEEDBACK_KINDS, FEEDBACK_TEXT_MAX_LENGTH } from '@lorkarium/contracts';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,7 +26,7 @@ export function feedbackFieldId(idPrefix: string, key: string): string {
   return `${idPrefix}-${key}`;
 }
 
-/** The kind (bug or suggestion), its sections, where it happened and the version.
+/** The kind (bug or suggestion), its sections, and where it happened as the app detected it.
  *
  *  Example: `<FeedbackFields idPrefix={id} draft={draft} missing={null} onChange={setDraft} />` */
 export function FeedbackFields(props: FeedbackFieldsProps): React.JSX.Element {
@@ -46,22 +45,7 @@ export function FeedbackFields(props: FeedbackFieldsProps): React.JSX.Element {
       {FEEDBACK_SECTIONS[draft.kind].map((section) => (
         <SectionField key={section.key} section={section} {...props} />
       ))}
-      <ChoiceGroup
-        legend="Onde"
-        idPrefix={`${props.idPrefix}-platform`}
-        options={FEEDBACK_PLATFORMS.map((platform) => [
-          platform,
-          FEEDBACK_PLATFORM_LABEL[platform],
-        ])}
-        value={draft.platform}
-        onChange={(platform) =>
-          onChange({
-            ...draft,
-            platform: FEEDBACK_PLATFORMS.find((p) => p === platform) ?? draft.platform,
-          })
-        }
-      />
-      <VersionField {...props} />
+      <DetectedWhere idPrefix={props.idPrefix} draft={draft} />
     </>
   );
 }
@@ -93,26 +77,19 @@ function SectionField({
   );
 }
 
-function VersionField({
+/** Read-only: the app detects where it runs and its version, so the report never carries a typo. */
+function DetectedWhere({
   idPrefix,
   draft,
-  missing,
-  onChange,
-}: FeedbackFieldsProps): React.JSX.Element {
-  const id = feedbackFieldId(idPrefix, 'appVersion');
-  const invalid = missing === 'appVersion';
+}: Readonly<{ idPrefix: string; draft: FeedbackDraft }>): React.JSX.Element {
   return (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor={id}>Navegador ou versão do app</Label>
-      <Input
-        id={id}
-        value={draft.appVersion}
-        maxLength={100}
-        aria-invalid={invalid || undefined}
-        aria-describedby={invalid ? `${id}-error` : undefined}
-        onChange={(event) => onChange({ ...draft, appVersion: event.target.value })}
-      />
-      {invalid && <MissingNote id={`${id}-error`} />}
+    <div className="flex flex-col gap-1">
+      <p id={`${idPrefix}-where`} className="text-[13px] text-label">
+        Onde
+      </p>
+      <p aria-labelledby={`${idPrefix}-where`} className="text-sm text-muted-foreground">
+        {`${FEEDBACK_PLATFORM_LABEL[draft.platform]} · ${draft.appVersion}`}
+      </p>
     </div>
   );
 }

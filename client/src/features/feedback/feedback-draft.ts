@@ -19,15 +19,14 @@ export function emptyFeedbackDraft(where: FeedbackWhere): FeedbackDraft {
   return { kind: 'bug', sections, ...where };
 }
 
-/** The first field of the draft's kind left blank, or `null` when it can go; the version too.
+/** The first field of the draft's kind left blank, or `null` when it can go.
  *
  *  Example: `firstMissingOf(emptyFeedbackDraft(where)) // 'steps'` */
-export function firstMissingOf(draft: FeedbackDraft): FeedbackSectionKey | 'appVersion' | null {
+export function firstMissingOf(draft: FeedbackDraft): FeedbackSectionKey | null {
   const missing = FEEDBACK_SECTIONS[draft.kind].find(
     (section) => section.required && draft.sections[section.key].trim() === '',
   );
-  if (missing) return missing.key;
-  return draft.appVersion.trim() === '' ? 'appVersion' : null;
+  return missing?.key ?? null;
 }
 
 /** The request of a complete draft: only the sections of its kind, and the screenshots sent first.
