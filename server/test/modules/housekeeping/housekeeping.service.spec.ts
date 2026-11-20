@@ -60,6 +60,7 @@ describe('HousekeepingService', () => {
       { swept: 'sheet_receipts', cut: A_DAY_AGO, limit: HOUSEKEEPING_BATCH_MAX },
       { swept: 'sessions', cut: NOW, limit: HOUSEKEEPING_BATCH_MAX },
       { swept: 'challenges', cut: NOW, limit: HOUSEKEEPING_BATCH_MAX },
+      { swept: 'signups', cut: NOW, limit: HOUSEKEEPING_BATCH_MAX },
       { swept: 'broadcasts', cut: FIVE_YEARS_AGO, limit: HOUSEKEEPING_BATCH_MAX },
       { swept: 'banned_emails', cut: FIVE_YEARS_AGO, limit: HOUSEKEEPING_BATCH_MAX },
     ]);
@@ -84,8 +85,20 @@ describe('HousekeepingService', () => {
       'sessions',
       'sessions',
       'challenges',
+      'signups',
       'broadcasts',
       'banned_emails',
+    ]);
+  });
+
+  it('a full batch of expired sign-up links asks for the next one right away', async () => {
+    dao.deletions.signups = [HOUSEKEEPING_BATCH_MAX, 1];
+
+    await service.sweep();
+
+    expect(dao.sweptTables().filter((swept) => swept === 'signups')).toEqual([
+      'signups',
+      'signups',
     ]);
   });
 

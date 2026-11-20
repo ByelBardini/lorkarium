@@ -38,6 +38,7 @@ const AGE_LIMIT_MS: Readonly<Record<SweptTable, number>> = {
   sheet_receipts: RECEIPT_TTL_MS,
   sessions: 0,
   challenges: 0,
+  signups: 0,
   broadcasts: BROADCAST_RETENTION_MS,
   banned_emails: BANNED_EMAIL_KEPT_MS,
 };

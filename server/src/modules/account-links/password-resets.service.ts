@@ -1,13 +1,15 @@
 import type {
   PasswordResetInspectResponseDto,
   PasswordResetLinkResponseDto,
+  PasswordResetRequestDto,
 } from '@lorkarium/contracts';
 import type { AccountRecoveryService } from '../account-security/account-recovery.service';
 import { passwordLinkMail } from '../account-security/admin-mail.mapper';
 import type { EmailChangeRequestsDao } from '../account-security/email-change-requests.dao';
 import { passwordChangedMail, recipientOf } from '../account-security/security-mail.mapper';
+import type { MailMessage } from '../account-security/mailer.port';
 import type { SecurityNoticesService } from '../account-security/security-notices.service';
-import { toUserAccessBo } from '../auth/auth.mapper';
+import { emailIndexOf, toUserAccessBo } from '../auth/auth.mapper';
 import type { AuthSessionsDao } from '../auth/auth-sessions.dao';
 import type { ClockPort } from '../auth/clock.port';
 import type { DataCipherPort } from '../auth/data-cipher.port';
@@ -17,11 +19,15 @@ import type { SessionTokenPort } from '../auth/session-token.port';
 import type { TwoFactorChallengesDao } from '../auth/two-factor-challenges.dao';
 import type { UsersDao } from '../auth/users.dao';
 import type { UserPo } from '../auth/users.po';
-import { linkExpiry, PASSWORD_RESET_TTL_MS, requireOtherAccount } from './account-link.bo';
+import { PASSWORD_RESET_TTL_MS, requireOtherAccount } from './account-link.bo';
 import { AccountLinkInvalidError, LinkUserNotFoundError } from './account-links.error';
-import { linkOf, toAccountLinkBo } from './account-links.mapper';
+import { toAccountLinkBo } from './account-links.mapper';
+import { PasswordLinksService } from './password-links.service';
 import type { PasswordResetsDao } from './password-resets.dao';
 import type { PasswordResetPo } from './password-resets.po';
+import type { HumanCheckPort } from './human-check.port';
+import { mayMailPasswordLink } from './sign-up.bo';
+import { foundAccountFacts, requireHuman } from './sign-up.service';
 
 /** The DAOs the completion transaction hands out, bound to the open `tx`. */
 export type ResetCompletionDaos = Readonly<{
@@ -37,8 +43,10 @@ export type ResetTransactionRunner = <T>(
 ) => Promise<T>;
 
 export type PasswordResetsDeps = Readonly<{
-  resets: Pick<PasswordResetsDao, 'replace' | 'findByTokenHash'>;
-  users: Pick<UsersDao, 'findById'>;
+  resets: Pick<PasswordResetsDao, 'replace' | 'findByTokenHash' | 'findOfUser'>;
+  users: Pick<UsersDao, 'findById' | 'findByEmailIndex' | 'findByUsername'>;
+  /** The anti-bot check of "Esqueci minha senha" (always on, even with the sign-up closed). */
+  humanCheck: HumanCheckPort;
   transaction: ResetTransactionRunner;
   linkTokens: SessionTokenPort;
   hasher: PasswordHasherPort;
@@ -51,26 +59,38 @@ export type PasswordResetsDeps = Readonly<{
   appPublicUrl: string;
 }>;
 
-/** The new-password link an admin sends: one hour, one per account; using it sets the password,
- *  signs every device out and tells the account. The current password works until then; 2FA stays.
+/** The new-password link an admin sends or the person asks for: one hour, one per account; using
+ *  it sets the password, signs every device out and tells the account. The current password works
+ *  until then; 2FA stays.
  *
  *  Example: `const { link } = await passwordResets.issue(admin.id, userId)` */
 export class PasswordResetsService {
-  constructor(private readonly deps: PasswordResetsDeps) {}
+  private readonly links: PasswordLinksService;
+
+  constructor(private readonly deps: PasswordResetsDeps) {
+    this.links = new PasswordLinksService(deps);
+  }
 
   async issue(actorId: string, userId: string): Promise<PasswordResetLinkResponseDto> {
     requireOtherAccount(actorId, userId);
     const user = await this.deps.users.findById(userId);
     if (!user) throw new LinkUserNotFoundError(userId);
-    const now = this.deps.clock.now();
-    toUserAccessBo(user).requireActive(now);
-    const token = this.deps.linkTokens.generate();
-    const expiresAt = linkExpiry(now, PASSWORD_RESET_TTL_MS);
-    const tokenHash = this.deps.linkTokens.hash(token);
-    await this.deps.resets.replace({ userId, tokenHash, createdAt: now, expiresAt });
-    const link = linkOf(this.deps.appPublicUrl, '/reset-password', token);
-    await this.tellLink(user, link);
+    toUserAccessBo(user).requireActive(this.deps.clock.now());
+    const { link, expiresAt } = await this.links.issue(userId);
+    await this.deps.notices.send(this.linkMail(user, link, 'admin'));
     return { link, expiresAt: expiresAt.toISOString() };
+  }
+
+  /** "Esqueci minha senha": the caller answers the same whether or not an account matched; the
+   *  e-mail leaves after the reply (not awaited), so the time tells nothing either. */
+  async request(input: PasswordResetRequestDto, remoteIp: string): Promise<void> {
+    await requireHuman(this.deps.humanCheck, input.humanCheckToken, remoteIp);
+    const user = await this.accountOf(input.identifier);
+    if (!user) return;
+    const now = this.deps.clock.now();
+    if (!mayMailPasswordLink(await foundAccountFacts(this.deps.resets, user, now), now)) return;
+    const { link } = await this.links.issue(user.id);
+    void this.deps.notices.send(this.linkMail(user, link, 'self'));
   }
 
   async inspect(token: string): Promise<PasswordResetInspectResponseDto> {
@@ -104,11 +124,17 @@ export class PasswordResetsService {
     return { reset, user };
   }
 
-  private async tellLink(user: UserPo, link: string): Promise<void> {
+  // The login's rule: an identifier with an @ inside is an e-mail, otherwise it is the @.
+  private async accountOf(identifier: string): Promise<UserPo | undefined> {
+    if (!identifier.includes('@')) return this.deps.users.findByUsername(identifier);
+    return this.deps.users.findByEmailIndex(emailIndexOf(this.deps.cipher, identifier));
+  }
+
+  private linkMail(user: UserPo, link: string, requestedBy: 'admin' | 'self'): MailMessage {
     const person = recipientOf(user, this.deps.cipher);
     const validFor = { hours: PASSWORD_RESET_TTL_MS / HOUR_MS };
     const publicUrl = this.deps.appPublicUrl;
-    await this.deps.notices.send(passwordLinkMail({ person, link, validFor, publicUrl }));
+    return passwordLinkMail({ person, link, validFor, publicUrl, requestedBy });
   }
 
   private async tellChanged(

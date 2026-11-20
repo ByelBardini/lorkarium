@@ -1,8 +1,18 @@
+import type { InvitationPo } from './invitations.po';
 import { AccountLinkInvalidError, LinkSelfActionError } from './account-links.error';
 
 // The market: an invitation lasts days (Jira, 7), a new-password link an hour (OWASP, Ibexa).
 export const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
+// OWASP's short deadline: whoever asked for the sign-up link is at the screen right now.
+export const SIGN_UP_LINK_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** How long an invitation lives, by who asked for it.
+ *
+ *  Example: `invitationTtlOf('self') // 24 h in ms` */
+export function invitationTtlOf(origin: InvitationPo['origin']): number {
+  return origin === 'self' ? SIGN_UP_LINK_TTL_MS : INVITATION_TTL_MS;
+}
 
 /** When a link issued at `now` with `ttlMs` stops working.
  *
