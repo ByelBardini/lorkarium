@@ -175,6 +175,7 @@ export {
   eyeFieldOf,
   eyeOf,
   sightLevel,
+  sightProbesOf,
   sightRange,
   type Eye,
   type SightContext,
@@ -183,6 +184,7 @@ export {
   type SightRange,
   type SightTarget,
 } from './token-sight';
+export { MAGIC_SIGHT_RANGE_MAX, magicSightLevel, magicSightRange } from './magic-sight';
 export { CONE_ANGLE_MAX, coneAngle, coneOf, type Cone, type ConeAngle } from './cone.vo';
 export {
   AWARENESS_RANGE,
