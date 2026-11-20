@@ -83,6 +83,7 @@ describe('copiedOf', () => {
         light: null,
         aura: null,
         blocksSight: false,
+        magicSight: null,
         bars: [
           { label: 'PV', current: 32, max: 45, temp: 0, color: 'ember', visibility: 'controllers' },
           {

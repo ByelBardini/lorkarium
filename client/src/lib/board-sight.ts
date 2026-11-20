@@ -3,6 +3,8 @@ import {
   doorSeenBy,
   eyeFieldOf,
   eyeOf,
+  magicSightLevel,
+  magicSightRange,
   sightLevel,
   sightRange,
   tokenCenter,
@@ -11,6 +13,7 @@ import {
   type SightBlocker,
   type SightLevel,
   type SightMode,
+  type SightTarget,
   type Wall,
 } from '@lorkarium/game-core';
 import { lightSourcesOf, type TokenLanding } from './light-sources';
@@ -42,7 +45,13 @@ export type BoardSight = Readonly<{
   seenDoorIds: ReadonlySet<string> | null;
   /** The master previews with no token selected: nothing is hidden, and the room says so. */
   previewBlind: boolean;
+  /** The eyes with magic sight and how far: an invisible token no eye looks through shows only
+   *  where one of them reaches it, as that eye would see it visible (`magicSightLevel`). */
+  magicEyes: readonly MagicEye[];
 }>;
+
+/** An eye that sees invisible tokens, up to `range` cells. */
+export type MagicEye = Readonly<{ eye: Eye; range: number }>;
 
 export type BoardSightOptions = Readonly<{
   /** The master's "Ver como os selecionados": these tokens are the eyes; `null` = off. */
@@ -61,11 +70,13 @@ type LevelReading = Readonly<{
   context: SightContext;
   landing: BoardSightOptions['landing'];
   blockers: readonly SightBlocker[];
+  magicEyes: readonly MagicEye[];
 }>;
 
 const NO_PLAYERS: readonly string[] = [];
 
 const ALL_SEEN = new Map<string, SightLevel>();
+const NO_MAGIC_EYES: readonly MagicEye[] = [];
 
 /** The filter every view of the board goes through for this viewer: a player sees by every token
  *  they control (darkvision or not) whatever is in its range or lit, a spectator by every token a
@@ -77,7 +88,8 @@ const ALL_SEEN = new Map<string, SightLevel>();
 export function boardSightOf(board: BoardStateDto, options: BoardSightOptions): BoardSight {
   const mode = board.scene.vision;
   const watching = watchersOf(board, options.previewEyeIds, options.playerIds);
-  if (mode === 'off' || !watching) return clearSight(mode);
+  if (!watching) return clearSight(mode);
+  if (mode === 'off') return offSightOf(board, options, watching);
   const { landing } = options;
   const { walls, blockers } = geometryOfOptions(board, options);
   const eyeTokens = board.tokens.filter(({ id }) => watching.includes(id));
@@ -86,16 +98,46 @@ export function boardSightOf(board: BoardStateDto, options: BoardSightOptions): 
     return { ...clearSight(mode), previewBlind: true };
   const lights = lightSourcesOf(board, landing, blockers);
   const context: SightContext = { eyes, walls, mode, lights };
+  const magicEyes = magicEyesOf(eyeTokens, eyes);
   return {
     active: true,
     mode,
-    levels: levelsOf(board.tokens, watching, { context, landing, blockers }),
+    levels: levelsOf(board.tokens, watching, { context, landing, blockers, magicEyes }),
     eyes,
     eyeTokenIds: watching,
     noEyes: mode === 'dark' && eyes.length === 0,
     seenDoorIds: doorsSeen(board, walls, context),
     previewBlind: false,
+    magicEyes,
   };
+}
+
+// Sight off shows everything but the invisible tokens no eye looks through: those only where an
+// eye with magic sight reaches them (range and walls). Without one, nothing is worked out.
+function offSightOf(
+  board: BoardStateDto,
+  options: BoardSightOptions,
+  watching: readonly string[],
+): BoardSight {
+  const clear = clearSight('off');
+  const unseen = board.tokens.filter(({ id, hidden }) => hidden && !watching.includes(id));
+  if (unseen.length === 0) return clear;
+  const { landing } = options;
+  const { walls, blockers } = geometryOfOptions(board, options);
+  const eyeTokens = board.tokens.filter(({ id }) => watching.includes(id));
+  const eyes = eyeTokens.map((token) => eyeOfToken(token, landing, blockers));
+  const magicEyes = magicEyesOf(eyeTokens, eyes);
+  const context: SightContext = { eyes, walls, mode: 'off', lights: [] };
+  const levels = levelsOf(unseen, watching, { context, landing, blockers, magicEyes });
+  return { ...clear, levels, magicEyes };
+}
+
+function magicEyesOf(eyeTokens: readonly TokenDto[], eyes: readonly Eye[]): MagicEye[] {
+  return eyeTokens.flatMap((token, index) => {
+    const eye = eyes[index];
+    if (token.magicSight === null || !eye) return [];
+    return [{ eye, range: magicSightRange(token.magicSight) }];
+  });
 }
 
 /** How this viewer sees one token (a token not listed is seen).
@@ -194,7 +236,8 @@ export function sightWithMovedOf(
   const moved = board.tokens.filter(
     ({ id }) => movedIds.includes(id) && !previous.eyeTokenIds.includes(id),
   );
-  const changed = changedLevelsOf(previous, moved, { context, landing, blockers });
+  const { magicEyes } = previous;
+  const changed = changedLevelsOf(previous, moved, { context, landing, blockers, magicEyes });
   if (changed.length === 0) return previous;
   const levels = new Map(previous.levels);
   for (const [id, level] of changed) {
@@ -227,11 +270,25 @@ function levelsOf(
   return levels;
 }
 
-function levelOfToken({ context, landing, blockers }: LevelReading, token: TokenDto): SightLevel {
-  const at = landing?.get(token.id) ?? token;
+// Called only for tokens no eye looks through: an invisible one shows only by magic sight.
+function levelOfToken(reading: LevelReading, token: TokenDto): SightLevel {
+  const at = reading.landing?.get(token.id) ?? token;
   const box = { x: at.col, y: at.row, width: token.width, height: token.height };
   const scenery = token.layer === 'background';
-  return sightLevel(context, { box, scenery, ignores: ownWallsOf(token, blockers) });
+  const target = { box, scenery, ignores: ownWallsOf(token, reading.blockers) };
+  if (token.hidden) return magicLevelOf(reading, target);
+  return sightLevel(reading.context, target);
+}
+
+// The best level any eye with magic sight gives it: a silhouette in its penumbra, as if visible.
+function magicLevelOf({ context, magicEyes }: LevelReading, target: SightTarget): SightLevel {
+  let best: SightLevel = 'hidden';
+  for (const { eye, range } of magicEyes) {
+    const level = magicSightLevel(context, eye, range, target);
+    if (level === 'seen') return level;
+    if (level === 'silhouette') best = level;
+  }
+  return best;
 }
 
 // Only its own: a target inside another statue is still hidden by that one.
@@ -267,5 +324,6 @@ function clearSight(mode: SightMode): BoardSight {
     noEyes: false,
     seenDoorIds: null,
     previewBlind: false,
+    magicEyes: NO_MAGIC_EYES,
   };
 }

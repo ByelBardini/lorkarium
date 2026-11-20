@@ -479,3 +479,78 @@ describe('boardSightOf for a spectator', () => {
     expect(levelOf(preview, OGRE_ID)).toBe('hidden');
   });
 });
+
+describe('boardSightOf with magic sight', () => {
+  // The Lobo, hidden and nobody's, reaches Bia only through her mage's magic sight (4 cells).
+  const LOBO_ID = 'ff66aa77-bb88-4c99-8daa-445566778899';
+  const MAGE = lyra({ sight: { bright: 6, dim: 0 }, magicSight: 4 });
+  const loboAt = (col: number, overrides: Partial<TokenDto> = {}): TokenDto =>
+    kael({ ...someoneElse, id: LOBO_ID, name: 'Lobo', col, row: 4, hidden: true, ...overrides });
+  const biaSees = (vision: SceneVisionDto, tokens: TokenDto[], walls: WallDto[] = []) =>
+    boardSightOf(biaBoard(vision, tokens, walls), { previewEyeIds: null });
+  const wallAtX5 = northWall({
+    x: 5,
+    y: 0,
+    width: 0,
+    height: 12,
+    points: [
+      [0, 0],
+      [0, 12],
+    ],
+  } as never);
+
+  it('the Lobo 3 cells from the mage, where the mage sees, is seen', () => {
+    expect(levelOf(biaSees('dark', [MAGE, loboAt(6.5)]), LOBO_ID)).toBe('seen');
+  });
+
+  it.each([
+    ['5 cells away, past the magic sight', [MAGE, loboAt(8.5)], [] as WallDto[]],
+    ['behind a wall', [MAGE, loboAt(6.5)], [wallAtX5]],
+    ['in the dark, the mage without darkvision', [lyra({ magicSight: 4 }), loboAt(6.5)], []],
+    ['with a mage without magic sight', [lyra({ sight: { bright: 6, dim: 0 } }), loboAt(6.5)], []],
+  ] as const)('%s, the Lobo is hidden', (_case, tokens, walls) => {
+    expect(levelOf(biaSees('dark', [...tokens], [...walls]), LOBO_ID)).toBe('hidden');
+  });
+
+  it('in the penumbra of the mage the Lobo is a silhouette, and a chest of the Background layer is whole', () => {
+    const dimMage = lyra({ sight: { bright: 1, dim: 6 }, magicSight: 4 });
+    const chest = loboAt(6.5, { layer: 'background' });
+
+    expect(levelOf(biaSees('dark', [dimMage, loboAt(6.5)]), LOBO_ID)).toBe('silhouette');
+    expect(levelOf(biaSees('dark', [dimMage, chest]), LOBO_ID)).toBe('seen');
+  });
+
+  it('a hidden token Bia controls follows the rule of always: she sees it', () => {
+    const hers = loboAt(12, { canControl: true, controllerIds: [BIA_AT_TABLE.userId] });
+
+    expect(levelOf(biaSees('dark', [MAGE, hers]), LOBO_ID)).toBe('seen');
+  });
+
+  it('with sight off only the magic range and the walls decide', () => {
+    expect(levelOf(biaSees('off', [MAGE, loboAt(6.5)]), LOBO_ID)).toBe('seen');
+    expect(levelOf(biaSees('off', [MAGE, loboAt(8.5)]), LOBO_ID)).toBe('hidden');
+    expect(levelOf(biaSees('off', [MAGE, loboAt(6.5)], [wallAtX5]), LOBO_ID)).toBe('hidden');
+    expect(biaSees('off', [MAGE, loboAt(8.5)]).active).toBe(false);
+  });
+
+  it('Ana sees it outside the preview; previewing the mage, by the same rule; another eye, not', () => {
+    const anaBoard = (vision: SceneVisionDto, tokens: TokenDto[]) =>
+      vharnBoard({
+        viewer: { userId: ANA_AT_TABLE.userId, role: 'master' },
+        scene: { ...VHARN_SCENE, vision },
+        tokens,
+        walls: [],
+      });
+    const tokens = [MAGE, kael({ sight: { bright: 6, dim: 0 } }), loboAt(6.5)];
+
+    const free = boardSightOf(anaBoard('dark', tokens), { previewEyeIds: null });
+    const asMage = boardSightOf(anaBoard('dark', tokens), { previewEyeIds: [LYRA_ID] });
+    const asKael = boardSightOf(anaBoard('dark', tokens), { previewEyeIds: [KAEL_ID] });
+
+    expect([free, asMage, asKael].map((sight) => levelOf(sight, LOBO_ID))).toEqual([
+      'seen',
+      'seen',
+      'hidden',
+    ]);
+  });
+});

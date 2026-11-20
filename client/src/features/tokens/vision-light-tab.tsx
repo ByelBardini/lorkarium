@@ -4,6 +4,7 @@ import { ConeAngleField } from '@/components/cone-angle-field';
 import { cellsText } from '@/lib/cells-text';
 import type { SceneDistance } from '@/lib/sight-form';
 import { LightColorTiles } from '@/features/lights/light-color-tiles';
+import { MagicSightSection } from './magic-sight-section';
 import { ReachSection } from './reach-section';
 import { SightBlockerSection } from './sight-blocker-section';
 import { lightSwitchedOn, type TokenFormErrors, type TokenFormValues } from './token-form-state';
@@ -31,7 +32,8 @@ export type VisionLightTabProps = Readonly<{
 /** "Visão e luz" of the token dialog: "Enxerga no escuro" (on in a new token, 9 / 18 m), the
  *  "Campo de visão (°)" (outside it: a blind token looks in a cone too) and "Emite luz" (off;
  *  switching it on fills the torch, with its "Cor da luz" and "Abertura do feixe (°)"), all read
- *  from the token, and "Bloqueia a visão" (off), which only the master sees, as this whole tab.
+ *  from the token, "Visão mágica" (off; locked past the table's plan) and "Bloqueia a visão" (off),
+ *  which only the master sees, as this whole tab.
  *
  *  Example: `<VisionLightTab form={form} errors={errors} distance={scene} onChange={setForm} />` */
 export function VisionLightTab(props: VisionLightTabProps): React.JSX.Element {
@@ -83,6 +85,12 @@ export function VisionLightTab(props: VisionLightTabProps): React.JSX.Element {
           onChange={(lightAngle) => onChange({ ...form, lightAngle })}
         />
       </ReachSection>
+      <MagicSightSection
+        fields={form.magicSight}
+        error={errors.magicSight}
+        distance={distance}
+        onChange={(magicSight) => onChange({ ...form, magicSight })}
+      />
       <SightBlockerSection
         on={form.blocksSight}
         onSwitch={(blocksSight) => onChange({ ...form, blocksSight, blocksSightEdited: true })}
