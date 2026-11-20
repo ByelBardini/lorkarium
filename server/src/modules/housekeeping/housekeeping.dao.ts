@@ -8,15 +8,20 @@ export type SweptTable =
   | 'sheet_receipts'
   | 'sessions'
   | 'challenges'
+  | 'signups'
   | 'broadcasts'
   | 'banned_emails';
 
 // Which column dates a row: a receipt by when it was kept, a session or a 2FA step by when it ends.
-const DATED_BY: Readonly<Record<SweptTable, Readonly<{ table: string; column: string }>>> = {
+type DatedRows = Readonly<{ table: string; column: string; only?: SQL }>;
+
+const DATED_BY: Readonly<Record<SweptTable, DatedRows>> = {
   document_receipts: { table: 'library_document_actions', column: 'created_at' },
   sheet_receipts: { table: 'sheet_actions', column: 'created_at' },
   sessions: { table: 'auth_sessions', column: 'expires_at' },
   challenges: { table: 'two_factor_challenges', column: 'expires_at' },
+  // Only the public sign-up's links: an admin's expired invitation stays for the list to resend.
+  signups: { table: 'invitations', column: 'expires_at', only: sql`origin = 'self'` },
   // A notice by when it was written; its deliveries go with it (cascade).
   broadcasts: { table: 'mail_broadcasts', column: 'created_at' },
   // The e-mail of an account deleted for a violation, by when it was banned.
@@ -54,8 +59,9 @@ export class HousekeepingDao {
 }
 
 function batchDeleteOf(swept: SweptTable, cut: Date, limit: number): SQL {
-  const { table, column } = DATED_BY[swept];
+  const { table, column, only } = DATED_BY[swept];
   const name = sql.identifier(table);
-  const dated = sql.identifier(column);
-  return sql`DELETE FROM ${name} WHERE ctid IN (SELECT ctid FROM ${name} WHERE ${dated} < ${cut.toISOString()} LIMIT ${limit})`;
+  const dated = sql`${sql.identifier(column)} < ${cut.toISOString()}`;
+  const where = only ? sql`${dated} AND ${only}` : dated;
+  return sql`DELETE FROM ${name} WHERE ctid IN (SELECT ctid FROM ${name} WHERE ${where} LIMIT ${limit})`;
 }

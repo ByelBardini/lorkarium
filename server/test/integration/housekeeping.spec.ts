@@ -1,6 +1,7 @@
 import { inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DatabaseConnection } from '../../src/database/database';
+import { invitations } from '../../src/modules/account-links/invitations.po';
 import { authSessions } from '../../src/modules/auth/auth-sessions.po';
 import { twoFactorChallenges } from '../../src/modules/auth/two-factor-challenges.po';
 import { UsersDao } from '../../src/modules/auth/users.dao';
@@ -101,6 +102,33 @@ describe('the housekeeping on Postgres', () => {
       .from(twoFactorChallenges);
     expect(sessions).toEqual([{ id: 'valid' }]);
     expect(steps).toEqual([{ id: 'valid' }]);
+  });
+
+  it('deletes the expired sign-up links and keeps the live ones and every admin invitation', async () => {
+    const link = (name: string, origin: 'admin' | 'self', expiresAt: Date) => ({
+      tokenHash: `sha:${name}`,
+      emailCipher: `sealed-${name}`,
+      emailIndex: `idx-${name}`,
+      role: 'user' as const,
+      origin,
+      sentAt: HOURS_AGO(200),
+      expiresAt,
+    });
+    await connection.db
+      .insert(invitations)
+      .values([
+        link('self-expired', 'self', HOURS_AGO(1)),
+        link('self-live', 'self', HOURS_AGO(-1)),
+        link('admin-expired', 'admin', HOURS_AGO(1)),
+      ]);
+
+    await sweep();
+
+    const left = await connection.db.select({ tokenHash: invitations.tokenHash }).from(invitations);
+    expect(left.map(({ tokenHash }) => tokenHash).sort()).toEqual([
+      'sha:admin-expired',
+      'sha:self-live',
+    ]);
   });
 
   it('empties a backlog larger than one batch in the same sweep', async () => {
