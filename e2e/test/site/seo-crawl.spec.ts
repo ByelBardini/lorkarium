@@ -21,21 +21,23 @@ async function sitemapUrls(request: APIRequestContext): Promise<string[]> {
   return bodies.flatMap((xml) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1] ?? ''));
 }
 
+// Runs in the page (the e2e workspace has no DOM types): what a crawler reads from the head.
+const READ_PAGE_SEO = `(() => {
+  const attr = (selector, name) => document.querySelector(selector)?.getAttribute(name) ?? null;
+  const json = document.querySelector('script[type="application/ld+json"]')?.textContent;
+  const hrefs = [...document.querySelectorAll('a[href^="/"]')].map((a) => a.getAttribute('href'));
+  return {
+    canonical: attr('link[rel="canonical"]', 'href'),
+    h1Count: document.querySelectorAll('h1').length,
+    description: attr('meta[name="description"]', 'content'),
+    robots: attr('meta[name="robots"]', 'content'),
+    graph: json ? JSON.parse(json)['@graph'] : undefined,
+    internalLinks: hrefs.filter((href) => href !== null),
+  };
+})()`;
+
 async function seoOf(page: Page): Promise<PageSeo> {
-  return page.evaluate(() => {
-    const attr = (selector: string, name: string): string | null =>
-      document.querySelector(selector)?.getAttribute(name) ?? null;
-    const json = document.querySelector('script[type="application/ld+json"]')?.textContent;
-    const hrefs = [...document.querySelectorAll('a[href^="/"]')].map((a) => a.getAttribute('href'));
-    return {
-      canonical: attr('link[rel="canonical"]', 'href'),
-      h1Count: document.querySelectorAll('h1').length,
-      description: attr('meta[name="description"]', 'content'),
-      robots: attr('meta[name="robots"]', 'content'),
-      graph: json ? (JSON.parse(json) as { '@graph'?: unknown })['@graph'] : undefined,
-      internalLinks: hrefs.filter((href): href is string => href !== null),
-    };
-  });
+  return (await page.evaluate(READ_PAGE_SEO)) as PageSeo;
 }
 
 // The crawl never leaves the build: the release lookup of the download buttons fails fast instead.
