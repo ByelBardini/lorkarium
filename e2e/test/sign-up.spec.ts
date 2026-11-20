@@ -15,7 +15,9 @@ function freshEmail(): string {
 async function askToSignUp(page: Page, email: string): Promise<void> {
   await page.goto('/login');
   await page.getByRole('link', { name: 'Criar conta' }).click();
-  await page.getByLabel('E-mail').fill(email);
+  // Without waiting, the non-exact label still finds "E-mail ou usuário" of the login.
+  await expect(page.getByRole('heading', { name: 'Crie sua conta' })).toBeVisible();
+  await page.getByLabel('E-mail', { exact: true }).fill(email);
   await page.getByRole('button', { name: 'Criar conta' }).click();
   await expect(page.getByRole('status')).toContainText(`Mandamos um e-mail para ${email}`);
 }
@@ -41,7 +43,7 @@ async function signOut(page: Page): Promise<void> {
 
 test('signs up by e-mail and lands signed in at home', async ({ page }) => {
   const username = await signUp(page, freshEmail());
-  expect(username).toMatch(/^cadastro-/);
+  expect(username).toMatch(/^cadastro[0-9a-f]{8}$/);
 });
 
 test('asking again with a taken e-mail shows the same screen and mails "você já tem conta"', async ({
