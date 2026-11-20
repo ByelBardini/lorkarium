@@ -24,6 +24,7 @@ client/                  # Front React + Vite (dev em http://localhost:5173); al
 client/src/lib/utils.ts  # O `cn` gerado pelo shadcn (aliases do components.json)
 client/src/code-editor/  # CodeMirror 6 (o único lugar que o importa, por `lazy`): o campo de código do editor de modelo de ficha
 client/src/components/color-picker/ # Seletor de cor personalizada (popover, cores salvas); `hex-color-canvas.tsx` é o único import do `react-colorful`
+client/src/components/human-check/ # Widget do Cloudflare Turnstile (cadastro e "esqueci a senha"): o único lugar que carrega o script da Cloudflare
 client/src/components/image-crop/ # Diálogo de recorte por formato (foto 1:1, capa 2:1, banner 3:1); `crop-area.tsx` é o único import do `react-easy-crop`, por `lazy`
 client/src/emotes/       # Imagens dos memes e smileys do chat (PNG 96 px) e o `emoteImageUrlOf`; catálogo e troca em src/lib/emote-*.ts
 client/src/sheet-sandbox/ # Iframe isolado da ficha (srcdoc + CSP), SDK `window.lorkarium`, ponte do host e host da prévia
@@ -120,7 +121,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | assets           | Imagens da mesa: S3, cache em disco, envio, link seguro, leitura pela origem          | [`docs/context/assets.md`](docs/context/assets.md)                     |
 | mail             | E-mails do sistema: molde HTML/texto, catálogo de templates, PNGs, prévia             | [`docs/context/mail.md`](docs/context/mail.md)                         |
 | user-admin       | Backoffice das contas: lista, papel, suspensão, exclusão, teste de e-mail             | [`docs/context/user-admin.md`](docs/context/user-admin.md)             |
-| account-links    | Links de uso único: convite (escolhe @ e senha) e nova senha pelo admin               | [`docs/context/account-links.md`](docs/context/account-links.md)       |
+| account-links    | Convite, cadastro público por e-mail, nova senha (admin ou "esqueci"), Turnstile      | [`docs/context/account-links.md`](docs/context/account-links.md)       |
 | legal            | Termos, Privacidade e Uso no app: redirect à landing, aceite, versão, código-fonte    | [`docs/context/legal.md`](docs/context/legal.md)                       |
 | client           | SPA: estrutura, rotas, shell e home, testes, design system, desempenho                | [`docs/context/client.md`](docs/context/client.md)                     |
 | ci               | Testes por camada, cobertura, build, pipeline do GitHub Actions, e2e por grupo        | [`docs/context/ci.md`](docs/context/ci.md)                             |
