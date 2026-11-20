@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { type ActId, actById, inviteMailto, landingCopy } from '@/copy/landing-copy';
+import { type ActId, actById, landingCopy, signUpUrlOf } from '@/copy/landing-copy';
 import { REPOSITORY_URL } from '@/lib/desktop-release';
 
-describe('inviteMailto', () => {
-  it('fills the invite subject, URL-encoded', () => {
-    expect(inviteMailto('contato@lorkarium.com.br')).toBe(
-      'mailto:contato@lorkarium.com.br?subject=Convite%20para%20o%20Lorkarium',
+describe('signUpUrlOf', () => {
+  it('points at the sign-up page of the app', () => {
+    expect(signUpUrlOf('https://mesa.lorkarium.com.br')).toBe(
+      'https://mesa.lorkarium.com.br/sign-up',
+    );
+  });
+
+  it('ignores a trailing slash or path on the app address', () => {
+    expect(signUpUrlOf('https://mesa.lorkarium.com.br/login/')).toBe(
+      'https://mesa.lorkarium.com.br/sign-up',
     );
   });
 });
@@ -35,6 +41,36 @@ describe('landingCopy', () => {
 
     expect(barClaims.some((text) => /quantas barras quiser/i.test(text))).toBe(false);
     expect(barClaims.filter((text) => text.includes('Até 8 barras'))).toHaveLength(2);
+  });
+});
+
+describe('landingCopy without the invite', () => {
+  it('never asks for an invite in the steps, the requirements or the questions', () => {
+    const texts = [
+      ...landingCopy.steps.flatMap((step) => [step.title, step.text]),
+      ...landingCopy.requirements.map((requirement) => requirement.value),
+      ...landingCopy.faqs.flatMap((faq) => [faq.question, faq.answer]),
+    ];
+
+    expect(texts.filter((text) => /convite/i.test(text))).toEqual([]);
+  });
+
+  it('opens the steps with creating the account', () => {
+    expect(landingCopy.steps[0]?.title).toBe('Crie sua conta');
+  });
+
+  it('says the account is free and made by e-mail', () => {
+    const account = landingCopy.requirements.find((requirement) => requirement.label === 'Conta');
+
+    expect(account?.value).toBe('Grátis, pelo e-mail');
+  });
+
+  it('answers that the account is created in the app, for adults only', () => {
+    const account = faqAsking('Como consigo uma conta?');
+
+    expect(account?.answer).toMatch(/pelo app/);
+    expect(account?.answer).toMatch(/18 anos/);
+    expect(account?.signUp).toBe(true);
   });
 });
 

@@ -1,5 +1,5 @@
 ---
-import { PUBLIC_APP_URL, PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
+import { PUBLIC_APP_URL } from 'astro:env/client';
 import ApoiadorSeal from '@lorkarium/brand/seals/apoiador.svg';
 import LendaSeal from '@lorkarium/brand/seals/lenda.svg';
 import NarradorSeal from '@lorkarium/brand/seals/narrador.svg';
@@ -7,7 +7,7 @@ import LogoMark from '@lorkarium/brand/logo-mark.svg';
 import ActPoints from '@/components/act-points.astro';
 import FaqList from '@/components/faq-list.astro';
 import PriceNumber from '@/components/price-number.astro';
-import { inviteMailto } from '@/copy/landing-copy';
+import { signUpUrlOf } from '@/copy/landing-copy';
 import { plansCopy } from '@/copy/plans-copy';
 import { bestSavingPercent, PLAN_PERIODS, priceView, type PlanPrices } from '@/lib/plan-price';
 import SiteLayout from '@/layouts/site-layout.astro';
@@ -173,7 +173,7 @@ const periods = PLAN_PERIODS.map((period) => ({
                 </div>
                 <a
                   data-plan-cta
-                  href={isFree ? inviteMailto(PUBLIC_CONTACT_EMAIL) : `${PUBLIC_APP_URL}/planos`}
+                  href={isFree ? signUpUrlOf(PUBLIC_APP_URL) : `${PUBLIC_APP_URL}/planos`}
                   class:list={[
                     'inline-flex h-12 items-center justify-center rounded-sm border text-[15px] font-semibold transition-colors',
                     isFree || highlighted
@@ -181,7 +181,7 @@ const periods = PLAN_PERIODS.map((period) => ({
                       : 'border-edge-strong text-parchment hover:border-gold hover:text-gold-light',
                   ]}
                 >
-                  {isFree ? 'Pedir convite' : 'Assinar no app'}
+                  {isFree ? 'Criar conta' : 'Assinar no app'}
                 </a>
                 <div class="border-t border-edge pt-5">
                   <ActPoints points={plan.limits} />
@@ -221,18 +221,17 @@ const periods = PLAN_PERIODS.map((period) => ({
   <section class="act">
     <div class="site-wrap flex flex-wrap items-center gap-8 border border-edge bg-surface p-10">
       <div class="flex flex-[1_1_380px] flex-col gap-3">
-        <span class="eyebrow">Acesso antecipado</span>
+        <span class="eyebrow">Comece no Grátis</span>
         <h2 class="act-title m-0">Ainda não tem conta?</h2>
         <p class="m-0 max-w-[480px] text-[15px] leading-relaxed text-muted">
-          Estamos abrindo aos poucos, por convite. Mande um e-mail e respondemos assim que houver
-          vaga.
+          Crie a sua pelo app com o seu e-mail. É só para maiores de 18 anos.
         </p>
       </div>
       <a
-        href={inviteMailto(PUBLIC_CONTACT_EMAIL)}
+        href={signUpUrlOf(PUBLIC_APP_URL)}
         class="inline-flex h-12 items-center rounded-sm bg-gold px-6 text-[15px] font-semibold text-ink hover:bg-gold-hover"
       >
-        Pedir convite
+        Criar conta
       </a>
     </div>
   </section>

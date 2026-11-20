@@ -1,6 +1,6 @@
 ---
 title: Política de privacidade
-updatedAt: 19 de novembro de 2026
+updatedAt: 20 de novembro de 2026
 draft: false
 ---
 
@@ -17,7 +17,7 @@ O **encarregado** pelo tratamento de dados pessoais é o próprio Gabryel Bardin
 ## 2. O essencial
 
 - Não vendemos, não alugamos e não usamos seus dados para publicidade.
-- Não há anúncios nem rastreadores de terceiros, nem no site nem no app.
+- Não há anúncios nem rastreadores de terceiros, nem no site nem no app. A única peça de terceiros no app é a verificação anti-robô da Cloudflare, no cadastro e no pedido de nova senha (seção 5).
 - O conteúdo das mesas **não é usado para treinar inteligência artificial**.
 - Seu e-mail fica guardado de forma cifrada, e sua senha nunca é guardada: guardamos só um resumo irreversível dela. Os outros usuários nunca veem seu e-mail.
 - Nenhum dado de cartão passa pelo Lorkarium: o pagamento é feito no Mercado Pago.
@@ -35,9 +35,11 @@ O **encarregado** pelo tratamento de dados pessoais é o próprio Gabryel Bardin
 - **Medidas** aplicadas à conta, quando for o caso (aviso, remoção de conteúdo, suspensão com a data em que termina): a regra da Política de uso aceitável, o motivo escrito para você, quando foi aplicada e a contestação, com o resultado.
 - **Aceite dos textos legais**: quando você aceitou os Termos de uso, a Política de uso aceitável e esta política, ao criar a conta, e qual versão deles. É a prova do acordo entre nós.
 
-### Convite
+### Cadastro e convite
 
-O Lorkarium funciona por convite. Para gerar o convite, guardamos o e-mail de quem foi convidado e quem fez o convite. Se você pediu o convite por e-mail, também recebemos a mensagem que você mandou.
+- **Cadastro**: quando você pede uma conta pelo app, guardamos o e-mail informado até você confirmar o cadastro pelo link que mandamos para ele, ou por até 24 horas, se você não confirmar. Se esse e-mail já tiver uma conta, não criamos outra: mandamos a ele um aviso de que a conta já existe, com o caminho para criar uma nova senha.
+- **Convite**: quando um administrador convida você, guardamos o e-mail de quem foi convidado e quem fez o convite.
+- **Verificação anti-robô**: no cadastro e no pedido de nova senha, o app usa o Cloudflare Turnstile para conferir que quem pede é uma pessoa. O seu navegador manda à Cloudflare o seu endereço IP e sinais técnicos do navegador e do aparelho, e o nosso servidor confere com ela o resultado (seção 5).
 
 ### Perfil (opcional)
 
@@ -77,22 +79,23 @@ Se você contratar um plano pago:
 
 - **Sessões**: o navegador e o sistema do aparelho (lidos do _user agent_), quando cada sessão começou, quando foi usada pela última vez e quando vence. É isso que aparece em "Onde você está conectado".
 - **Verificação em duas etapas**, se você ligar: o segredo do app autenticador (guardado cifrado) e os códigos de recuperação.
-- Pedidos de troca de e-mail, links de nova senha e links de recuperação ("Não fui eu"), todos com validade curta.
+- Pedidos de troca de e-mail, links de nova senha (pedidos por você, na tela de entrada, ou gerados por um administrador) e links de recuperação ("Não fui eu"), todos com validade curta.
 
 ### Dados técnicos
 
 - **Registros de acesso**: endereço IP, data e hora, a sua conta (quando você está conectado), o endereço acessado no servidor e a resposta dada, e quando a sua conexão com uma mesa abre e fecha. Servem para segurança e para cumprir o Marco Civil da Internet.
-- O endereço IP também é usado, só na memória do servidor, para limitar tentativas repetidas de login e de uso dos links públicos.
+- O endereço IP também é usado, só na memória do servidor, para limitar tentativas repetidas de login, de cadastro, de pedido de nova senha e de uso dos links públicos.
 - As ações dos administradores sobre as contas ficam no registro do servidor, com quem fez e sobre qual conta.
 - **Comunicados**: quando mandamos um aviso do serviço a todas as contas ou a um grupo delas (por exemplo, uma mudança de preço), registramos a quem ele foi enviado e quando, como prova do aviso.
-- **Conta excluída por violação**: guardamos um resumo criptográfico irreversível do e-mail dela (não o e-mail), só para recusar um novo convite para o mesmo endereço.
+- **Conta excluída por violação**: guardamos um resumo criptográfico irreversível do e-mail dela (não o e-mail), só para recusar um novo cadastro ou convite para o mesmo endereço.
 
 ## 4. Para que usamos e com qual base legal
 
 - **Criar e manter sua conta, autenticar você, rodar as mesas em tempo real, mostrar seu perfil, ligar você aos seus amigos, entregar as mensagens e guardar o que você cria.** Base legal: execução do contrato que são os Termos de uso (art. 7º, V).
 - **Cobrar os planos pagos, registrar pagamentos, renovações, reembolsos e contestações e mandar os e-mails de cobrança.** Base legal: execução do contrato (art. 7º, V) e cumprimento de obrigação legal, inclusive fiscal (art. 7º, II).
-- **Gerar o convite que você pediu.** Base legal: procedimentos preliminares a contrato, a pedido do titular (art. 7º, V).
-- **Mandar os e-mails do serviço**: convite, confirmação de troca de e-mail, nova senha, avisos de segurança ("se não foi você", com o aparelho e a hora), mudança de papel, as medidas aplicadas à conta e o fim de uma suspensão, o aviso de que a sua denúncia foi analisada, o link da issue quando o seu relato for publicado e os comunicados do serviço (mudança de preço ou das condições dos planos, fim do serviço). Esses e-mails fazem parte do serviço e não podem ser desligados; não mandamos e-mail de propaganda. Base legal: execução do contrato (art. 7º, V) e legítimo interesse na segurança da conta (art. 7º, IX).
+- **Atender o cadastro que você pediu ou o convite que recebeu**: mandar o link de confirmação e guardar o e-mail até a conta ser criada. Base legal: procedimentos preliminares a contrato, a pedido do titular (art. 7º, V).
+- **Conferir que o cadastro e o pedido de nova senha vêm de uma pessoa, e não de um robô** (Cloudflare Turnstile). Base legal: legítimo interesse na segurança das contas e do serviço (art. 7º, IX).
+- **Mandar os e-mails do serviço**: confirmação de cadastro, aviso de que o e-mail já tem uma conta, convite, confirmação de troca de e-mail, nova senha (pedida por você ou gerada por um administrador), avisos de segurança ("se não foi você", com o aparelho e a hora), mudança de papel, as medidas aplicadas à conta e o fim de uma suspensão, o aviso de que a sua denúncia foi analisada, o link da issue quando o seu relato for publicado e os comunicados do serviço (mudança de preço ou das condições dos planos, fim do serviço). Esses e-mails fazem parte do serviço e não podem ser desligados; não mandamos e-mail de propaganda. Base legal: execução do contrato (art. 7º, V) e legítimo interesse na segurança da conta (art. 7º, IX).
 - **Proteger as contas e o serviço**: limitar tentativas, investigar abuso, avisar sobre ações sensíveis e manter cópias de segurança. Base legal: legítimo interesse (art. 7º, IX).
 - **Guardar os registros de acesso pelo prazo legal.** Base legal: cumprimento de obrigação legal (art. 7º, II, e art. 15 do Marco Civil).
 - **Receber, revisar e publicar os relatos de bug e as sugestões que você envia, e avisar você por e-mail quando um deles virar uma issue no GitHub.** Base legal: legítimo interesse em melhorar o serviço (art. 7º, IX).
@@ -111,7 +114,8 @@ Não usamos seus dados para publicidade, não montamos perfil comercial sobre vo
   - **Hostinger**, no Brasil: o servidor, o banco de dados e uma cópia em disco das imagens, para servi-las mais rápido;
   - **Amazon Web Services (AWS)**, nos Estados Unidos (região us-east-2): o armazenamento das imagens, das cópias de segurança do banco de dados e dos registros de acesso;
   - **Resend**, nos Estados Unidos: o envio dos e-mails do serviço;
-  - **GitHub**, nos Estados Unidos: de onde o site baixa o instalador e o aplicativo para Windows busca as atualizações.
+  - **GitHub**, nos Estados Unidos: de onde o site baixa o instalador e o aplicativo para Windows busca as atualizações;
+  - **Cloudflare**, nos Estados Unidos: a verificação anti-robô (Turnstile) no cadastro e no pedido de nova senha, que recebe o seu endereço IP e sinais técnicos do navegador e do aparelho. Os sinais que a Cloudflare usa para melhorar a detecção de robôs seguem o [adendo de privacidade do Turnstile](https://www.cloudflare.com/turnstile-privacy-policy/).
 - **Qualquer pessoa na internet**, quando a equipe publica um relato seu como issue no repositório público do Lorkarium no GitHub: só o título e o texto revisados pela equipe, sem o seu @, o seu e-mail nem os prints. A equipe tira dados pessoais antes de publicar, mas não escreva no relato o que você não quer ver público.
 - **Mercado Pago**, para processar os pagamentos, como controlador independente (seção 3, Cobrança).
 - **Autoridades**, quando houver ordem judicial ou requisição de autoridade competente, nos limites da lei.
@@ -119,7 +123,7 @@ Não usamos seus dados para publicidade, não montamos perfil comercial sobre vo
 
 ## 6. Transferência internacional
 
-O banco de dados fica no Brasil, mas parte dos dados vai para fora: as imagens que você envia, as cópias de segurança do banco de dados e os registros de acesso são armazenados pela AWS nos Estados Unidos; os e-mails do serviço (com o seu endereço) são enviados pela Resend, nos Estados Unidos; e o GitHub, também nos Estados Unidos, entrega o instalador e as atualizações e guarda as issues publicadas a partir dos relatos. Essas transferências seguem o art. 33 da LGPD e o Regulamento de Transferência Internacional de Dados da ANPD (Resolução CD/ANPD nº 19/2024), com fornecedores que se comprometem por contrato com um nível de proteção compatível com a LGPD.
+O banco de dados fica no Brasil, mas parte dos dados vai para fora: as imagens que você envia, as cópias de segurança do banco de dados e os registros de acesso são armazenados pela AWS nos Estados Unidos; os e-mails do serviço (com o seu endereço) são enviados pela Resend, nos Estados Unidos; o GitHub, também nos Estados Unidos, entrega o instalador e as atualizações e guarda as issues publicadas a partir dos relatos; e a Cloudflare, nos Estados Unidos, recebe o seu IP e os sinais do navegador na verificação anti-robô do cadastro e do pedido de nova senha. Essas transferências seguem o art. 33 da LGPD e o Regulamento de Transferência Internacional de Dados da ANPD (Resolução CD/ANPD nº 19/2024), com fornecedores que se comprometem por contrato com um nível de proteção compatível com a LGPD.
 
 ## 7. Cookies e armazenamento no seu aparelho
 
@@ -147,7 +151,7 @@ Como não usamos cookies de publicidade nem de análise, não há banner de cook
 - **Conteúdo das mesas**: enquanto a mesa existir. O dono pode excluir a mesa a qualquer momento. As imagens de uma mesa excluída deixam de estar acessíveis na hora e entram numa fila de remoção, que as apaga do armazenamento em minutos e tenta de novo se algo falhar. Imagens enviadas e nunca usadas são apagadas depois de 24 horas, pela mesma fila.
 - **Medidas aplicadas à conta**: enquanto a conta existir.
 - **Sessões**: até vencerem, até você sair ou até você encerrá-las em "Onde você está conectado"; as vencidas são apagadas de hora em hora.
-- **Links e códigos temporários**: verificação em duas etapas do login, 5 minutos; troca de e-mail, 30 minutos; nova senha, 1 hora; convite e link "Não fui eu", 7 dias.
+- **Links e códigos temporários**: verificação em duas etapas do login, 5 minutos; troca de e-mail, 30 minutos; nova senha, 1 hora; cadastro, 24 horas; convite e link "Não fui eu", 7 dias.
 - **Denúncias e prints**: enquanto a denúncia estiver aberta e até **6 meses** depois de fechada, mesmo que uma das contas seja excluída nesse meio-tempo (é a prova do que aconteceu); depois são apagados, os prints junto. Um print enviado e não anexado a uma denúncia é apagado em 24 horas.
 - **Relatos de bug e sugestões**: enquanto esperam a análise da equipe. Quando um relato é publicado no GitHub ou arquivado, ele e os prints são apagados na hora (os prints, pela fila de remoção); o link da issue fica só no e-mail que você recebe. Um print enviado e não anexado a um relato é apagado em 24 horas. A issue publicada fica no GitHub, sem dados seus.
 - **Comunicados**: o registro de a quem cada aviso foi enviado, **5 anos**, pelo prazo do Código de Defesa do Consumidor (art. 27).
@@ -188,7 +192,7 @@ Protegemos seus dados com:
 - verificação em duas etapas opcional e avisos por e-mail quando algo sensível muda na conta;
 - permissões conferidas sempre no servidor, imagens servidas só a quem está logado e armazenamento de arquivos privado;
 - fichas com código rodando isoladas da página e da sua conta;
-- limites de tentativas contra adivinhação de senha.
+- limites de tentativas contra adivinhação de senha e verificação anti-robô no cadastro e no pedido de nova senha.
 
 Nenhum sistema é totalmente invulnerável. Se acontecer um incidente de segurança que possa causar risco ou dano relevante a você, comunicaremos você e a ANPD, como manda o art. 48 da LGPD. Ajude a proteger sua conta: use uma senha que você não usa em outros lugares, ligue a verificação em duas etapas e encerre as sessões de aparelhos que não reconhece. Encontrou uma falha? Conte em <privacidade@evolutivasistemas.com.br>.
 
@@ -198,7 +202,7 @@ O Lorkarium é só para maiores de 18 anos. Não coletamos de propósito dados d
 
 ## 12. Serviços e links de terceiros
 
-Quando você importa uma imagem por link, nosso servidor acessa o endereço informado para baixá-la. Os e-mails do serviço pedem as fontes do Google Fonts, e alguns programas de e-mail as baixam ao abrir a mensagem, o que mostra ao Google o seu IP. O Mercado Pago, o GitHub e os links externos têm políticas de privacidade próprias, pelas quais não respondemos.
+Quando você importa uma imagem por link, nosso servidor acessa o endereço informado para baixá-la. Os e-mails do serviço pedem as fontes do Google Fonts, e alguns programas de e-mail as baixam ao abrir a mensagem, o que mostra ao Google o seu IP. A verificação anti-robô do cadastro e do pedido de nova senha carrega um script da Cloudflare na página (seção 5). O Mercado Pago, o GitHub e os links externos têm políticas de privacidade próprias, pelas quais não respondemos.
 
 ## 13. Mudanças nesta política
 

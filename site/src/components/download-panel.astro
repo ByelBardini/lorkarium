@@ -1,10 +1,10 @@
 ---
-import { PUBLIC_CONTACT_EMAIL } from 'astro:env/client';
+import { PUBLIC_APP_URL } from 'astro:env/client';
 import DownloadCta from '@/components/download-cta.astro';
 import ReleaseMeta from '@/components/release-meta.astro';
 import SecondaryLink from '@/components/secondary-link.astro';
 import ActHeading from '@/components/act-heading.astro';
-import { inviteMailto, landingCopy } from '@/copy/landing-copy';
+import { landingCopy, signUpUrlOf } from '@/copy/landing-copy';
 ---
 
 <section id="baixar" class="act relative isolate overflow-clip border-t border-edge">
@@ -28,12 +28,12 @@ import { inviteMailto, landingCopy } from '@/copy/landing-copy';
   <div class="site-wrap relative grid items-start gap-14 lg:grid-cols-[1.2fr_1fr]">
     <div class="flex min-w-0 flex-col gap-7" data-reveal>
       <ActHeading numeral="✦" title="Baixe e jogue">
-        O aplicativo é gratuito, com planos pagos opcionais. Para criar sua conta, você precisa de
-        um convite. Também é possível jogar pelo navegador, inclusive no Mac e no Linux.
+        O aplicativo é gratuito, com planos pagos opcionais. Para criar sua conta, basta um e-mail.
+        Também é possível jogar pelo navegador, inclusive no Mac e no Linux.
       </ActHeading>
       <div class="flex flex-wrap items-center gap-3.5">
         <DownloadCta />
-        <SecondaryLink href={inviteMailto(PUBLIC_CONTACT_EMAIL)}>Pedir convite</SecondaryLink>
+        <SecondaryLink href={signUpUrlOf(PUBLIC_APP_URL)}>Criar conta</SecondaryLink>
       </div>
       <ReleaseMeta lead="Instalador .exe" />
     </div>
