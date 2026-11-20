@@ -46,6 +46,12 @@ A "linha de visão" da tabela é a que sobra sem o `ignores` do olho, sem o `ign
 - `lighting.ts`: `LightSource` `{ center, range, cone, ignores? }` — uma luz que está brilhando; `cone: null` ilumina em volta; `ignores`, as paredes que ela atravessa (os bloqueadores em que está). `lightSource(centro, alcance, acesa, cone = null, ignores?)` → `null` sem alcance ou apagada (o token sem luz, a tocha apagada); lista vazia ou ausente deixa a fonte **sem a chave**.
 - `lightLevelAt(ponto, luzes, paredes, exceto?)` (`exceto`: uma parede ou uma lista, somado ao `ignores` de cada luz) → `SightLevel`: `seen` a ≤ `bright` de uma luz, `silhouette` a ≤ `bright + dim`, `hidden` no escuro (folga de 1e-9: o ponto exatamente na borda está dentro). A luz em cone só ilumina **dentro do cone** (`insideCone`; a borda e o **ápice** contam, então quem segura a lanterna aparece iluminado por ela; a lanterna **não tem anel**). Só conta a luz com **linha de visão** até o ponto (`lineOfSight`): as paredes que cortam a luz são as do `blocksSight` (parede, cortina e porta fechada cortam; grade e porta aberta deixam passar). **A melhor luz vale.** Sem luz → `hidden`.
 
+## Visão mágica (`magic-sight.ts`)
+
+- `magicSightRange(casas)` — número finito de 0 a `MAGIC_SIGHT_RANGE_MAX` (100) casas; fora disso `RangeError` "Magic sight range -1 is invalid: expected a number from 0 to 100 cells.".
+- `magicSightLevel(contexto, olho, alcance, alvo)` → `SightLevel`: com a **borda** da pegada a ≤ `alcance` do centro do olho (`distanceToBox`, folga de 1e-9), o nível que o mesmo olho daria ao alvo visível (`sightLevel` com `eyes: [olho]`: `seen` na luz plena ou na visão no escuro, `silhouette` na penumbra, o cenário inteiro); fora do alcance, `hidden`. A visão mágica só tira a invisibilidade. Outro olho que vê o alvo não ajuda (o alcance e o nível são do mesmo olho). Com a cena `off` decidem só o alcance e a parede (alguma sonda em `lineOfSight`, com o `ignores` do olho e do alvo).
+- `sightProbesOf(caixa)` (`token-sight.ts`) — as cinco sondas (centro e cantos 10% para dentro) que o `sightLevel` e a visão mágica dividem.
+
 ## Bloqueador
 
 O token que corta visão e luz como uma cortina. Quem decide quais tokens entram (o `blocksSight`, o `hidden` de fora) e monta a lista única de paredes é quem chama (`doorSeen` no server, `sightGeometryOf` no client).
