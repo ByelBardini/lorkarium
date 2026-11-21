@@ -60,3 +60,4 @@ Casca Rust e splash do desktop, landing, serviço de cobrança, tracing/replay/l
 - Um `Scope` passado ao `client.captureException` **substitui** o escopo corrente: o `initialScope` não chega ao evento. Por isso as tags de `runtime` vão em cada `Scope`, no server e no client.
 - Sem `originalException` no hint, o `linkedErrorsIntegration` não acha o `cause`.
 - `DOMException` não é `instanceof Error` em todo runtime: o filtro do client olha o `name`.
+- Spec que despacha `ErrorEvent` na `window` precisa do `allowDispatchedWindowErrors()` (`client/test/support/`): sem listener de `error` posto por `addEventListener`, o jsdom do Vitest vira o evento em "Unhandled Errors" e reprova a camada no CI, com todo teste verde. O SDK escuta por `window.onerror` e o buffer tira o próprio listener, então nenhum dos dois conta.
