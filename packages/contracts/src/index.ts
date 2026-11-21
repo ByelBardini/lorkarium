@@ -10,6 +10,7 @@ export * from './profiles/reputation.dto';
 export * from './profiles/user-report.dto';
 export * from './screenshots/screenshot.dto';
 export * from './feedback/feedback.dto';
+export * from './error-reports/error-reports.dto';
 export * from './account/avatar.dto';
 export * from './account/banner.dto';
 export * from './account/dice-texture.dto';
