@@ -53,6 +53,7 @@ describe('readEnv', () => {
       ownerUsername: null,
       issueTracker: null,
       signUp: { registrationOpen: false, humanCheck: null },
+      errorReporting: null,
     });
   });
 

@@ -24,6 +24,7 @@ import { TWO_FACTOR_CHALLENGE_MS } from './two-factor-challenge.bo';
 import type { TwoFactorLoginService } from './two-factor-login.service';
 import type { UserRole } from './user-access.bo';
 import { withPlanLimitReply } from '../plans/plan-limit-response';
+import { bindToRequestLog } from '../../lib/request-log';
 
 export const SESSION_COOKIE = 'lk_session';
 
@@ -160,6 +161,9 @@ export function createAuthGuards(service: AuthService, cookiePolicy: AuthCookieP
         const resolved = await service.authorize(request.cookies[SESSION_COOKIE], required);
         refreshSessionCookie(request, reply, resolved, cookiePolicy);
         passed.set(request, resolved);
+        // The report of a 5xx of this request names the account (never the e-mail nor the IP).
+        const { id: userId, username } = resolved.user;
+        bindToRequestLog(request.log, { userId, username });
       } catch (error) {
         if (!(error instanceof AuthError)) throw error;
         return reply.code(STATUS_BY_CODE[error.code]).send(toApiError(error));
