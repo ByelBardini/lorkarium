@@ -7,6 +7,8 @@ import { createDocumentWorkspaceStore } from '@/stores/document-workspace-store'
 import { StrictMode } from 'react';
 import { browserClock, browserWallClock } from '@/lib/interaction-clock';
 import { createRoot } from 'react-dom/client';
+import { startErrorReporting } from '@/app/error-reporting';
+import { HttpErrorReportsApi } from '@/services/error-reports-api';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { PerfPanel } from '@/app/perf-panel';
 import { tabInteractionFactory } from '@/features/board/tab-interaction';
@@ -114,6 +116,17 @@ const prefetchBoardImage = (url: string): void =>
     () => undefined,
   );
 const transport = new FetchHttpTransport();
+const errorReportsApi = new HttpErrorReportsApi(transport);
+// From here on, a real bug of the page is reported (buffered until the settings and the SDK arrive).
+const errorReports = startErrorReporting({
+  api: errorReportsApi,
+  userAgent: navigator.userAgent,
+  scope: window,
+  loadSentry: () =>
+    import('@/error-reports/sentry-client-error-sink').then(
+      (sdk) => sdk.createSentryClientErrorSink,
+    ),
+});
 const imagePresentationApi = new HttpImagePresentationApi(transport);
 const documentsApi = new HttpDocumentsApi(transport);
 const sheetsApi = new HttpSheetsApi(transport, fetchAssetBytes());
@@ -249,15 +262,27 @@ const router = createBrowserRouter(
     feedbackApi: new HttpFeedbackApi(transport),
     feedbackWhere: feedbackWhereOf(navigator.userAgent),
     feedbackAdminApi: new HttpFeedbackAdminApi(transport),
+    errorReportsApi,
     friends,
     directMessages,
     presenceChoice,
   }),
 );
 
-createRoot(rootElement).render(
+// React's default for an uncaught error is the console; it stays, and the report goes along.
+const onUncaughtError = (error: unknown, info: { componentStack?: string }): void => {
+  console.error(error, info.componentStack);
+  errorReports.capture(error, { source: 'render' });
+};
+
+createRoot(rootElement, { onUncaughtError }).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <RouterProvider
+      router={router}
+      onError={(error, { pattern }) =>
+        errorReports.capture(error, { source: 'route', routePattern: pattern })
+      }
+    />
     {perfProbe && <PerfPanel probe={perfProbe} />}
   </StrictMode>,
 );

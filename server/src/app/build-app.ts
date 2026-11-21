@@ -18,7 +18,10 @@ import { createLibraryMapsModule } from '../modules/library-maps/library-maps.pl
 import cookie from '@fastify/cookie';
 import { AVATAR_MAX_BYTES, type AssetPurposeDto } from '@lorkarium/contracts';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { loggerOptions } from './logger-options';
+import { bindRequestRoute, loggerOptions } from './logger-options';
+import { unexpectedErrorsOf, wireErrorReports } from './wire-error-reports';
+import type { ErrorReportSink } from '../modules/error-reports/error-report-sink.port';
+import type { ClientErrorRelay } from '../modules/error-reports/client-error-relay.port';
 import { AccountVisibilityRelay } from './account-visibility-relay';
 import type { Env } from '../config/env';
 import type { Database } from '../database/database';
@@ -124,8 +127,8 @@ declare module 'fastify' {
 
 /** `clock` defaults to the system clock, `mailer` to the one of `env.mailer`,
  *  `accessLogArchive` to the bucket of `env.accessLog`, `issueTracker` to the GitHub App of
- *  `env.issueTracker` and `humanCheck` to the Turnstile of `env.signUp`; integration specs pass
- *  fakes to cross a deadline or read what was sent or recorded. */
+ *  `env.issueTracker`, `humanCheck` to the Turnstile of `env.signUp`, `errorReportSink` to
+ *  nowhere and `clientErrorRelay` to the ingest of `env.errorReporting`; integration specs pass fakes to cross a deadline or read what was sent or recorded. */
 export type AppDependencies = Readonly<{
   env: Env;
   db: Database;
@@ -134,6 +137,8 @@ export type AppDependencies = Readonly<{
   accessLogArchive?: AccessLogArchivePort;
   issueTracker?: IssueTrackerPort;
   humanCheck?: HumanCheckPort;
+  errorReportSink?: ErrorReportSink;
+  clientErrorRelay?: ClientErrorRelay;
 }>;
 
 const API_PREFIX = '/api';
@@ -143,11 +148,13 @@ const API_PREFIX = '/api';
  *  Example: `await (await buildApp({ env, db })).listen({ port: env.port })` */
 export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> {
   const trustProxy = trustProxyOf(deps.env.trustProxyHops);
-  const app = Fastify({ logger: loggerOptions(deps.env), trustProxy });
+  const clock = deps.clock ?? new SystemClock();
+  const unexpectedErrors = unexpectedErrorsOf(deps.errorReportSink, clock);
+  const app = Fastify({ logger: loggerOptions(deps.env, unexpectedErrors), trustProxy });
+  bindRequestRoute(app);
   keepOutOfSearch(app);
   await app.register(cookie);
   const hasher = new Argon2PasswordHasher();
-  const clock = deps.clock ?? new SystemClock();
   const tokens = new CryptoSessionToken();
   const sessionEnded = new SocketIoSessionEnded();
   const cipher = new AesGcmDataCipher(deps.env.dataEncryptionKey);
@@ -170,6 +177,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const campaigns = createCampaignsModule(campaignsOptions);
   await app.register(healthPlugin, { prefix: API_PREFIX, db: deps.db });
   await app.register(legalPlugin, { prefix: API_PREFIX, sitePublicUrl: env.sitePublicUrl });
+  await wireErrorReports(app, { env, relay: deps.clientErrorRelay }, API_PREFIX);
   const storage = wireAssetStorage(app, deps.env, clock);
   // After the asset bucket is ensured: dev and CI keep the access log in that same bucket.
   const accessLog = wireAccessLog(app, { env, clock, archive: deps.accessLogArchive });

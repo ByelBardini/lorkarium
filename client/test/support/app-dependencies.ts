@@ -26,6 +26,7 @@ import { AccountSecurityApiFake } from './account-security-api-fake';
 import { UserAdminApiFake } from './user-admin-api-fake';
 import { UserReportsApiFake } from './user-reports-api-fake';
 import { FeedbackAdminApiFake, FeedbackApiFake } from './feedback-api-fake';
+import { ErrorReportsApiFake } from './error-reports-api-fake';
 import { SanctionsApiFake } from './sanctions-api-fake';
 import { BroadcastsApiFake } from './broadcasts-api-fake';
 import { BadgesAdminApiFake } from './badges-admin-api-fake';
@@ -159,6 +160,7 @@ export type TestDependencies = AppDependencies & {
   profileCardApi: ProfileCardApiFake;
   feedbackApi: FeedbackApiFake;
   feedbackAdminApi: FeedbackAdminApiFake;
+  errorReportsApi: ErrorReportsApiFake;
   /** The commands under `directMessages`. */
   directMessageCommands: DirectMessageCommandsFake;
   /** The `localStorage` under `directMessages`. */
@@ -340,6 +342,7 @@ export function testDependencies(): TestDependencies {
     feedbackApi: new FeedbackApiFake(),
     feedbackWhere: { platform: 'browser', appVersion: 'Chrome 142' },
     feedbackAdminApi: new FeedbackAdminApiFake(),
+    errorReportsApi: new ErrorReportsApiFake(),
     friends: createFriendsStore(friendsApi),
     directMessageCommands,
     directMessagesStorage,

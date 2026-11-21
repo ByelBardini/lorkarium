@@ -1,7 +1,21 @@
 import { Writable } from 'node:stream';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
-import { loggerOptions, requestLogLineOf } from '../../src/app/logger-options';
+import {
+  bindRequestRoute,
+  loggerOptions,
+  requestLogLineOf,
+  type ErrorLogListener,
+} from '../../src/app/logger-options';
+
+/** Every error line the logger hands over, with the bindings it had. */
+class ErrorLogListenerFake implements ErrorLogListener {
+  readonly heard: { args: readonly unknown[]; bindings: Readonly<Record<string, unknown>> }[] = [];
+
+  onErrorLog(args: readonly unknown[], bindings: Readonly<Record<string, unknown>>): void {
+    this.heard.push({ args, bindings });
+  }
+}
 
 /** Collects every line pino writes, parsed. */
 class LogLinesSink extends Writable {
@@ -39,8 +53,29 @@ describe('loggerOptions', () => {
     await app?.close();
   });
 
-  it('is silent in tests', () => {
-    expect(loggerOptions({ nodeEnv: 'test' })).toMatchObject({ level: 'silent' });
+  it('prints nothing in tests, but still hands the error lines over', async () => {
+    const errors = new ErrorLogListenerFake();
+    const options = loggerOptions({ nodeEnv: 'test' }, errors);
+    expect(options).toMatchObject({ level: 'error' });
+    app = Fastify({ logger: options });
+    app.log.error({ err: new Error('boom') }, 'job failed');
+    app.log.warn('expected failure');
+    expect(errors.heard.map((line) => line.args[1])).toEqual(['job failed']);
+  });
+
+  it('a request error line carries the method and the declared route', async () => {
+    const errors = new ErrorLogListenerFake();
+    app = Fastify({ logger: loggerOptions({ nodeEnv: 'test' }, errors) });
+    bindRequestRoute(app);
+    app.get('/api/campaigns/:campaignId', async (request) => {
+      request.log.error('broken');
+      return { ok: true };
+    });
+    await app.inject({ method: 'GET', url: '/api/campaigns/7f1c?token=segredo' });
+    expect(errors.heard[0]?.bindings).toMatchObject({
+      method: 'GET',
+      route: '/api/campaigns/:campaignId',
+    });
   });
 
   it('logs a request without the IP, the port, the host nor the query string', async () => {

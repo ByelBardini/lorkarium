@@ -27,6 +27,7 @@
     "@lorkarium/contracts": "workspace:*",
     "@lorkarium/dice-renderer": "workspace:*",
     "@lorkarium/game-core": "workspace:*",
+    "@sentry/browser": "^11.15.0",
     "@tailwindcss/vite": "^4.3.5",
     "@tauri-apps/api": "^2.12.4",
     "@tiptap/core": "^3.33.1",

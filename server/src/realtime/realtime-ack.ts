@@ -1,5 +1,9 @@
 import type { ApiErrorDto, RealtimeAckFailureDto } from '@lorkarium/contracts';
 
+/** Who sent the command that failed unexpectedly, and which event it was: the `log.error` of a
+ *  gateway carries them, so the report names the account (from `socket.data`, never the payload). */
+export type AckFailureContext = Readonly<{ userId: string; event?: string }>;
+
 /** An ack callback the client may or may not have sent. */
 export type AckOf<T> = ((answer: T | RealtimeAckFailureDto) => void) | undefined;
 

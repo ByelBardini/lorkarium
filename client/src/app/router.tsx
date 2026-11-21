@@ -102,6 +102,7 @@ import type { AccountRealtime } from '@/services/account-realtime';
 import type { FriendsApi } from '@/services/friends-api';
 import type { ProfileCardApi } from '@/services/profile-card-api';
 import type { FeedbackAdminApi } from '@/services/feedback-admin-api';
+import type { ErrorReportsApi } from '@/services/error-reports-api';
 import type { FeedbackApi } from '@/services/feedback-api';
 import type { FeedbackWhere } from '@/lib/feedback-platform';
 import { useFeedbackDialog } from '@/features/feedback/use-feedback-dialog';
@@ -239,6 +240,8 @@ export type AppDependencies = Readonly<{
   feedbackWhere: FeedbackWhere;
   /** The backoffice queue of the feedback and the publish to GitHub (admins only). */
   feedbackAdminApi: FeedbackAdminApi;
+  /** The backoffice "Teste de erros" (admins only). */
+  errorReportsApi: ErrorReportsApi;
   /** Friends, requests, blocks and presence, as the server confirmed them. */
   friends: StoreApi<FriendsStore>;
   /** The direct messages of this device, per account and friend. */
@@ -301,6 +304,11 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
             {
               path: 'emails',
               lazy: async () => (await import('@/features/admin/admin-routes')).mailTestRoute(deps),
+            },
+            {
+              path: 'erros',
+              lazy: async () =>
+                (await import('@/features/admin/admin-routes')).errorTestRoute(deps),
             },
             {
               path: 'comunicados',

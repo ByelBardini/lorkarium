@@ -7,6 +7,7 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 - `src/auth/` — login e usuário autenticado
 - `src/profiles/` — card de perfil de outra conta, voto de reputação e denúncia; [contratos](contracts/conta.md#card-de-perfil-srcprofiles)
 - `src/screenshots/` — o print da denúncia e do relato: `SCREENSHOTS_MAX` (5), `SCREENSHOT_MAX_BYTES` (5 MiB), `SCREENSHOT_MIME_TYPES`, `screenshotIdsDto` (sem id repetido), `screenshotDto`, `screenshotResponseDto`; os `USER_REPORT_ATTACHMENT*` da denúncia apontam para eles
+- `src/error-reports/` — `errorReportingSettingsDto` (`{ dsn, environment, release }`, `dsn` nulo sem Sentry) e as partes do envelope do Sentry que o túnel lê (`errorReportEnvelopeHeaderDto`, `errorReportItemHeaderDto`, `errorReportEventDto`, todos `looseObject`: só os campos que a regra toca); [`error-reports.md`](error-reports.md)
 - `src/feedback/` — relatos de bug e sugestões (`feedbackRequestDto` com o `content` por `kind`, a fila, o rascunho, publicar e a resposta com o link `https://github.com/…`); [`feedback.md`](feedback.md)
 - `src/account/` — perfil (@, apelido, cor, bio, preferências de jogo, banner), foto, senha, e-mail, sessões, 2FA e cores salvas
 - `src/badges/` — insígnias do backoffice (catálogo, ordem, concessão, imagem 1:1); [contratos](contracts/insignias.md)

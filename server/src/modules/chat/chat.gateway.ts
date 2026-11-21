@@ -21,10 +21,14 @@ export function createChatGateway(deps: ChatGatewayDeps): (socket: RealtimeSocke
   return (socket) => {
     socket.on(
       CHAT_EVENTS.send,
-      onCommand({ deps, rate, socket }, chatSendCommandDto, async (userId, command) => {
-        const { messageId } = await deps.chat.send(userId, command, socket.id);
-        return { ok: true, messageId } as const;
-      }),
+      onCommand(
+        { deps, rate, socket, event: CHAT_EVENTS.send },
+        chatSendCommandDto,
+        async (userId, command) => {
+          const { messageId } = await deps.chat.send(userId, command, socket.id);
+          return { ok: true, messageId } as const;
+        },
+      ),
     );
   };
 }

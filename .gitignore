@@ -16,3 +16,7 @@ docs/plans
 desktop/src-tauri/target/
 desktop/src-tauri/gen/
 site/.astro/
+
+# Pesquisa local, fora do git
+research_notes/
+reports/

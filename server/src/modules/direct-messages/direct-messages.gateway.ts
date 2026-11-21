@@ -8,7 +8,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import { ZodError } from 'zod';
 import { invalidBodyError } from '../../lib/invalid-body';
 import type { CommandRateGuard } from '../../realtime/command-rate-guard';
-import { answerAck } from '../../realtime/realtime-ack';
+import { answerAck, type AckFailureContext } from '../../realtime/realtime-ack';
 import type { Realtime, RealtimeSocket } from '../../realtime/realtime-server';
 import { CommandRateLimitedError } from '../board/board.error';
 import { SessionEndedError } from '../sessions/sessions.error';
@@ -44,7 +44,8 @@ export function createDirectMessagesGateway(
   deps: DirectMessagesGatewayDeps,
 ): (socket: RealtimeSocket) => void {
   return (socket) => {
-    const failureOf = (error: unknown): ApiErrorDto => toAckError(deps, error);
+    const failureOf = (error: unknown): ApiErrorDto =>
+      toAckError(deps, error, { userId: socket.data.user.id, event: DM_EVENTS.send });
     const dropIfEnded = (error: unknown): void => {
       if (error instanceof SessionEndedError) socket.disconnect(true);
     };
@@ -53,7 +54,9 @@ export function createDirectMessagesGateway(
     });
     socket.on(DM_EVENTS.typing, (payload) => {
       void typing(deps, socket, payload).catch((error: unknown) => {
-        if (!isExpectedDrop(error)) deps.log.error({ err: error }, 'dm:typing failed');
+        if (isExpectedDrop(error)) return dropIfEnded(error);
+        const where = { userId: socket.data.user.id, event: DM_EVENTS.typing };
+        deps.log.error({ err: error, ...where }, 'dm:typing failed');
         dropIfEnded(error);
       });
     });
@@ -97,7 +100,11 @@ function isExpectedDrop(error: unknown): boolean {
   );
 }
 
-function toAckError(deps: DirectMessagesGatewayDeps, error: unknown): ApiErrorDto {
+function toAckError(
+  deps: DirectMessagesGatewayDeps,
+  error: unknown,
+  where: AckFailureContext,
+): ApiErrorDto {
   if (error instanceof ZodError) return invalidBodyError(error);
   if (error instanceof CommandRateLimitedError) {
     const { code, retryAfterSeconds } = error;
@@ -106,6 +113,6 @@ function toAckError(deps: DirectMessagesGatewayDeps, error: unknown): ApiErrorDt
   if (error instanceof DirectMessageError || error instanceof SessionEndedError) {
     return { code: error.code, message: PUBLIC_MESSAGE[error.code] ?? error.code };
   }
-  deps.log.error({ err: error }, 'unexpected error in the direct messages gateway');
+  deps.log.error({ err: error, ...where }, 'unexpected error in the direct messages gateway');
   return { code: 'INTERNAL_ERROR', message: 'Unexpected server error' };
 }

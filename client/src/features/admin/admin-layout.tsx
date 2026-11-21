@@ -2,6 +2,7 @@ import type { AuthUserDto } from '@lorkarium/contracts';
 import {
   ArrowLeftIcon,
   AwardIcon,
+  BugIcon,
   FlagIcon,
   MailIcon,
   MegaphoneIcon,
@@ -14,7 +15,7 @@ import { UserAvatar } from '@/components/user-avatar';
 import { cn } from '@/lib/utils';
 import { ROLE_LABEL } from './admin-messages';
 
-/** The backoffice's own frame: brand + "Backoffice", the navigation ("Usuários", "Insígnias", "Denúncias", "Comunicados", "E-mails"),
+/** The backoffice's own frame: brand + "Backoffice", the navigation ("Usuários", "Insígnias", "Denúncias", "Comunicados", "E-mails", "Teste de erros"),
  *  "Voltar para o app" and who is signed in; under `md` the side becomes a strip on top.
  *
  *  Example: `<AdminLayout user={session.user} />` */
@@ -59,6 +60,7 @@ function AdminNav(): React.JSX.Element {
       <AdminNavLink to="/admin/relatos" icon={MessageSquareWarningIcon} label="Relatos" />
       <AdminNavLink to="/admin/comunicados" icon={MegaphoneIcon} label="Comunicados" />
       <AdminNavLink to="/admin/emails" icon={MailIcon} label="E-mails" />
+      <AdminNavLink to="/admin/erros" icon={BugIcon} label="Teste de erros" />
     </nav>
   );
 }

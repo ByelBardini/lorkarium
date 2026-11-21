@@ -21,10 +21,14 @@ export function createDiceGateway(deps: DiceGatewayDeps): (socket: RealtimeSocke
   return (socket) => {
     socket.on(
       DICE_EVENTS.roll,
-      onCommand({ deps, rate, socket }, diceRollCommandDto, async (userId, command) => {
-        const outcome = await deps.dice.roll(userId, command);
-        return { ok: true, ...outcome } as const;
-      }),
+      onCommand(
+        { deps, rate, socket, event: DICE_EVENTS.roll },
+        diceRollCommandDto,
+        async (userId, command) => {
+          const outcome = await deps.dice.roll(userId, command);
+          return { ok: true, ...outcome } as const;
+        },
+      ),
     );
   };
 }
