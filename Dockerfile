@@ -36,4 +36,4 @@ EXPOSE 3333
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:3333/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
 # Migrate, then exec: Node becomes PID 1 and gets Coolify's SIGTERM, which runs app.close().
-CMD ["sh", "-c", "node dist/deploy-migrate.mjs && exec node dist/index.mjs"]
+CMD ["sh", "-c", "node --enable-source-maps dist/deploy-migrate.mjs && exec node --enable-source-maps dist/index.mjs"]
