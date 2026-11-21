@@ -12,7 +12,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import { ZodError, type z } from 'zod';
 import { invalidBodyError } from '../../lib/invalid-body';
 import type { CommandRateGuard } from '../../realtime/command-rate-guard';
-import { answerAck } from '../../realtime/realtime-ack';
+import { answerAck, type AckFailureContext } from '../../realtime/realtime-ack';
 import type { Realtime, RealtimeSocket } from '../../realtime/realtime-server';
 import {
   campaignChatRoom,
@@ -57,18 +57,36 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
  *  Example: `realtime.onConnection(createSessionsGateway({ service, realtime, log }))` */
 export function createSessionsGateway(deps: SessionsGatewayDeps): (socket: RealtimeSocket) => void {
   return (socket) => {
-    const failureOf = (error: unknown): ApiErrorDto => toAckError(deps, error);
+    const failureOf =
+      (event: string) =>
+      (error: unknown): ApiErrorDto =>
+        toAckError(deps, error, { userId: socket.data.user.id, event });
     const dropIfEnded = (error: unknown): void => {
       if (error instanceof SessionEndedError) socket.disconnect(true);
     };
     socket.on('session:join', (payload, ack) => {
-      void answerAck(ack, () => joinTable(deps, socket, payload), failureOf, dropIfEnded);
+      void answerAck(
+        ack,
+        () => joinTable(deps, socket, payload),
+        failureOf('session:join'),
+        dropIfEnded,
+      );
     });
     socket.on('session:leave', (payload, ack) => {
-      void answerAck(ack, () => leaveTable(deps, socket, payload), failureOf, dropIfEnded);
+      void answerAck(
+        ack,
+        () => leaveTable(deps, socket, payload),
+        failureOf('session:leave'),
+        dropIfEnded,
+      );
     });
     socket.on('session:setActivity', (payload, ack) => {
-      void answerAck(ack, () => setActivity(deps, socket, payload), failureOf, dropIfEnded);
+      void answerAck(
+        ack,
+        () => setActivity(deps, socket, payload),
+        failureOf('session:setActivity'),
+        dropIfEnded,
+      );
     });
     socket.on('disconnect', () => dropTables(deps, socket));
   };
@@ -210,7 +228,11 @@ async function commandOf<C extends SessionCommandDto = SessionCommandDto>(
   return { ...command, userId: user.id };
 }
 
-function toAckError(deps: SessionsGatewayDeps, error: unknown): ApiErrorDto {
+function toAckError(
+  deps: SessionsGatewayDeps,
+  error: unknown,
+  where: AckFailureContext,
+): ApiErrorDto {
   if (error instanceof ZodError) return invalidBodyError(error);
   if (error instanceof PlanLimitError) return planLimitErrorBody(error);
   if (error instanceof CommandRateLimitedError) {
@@ -221,6 +243,6 @@ function toAckError(deps: SessionsGatewayDeps, error: unknown): ApiErrorDto {
     const message = PUBLIC_MESSAGE[error.code];
     if (message) return { code: error.code, message };
   }
-  deps.log.error({ err: error }, 'unexpected error in the sessions gateway');
+  deps.log.error({ err: error, ...where }, 'unexpected error in the sessions gateway');
   return { code: 'INTERNAL_ERROR', message: 'Unexpected server error' };
 }

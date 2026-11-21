@@ -17,7 +17,7 @@ const NOW = new Date('2026-11-09T12:00:00Z');
 class RealtimeEdgeFake {
   readonly socket = {
     id: 's1',
-    data: { campaignIds: new Set([OPEN_TABLE]) },
+    data: { user: { id: 'bia' }, campaignIds: new Set([OPEN_TABLE]) },
     disconnect: () => undefined,
   } as unknown as RealtimeSocket;
 
