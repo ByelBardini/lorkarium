@@ -28,6 +28,7 @@ import { FeedbackPage } from './feedback-page';
 import { BadgesPage } from './badges-page';
 import { mailTestAction } from './mail-test-action';
 import { MailTestPage } from './mail-test-page';
+import { ErrorTestPage } from './error-test-page';
 import { reportsAction } from './reports-action';
 import { ReportsPage } from './reports-page';
 import { AdminForbiddenError, dropAdminRole, usersAction } from './users-action';
@@ -118,6 +119,24 @@ export function mailTestRoute(
           failedHeading="Não deu para carregar os e-mails do sistema."
         />
       );
+    },
+  };
+}
+
+// Out of React and of the router: the error escapes the way a real bug of the page does.
+const throwLater = (error: Error): void => {
+  setTimeout(() => {
+    throw error;
+  });
+};
+
+/** "Teste de erros" (`/admin/erros`): a 500 of the server and an error of the browser, on purpose.
+ *
+ *  Example: `{ path: 'erros', lazy: async () => (await import('@/features/admin/admin-routes')).errorTestRoute(deps) }` */
+export function errorTestRoute(deps: AppDependencies): Pick<RouteObject, 'Component'> {
+  return {
+    Component: function ErrorTestRoute(): React.JSX.Element {
+      return <ErrorTestPage api={deps.errorReportsApi} scheduleThrow={throwLater} />;
     },
   };
 }

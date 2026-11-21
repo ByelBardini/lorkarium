@@ -306,6 +306,11 @@ export function buildRoutes(deps: AppDependencies): RouteObject[] {
               lazy: async () => (await import('@/features/admin/admin-routes')).mailTestRoute(deps),
             },
             {
+              path: 'erros',
+              lazy: async () =>
+                (await import('@/features/admin/admin-routes')).errorTestRoute(deps),
+            },
+            {
               path: 'comunicados',
               lazy: async () =>
                 (await import('@/features/admin/admin-routes')).broadcastsRoute(deps),
