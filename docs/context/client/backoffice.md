@@ -10,7 +10,13 @@ Hub: [`../client.md`](../client.md). A tela em que o admin convida gente nova e 
 
 ## Moldura (`admin-layout.tsx`)
 
-Lateral `bg-panel` (240 px a partir de `md`; abaixo, faixa no topo): cristal + LORKARIUM + "BACKOFFICE" em dourado; `nav` "Backoffice" com **Usuários**, **Insígnias** (ícone `Award`), **Denúncias**, **Relatos** (ícone `MessageSquareWarning`), **Comunicados** (ícone `Megaphone`) e **E-mails** (`AdminNavLink` sobre o `NavLink`, ativo = traço dourado de 2 px à esquerda); no pé "Voltar para o app" (→ `/`) e quem está logado (`UserAvatar`, apelido, papel). As outras seções do mock (Visão geral, Mesas, Convites, Armazenamento, Registro, Configurações) ainda não existem.
+Lateral `bg-panel` (240 px a partir de `md`; abaixo, faixa no topo): cristal + LORKARIUM + "BACKOFFICE" em dourado; `nav` "Backoffice" com **Usuários**, **Insígnias** (ícone `Award`), **Denúncias**, **Relatos** (ícone `MessageSquareWarning`), **Comunicados** (ícone `Megaphone`), **E-mails** e **Teste de erros** (ícone `Bug`) (`AdminNavLink` sobre o `NavLink`, ativo = traço dourado de 2 px à esquerda); no pé "Voltar para o app" (→ `/`) e quem está logado (`UserAvatar`, apelido, papel). As outras seções do mock (Visão geral, Mesas, Convites, Armazenamento, Registro, Configurações) ainda não existem.
+
+## Teste de erros (`/admin/erros`)
+
+- `errorTestRoute(deps)` (em `admin-routes.tsx`, `lazy`, sem loader): `ErrorTestPage` (`error-test-page.tsx`) com `deps.errorReportsApi` e o `throwLater` (um `setTimeout` que lança, fora do React e do router).
+- "Gerar erro no server" → `triggerServerTest()` (`POST /api/admin/error-reports/test`): "Gerando…" e desligado enquanto corre; `server-error` → "O server respondeu 500. Confira a issue no Sentry."; outro status ou rede fora → a frase do caso. "Gerar erro no navegador" → um `ClientErrorTest` e "Erro lançado no navegador…". O mesmo erro do server vira um relato só por minuto ([`../error-reports.md`](../error-reports.md)).
+- Spec: `client/test/features/admin/error-test-page.spec.tsx`; fake `ErrorReportsApiFake` (`test/support/error-reports-api-fake.ts`, também no `app-dependencies.ts`).
 
 ## E-mails (`/admin/emails`)
 

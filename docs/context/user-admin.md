@@ -46,6 +46,8 @@ Id malformado é 400 (o `adminUserParamsDto`). Cada ação vai ao log pino como 
 
 ## Teste de e-mail
 
+O vizinho no backoffice é o **Teste de erros** (`POST /api/admin/error-reports/test`, um 500 de propósito que vira relato no Sentry), do módulo `error-reports` ([`error-reports.md`](error-reports.md)).
+
 - `mail-samples.service.ts` — `MailSamplesService({ mailer, appPublicUrl, clock })`: `list()` (id, nome e assunto de cada amostra) e `send(sampleId, to)` pelo **mailer de verdade** (SMTP em produção), não pelo `SecurityNoticesService`: a falha volta como `MAIL_DELIVERY_FAILED` (502, com o assunto e o motivo no log), para o admin ver que o SMTP não está funcionando. As amostras são as do `account-security/mail-samples.mapper.ts` (`mailSamples(to, publicUrl, clock.now())`, o mesmo catálogo do `pnpm mail:preview`): dados do mock e tokens inventados, links sobre o `APP_PUBLIC_URL`, o "Quando" dos avisos = a hora do envio (em Brasília).
 - Vale em produção também (é o jeito de conferir o SMTP de lá); o `pnpm mail:preview` continua recusando produção.
 - O módulo registra o `@fastify/rate-limit` no seu contexto (`UserAdminRateLimitedError`, `RATE_LIMITED` 429). O plugin recebe o `mailer` e o `clock` do `buildApp` (o mesmo `mailerOf` do app, ou o `MailerFake` dos specs).

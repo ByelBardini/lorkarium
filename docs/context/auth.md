@@ -32,7 +32,7 @@ A conta nasce pelo convite do admin ou pelo cadastro público (`POST /api/sign-u
 
 ## Guardas (para os outros módulos)
 
-- `app.authGuards` (decorado na raiz por `buildApp`): `requireAuth` e `requireRole('admin')` são `preHandler`; respondem 401 `UNAUTHENTICATED` / 403 `FORBIDDEN_ROLE` em `ApiErrorDto`. `userOf(request)` devolve o `AuthUserDto` de quem passou pela guarda e `sessionIdOf(request)` o id (hash) da sessão dela — é o que separa "este aparelho" dos outros (os dois lançam se nenhuma guarda rodou).
+- `app.authGuards` (decorado na raiz por `buildApp`): `requireAuth` e `requireRole('admin')` são `preHandler`; respondem 401 `UNAUTHENTICATED` / 403 `FORBIDDEN_ROLE` em `ApiErrorDto`. A guarda põe `userId` e `username` no `request.log` (o relato do Sentry, [`error-reports.md`](error-reports.md)). `userOf(request)` devolve o `AuthUserDto` de quem passou pela guarda e `sessionIdOf(request)` o id (hash) da sessão dela — é o que separa "este aparelho" dos outros (os dois lançam se nenhuma guarda rodou).
 - `authenticateConnection(token?)` → `ResolvedSession | null`: para o handshake do Socket.IO e as releituras da conexão, que não têm request para guardar (`null` = sem sessão válida; erro inesperado relança). A conexão guarda o `sessionId` e o `recheckAt` dele (ver `server.md`, Tempo real).
 - `setSessionCookie(reply, { token, persistent })` e `clearSessionCookie(reply)`: o cookie `lk_session` com a política do app, para um módulo que inicia ou derruba sessões fora do auth (o aceite do convite, a recuperação) sem importar a borda do auth.
 - Uso: `app.get('/x', { preHandler: app.authGuards.requireAuth }, (request) => service.do(app.authGuards.userOf(request).id))`. A identidade vem daqui, nunca do corpo.

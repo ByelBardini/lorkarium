@@ -11,7 +11,7 @@ Runbook de produção: **Coolify** num VPS Linux (Traefik na frente), Postgres 1
 - Multi-estágio em `node:26.13.0-bookworm-slim` (glibc: `sharp` e `argon2` têm binário nativo glibc, nada de Alpine). O build gera `client/dist` (Vite) e `server/dist` (`index.mjs` e `deploy-migrate.mjs`, com os `@lorkarium/*` no bundle); o runtime leva só isso, `server/drizzle/` e as dependências de produção do server.
 - Runtime: `WORKDIR /app/server`, `ENV NODE_ENV=production CLIENT_DIST_DIR=/app/client/dist PORT=3333 ASSET_CACHE_DIR=/var/cache/lorkarium/assets`, `USER node`, `EXPOSE 3333`. A pasta do cache em disco dos assets nasce na imagem com dono `node` (o `mkdir` + `chown` vêm antes do `USER node`).
 - `HEALTHCHECK` por `node -e "fetch('http://127.0.0.1:3333/api/health')…"` (não há `curl` na imagem). É ele que o Coolify usa para trocar o container.
-- `CMD sh -c "node dist/deploy-migrate.mjs && exec node dist/index.mjs"`: migra no início do container, depois sobe o server. Migração que falha sai com 1 e o server nem sobe. O `exec` deixa o Node como PID 1, para o SIGTERM do `docker stop` chegar ao `app.close()`.
+- `CMD sh -c "node --enable-source-maps dist/deploy-migrate.mjs && exec node --enable-source-maps dist/index.mjs"`: o `--enable-source-maps` faz a pilha do log e do Sentry apontar para `src/…ts` (o tsdown gera os `.map` e a imagem os copia); migra no início do container, depois sobe o server. Migração que falha sai com 1 e o server nem sobe. O `exec` deixa o Node como PID 1, para o SIGTERM do `docker stop` chegar ao `app.close()`.
 - O `build` do client termina em `node scripts/precompress.ts` (`client/scripts/precompress.ts`, `node:zlib`): `.br` (brotli 11) e `.gz` (nível 9) ao lado de todo `.js`, `.css`, `.html`, `.svg` e `.json` acima de 1 KB do `client/dist`; o `COPY` do `client/dist` os leva, e o `serveClient` os serve pelo `Accept-Encoding` (ver `server.md`). Conferir na imagem: `curl -sI -H 'Accept-Encoding: br' https://app.example.com/` → `content-encoding: br`.
 - Um processo serve tudo: a SPA (com fallback de rota), `/api` e o Socket.IO (`/api/socket.io`) na mesma origem. Nenhuma env de build: o client não lê `VITE_*`.
 - O job `docker-image` do CI constrói a imagem e faz o smoke a cada PR (ver [`ci.md`](ci.md)). O smoke é `infra/docker/smoke.sh <container> <url>`: espera o `healthy`, `GET /api/health` 200, `/` e `/campaigns/x` com o `index.html`, a pasta do cache gravável pelo usuário da imagem (`test -w /var/cache/lorkarium/assets`) e "migrations applied" antes de "Server listening" no log. Local: `docker build -t lorkarium .` e um `docker run` com as envs de dev mais `NODE_ENV=production`, `SMTP_URL` (Mailpit), `APP_PUBLIC_URL`, `SITE_PUBLIC_URL` e as `ACCESS_LOG_S3_*` (o bucket dos assets serve) (imagem ≈ 470 MB; `node_modules` de produção ≈ 110 MB).
@@ -122,6 +122,10 @@ Nesta ordem; cada passo só depois do anterior conferido ([`account-links.md`](a
 3. Deploy com `REGISTRATION_OPEN=false` e teste do "Esqueci minha senha" com uma conta própria (vale com o cadastro fechado).
 4. `REGISTRATION_OPEN=true`, _Restart_ e um cadastro com um e-mail próprio, do pedido ao login. Fechar de novo = `false` e _Restart_; o convite do backoffice segue valendo.
 5. Só então, o deploy da landing com "Criar conta" (seção Landing).
+
+## Sentry (captura de erros)
+
+O runbook (organização na UE, ajustes de privacidade do projeto, Privacidade antes do DSN, as três variáveis, "Teste de erros" do backoffice, como desligar) está em [`deploy/sentry.md`](deploy/sentry.md).
 
 ## Serviço de cobrança (outra Application)
 
