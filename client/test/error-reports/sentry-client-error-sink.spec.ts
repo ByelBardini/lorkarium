@@ -8,6 +8,7 @@ import {
 } from '@/error-reports/sentry-client-error-sink';
 import { createClientErrorGate } from '@/lib/client-error-gate';
 import { SentryBrowserTransportFake } from '../support/sentry-browser-transport-fake';
+import { allowDispatchedWindowErrors } from '../support/dispatched-window-errors';
 
 const SETTINGS = {
   dsn: 'https://abc@o1.ingest.de.sentry.io/123',
@@ -34,6 +35,8 @@ async function flushed(): Promise<void> {
 }
 
 describe('createSentryClientErrorSink', () => {
+  allowDispatchedWindowErrors();
+
   it('a captured error is one event through the tunnel, with its origin and without user', async () => {
     const { sink, transport } = sinkWith();
     sink.capture(new Error('x'), { source: 'route', routePattern: '/campaigns/:campaignId' });

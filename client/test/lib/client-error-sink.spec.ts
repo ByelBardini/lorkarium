@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createClientErrorGate } from '@/lib/client-error-gate';
 import { createBufferedClientErrorSink, type ClientErrorContext } from '@/lib/client-error-sink';
 import { ClientErrorSinkFake } from '../support/client-error-sink-fake';
+import { allowDispatchedWindowErrors } from '../support/dispatched-window-errors';
 
 function buffered(maxPerPage = 10) {
   const gate = createClientErrorGate({ maxPerPage });
@@ -12,6 +13,8 @@ function buffered(maxPerPage = 10) {
 const ROUTE: ClientErrorContext = { source: 'route', routePattern: '/campaigns/:campaignId' };
 
 describe('createBufferedClientErrorSink', () => {
+  allowDispatchedWindowErrors();
+
   it('hands the errors caught before the SDK to the real sink, in order', () => {
     const { sink, attach } = buffered();
     const errors = [new Error('a'), new Error('b'), new Error('c')];
