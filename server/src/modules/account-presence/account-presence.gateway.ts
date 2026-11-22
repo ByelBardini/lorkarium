@@ -8,7 +8,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import { ZodError } from 'zod';
 import { invalidBodyError } from '../../lib/invalid-body';
 import type { CommandRateGuard } from '../../realtime/command-rate-guard';
-import { answerAck, type AckOf } from '../../realtime/realtime-ack';
+import { answerAck, type AckFailureContext, type AckOf } from '../../realtime/realtime-ack';
 import type { Realtime, RealtimeSocket } from '../../realtime/realtime-server';
 import { userRoom } from '../../realtime/rooms';
 import { CommandRateLimitedError } from '../board/board.error';
@@ -49,16 +49,29 @@ export function createAccountPresenceGateway(
     const userId = socket.data.user.id;
     void socket.join(userRoom(userId));
     deps.presence.connect(userId, socket.id);
-    const failureOf = (error: unknown): ApiErrorDto => toAckError(deps, error);
+    const failureOf =
+      (event: string) =>
+      (error: unknown): ApiErrorDto =>
+        toAckError(deps, error, { userId, event });
     const dropIfEnded = (error: unknown): void => {
       if (error instanceof SessionEndedError) socket.disconnect(true);
     };
     socket.on(PRESENCE_EVENTS.sync, (...args: unknown[]) => {
       const ack = args.findLast((arg) => typeof arg === 'function') as AckOf<SyncAnswer>;
-      void answerAck(ack, () => syncFriends(deps, socket), failureOf, dropIfEnded);
+      void answerAck(
+        ack,
+        () => syncFriends(deps, socket),
+        failureOf(PRESENCE_EVENTS.sync),
+        dropIfEnded,
+      );
     });
     socket.on(PRESENCE_EVENTS.setVisibility, (payload, ack) => {
-      void answerAck(ack, () => setVisibility(deps, socket, payload), failureOf, dropIfEnded);
+      void answerAck(
+        ack,
+        () => setVisibility(deps, socket, payload),
+        failureOf(PRESENCE_EVENTS.setVisibility),
+        dropIfEnded,
+      );
     });
     socket.on('disconnect', (reason) => deps.presence.drop(userId, socket.id, reasonOf(reason)));
   };
@@ -101,7 +114,11 @@ function reasonOf(reason: string): AccountDisconnectReason {
   return LEFT_ON_PURPOSE.has(reason) ? 'left' : 'dropped';
 }
 
-function toAckError(deps: AccountPresenceGatewayDeps, error: unknown): ApiErrorDto {
+function toAckError(
+  deps: AccountPresenceGatewayDeps,
+  error: unknown,
+  where: AckFailureContext,
+): ApiErrorDto {
   if (error instanceof ZodError) return invalidBodyError(error);
   if (error instanceof CommandRateLimitedError) {
     const { code, retryAfterSeconds } = error;
@@ -110,6 +127,6 @@ function toAckError(deps: AccountPresenceGatewayDeps, error: unknown): ApiErrorD
   if (error instanceof SessionEndedError) {
     return { code: error.code, message: PUBLIC_MESSAGE[error.code] ?? error.code };
   }
-  deps.log.error({ err: error }, 'unexpected error in the account presence gateway');
+  deps.log.error({ err: error, ...where }, 'unexpected error in the account presence gateway');
   return { code: 'INTERNAL_ERROR', message: 'Unexpected server error' };
 }

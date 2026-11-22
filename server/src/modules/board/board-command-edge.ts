@@ -8,7 +8,7 @@ import {
 import type { FastifyBaseLogger } from 'fastify';
 import { ZodError, type z } from 'zod';
 import { invalidBodyError } from '../../lib/invalid-body';
-import { answerAck, type AckOf } from '../../realtime/realtime-ack';
+import { answerAck, type AckFailureContext, type AckOf } from '../../realtime/realtime-ack';
 import type { CommandRateGuard } from '../../realtime/command-rate-guard';
 import { commandCostOf } from '../../realtime/command-weight';
 import type { Realtime, RealtimeSocket } from '../../realtime/realtime-server';
@@ -51,6 +51,8 @@ export type CommandContext = Readonly<{
   deps: CommandEdgeDeps;
   rate: CommandRateGuard;
   socket: RealtimeSocket;
+  /** The event name, for the report of an unexpected failure (the board's `bind` does not know it). */
+  event?: string;
 }>;
 
 // Public text only: the internal message cites ids and stays in the log.
@@ -118,11 +120,12 @@ export async function versionOf(pending: Promise<number>): Promise<CommandOk> {
  *
  *  Example: `socket.on('board:sync', onCommand(context, boardCommandDto, handler))` */
 export function onCommand<Command extends CampaignCommand, Answer>(
-  { deps, rate, socket }: CommandContext,
+  { deps, rate, socket, event }: CommandContext,
   schema: z.ZodType<Command>,
   handler: Handler<Command, Answer>,
 ): (payload: unknown, ack: AckOf<Answer>) => void {
-  const failureOf = (error: unknown): ApiErrorDto => toAckError(deps, error);
+  const failureOf = (error: unknown): ApiErrorDto =>
+    toAckError(deps, error, { userId: socket.data.user.id, ...(event ? { event } : {}) });
   const dropIfEnded = (error: unknown): void => {
     if (error instanceof SessionEndedError) socket.disconnect(true);
   };
@@ -151,7 +154,7 @@ async function openTableUserOf(
   return user.id;
 }
 
-function toAckError(deps: CommandEdgeDeps, error: unknown): ApiErrorDto {
+function toAckError(deps: CommandEdgeDeps, error: unknown, where: AckFailureContext): ApiErrorDto {
   if (error instanceof ZodError) return invalidBodyError(error);
   if (error instanceof PlanLimitError) return planLimitErrorBody(error);
   if (error instanceof CommandRateLimitedError) {
@@ -171,7 +174,7 @@ function toAckError(deps: CommandEdgeDeps, error: unknown): ApiErrorDto {
     const message = PUBLIC_MESSAGE[error.code];
     if (message) return { code: error.code, message };
   }
-  deps.log.error({ err: error }, 'unexpected error in the board gateway');
+  deps.log.error({ err: error, ...where }, 'unexpected error in the board gateway');
   return { code: 'INTERNAL_ERROR', message: 'Unexpected server error' };
 }
 

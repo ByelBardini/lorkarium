@@ -11,8 +11,9 @@ export default defineConfig({
     },
   },
   // Both manifests feed `scripts/check-entry-chunk.ts`: which chunks the entry loads statically,
-  // and which modules each chunk holds.
-  build: { manifest: true, ssrManifest: true },
+  // and which modules each chunk holds. The source maps are public on purpose: the code already is
+  // (AGPL), and Sentry resolves the browser's stack from them without a token in the build.
+  build: { manifest: true, ssrManifest: true, sourcemap: true },
   server: {
     port: 5173,
     // The dev tunnel of the billing service (cloudflared quick tunnel): the Mercado Pago only

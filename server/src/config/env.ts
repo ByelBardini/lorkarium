@@ -2,6 +2,13 @@ import path from 'node:path';
 import { usernameDto } from '@lorkarium/contracts';
 import { z } from 'zod';
 import {
+  ERROR_REPORTING_KEYS,
+  errorReportingEnvShape,
+  requireDsnForErrorReporting,
+  toErrorReportingConfig,
+  type ErrorReportingConfig,
+} from './error-reporting-env';
+import {
   GITHUB_APP_KEYS,
   GITHUB_ISSUES_REPOSITORY_KEY,
   githubEnvShape,
@@ -53,6 +60,7 @@ const ENV_KEYS = [
   ...GITHUB_APP_KEYS,
   GITHUB_ISSUES_REPOSITORY_KEY,
   ...SIGN_UP_KEYS,
+  ...ERROR_REPORTING_KEYS,
 ] as const;
 
 const ACCESS_LOG_KEYS = [
@@ -220,6 +228,7 @@ const envSchema = z
     OWNER_USERNAME: usernameDto.optional(),
     ...githubEnvShape,
     ...signUpEnvShape,
+    ...errorReportingEnvShape,
   })
   .superRefine(requireAdminPair)
   .superRefine(requireStrongAdminPasswordInProduction)
@@ -228,7 +237,8 @@ const envSchema = z
   .superRefine(requireAccessLog)
   .superRefine(requireAssetCacheDir)
   .superRefine(requireGitHubAppTrio)
-  .superRefine(requireTurnstilePair);
+  .superRefine(requireTurnstilePair)
+  .superRefine(requireDsnForErrorReporting);
 
 type ParsedEnv = z.infer<typeof envSchema>;
 
@@ -293,6 +303,7 @@ export type Env = Readonly<{
   /** The GitHub App that publishes feedback as issues; null = publishing answers 503. */
   issueTracker: GitHubAppConfig | null;
   signUp: SignUpConfig;
+  errorReporting: ErrorReportingConfig | null;
 }>;
 
 export class InvalidEnvError extends Error {
@@ -459,6 +470,7 @@ function toEnv(parsed: ParsedEnv): Env {
     ownerUsername: parsed.OWNER_USERNAME ?? null,
     issueTracker: toGitHubAppConfig(parsed),
     signUp: toSignUpConfig(parsed),
+    errorReporting: toErrorReportingConfig(parsed),
   };
 }
 

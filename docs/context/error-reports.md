@@ -1,0 +1,63 @@
+# Error reports (Sentry)
+
+Todo 5xx e toda falha que "não pode acontecer", do server e do client (navegador e webview do desktop), vira uma issue no Sentry com pilha, versão e quem foi afetado. Falha esperada fica de fora. Sem `SENTRY_DSN` nada sai do app. Runbook: [`deploy/sentry.md`](deploy/sentry.md); a Privacidade conta o Sentry ([`legal.md`](legal.md)).
+
+## A regra: `error` é alarme, `warn` é falha esperada
+
+- No server, **toda linha de log em `error`/`fatal` vira relato**: os handlers de erro dos módulos, os gateways do Socket.IO, os jobs de fundo, o health e o 5xx do handler padrão do Fastify. Falha esperada ou com nova tentativa (e-mail que não foi, cache em disco, S3 que tenta de novo, Turnstile recusado) é `warn` e não vira relato. Código novo segue a mesma regra.
+- 4xx nunca é relato. A falha do próprio relato (Sentry fora) é `warn`, nunca `error`: senão o relato geraria relato sobre si mesmo.
+
+## Server
+
+- **Gancho no logger** (`src/app/logger-options.ts`): `loggerOptions(env, unexpectedErrors)` põe um `hooks.logMethod` no pino; nível ≥ 50 → `UnexpectedErrorsService.onErrorLog(args, this.bindings(), this)` e, sempre, a linha original. `bindRequestRoute(app)` (hook `onRequest`) põe `method` e `route` (o padrão declarado, sem ids nem query) nas bindings de toda linha da requisição. No `NODE_ENV=test` o nível é `error` com um destino que descarta: o gancho roda e nada é impresso (com `silent` o pino nem chamaria o gancho).
+- **Quem**: o `requireRole` do auth põe `userId` e `username` nas bindings do `request.log` depois de passar (`bindToRequestLog`, `src/lib/request-log.ts`); os gateways (`sessions`, `board-command-edge` com chat e dados, `direct-messages`, `account-presence`) logam a falha inesperada com `{ err, userId, event }` (`AckFailureContext`, `src/realtime/realtime-ack.ts`), o `userId` de `socket.data`, nunca do payload. O tabuleiro leva só `userId`: o `bind` do `board.gateway.ts` não conhece o nome do evento (o `CommandContext.event` é opcional; chat e dados o passam).
+- **Módulo** `src/modules/error-reports/`:
+  - `unexpected-error.mapper.ts` — `unexpectedErrorOf(args, bindings)` → `{ error, message, fields, context: { reqId, route, method }, user }` (aceita `[obj, msg]`, `[err]`, `[msg]`; tira de `fields` o `err`, `userId`, `username`, `params`, `req` e `res`); `withoutQueryParams(err)` limpa todo `DrizzleQueryError` da cadeia de `cause` (ele escreve os parâmetros na mensagem e na pilha: `Failed query: …\nparams: …`), sem tocar o original; `errorFingerprintOf(report)`: mensagem do log + tipo + mensagem do erro com uuid e números trocados + primeiro quadro da pilha.
+  - `error-report-throttle.bo.ts` — `ErrorReportThrottleBo({ windowMs, maxFingerprints = 500 })`: 1 relato por assinatura por janela; o próximo admitido leva `suppressed` (quantos foram calados); a tabela esquece a mais antiga passando do teto. `wire-error-reports.ts` usa 60 s.
+  - `unexpected-errors.service.ts` — mapper → assinatura → teto → `ErrorReportSink.capture`; nunca lança, trava de reentrada; sink que lança vira um `warn`.
+  - `error-report-sink.port.ts` — `ErrorReportSink { capture(report); flush(timeoutMs) }`.
+- **Adaptador** `src/infrastructure/error-reporting/sentry-error-report-sink.ts`, o único import de `@sentry/node` (11.15; a v11 é a atual): `init` com `defaultIntegrations: false`, `enableRuntimeChannelInjection: false`, sem tracing (a v11 já não liga o OpenTelemetry), `dataCollection` sem nada pessoal (a v11 trocou o `sendDefaultPii` por ele), e só `linkedErrorsIntegration` (o `cause` do Drizzle → `pg`) mais, no server real (`catchProcessFailures`), `onUncaughtExceptionIntegration` e `onUnhandledRejectionIntegration({ mode: 'strict' })`: a queda é relatada e o processo continua caindo, como o Node faz sem o SDK. Cada relato vai num `Scope` próprio (tags `runtime: server`, `route`, `method`; `user` = id e @; `extra` = os `fields`, `log_message`, `reqId`, `suppressed`) com o `originalException` no hint (sem ele o `linkedErrors` não anda). `withoutPersonalData` no `beforeSend`: sem `request`, `server_name`, `user.ip_address` nem `extra.params`. Sem DSN, `DiscardedErrorReportSink`.
+- **Raiz**: `src/index.ts` cria o sink real só com `env.errorReporting`, **antes** do banco e do app (uma queda no boot também é relatada), passa ao `buildApp({ errorReportSink })` e dá `flush(2000)` no `onClose`. A imagem roda `node --enable-source-maps` (pilha em `src/…ts`; o tsdown já gera os `.map`). O `@sentry/node` com o `@opentelemetry/*` somam ~42 MB no `node_modules` da imagem (653 MB no total, medido em 2026-11-20); o `@sentry/node-core/light` fica como alternativa se pesar.
+
+## Túnel do navegador
+
+O navegador nunca fala com o Sentry: o SDK manda o envelope a `POST /api/error-reports` e o server repassa ao ingest do DSN. Bloqueador de anúncio não corta, o IP do jogador não chega ao Sentry e o rate limit é nosso.
+
+| Rota                                 | Acesso  | Resposta                                                                                                                                                                     |
+| ------------------------------------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/error-reports/settings`    | pública | `errorReportingSettingsDto`: `{ dsn, environment, release }`; sem DSN, `dsn: null` e o `NODE_ENV`                                                                            |
+| `POST /api/error-reports`            | pública | 200 `{}` (repassado, nada a repassar ou repasse que falhou); 204 sem DSN; 400 `INVALID_ENVELOPE`; 403 `UNKNOWN_DSN`; 413 acima de 200 KB; 429 `RATE_LIMITED` (20/min por IP) |
+| `POST /api/admin/error-reports/test` | admin   | 500 `INTERNAL_ERROR` de propósito (`ErrorReportTestError`, relatado com o id e o @ do admin); 5/min por conta                                                                |
+
+- Corpo como texto: `text/plain;charset=UTF-8` (o do SDK) e `application/x-sentry-envelope` (parser próprio). A identidade é opcional, por `authGuards.authenticateConnection(cookie)` (`null` = anônimo, a tela de login também relata); o nome do cookie chega pela fiação (`wire-error-reports.ts`), não por import da borda do auth.
+- `client-error-envelope.mapper.ts` — `clientErrorEnvelopeOf(text)` lê o envelope (cabeçalho; por item, cabeçalho + payload; `length` conta **bytes** UTF-8) e já lê o payload de cada `event` (`clientErrorEventOf`); `envelopeTextOf` devolve o texto, recontando o `length`. Erro → `ErrorReportError('INVALID_ENVELOPE')` com a linha e o valor recortado.
+- `client-error-envelope.bo.ts` — `ClientErrorEnvelopeBo(dsn).forwardable(envelope, sender)`: DSN diferente do nosso → `UNKNOWN_DSN`; só itens `event` passam (sessão, `client_report`, anexo, replay, transação ficam); `user` do corpo é descartado e, com sessão, vira `{ id, username }`; `request.url` e as URLs de `breadcrumbs.values[].data` (`url`, `from`, `to`) perdem query e fragmento (o token da nova senha mora num); `request` perde `cookies`, `query_string`, `data` e os cabeçalhos menos o `User-Agent` (de onde o Sentry tira navegador e sistema). Os tipos do envelope moram no BO (o mapper os importa).
+- `client-error-relay.service.ts` — lê, filtra, carimba e repassa uma vez → `'forwarded' | 'nothing-to-forward' | 'relay-failed'`; repasse que falha é `warn`.
+- `SentryIngestRelay` (`src/infrastructure/error-reporting/`) — `POST <protocolo>//<host>[/prefixo]/api/<projeto>/envelope/` com `Content-Type: application/x-sentry-envelope`, o corpo intacto, sem `X-Forwarded-For`; status fora de 2xx ou 5 s sem resposta lançam citando o valor. Sem DSN, `DiscardedClientErrorRelay` (o túnel já responde 204 antes).
+
+## Client
+
+- **O que não é relatado** (`src/lib/reportable-client-error.ts`, `isReportableClientError`): `ApiLoadError` (a tela já mostra; o 5xx o server já relatou), `NetworkUnavailableError`, resposta de rota (`isRouteErrorResponse`, pela forma), `AbortError`, rede fora (`Failed to fetch`, `Load failed`, `NetworkError when attempting…`), chunk velho depois do deploy (`Failed to fetch dynamically imported module`, `Importing a module script failed`) e `ResizeObserver loop`. Por nome e mensagem, não por classe: `lib/` não importa o shell.
+- **Trava** (`client-error-gate.ts`): no máximo 10 relatos por carga de página; o que não é reportável não gasta a cota.
+- **Buffer** (`client-error-sink.ts`): `createBufferedClientErrorSink({ gate, maxBuffered: 10, scope: window })` → `{ sink, attach(real) }`. Desde a primeira linha do `main.tsx`, guarda o que a trava admite (e ouve `error`/`unhandledrejection` da janela) até o SDK chegar; no `attach` entrega na ordem e tira os ouvintes (os do SDK assumem, sem duplicar).
+- **Fiação** (`src/app/error-reporting.ts`, `startErrorReporting`): as configurações por `HttpErrorReportsApi(transport).settings()` (`src/services/error-reports-api.ts`; falha, rede fora ou corpo fora do DTO = `null`, o app segue sem relato); com DSN, `import('@/error-reports/sentry-client-error-sink')`; sem DSN ou com o chunk falhando, descarta. No `main.tsx`: `createRoot(…, { onUncaughtError })` (que continua escrevendo no console) e `<RouterProvider onError>` com o `pattern` da rota (loader, action e render) — dois pontos únicos, sem mexer nas `ErrorBoundary`.
+- **Adaptador** `src/error-reports/sentry-client-error-sink.ts`, o único import de `@sentry/browser` (11, não o `@sentry/react`): `init` com `tunnel: '/api/error-reports'`, `defaultIntegrations: false` e só `globalHandlers`, `linkedErrors`, `dedupe`, `browserApiErrors`, `httpContext` e `breadcrumbs({ dom: false })` (na v11 o console não é breadcrumb dessa integração); `dataCollection` sem nada pessoal; tags `runtime` (`browser` ou `desktop`, pelo `desktopShellOf`) e `desktop_version`; `source` e `extra.routePattern` por relato. O `beforeSend` aplica a mesma trava ao que o SDK pega sozinho na janela; o que veio do `capture` leva uma marca no hint e não conta duas vezes. O client nunca manda `user`: o server carimba.
+- **Fora do bundle inicial**: o `check-entry-chunk.ts` cobra `pixi.js`, `@sentry/browser` e `@sentry/core`. **Source maps públicos** (`build.sourcemap: true` no Vite): o código já é público (AGPL) e o Sentry baixa os `.map` sem token no build.
+- **Backoffice "Teste de erros"** (`/admin/erros`, `features/admin/error-test-page.tsx`, rota `errorTestRoute` em `admin-routes.tsx`, item no `admin-layout.tsx`): "Gerar erro no server" (`triggerServerTest()`, espera o 500; "Gerando…" enquanto corre) e "Gerar erro no navegador" (um `ClientErrorTest` lançado num `setTimeout`, fora do React, como um bug de verdade escapa).
+
+## Fora do escopo
+
+Casca Rust e splash do desktop, landing, serviço de cobrança, tracing/replay/logs/sessões do Sentry, erros do código das fichas (iframe próprio, já vão ao console da ficha), falha de boot por env inválida e scripts de CLI.
+
+## Testes
+
+- Unit do server: `test/config/error-reporting-env.spec.ts`, `test/modules/error-reports/*` (mapper, teto, service, envelope, BO, relay), `test/infrastructure/error-reporting/*` (o `@sentry/node` real com `SentryTransportFake`; o `SentryIngestRelay` com `IngestFetchFake`), `test/app/logger-options.spec.ts`. Fakes em `test/support/error-reports-fakes.ts` e `sentry-transport-fake.ts`.
+- Integração: `error-reports-capture.spec.ts` (5xx com a rota, health 503, 4xx e `warn` sem relato, teto, conta do HTTP e do socket) e `error-reports.spec.ts` (configurações, túnel, carimbo, limites, teste do admin).
+- Client: `test/lib/{reportable-client-error,client-error-gate,client-error-sink}.spec.ts`, `test/services/error-reports-api.spec.ts`, `test/app/error-reporting.spec.ts`, `test/error-reports/sentry-client-error-sink.spec.ts` (o `@sentry/browser` real com `SentryBrowserTransportFake`) e `test/features/admin/error-test-page.spec.tsx`.
+
+## Armadilhas
+
+- Um `Scope` passado ao `client.captureException` **substitui** o escopo corrente: o `initialScope` não chega ao evento. Por isso as tags de `runtime` vão em cada `Scope`, no server e no client.
+- Sem `originalException` no hint, o `linkedErrorsIntegration` não acha o `cause`.
+- `DOMException` não é `instanceof Error` em todo runtime: o filtro do client olha o `name`.
+- Spec que despacha `ErrorEvent` na `window` precisa do `allowDispatchedWindowErrors()` (`client/test/support/`): sem listener de `error` posto por `addEventListener`, o jsdom do Vitest vira o evento em "Unhandled Errors" e reprova a camada no CI, com todo teste verde. O SDK escuta por `window.onerror` e o buffer tira o próprio listener, então nenhum dos dois conta.

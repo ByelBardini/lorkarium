@@ -58,17 +58,25 @@ async function jsonOf<T>(file: string): Promise<T> {
   return JSON.parse(await readFile(file, 'utf8')) as T;
 }
 
+// What the first load must never download: the board renderer and the error-report SDK, both
+// behind `import()` (docs/context/client/performance.md, docs/context/error-reports.md).
+const KEPT_OUT_OF_THE_ENTRY = ['pixi.js', '@sentry/browser', '@sentry/core'] as const;
+
 // `node scripts/check-entry-chunk.ts`, right after `vite build`: login and home must not
-// download the board renderer (docs/context/client/performance.md).
+// download them.
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const vite = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist', '.vite');
   const manifest = await jsonOf<BuildManifest>(path.join(vite, 'manifest.json'));
   const modules = await jsonOf<ModuleManifest>(path.join(vite, 'ssr-manifest.json'));
-  const leaks = entryLeaksOf(manifest, modules, 'pixi.js');
+  const leaks = KEPT_OUT_OF_THE_ENTRY.flatMap((pkg) =>
+    entryLeaksOf(manifest, modules, pkg).map((leak) => ({ pkg, ...leak })),
+  );
   if (leaks.length > 0) {
-    const listed = leaks.map((leak) => `  ${leak.module} → ${leak.chunk}`).join('\n');
-    process.stderr.write(`pixi.js no bundle inicial (esperado só atrás de import()):\n${listed}\n`);
+    const listed = leaks.map((leak) => `  ${leak.pkg}: ${leak.module} → ${leak.chunk}`);
+    process.stderr.write(
+      `no bundle inicial (esperado só atrás de import()):\n${listed.join('\n')}\n`,
+    );
     process.exit(1);
   }
-  process.stdout.write('bundle inicial sem pixi.js\n');
+  process.stdout.write(`bundle inicial sem ${KEPT_OUT_OF_THE_ENTRY.join(', ')}\n`);
 }
