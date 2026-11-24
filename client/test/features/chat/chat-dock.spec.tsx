@@ -123,8 +123,12 @@ describe('ChatDock', () => {
   }
 
   function renderDock(extra: Partial<ChatDockProps> = {}, role: CampaignRoleDto = 'player') {
+    return render(dockOf(extra, role));
+  }
+
+  function dockOf(extra: Partial<ChatDockProps> = {}, role: CampaignRoleDto = 'player') {
     const table = vharnTable(deps);
-    return render(
+    return (
       <ChatDock
         campaignId={VHARN.id}
         role={role}
@@ -137,7 +141,7 @@ describe('ChatDock', () => {
         clock={deps.interactionClock}
         window={slot.docked(null)}
         {...extra}
-      />,
+      />
     );
   }
 
@@ -192,6 +196,18 @@ describe('ChatDock', () => {
 
   describe('the drawer', () => {
     beforeEach(openAsBia);
+
+    // A sheet tab hid the board with the drawer still mounted: its panel read every message the
+    // viewer never saw, so no counter rose and the taskbar never lit.
+    it('off screen, an open drawer is left out and a new message stays unread', () => {
+      act(() => deps.roomLayout.getState().openChat());
+      const { rerender } = renderDock({ onScreen: false });
+      receiveChat(deps, caioSays(1, 'Vou abrir a porta'));
+      expect(screen.queryByRole('region', { name: 'Conversa' })).toBeNull();
+      expect(openButton()).toHaveAccessibleDescription('1 mensagem não lida');
+      rerender(dockOf());
+      expect(within(drawer()).getByRole('log')).toHaveTextContent('Vou abrir a porta');
+    });
 
     it('"Abrir chat" opens the drawer with the feed, focuses the composer and reads the Table', async () => {
       renderDock();

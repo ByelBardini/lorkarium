@@ -28,6 +28,9 @@ export type ChatDockProps = ChatDockPanelProps &
     roomLayout: StoreApi<RoomLayoutStore>;
     /** The clock the previews leave on (the room's `interactionClock`). */
     clock: InteractionClock;
+    /** `false` while the board is covered (a page, a workspace tab): the drawer stays out, or its
+     *  hidden panel would read every new message. Defaults to `true`. */
+    onScreen?: boolean;
   }>;
 
 /** The chat of the room at the foot of the board, for every role: a thin bar with the latest
@@ -39,10 +42,16 @@ export type ChatDockProps = ChatDockPanelProps &
  *  the board's positioned box.
  *
  *  Example: `<ChatDock {...chatPanelProps} window={chatWindow.slot} roomLayout={roomLayout} clock={deps.interactionClock} />` */
-export function ChatDock({ roomLayout, clock, ...panel }: ChatDockProps): React.JSX.Element | null {
+export function ChatDock({
+  roomLayout,
+  clock,
+  onScreen = true,
+  ...panel
+}: ChatDockProps): React.JSX.Element | null {
   const table = useOpenTableOf(panel.openTables, panel.campaignId);
   if (table === null) return null;
-  return <TableDock panel={panel} roomLayout={roomLayout} clock={clock} table={table} />;
+  const parts = { panel, roomLayout, clock, table, onScreen };
+  return <TableDock {...parts} />;
 }
 
 type TableDockProps = Readonly<{
@@ -50,6 +59,7 @@ type TableDockProps = Readonly<{
   roomLayout: StoreApi<RoomLayoutStore>;
   clock: InteractionClock;
   table: OpenTable;
+  onScreen: boolean;
 }>;
 
 function TableDock(props: TableDockProps): React.JSX.Element {
@@ -78,7 +88,7 @@ function TableDock(props: TableDockProps): React.JSX.Element {
       {docked && !open && (
         <ClosedNotices table={table} people={people} notices={notices} onOpen={drawer.openAt} />
       )}
-      {docked && open ? <OpenDrawer {...parts} /> : <ClosedBar {...parts} />}
+      {docked && open && props.onScreen ? <OpenDrawer {...parts} /> : <ClosedBar {...parts} />}
     </DockLane>
   );
 }

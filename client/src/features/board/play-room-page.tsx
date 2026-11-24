@@ -459,7 +459,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
               panel={tablePanels}
               roomLayout={roomLayout}
               services={props}
-              onScreen={!props.covered}
+              onScreen={!props.covered && !activeDocument}
             />
             <FocusToggle roomLayout={roomLayout} />
             {focus && table && (

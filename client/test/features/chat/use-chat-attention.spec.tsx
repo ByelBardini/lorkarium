@@ -1,8 +1,12 @@
-import { act, render, renderHook } from '@testing-library/react';
+import { act, render, renderHook, screen } from '@testing-library/react';
+import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { buildRoutes } from '@/app/router';
 import { RoomChat } from '@/features/chat/room-chat';
 import { useChatAttention } from '@/features/chat/use-chat-attention';
-import { VHARN } from '../../support/campaigns-api-fake';
+import { ANA as ANA_ACCOUNT } from '../../support/auth-api-fake';
+import { VHARN, detailOf } from '../../support/campaigns-api-fake';
+import { documentFixture } from '../../support/documents-fixtures';
 import { ChatAttentionFake } from '../../support/chat-attention-fakes';
 import { chatMessageIdOf, chatSent } from '../../support/chat-fixtures';
 import { openVharnChat, receiveChat } from '../../support/chat-panel-harness';
@@ -108,5 +112,28 @@ describe('RoomChat and the taskbar button', () => {
   it('a room covered by a page (settings, conditions) is not on screen', () => {
     renderRoomChat(false);
     expect(attention.rooms).toEqual([]);
+  });
+});
+
+// A sheet or a document hides the board and its chat: counted as on screen, a message there
+// never lit the taskbar.
+describe('the play room with a workspace tab in front', () => {
+  it('leaves the screen while a document is shown and comes back with the board', async () => {
+    const attention = new ChatAttentionFake();
+    const deps: TestDependencies = { ...testDependencies(), chatAttention: attention };
+    deps.authApi.answerMeWith(ANA_ACCOUNT);
+    const router = createMemoryRouter(buildRoutes(deps), {
+      initialEntries: [`/campaigns/${VHARN.id}/table`],
+    });
+    render(<RouterProvider router={router} />);
+    await screen.findByRole('heading', { level: 1 });
+    expect(attention.shownRooms()).toEqual([VHARN.id]);
+    const campaign = detailOf(VHARN);
+    act(
+      () => void deps.documentWorkspace.getState().open({ campaign, document: documentFixture() }),
+    );
+    expect(attention.shownRooms()).toEqual([]);
+    act(() => deps.documentWorkspace.getState().activate(VHARN.id, null));
+    expect(attention.shownRooms()).toEqual([VHARN.id]);
   });
 });
