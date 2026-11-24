@@ -149,6 +149,23 @@ describe('frame console lines', () => {
   });
 });
 
+describe('frame to host: a key pressed in the frame', () => {
+  it('accepts one letter, in either case', () => {
+    expect(sheetFrameMessageDto.parse({ type: 'shortcut', key: 'F' })).toEqual({
+      type: 'shortcut',
+      key: 'F',
+    });
+    expect(sheetFrameMessageDto.safeParse({ type: 'shortcut', key: 'f' }).success).toBe(true);
+  });
+  it('refuses a key that is not one letter, or a requestId', () => {
+    for (const key of ['', 'FF', '1', 'Enter', 'ç'])
+      expect(sheetFrameMessageDto.safeParse({ type: 'shortcut', key }).success).toBe(false);
+    expect(
+      sheetFrameMessageDto.safeParse({ type: 'shortcut', key: 'F', requestId: '1' }).success,
+    ).toBe(false);
+  });
+});
+
 describe('host to frame messages', () => {
   it('accepts a state with the token image as an ArrayBuffer', () =>
     expect(

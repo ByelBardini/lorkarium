@@ -133,7 +133,8 @@ export type SheetViewDto = SheetValueDto;
 /** Frame → host, over the `MessagePort`. No `tokenId`, `campaignId` or `sheetId`: the host
  *  knows which sheet the frame is and the server resolves the token. `bars.adjust` names the bar
  *  by its id or by its label (the host resolves it to the id the server takes). `console` and
- *  `console.dropped` carry the frame's console (no `requestId`: the host never answers them).
+ *  `console.dropped` carry the frame's console, `shortcut` a key pressed in it (no `requestId`:
+ *  the host never answers them).
  *
  *  Example: `sheetFrameMessageDto.parse({ type: 'bars.adjust', requestId: '3', bar: 'PV', change: { op: 'add', amount: -5 } })` */
 export const sheetFrameMessageDto = z.discriminatedUnion('type', [
@@ -196,6 +197,9 @@ export const sheetFrameMessageDto = z.discriminatedUnion('type', [
     tabId: z.uuid(),
   }),
   ...consoleShapes,
+  // Shift+letter pressed in the frame, outside its fields: the room's keys (Shift+F, Shift+M)
+  // listen on the app's window, which never hears a key once the sheet has the focus.
+  z.strictObject({ type: z.literal('shortcut'), key: z.string().regex(/^[A-Za-z]$/) }),
 ]);
 export type SheetFrameMessageDto = z.infer<typeof sheetFrameMessageDto>;
 /** A console line (or the count of lines the frame dropped), with no answer from the host. */
@@ -203,8 +207,13 @@ export type SheetConsoleMessageDto = Extract<
   SheetFrameMessageDto,
   { type: 'console' | 'console.dropped' }
 >;
+/** Shift+letter pressed in the frame, for the host to press on the app's window. */
+export type SheetShortcutMessageDto = Extract<SheetFrameMessageDto, { type: 'shortcut' }>;
 /** A frame message the host answers with `result` or `error`. */
-export type SheetFrameRequestDto = Exclude<SheetFrameMessageDto, SheetConsoleMessageDto>;
+export type SheetFrameRequestDto = Exclude<
+  SheetFrameMessageDto,
+  SheetConsoleMessageDto | SheetShortcutMessageDto
+>;
 export type SheetFrameMessageInput = z.input<typeof sheetFrameMessageDto>;
 
 /** The token as the frame sees it: name and the image bytes (the frame makes its own `blob:` URL,

@@ -471,6 +471,53 @@ describe('sheet bridge host: the console', () => {
   });
 });
 
+describe('sheet bridge host: a key pressed in the frame', () => {
+  async function bridgeWith(onShortcut?: (key: string) => void) {
+    const port = new SheetHostPortFake();
+    const api = new SheetsApiFake();
+    const clock = new InteractionClockFake();
+    const sheet = createSheetStore({
+      ...{ api, campaignId: VHARN.id, sheetId: LYRA_SHEET_ID, clock },
+      newActionId: () => '00000000-0000-4000-8000-000000000001',
+    });
+    await sheet.getState().load();
+    createSheetBridgeHost({
+      ...{ port, campaignId: VHARN.id, sheet, token: null, images: api, onShortcut },
+      ...{ commands: new SheetCommandsFake(), dice: new DiceCommandsFake(), clock },
+      ...{ diceAspect: () => 1, characters: new CharacterCommandsFake() },
+      assets: new AssetsApiFake(),
+      documents: noDocuments(),
+    });
+    return port;
+  }
+
+  it('Shift+F from the frame goes to onShortcut with no answer to the frame', async () => {
+    const keys: string[] = [];
+    const port = await bridgeWith((key) => keys.push(key));
+    port.fromFrame({ type: 'shortcut', key: 'F' });
+    await settled();
+    expect({ keys, sent: port.sent }).toEqual({ keys: ['F'], sent: [] });
+  });
+
+  it('a key that is not one letter never reaches onShortcut', async () => {
+    const keys: string[] = [];
+    const port = await bridgeWith((key) => keys.push(key));
+    port.fromFrame({ type: 'shortcut', key: 'Enter' });
+    await settled();
+    expect({ keys, error: port.ofType('error')[0]?.code }).toEqual({
+      keys: [],
+      error: 'INVALID_MESSAGE',
+    });
+  });
+
+  it('with no onShortcut the key is dropped, still unanswered', async () => {
+    const port = await bridgeWith();
+    port.fromFrame({ type: 'shortcut', key: 'F' });
+    await settled();
+    expect(port.sent).toEqual([]);
+  });
+});
+
 describe('sheetRollLabelOf', () => {
   it('a roll without its own label carries the template name', () => {
     expect(sheetRollLabelOf('Ficha Tormenta', undefined)).toBe('Ficha Tormenta');
