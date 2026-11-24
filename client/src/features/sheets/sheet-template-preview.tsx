@@ -12,6 +12,7 @@ import {
   type SheetPreviewHost,
 } from '@/sheet-sandbox/sheet-preview-host';
 import { sameSheetSource, type SheetSource } from '@/sheet-sandbox/sheet-srcdoc';
+import { localSheetViewSlot, type SheetViewSlot } from '@/stores/sheet-view-store';
 import { SheetPreviewTestData } from './sheet-preview-test-data';
 import { useSheetScriptsNotice } from './sheet-scripts-gate';
 
@@ -48,6 +49,8 @@ export function SheetTemplatePreview(props: SheetTemplatePreviewProps): React.JS
   const [shown, setShown] = useState<ShownCode>({ source: props.source, run: 0 });
   const [reloaded, setReloaded] = useState(false);
   const host = useRef<SheetPreviewHost | null>(null);
+  // The frame's `lorkarium.view` outlives each run, as it outlives a remount in the room.
+  const [view] = useState(localSheetViewSlot);
   // The preview runs as the table would: without the JS when its plan has no `sheetScripts`.
   const notice = useSheetScriptsNotice(shown.source);
   useEffect(() => {
@@ -66,7 +69,7 @@ export function SheetTemplatePreview(props: SheetTemplatePreviewProps): React.JS
     setShown((current) => next(current, props.source, true));
   };
   const connect = (port: MessagePort): void => {
-    host.current = previewHostOf(port, props, shown.source, notice);
+    host.current = previewHostOf(port, props, shown.source, { notice, view });
   };
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
@@ -107,10 +110,10 @@ function previewHostOf(
   port: MessagePort,
   props: SheetTemplatePreviewProps,
   source: SheetSource,
-  notice: string | undefined,
+  frame: Readonly<{ notice: string | undefined; view: SheetViewSlot }>,
 ): SheetPreviewHost {
   const { onConsole, now = () => new Date(), permissions, documents } = props;
-  const data = { data: props.testData, onDataChange: props.onTestData, documents, notice };
+  const data = { data: props.testData, onDataChange: props.onTestData, documents, ...frame };
   if (!onConsole) return createSheetPreviewHost(port, { permissions, ...data });
   const sink = (message: SheetConsoleMessageDto): void =>
     onConsole(consoleEntryOf(message, source, now()));

@@ -20,6 +20,7 @@ import {
 import { SHEET_VALUES_BATCH_MS } from '@/stores/sheet-store';
 import { DOCUMENT_SDK_CALLS } from './sheet-api-reference-documents';
 import { TRAY_SDK_CALLS } from './sheet-api-reference-tray';
+import { VIEW_SDK_CALLS } from './sheet-api-reference-view';
 import { SHEET_READY_TIMEOUT_MS } from './sheet-sandbox-view';
 
 export { SHEET_ERROR_CODES } from './sheet-api-reference-errors';
@@ -290,6 +291,7 @@ document.getElementById('ataque').textContent = texto;`,
     example: `const descricao = lorkarium.values.get('descricao') ?? '';
 document.getElementById('descricao').innerHTML = lorkarium.html.sanitize(descricao);`,
   },
+  ...VIEW_SDK_CALLS,
   {
     signature: 'lorkarium.character.get()',
     summary:

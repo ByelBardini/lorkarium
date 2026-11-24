@@ -4,6 +4,7 @@ import { TauriTaskbarAttention } from '@/services/taskbar-attention';
 import { HttpLibraryMapsApi } from '@/services/library-maps-api';
 import { HttpDocumentsApi } from '@/services/documents-api';
 import { createDocumentWorkspaceStore } from '@/stores/document-workspace-store';
+import { createSheetViewStore } from '@/stores/sheet-view-store';
 import { StrictMode } from 'react';
 import { browserClock, browserWallClock } from '@/lib/interaction-clock';
 import { createRoot } from 'react-dom/client';
@@ -201,6 +202,7 @@ const router = createBrowserRouter(
     sheetTemplatesApi,
     sheetEditorLayout: storedSheetEditorLayout(browserStorage, signedInUserId),
     sheetCommands: new RealtimeSheetCommands(realtime, newActionId),
+    sheetViews: createSheetViewStore(),
     imagePresentationApi,
     sceneActivation: new RealtimeSceneActivation(realtime, newActionId),
     assets: new HttpAssetsApi(transport),

@@ -9,6 +9,7 @@ import { createCharactersStore, type CharactersStore } from '@/stores/characters
 import { diceTrayStoreOf, type DiceTrayStore } from '@/stores/dice-tray-store';
 import { savedRollsStoreOf } from '@/stores/saved-rolls-store';
 import { createSheetStore, type SheetStoreState } from '@/stores/sheet-store';
+import type { SheetViewSlot } from '@/stores/sheet-view-store';
 import { AssetsApiFake } from './assets-api-fake';
 import { VHARN } from './campaigns-api-fake';
 import { charactersSynced, lyraCharacter } from './character-fixtures';
@@ -53,6 +54,8 @@ export type SheetBridgeSetup = Readonly<{
   tokenOf?: (characters: StoreApi<CharactersStore>) => SheetTokenSource | null;
   /** `false`: the viewer has no tray (a spectator). */
   withTray?: boolean;
+  /** Where the view state of who looks is kept (the host's own by default). */
+  view?: SheetViewSlot;
 }>;
 
 /** Document sources that answer like an untouched library: for a host whose spec reads none.
@@ -107,7 +110,7 @@ export async function sheetBridgeHarness(
   const host = createSheetBridgeHost({
     ...{ port: fakes.port, campaignId: VHARN.id, sheet, token, images: api },
     ...{ commands: fakes.commands, characters: fakes.characterCommands, assets: fakes.assets },
-    ...{ dice, clock, diceAspect: () => 1, diceTray },
+    ...{ dice, clock, diceAspect: () => 1, diceTray, view: setup.view },
     documents: { library: fakes.library, documents: fakes.documents },
   });
   const frameSends = async (data: unknown): Promise<void> => {

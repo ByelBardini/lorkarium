@@ -32,6 +32,7 @@ function stateWith(image: unknown): unknown {
     values: { forca: 16 },
     canEdit: true,
     character: null,
+    view: null,
   };
 }
 
@@ -163,6 +164,7 @@ describe('host to frame messages', () => {
         values: {},
         canEdit: true,
         character: null,
+        view: null,
       }).success,
     ).toBe(true));
   it('refuses a state without the token field', () =>
@@ -173,6 +175,7 @@ describe('host to frame messages', () => {
         values: {},
         canEdit: true,
         character: null,
+        view: null,
       }).success,
     ).toBe(false));
   it('refuses image bytes that are a view instead of an ArrayBuffer', () =>

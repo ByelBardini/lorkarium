@@ -15,7 +15,7 @@ function issuesOf(input: unknown): string {
 }
 
 function stateWith(character: unknown): unknown {
-  return { type: 'state', token: null, bars: [], values: {}, canEdit: true, character };
+  return { type: 'state', token: null, bars: [], values: {}, canEdit: true, character, view: null };
 }
 
 describe('state.character', () => {
@@ -40,6 +40,7 @@ describe('state.character', () => {
         bars: [],
         values: {},
         canEdit: true,
+        view: null,
       }).success,
     ).toBe(false));
 });

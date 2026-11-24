@@ -138,6 +138,13 @@ export interface LorkariumSdk {
     get(key: string): unknown;
     all(): Record<string, unknown>;
   };
+  /** The view state of who looks (a tab, a scroll): kept by the app across the frame's remounts,
+   *  never sent to the server; `get` is `null` until one is kept. */
+  readonly view: {
+    get(): unknown;
+    /** Any JSON value up to 4096 bytes; `null` clears it. */
+    set(value: unknown): Promise<undefined>;
+  };
   readonly character: {
     get(): SheetFrameCharacter | null;
     set(changes: { armorClass?: number; difficultyClass?: number }): Promise<undefined>;

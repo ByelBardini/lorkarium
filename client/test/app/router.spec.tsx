@@ -6,6 +6,7 @@ import { buildRoutes } from '@/app/router';
 import { ANA, ROOT_ADMIN } from '../support/auth-api-fake';
 import { testDependencies, type TestDependencies } from '../support/app-dependencies';
 import { VHARN } from '../support/campaigns-api-fake';
+import { LYRA_SHEET_ID } from '../support/sheet-fixtures';
 
 describe('app router', () => {
   let deps: TestDependencies;
@@ -61,6 +62,16 @@ describe('app router', () => {
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Sair' }));
     expect(await screen.findByRole('heading', { name: 'Bem-vindo de volta' })).toBeInTheDocument();
     expect(deps.authApi.logoutCalls).toBe(1);
+  });
+
+  it('"Sair" forgets the view states of the sheets: another account here starts with none', async () => {
+    deps.authApi.answerMeWith(ANA);
+    deps.sheetViews.getState().remember(VHARN.id, LYRA_SHEET_ID, { aba: 'origem' });
+    renderAt('/');
+    await userEvent.click(await screen.findByRole('button', { name: /Ana/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Sair' }));
+    await screen.findByRole('heading', { name: 'Bem-vindo de volta' });
+    expect(deps.sheetViews.getState().views).toEqual({});
   });
 
   it('while the first "who am I" is pending, the splash shows and the form does not', async () => {

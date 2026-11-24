@@ -47,6 +47,7 @@ export function WorkspaceSheet({
       clock: deps.interactionClock,
       now: deps.now,
       templateAssets: deps.sheetTemplatesApi,
+      sheetViews: deps.sheetViews,
     }),
     [
       deps.sheetsApi,
@@ -59,6 +60,7 @@ export function WorkspaceSheet({
       deps.interactionClock,
       deps.now,
       deps.sheetTemplatesApi,
+      deps.sheetViews,
     ],
   );
   return (

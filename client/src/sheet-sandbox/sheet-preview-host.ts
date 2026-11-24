@@ -27,7 +27,8 @@ import {
   type SheetDocumentRead,
   type SheetDocumentSources,
 } from './sheet-bridge-documents';
-import { SHEET_DOCUMENT_READ_RATE, type SheetHostPort } from './sheet-bridge-host';
+import { localSheetViewSlot, type SheetViewSlot } from '@/stores/sheet-view-store';
+import { SHEET_DOCUMENT_READ_RATE, SHEET_VIEW_RATE, type SheetHostPort } from './sheet-bridge-host';
 import { savedRollMissing, trayAddAnswerOf } from './sheet-bridge-tray';
 import { createConsoleIntake, hostConsoleNoticeOf, type SheetConsoleSink } from './sheet-console';
 import { permissionRefusalOf } from './sheet-permissions';
@@ -57,6 +58,8 @@ type Preview = {
   console: SheetConsoleSink;
   documents: SheetPreviewDocumentPorts | null;
   documentReads: SheetRateStamps;
+  view: SheetViewSlot;
+  viewWrites: SheetRateStamps;
   now: () => number;
   /** The test tray of `dice.tray.add`: kept here, never rolled. */
   tray: DiceTray;
@@ -84,6 +87,9 @@ export type SheetPreviewHostOptions = Readonly<{
   documents?: SheetPreviewDocumentPorts;
   /** A line the host writes to the console as the frame connects (the JS the plan does not run). */
   notice?: string;
+  /** Where `view.set` keeps the frame's view state: the editor's, so "Rodar de novo" keeps it;
+   *  absent = this host's only. */
+  view?: SheetViewSlot;
 }>;
 
 /** Speaks for the frame of the template editor's preview: a token named as the test data's
@@ -106,6 +112,7 @@ export function createSheetPreviewHost(
     console: createConsoleIntake(now, options.onConsole ?? noConsole),
     ...{ disposed: false, documents: options.documents ?? null, documentReads: { stamps: [] } },
     ...{ now, tray: EMPTY_TRAY },
+    ...{ view: options.view ?? localSheetViewSlot(), viewWrites: { stamps: [] } },
   };
   if (options.notice) preview.console(hostConsoleNoticeOf(options.notice));
   const onMessage = (event: { data: unknown }): void => receive(preview, event.data);
@@ -138,6 +145,7 @@ function receive(preview: Preview, data: unknown): void {
   if (request.type === 'console' || request.type === 'console.dropped')
     return preview.console(request);
   if (isSheetDocumentRead(request)) return void readDocuments(preview, request);
+  if (request.type === 'view.set') return keepView(preview, request);
   const before = preview.data;
   const answer = answerOf(preview, request);
   if (!answer.ok) return postError(preview, request.requestId, answer.code, answer.message);
@@ -152,6 +160,20 @@ function postResult(preview: Preview, requestId: string, answer: Answer & { ok: 
   preview.port.postMessage(
     value ? { type: 'result', requestId, value } : { type: 'result', requestId },
   );
+}
+
+// As in the room: kept for the next frame, answered with no new state (the frame has it).
+function keepView(
+  preview: Preview,
+  request: Extract<SheetFrameRequestDto, { type: 'view.set' }>,
+): void {
+  if (!admitted(preview.viewWrites, preview.now(), SHEET_VIEW_RATE)) {
+    const { limit, windowMs } = SHEET_VIEW_RATE;
+    const message = `More than ${limit} view.set in ${windowMs / 1000} s`;
+    return postError(preview, request.requestId, 'RATE_LIMITED', message);
+  }
+  preview.view.remember(request.value);
+  postResult(preview, request.requestId, { ok: true });
 }
 
 async function readDocuments(preview: Preview, request: SheetDocumentRead): Promise<void> {
@@ -313,7 +335,7 @@ function postState(preview: Preview): void {
   const state = sheetHostMessageDto.safeParse({
     type: 'state',
     token: { name: character.name, image: preview.portrait },
-    ...{ bars, values, canEdit: true, character },
+    ...{ bars, values, canEdit: true, character, view: preview.view.current() },
   });
   if (state.success) preview.port.postMessage(state.data);
 }

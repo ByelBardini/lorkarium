@@ -8,6 +8,7 @@ import {
   type SheetFrameRequestDto,
   type SheetHostMessageDto,
   type SheetManifestPermissionDto,
+  type SheetViewDto,
 } from '@lorkarium/contracts';
 import type { StoreApi } from 'zustand/vanilla';
 import type { InteractionClock } from '@/lib/interaction-clock';
@@ -17,6 +18,7 @@ import type { DiceCommands } from '@/services/dice-commands';
 import type { SheetCommands } from '@/services/sheet-commands';
 import type { SheetImage, SheetsApi } from '@/services/sheets-api';
 import type { SheetStoreState } from '@/stores/sheet-store';
+import { localSheetViewSlot, type SheetViewSlot } from '@/stores/sheet-view-store';
 import {
   admitted,
   refusedWith,
@@ -95,6 +97,9 @@ export type SheetBridgeHostOptions = Readonly<{
   onConsole?: SheetConsoleSink;
   /** A line the host writes to the console as the frame connects (the JS the plan does not run). */
   notice?: string;
+  /** Where `view.set` keeps the view state of who looks, read back into every `state`; absent =
+   *  kept only by this host (gone when the frame remounts). */
+  view?: SheetViewSlot;
 }>;
 
 export type SheetBridgeHost = Readonly<{ dispose: () => void }>;
@@ -112,18 +117,21 @@ export const SHEET_ASSET_READ_RATE = { limit: 120, windowMs: 60_000 } as const;
 export const SHEET_DOCUMENT_READ_RATE = { limit: 60, windowMs: 60_000 } as const;
 /** Bars the sheet creates on its holder (`bars.create`): a sheet sets its bars up once. */
 export const SHEET_BAR_CREATION_RATE = { limit: 10, windowMs: 60_000 } as const;
+/** `view.set` of the sheet: generous, a sheet may keep its scroll as it moves. */
+export const SHEET_VIEW_RATE = { limit: 60, windowMs: 10_000 } as const;
 
-type RateName =
-  'rolls' | 'characterWrites' | 'uploads' | 'reads' | 'documentReads' | 'barCreations';
-const RATES: Readonly<Record<RateName, RateWindowRule>> = {
+const RATES = {
   rolls: SHEET_DICE_RATE,
   characterWrites: SHEET_CHARACTER_RATE,
   uploads: SHEET_UPLOAD_RATE,
   reads: SHEET_ASSET_READ_RATE,
   documentReads: SHEET_DOCUMENT_READ_RATE,
   barCreations: SHEET_BAR_CREATION_RATE,
-};
+  views: SHEET_VIEW_RATE,
+} as const satisfies Readonly<Record<string, RateWindowRule>>;
+type RateName = keyof typeof RATES;
 
+type ViewValue = SheetViewDto | null;
 type ImageSlot = { assetId: string | null; image: SheetImage | null; loading: boolean };
 const NO_IMAGE: ImageSlot = { assetId: null, image: null, loading: false };
 type Sent = {
@@ -138,6 +146,7 @@ type Bridge = {
   ready: boolean;
   disposed: boolean;
   rates: Record<RateName, SheetRateStamps>;
+  view: SheetViewSlot;
   image: ImageSlot;
   sent: Sent | null;
 };
@@ -154,6 +163,7 @@ export function createSheetBridgeHost(options: SheetBridgeHostOptions): SheetBri
     ready: false,
     disposed: false,
     rates: freshRates(),
+    view: options.view ?? localSheetViewSlot(),
     image: NO_IMAGE,
     sent: null,
   };
@@ -169,15 +179,9 @@ export function createSheetBridgeHost(options: SheetBridgeHostOptions): SheetBri
 function noop(): void {}
 
 function freshRates(): Record<RateName, SheetRateStamps> {
-  const empty = (): SheetRateStamps => ({ stamps: [] });
-  return {
-    rolls: empty(),
-    characterWrites: empty(),
-    uploads: empty(),
-    reads: empty(),
-    documentReads: empty(),
-    barCreations: empty(),
-  };
+  const rates = {} as Record<RateName, SheetRateStamps>;
+  for (const name of Object.keys(RATES) as RateName[]) rates[name] = { stamps: [] };
+  return rates;
 }
 
 function closeBridge(
@@ -223,7 +227,9 @@ async function receive(bridge: Bridge, data: unknown): Promise<void> {
 
 type EditRequest = Exclude<
   SheetFrameRequestDto,
-  { type: 'ready' | 'dice.roll' | 'assets.read' } | SheetDocumentRead | SheetTrayRequest
+  | { type: 'ready' | 'dice.roll' | 'assets.read' | 'view.set' }
+  | SheetDocumentRead
+  | SheetTrayRequest
 >;
 
 // The manifest first (what the template may ask at all), then the viewer's own right to edit.
@@ -232,6 +238,7 @@ async function answerOf(bridge: Bridge, request: SheetFrameRequestDto): Promise<
   const undeclared = permissionRefusalOf(request.type, declaredOf(bridge));
   if (undeclared) return refusedWith(undeclared.code, undeclared.message);
   if (request.type === 'dice.roll') return roll(bridge, request);
+  if (request.type === 'view.set') return keepView(bridge, request.value);
   if (isSheetTrayRequest(request)) return tray(bridge, request);
   if (request.type === 'assets.read') {
     const read = () => readSheetAsset(bridge.options.images, request.assetId);
@@ -246,6 +253,16 @@ async function answerOf(bridge: Bridge, request: SheetFrameRequestDto): Promise<
     return refusedWith('FORBIDDEN', `${request.type} refused: this sheet is read-only here`);
   }
   return edit(bridge, request);
+}
+
+// Who looks keeps their own tab and scroll, even on a read-only sheet; no new `state` follows,
+// or the frame would loop on its own echo.
+function keepView(bridge: Bridge, view: ViewValue): Promise<SheetBridgeAnswer> {
+  const remember = async (): Promise<SheetBridgeAnswer> => {
+    bridge.view.remember(view);
+    return SHEET_BRIDGE_DONE;
+  };
+  return limited(bridge, 'views', 'view.set', remember);
 }
 
 function edit(bridge: Bridge, request: EditRequest): Promise<SheetBridgeAnswer> {
@@ -406,17 +423,17 @@ function pushState(bridge: Bridge): void {
   if (image === 'loading') return;
   const next: Sent = { token, image, values, canEdit: sheet.canEdit };
   if (sameAsSent(bridge.sent, next)) return;
-  const state = sheetHostMessageDto.safeParse(stateMessageOf(next));
+  const state = sheetHostMessageDto.safeParse(stateMessageOf(next, bridge.view.current()));
   if (!state.success) return;
   bridge.sent = next;
   post(bridge, state.data);
 }
 
-function stateMessageOf({ token, image, values, canEdit }: Sent): unknown {
+function stateMessageOf({ token, image, values, canEdit }: Sent, view: ViewValue): unknown {
   const frameToken = token === null ? null : { name: token.name, image };
   const bars = token?.bars ?? [];
   const character = frameCharacterOf(token);
-  return { type: 'state', token: frameToken, bars, values, canEdit, character };
+  return { type: 'state', token: frameToken, bars, values, canEdit, character, view };
 }
 
 function frameCharacterOf(token: SheetTokenView | null): SheetFrameCharacterDto | null {
