@@ -64,7 +64,18 @@ jobs:
             echo "nenhum feat/fix/breaking no desktop desde a última versão: sem release"
             exit 0
           fi
-          release_id=$(gh api "repos/${GITHUB_REPOSITORY}/releases" --jq ".[] | select(.tag_name == \"${after}\") | .id")
+          # The list endpoint lags behind the draft semantic-release just created: 1.6.2 read an empty id,
+          # tauri-action skipped every upload and the empty release went out as latest.
+          release_id=""
+          for attempt in 1 2 3 4 5 6; do
+            release_id=$(gh api "repos/${GITHUB_REPOSITORY}/releases" --jq ".[] | select(.tag_name == \"${after}\") | .id")
+            [ -n "$release_id" ] && break
+            sleep $((attempt * 5))
+          done
+          if [ -z "$release_id" ]; then
+            echo "o rascunho ${after} não apareceu na API depois de 6 tentativas; esperado um id numérico"
+            exit 1
+          fi
           {
             echo "tag=${after}"
             echo "version=${after#desktop-v}"
@@ -120,4 +131,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.version.outputs.tag }}
-        run: gh release edit "$TAG" --draft=false --latest
+        run: |
+          installer="Lorkarium_${TAG#desktop-v}_x64-setup.exe"
+          assets=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          for expected in "$installer" "$installer.sig" latest.json; do
+            if ! grep -qxF "$expected" <<< "$assets"; then
+              echo "a release ${TAG} não tem ${expected}; recebido: [${assets//$'\n'/, }]. Ela fica em rascunho."
+              exit 1
+            fi
+          done
+          gh release edit "$TAG" --draft=false --latest
