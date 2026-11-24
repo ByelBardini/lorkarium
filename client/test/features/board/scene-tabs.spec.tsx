@@ -22,6 +22,11 @@ import { GOBLIN_SHEET_ID, LYRA_SHEET_ID } from '../../support/sheet-fixtures';
 import { TORRE_SCENE, estradaBoard, sceneActivated } from '../../support/scene-tab-fixtures';
 import { openTorreTab, openVharnTabs } from '../../support/scene-tabs-harness';
 import { TableSessionApiFake } from '../../support/table-session-api-fake';
+import { testDependencies } from '../../support/app-dependencies';
+import { ANA } from '../../support/auth-api-fake';
+import { chatMessageIdOf, chatSent } from '../../support/chat-fixtures';
+import { BIA_ACCOUNT, openVharnChat, receiveChat } from '../../support/chat-panel-harness';
+import { BIA_AT_TABLE, CAIO_AT_TABLE } from '../../support/table-session-fixtures';
 
 describe('SceneTabs', () => {
   let api: TableSessionApiFake;
@@ -235,6 +240,62 @@ describe('SceneTabs with documents', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Fechar documento Carta' }));
     expect(screen.queryByRole('tab', { name: 'Carta' })).not.toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Cena 1/ })).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
+describe('SceneTabs counting the chat', () => {
+  function stripOverDocument() {
+    const deps = testDependencies();
+    const table = openVharnChat(deps, { account: BIA_ACCOUNT });
+    const documents = workspaceOfFakes();
+    documents.getState().open({ campaign: detailOf(VHARN), document: documentFixture() });
+    render(
+      <SceneTabs
+        tabs={table.tabs}
+        documents={documents}
+        campaignId={VHARN.id}
+        openTables={deps.openTables}
+      />,
+    );
+    return { deps, documents };
+  }
+
+  function groupTab(): HTMLElement {
+    return screen.getByRole('tab', { name: /Grupo/ });
+  }
+
+  const caioSays = (text: string) =>
+    chatSent({ messageId: chatMessageIdOf(1), fromUserId: CAIO_AT_TABLE.userId, text });
+
+  // In a sheet or a document the board's chat bar is hidden: the group tab is where it lives.
+  it('with a document shown, the group tab counts the unread messages', async () => {
+    const { deps } = stripOverDocument();
+    await act(() => Promise.resolve());
+    receiveChat(deps, caioSays('Vou abrir a porta'));
+    expect(groupTab()).toHaveAccessibleDescription('1 mensagem não lida');
+    expect(groupTab().querySelector('[data-important]')).toHaveAttribute('data-important', 'false');
+  });
+
+  it('a whisper to the viewer turns the count gold', async () => {
+    const { deps } = stripOverDocument();
+    await act(() => Promise.resolve());
+    const whisper = chatSent({
+      messageId: chatMessageIdOf(1),
+      fromUserId: ANA.id,
+      channel: { kind: 'table', whisperTo: BIA_AT_TABLE.userId },
+      text: 'Só você vê a marca',
+    });
+    receiveChat(deps, whisper);
+    expect(groupTab().querySelector('[data-important]')).toHaveAttribute('data-important', 'true');
+  });
+
+  it('with the board shown, its chat bar counts and the tab does not', async () => {
+    const { deps } = stripOverDocument();
+    await act(() => Promise.resolve());
+    await userEvent.click(groupTab());
+    receiveChat(deps, caioSays('Vou abrir a porta'));
+    expect(groupTab()).not.toHaveAccessibleDescription();
+    expect(groupTab().querySelector('[data-important]')).toBeNull();
   });
 });
 
