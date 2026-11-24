@@ -2,6 +2,7 @@ import { ImagePresentationApiFake } from './image-presentation-api-fake';
 import { LibraryMapsApiFake } from './library-maps-api-fake';
 import { DocumentsApiFake } from './documents-api-fake';
 import { createDocumentWorkspaceStore } from '@/stores/document-workspace-store';
+import { createSheetViewStore } from '@/stores/sheet-view-store';
 import type { AppDependencies } from '@/app/router';
 import { tabInteractionFactory } from '@/features/board/tab-interaction';
 import { createDrawingStyleStore } from '@/stores/drawing-style-store';
@@ -270,6 +271,7 @@ export function testDependencies(): TestDependencies {
     sheetEditorLayoutStorage,
     sheetEditorLayout: storedSheetEditorLayout(sheetEditorLayoutStorage, () => 'test-user'),
     sheetCommands: new SheetCommandsFake(),
+    sheetViews: createSheetViewStore(),
     imagePresentationApi,
     sceneActivation: new SceneActivationFake(),
     assets: new AssetsApiFake(),

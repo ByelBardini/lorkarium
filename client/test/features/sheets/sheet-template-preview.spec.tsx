@@ -134,6 +134,13 @@ describe('the test data of the preview', () => {
     expect(statesOf(port)[0]?.character?.armorClass).toBe(14);
   });
 
+  it('the view the frame kept survives "Rodar de novo", as a remount in the room', async () => {
+    const { user, port } = await openTestData();
+    fromFrame(port, { type: 'view.set', requestId: '2', value: { aba: 'origem' } });
+    await user.click(screen.getByRole('button', { name: 'Rodar de novo' }));
+    expect(statesOf(connectFrame())[0]?.view).toEqual({ aba: 'origem' });
+  });
+
   it('"Voltar ao exemplo" puts the sample back', async () => {
     const { user, port } = await openTestData();
     await retype(user, 'CA', '14');

@@ -105,6 +105,7 @@ export function RoomHeader({
         mainSheetKey={mainSheet?.key ?? null}
         board={board}
         interaction={interaction}
+        openTables={openTables}
       />
     </>
   );

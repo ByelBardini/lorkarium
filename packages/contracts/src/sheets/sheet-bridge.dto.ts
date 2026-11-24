@@ -17,9 +17,18 @@ import {
 import { SAVED_ROLLS_MAX, savedRollDto } from '../dice/saved-roll.dto';
 import { createSheetBarResponseDto, sheetBarCostDto, sheetBarCreationDto } from './sheet.dto';
 import { sheetFrameDocumentResultDtos } from './sheet-bridge-documents.dto';
-import { sheetValuePathPatchesDto, sheetValuesDto, sheetValuesPatchDto } from './sheet-values.dto';
+import {
+  sheetValuePathPatchesDto,
+  sheetValueProblem,
+  sheetValuesDto,
+  sheetValuesPatchDto,
+  type SheetValueDto,
+} from './sheet-values.dto';
+import { utf8Length } from '../utf8-length';
 
 export const SHEET_BRIDGE_REQUEST_ID_MAX_LENGTH = 64;
+/** The most JSON (UTF-8 bytes) one sheet's view state may take: a tab and a scroll, not data. */
+export const SHEET_VIEW_MAX_BYTES = 4096;
 export const SHEET_BRIDGE_ERROR_MESSAGE_MAX_LENGTH = 500;
 /** The longest bar reference (`bars.adjust`'s name or id) the frame may send. */
 export const SHEET_BRIDGE_BAR_REFERENCE_MAX_LENGTH = 64;
@@ -96,6 +105,31 @@ const characterStatsChangesDto = z
 
 const barReferenceDto = z.string().min(1).max(SHEET_BRIDGE_BAR_REFERENCE_MAX_LENGTH);
 
+function refusedView(context: z.RefinementCtx, message: string): never {
+  context.addIssue({ code: 'custom', message });
+  return z.NEVER;
+}
+
+function parsedView(input: unknown, context: z.RefinementCtx): SheetValueDto {
+  const problem = sheetValueProblem(input);
+  if (problem) return refusedView(context, problem);
+  const json = JSON.stringify(input);
+  const bytes = utf8Length(json);
+  if (bytes > SHEET_VIEW_MAX_BYTES)
+    return refusedView(
+      context,
+      `view has ${bytes} bytes of JSON; expected at most ${SHEET_VIEW_MAX_BYTES}`,
+    );
+  return JSON.parse(json) as SheetValueDto;
+}
+
+/** The view state of who looks at a sheet (its tab, its scroll): any JSON value with the keys and
+ *  depth of the values, up to `SHEET_VIEW_MAX_BYTES`; a fresh copy. Never stored by the server.
+ *
+ *  Example: `sheetViewDto.parse({ aba: 'origem', rolagem: 120 })` */
+export const sheetViewDto = z.unknown().transform(parsedView);
+export type SheetViewDto = SheetValueDto;
+
 /** Frame → host, over the `MessagePort`. No `tokenId`, `campaignId` or `sheetId`: the host
  *  knows which sheet the frame is and the server resolves the token. `bars.adjust` names the bar
  *  by its id or by its label (the host resolves it to the id the server takes). `console` and
@@ -148,6 +182,8 @@ export const sheetFrameMessageDto = z.discriminatedUnion('type', [
     changes: characterStatsChangesDto,
   }),
   z.strictObject({ type: z.literal('character.setImage'), ...requestShape, image: uploadImageDto }),
+  // Who looks keeps it in the app (the frame remounts); `null` clears it.
+  z.strictObject({ type: z.literal('view.set'), ...requestShape, value: sheetViewDto }),
   z.strictObject({ type: z.literal('assets.upload'), ...requestShape, image: uploadImageDto }),
   z.strictObject({ type: z.literal('assets.read'), ...requestShape, assetId: z.uuid() }),
   // Document reads answer only public documents and `document` tabs, the same for every viewer.
@@ -241,7 +277,8 @@ export type SheetBridgeResultValueDto = z.infer<typeof sheetBridgeResultValueDto
 
 /** Host → frame. `state` is resent whenever the token or the values change; `bars` are the
  *  viewer's own (already redacted by the server); `token` is `null` (with no bars) for a sheet
- *  with no holder; `character` is `null` but for a character's sheet; `result.value` only answers
+ *  with no holder; `character` is `null` but for a character's sheet; `view` is the last
+ *  `view.set` of who looks (kept in the app, `null` if none); `result.value` only answers
  *  the requests that return something; `error.requestId` is `null` when the frame's message could
  *  not even be read.
  *
@@ -254,6 +291,7 @@ export const sheetHostMessageDto = z.discriminatedUnion('type', [
     values: sheetValuesDto,
     canEdit: z.boolean(),
     character: sheetFrameCharacterDto.nullable(),
+    view: sheetViewDto.nullable(),
   }),
   z.strictObject({
     type: z.literal('result'),

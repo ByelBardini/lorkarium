@@ -19,6 +19,11 @@ import type { SheetChannel } from '@/sheet-sandbox/sheet-frame';
 import { isSpareSheet } from '@/lib/sheet-holder';
 import type { SheetHolderSource, SheetTokenSource } from '@/sheet-sandbox/sheet-token-source';
 import type { SheetStoreState } from '@/stores/sheet-store';
+import {
+  sheetViewSlotOf,
+  type SheetViewSlot,
+  type SheetViewStore,
+} from '@/stores/sheet-view-store';
 import { SheetConsoleButton } from './sheet-console-button';
 import { SheetFrameChrome } from './sheet-frame-chrome';
 import { SheetSandboxView } from './sheet-sandbox-view';
@@ -42,6 +47,9 @@ export type SheetPanelServices = Readonly<{
   now?: () => Date;
   /** Where the template's fonts and images are read from, to embed them in the frame. */
   templateAssets?: SheetTemplateAssetReader;
+  /** The page's view states (`lorkarium.view`), so a remounted frame finds its own; absent =
+   *  each frame starts with none. */
+  sheetViews?: StoreApi<SheetViewStore>;
 }>;
 
 export type SheetPanelProps = Readonly<{
@@ -202,9 +210,20 @@ function useBridgeOf(
         onReady,
         onConsole,
         notice,
+        view: viewSlotOf(services.sheetViews, campaignId, store),
       }),
     [campaignId, store, tokens, services, diceTray, holderless, onConsole, notice],
   );
+}
+
+function viewSlotOf(
+  views: StoreApi<SheetViewStore> | undefined,
+  campaignId: string,
+  store: StoreApi<SheetStoreState>,
+): SheetViewSlot | undefined {
+  const sheetId = store.getState().sheet?.id;
+  if (!views || sheetId === undefined) return undefined;
+  return sheetViewSlotOf(views, campaignId, sheetId);
 }
 
 const NO_TOKEN: SheetHolderSource = { current: () => null, subscribe: () => () => undefined };

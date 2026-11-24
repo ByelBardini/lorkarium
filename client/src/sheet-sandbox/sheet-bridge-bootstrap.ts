@@ -5,6 +5,11 @@ import {
   type SheetFrameBindingsFactory,
 } from './sheet-frame-bindings';
 import { SHEET_FRAME_CONSOLE_SOURCE, type SheetFrameConsoleFactory } from './sheet-frame-console';
+import {
+  SHEET_FRAME_VIEW_MAX_BYTES,
+  SHEET_FRAME_VIEW_SOURCE,
+  type SheetFrameViewFactory,
+} from './sheet-frame-view';
 import { SHEET_HTML_SANITIZER_SOURCE, type SheetHtmlSanitizer } from './sheet-html-sanitizer';
 import type {
   LorkariumSdk,
@@ -113,6 +118,7 @@ interface HostAnswer {
   values?: unknown;
   canEdit?: unknown;
   character?: unknown;
+  view?: unknown;
   value?: unknown;
 }
 
@@ -128,6 +134,8 @@ function installLorkariumSdk(
   sanitizeHtml: SheetHtmlSanitizer,
   createConsole: SheetFrameConsoleFactory,
   createBindings: SheetFrameBindingsFactory,
+  createView: SheetFrameViewFactory,
+  viewMaxBytes: number,
 ): void {
   const parse = JSON.parse;
   const stringify = JSON.stringify;
@@ -175,6 +183,8 @@ function installLorkariumSdk(
       send({ ...body, type, requestId });
     });
   }
+
+  const frameView = createView(viewMaxBytes, (body, type) => sent<undefined>(body, type));
 
   function request<T = undefined>(type: string, fieldsOf: () => object): Promise<T> {
     try {
@@ -335,6 +345,7 @@ function installLorkariumSdk(
   }
 
   function publishState(answer: HostAnswer): void {
+    frameView.adopt(answer.view);
     const state: FrameState = {
       token: answer.token,
       bars: answer.bars,
@@ -447,6 +458,7 @@ function installLorkariumSdk(
       all: () => allValues(),
     }),
     html: freeze({ sanitize: (html: string) => sanitizeHtml(html) }),
+    view: freeze({ get: () => frameView.get(), set: (value: unknown) => frameView.set(value) }),
     lists: freeze(bindings.lists),
     character: freeze({
       get: () => currentCharacter(),
@@ -477,4 +489,4 @@ function installLorkariumSdk(
  *  host's port and sends the frame's console (and uncaught errors) to the host.
  *
  *  Example: `<script>${SHEET_BRIDGE_BOOTSTRAP}</script>` */
-export const SHEET_BRIDGE_BOOTSTRAP = `'use strict';(${installLorkariumSdk.toString()})(window, ${JSON.stringify(SHEET_CONSOLE_FRAME_LIMITS)}, (${SHEET_HTML_SANITIZER_SOURCE})(window.DOMParser), ${SHEET_FRAME_CONSOLE_SOURCE}, ${SHEET_FRAME_BINDINGS_SOURCE});`;
+export const SHEET_BRIDGE_BOOTSTRAP = `'use strict';(${installLorkariumSdk.toString()})(window, ${JSON.stringify(SHEET_CONSOLE_FRAME_LIMITS)}, (${SHEET_HTML_SANITIZER_SOURCE})(window.DOMParser), ${SHEET_FRAME_CONSOLE_SOURCE}, ${SHEET_FRAME_BINDINGS_SOURCE}, ${SHEET_FRAME_VIEW_SOURCE}, ${SHEET_FRAME_VIEW_MAX_BYTES});`;

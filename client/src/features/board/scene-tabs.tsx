@@ -19,7 +19,9 @@ import { roomTabOrder } from '@/lib/room-tab-order';
 import { splitTabsToFit, tabsThatFit } from '@/lib/tab-overflow';
 import { useElementWidth } from '@/lib/use-element-width';
 import { cn } from '@/lib/utils';
+import { useChatUnreadMark, type ChatUnreadMark } from '@/features/chat/chat-unread-mark';
 import { useBoard } from '@/stores/board-store';
+import type { OpenTablesStore } from '@/stores/open-tables-store';
 import {
   useDocumentWorkspaceSlice,
   workspaceItemName,
@@ -44,6 +46,9 @@ export type SceneTabsProps = Readonly<{
   /** The workspace key of the viewer's main sheet: like the main map, it gets no tab (its
    *  button beside the table's name plays it). */
   mainSheetKey?: string | null;
+  /** The table's chat: with a workspace item shown (the board and its chat hidden), the group
+   *  tab wears the unread counter. */
+  openTables?: StoreApi<OpenTablesStore>;
 }>;
 // `never[]` fits every list of the workspace, each read with its own type.
 const NO_ITEMS: readonly never[] = [];
@@ -67,6 +72,7 @@ export function SceneTabs({
   documents,
   campaignId,
   mainSheetKey = null,
+  openTables,
 }: SceneTabsProps): React.JSX.Element {
   const visibleKey = useSceneTabs(tabs, (state) => state.visibleKey);
   const activeDocument = useDocumentWorkspaceSlice(
@@ -129,6 +135,11 @@ export function SceneTabs({
                 selected={!activeDocument && tab.key === visibleKey}
                 onShow={() => showScene(tab.key)}
                 onClose={() => tabs.getState().close(tab.key)}
+                chat={
+                  tab.key === GROUP_TAB && openTables && campaignId
+                    ? { openTables, campaignId, hidden: !!activeDocument }
+                    : null
+                }
               />
             ) : (
               <DocumentTabItem
@@ -379,16 +390,41 @@ function TabFrame({ frame, selected, children }: TabFrameProps): React.JSX.Eleme
   );
 }
 
+/** The chat the group tab counts: `hidden` while a workspace item covers the board's chat. */
+type GroupTabChat = Readonly<{
+  openTables: StoreApi<OpenTablesStore>;
+  campaignId: string;
+  hidden: boolean;
+}>;
+
 type SceneTabItemProps = Readonly<{
   tab: SceneTab;
   frame: TabFrameInput;
   selected: boolean;
   onShow: () => void;
   onClose: () => void;
+  chat: GroupTabChat | null;
 }>;
 
+const NO_MARK: ChatUnreadMark = { describedBy: undefined, mark: null };
+
 function SceneTabItem(props: SceneTabItemProps): React.JSX.Element {
-  const { tab, frame, selected, onShow, onClose } = props;
+  if (props.chat === null) return <SceneTabButton {...props} unread={NO_MARK} />;
+  return <ChatCountingSceneTab {...props} chat={props.chat} />;
+}
+
+// The board's own bar counts while it is in sight: the tab adds its count only once it is not.
+function ChatCountingSceneTab(
+  props: SceneTabItemProps & Readonly<{ chat: GroupTabChat }>,
+): React.JSX.Element {
+  const unread = useChatUnreadMark(props.chat.openTables, props.chat.campaignId);
+  return <SceneTabButton {...props} unread={props.chat.hidden ? unread : NO_MARK} />;
+}
+
+function SceneTabButton(
+  props: SceneTabItemProps & Readonly<{ unread: ChatUnreadMark }>,
+): React.JSX.Element {
+  const { tab, frame, selected, onShow, onClose, unread } = props;
   const name = useBoard(tab.board, (state) => state.board?.scene.name) ?? LOADING_NAME;
   const isGroup = tab.key === GROUP_TAB;
   return (
@@ -397,6 +433,7 @@ function SceneTabItem(props: SceneTabItemProps): React.JSX.Element {
         type="button"
         role="tab"
         aria-selected={selected}
+        aria-describedby={unread.describedBy}
         aria-keyshortcuts={isGroup ? undefined : MOVE_KEYS}
         tabIndex={selected ? 0 : -1}
         onClick={onShow}
@@ -409,6 +446,7 @@ function SceneTabItem(props: SceneTabItemProps): React.JSX.Element {
         {isGroup && (
           <span className="text-[11px] tracking-[0.12em] text-label uppercase">Grupo</span>
         )}
+        {unread.mark}
       </button>
       {!isGroup && (
         <button

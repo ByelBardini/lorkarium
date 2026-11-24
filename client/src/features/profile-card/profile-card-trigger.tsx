@@ -19,6 +19,11 @@ export type ProfileCardTriggerProps = Readonly<{
 const TRIGGER_CLASS =
   'min-w-0 cursor-pointer truncate text-left underline-offset-2 hover:text-foreground hover:underline focus-visible:text-foreground';
 
+// Capped by the window, not by the room on the trigger's side: an available-height cap keeps the
+// card from ever overflowing, so Radix never flips it upward and it shrinks under a name low in a list.
+const POPOVER_CLASS =
+  'max-h-[calc(100dvh-16px)] w-auto gap-0 overflow-y-auto border-0 bg-transparent p-0';
+
 /** A person's name that opens their profile card (popover), with "Ver perfil completo" leading to
  *  the modal. Outside a signed-in shell (no `ProfileCardProvider`) the name is plain text.
  *
@@ -44,7 +49,7 @@ export function ProfileCardTrigger(props: ProfileCardTriggerProps): React.JSX.El
           align="start"
           aria-label={`Perfil de ${name}`}
           collisionPadding={8}
-          className="max-h-(--radix-popover-content-available-height) w-auto gap-0 overflow-y-auto border-0 bg-transparent p-0"
+          className={POPOVER_CLASS}
         >
           <ProfileCardBody
             read={read}

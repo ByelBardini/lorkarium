@@ -47,11 +47,15 @@ describe('sheetSdkCompletionSource', () => {
       'bars',
       'dice',
       'html',
+      'view',
       'character',
       'assets',
       'documents',
     ]);
   });
+
+  it('"lorkarium.view." offers get and set of the view state', () =>
+    expect(labelsAt('lorkarium.view.')).toEqual(['get', 'set']));
 
   it('"lorkarium.documents." offers the three document reads', () =>
     expect(labelsAt('lorkarium.documents.')).toEqual(['list', 'tabs', 'readTab']));

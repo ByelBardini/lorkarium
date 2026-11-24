@@ -38,7 +38,8 @@ export type RoomChatProps = Readonly<{
   /** The chat bar's state, the panel and focus mode (they place the bar). */
   roomLayout: StoreApi<RoomLayoutStore>;
   services: RoomChatServices;
-  /** `false` while a page (settings, conditions) covers the room: its chat is not seen. */
+  /** `false` while a page (settings, conditions) or a workspace tab (sheet, document, map) covers
+   *  the board: its chat is not seen. */
   onScreen: boolean;
 }>;
 
@@ -72,6 +73,7 @@ export function RoomChat(props: RoomChatProps): React.JSX.Element {
           window={chatWindow.slot}
           roomLayout={roomLayout}
           clock={services.interactionClock}
+          onScreen={props.onScreen}
         />
       ) : (
         <ChatPhoneButton panel={{ ...panel, window: chatWindow.slot }} roomLayout={roomLayout} />

@@ -3,6 +3,7 @@ import type { ChatAttention } from '@/features/chat/chat-attention-watch';
 import { useChatAttention } from '@/features/chat/use-chat-attention';
 import type { DocumentsApi } from '@/services/documents-api';
 import type { DocumentWorkspaceStore } from '@/stores/document-workspace-store';
+import type { SheetViewStore } from '@/stores/sheet-view-store';
 import { DocumentWorkspaceHost } from '@/features/documents/document-workspace-host';
 import { DocumentWorkspaceLifecycle } from '@/features/documents/document-workspace-lifecycle';
 import type { InteractionClock } from '@/lib/interaction-clock';
@@ -157,6 +158,8 @@ export type AppDependencies = Readonly<{
   /** Where the template editor remembers its divider and console, per person. */
   sheetEditorLayout: SheetEditorLayoutMemory;
   sheetCommands: SheetCommands;
+  /** The view state of each open sheet for who looks (`lorkarium.view`), in this page only. */
+  sheetViews: StoreApi<SheetViewStore>;
   imagePresentationApi: ImagePresentationApi;
   /** "Levar o grupo pra cá" (`scene:activate`). */
   sceneActivation: SceneActivation;
@@ -460,6 +463,7 @@ function shellRoute(deps: AppDependencies): () => React.JSX.Element | null {
       // would only see these tables go after the grace period.
       openTables.getState().closeAll();
       deps.documentWorkspace.getState().clear();
+      deps.sheetViews.getState().clear();
       await authApi.logout();
       sessionStore.getState().signedOut();
       await navigate('/login', { replace: true });

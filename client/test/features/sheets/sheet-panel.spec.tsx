@@ -11,6 +11,7 @@ import { SHEET_READY_TIMEOUT_MS } from '@/features/sheets/sheet-sandbox-view';
 import { characterSource, type SheetHolderSource } from '@/sheet-sandbox/sheet-token-source';
 import type { CharactersStore } from '@/stores/characters-store';
 import { createSheetStore, type SheetStoreState } from '@/stores/sheet-store';
+import { createSheetViewStore, type SheetViewStore } from '@/stores/sheet-view-store';
 import { testDependencies } from '../../support/app-dependencies';
 import { ANA } from '../../support/auth-api-fake';
 import { detailOf, VHARN } from '../../support/campaigns-api-fake';
@@ -54,7 +55,8 @@ describe('SheetPanel', () => {
 
   async function renderLyra(
     tokens: SheetHolderSource | null = characterSource(characters, BIA_AT_TABLE.userId),
-  ): Promise<void> {
+    sheetViews?: StoreApi<SheetViewStore>,
+  ): Promise<() => void> {
     store = createSheetStore({
       ...{ api, campaignId: VHARN.id, sheetId: LYRA_SHEET_ID, clock },
       newActionId: () => '00000000-0000-4000-8000-000000000001',
@@ -68,8 +70,9 @@ describe('SheetPanel', () => {
       documents: noDocuments(),
       dice: new DiceCommandsFake(),
       clock,
+      sheetViews,
     };
-    render(
+    const { unmount } = render(
       <SheetPanel
         campaignId={VHARN.id}
         title={TITLE}
@@ -79,6 +82,7 @@ describe('SheetPanel', () => {
         createChannel={channels.create}
       />,
     );
+    return unmount;
   }
 
   function loadFrame(): HTMLIFrameElement {
@@ -170,6 +174,26 @@ describe('SheetPanel', () => {
     await waitFor(() =>
       expect(channels.created[0]?.port1.sent).toContainEqual(
         expect.objectContaining({ type: 'state', token: null, bars: [] }),
+      ),
+    );
+  });
+
+  it('a frame mounted again (back from the window) gets the view the last one kept', async () => {
+    const sheetViews = createSheetViewStore();
+    const unmount = await renderLyra(undefined, sheetViews);
+    loadFrame();
+    frameSaysReady();
+    const port = channels.created[0]?.port1;
+    const view = { type: 'view.set', requestId: '2', value: { aba: 'origem' } };
+    act(() => void port?.dispatchEvent(new MessageEvent('message', { data: view })));
+    await waitFor(() => expect(port?.sent).toContainEqual({ type: 'result', requestId: '2' }));
+    unmount();
+    await renderLyra(undefined, sheetViews);
+    loadFrame();
+    frameSaysReady();
+    await waitFor(() =>
+      expect(channels.created[1]?.port1.sent).toContainEqual(
+        expect.objectContaining({ type: 'state', view: { aba: 'origem' } }),
       ),
     );
   });

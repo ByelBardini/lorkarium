@@ -102,6 +102,7 @@ describe('sheet bridge host', () => {
         values: { forca: 14 },
         canEdit: true,
         character: { name: 'Lyra', armorClass: 15, difficultyClass: null },
+        view: null,
       },
     ]);
   });

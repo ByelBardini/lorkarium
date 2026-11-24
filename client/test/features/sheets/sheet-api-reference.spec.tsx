@@ -37,6 +37,8 @@ const CALLS = [
   'dice.tray.roll',
   'dice.saved.list',
   'html.sanitize',
+  'view.get',
+  'view.set',
   'character.get',
   'character.set',
   'character.setImage',

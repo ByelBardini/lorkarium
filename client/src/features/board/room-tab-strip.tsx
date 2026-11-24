@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardStore } from '@/stores/board-store';
 import type { DocumentWorkspaceStore } from '@/stores/document-workspace-store';
+import type { OpenTablesStore } from '@/stores/open-tables-store';
 import type { SceneTabsStore } from '@/stores/scene-tabs-store';
 import { SceneTabs } from './scene-tabs';
 import { useLibraryToggle } from './use-library-toggle';
@@ -19,6 +20,8 @@ export type RoomTabStripProps = Readonly<{
   /** The board of the tab shown (its turn line). */
   board: StoreApi<BoardStore> | null;
   interaction: StoreApi<BoardInteractionStore>;
+  /** The table's chat, counted on the group tab while a workspace item covers the board. */
+  openTables?: StoreApi<OpenTablesStore>;
 }>;
 
 /** The second band of the room's top, "what I am looking at": the golden "Biblioteca" (Shift+B),
@@ -40,6 +43,7 @@ export function RoomTabStrip(props: RoomTabStripProps): React.JSX.Element {
           documents={props.documentWorkspace}
           campaignId={campaignId}
           mainSheetKey={props.mainSheetKey}
+          openTables={props.openTables}
         />
       )}
       {board && (

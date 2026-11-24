@@ -83,6 +83,14 @@ function valuesProblem(input: unknown): string | null {
   return null;
 }
 
+/** Why `value` would not fit as the value of one root key (the keys, leaves and depth of the
+ *  values), or `null` when it would. Not the byte budget: each caller has its own.
+ *
+ *  Example: `sheetValueProblem({ aba: 'origem' }) // null` */
+export function sheetValueProblem(value: unknown): string | null {
+  return valuesProblem({ value });
+}
+
 function parsedValues(input: unknown, context: z.RefinementCtx): SheetValuesDto {
   const problem = valuesProblem(input);
   if (problem) {

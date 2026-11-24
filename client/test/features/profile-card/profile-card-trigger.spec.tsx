@@ -21,6 +21,13 @@ describe('ProfileCardTrigger', () => {
     expect(popover).toHaveTextContent(LYRA_CARD.bio ?? '');
   });
 
+  it('the popover is capped by the window, not by the room below the name, so it can flip up whole', async () => {
+    const popover = await new ProfileCardHarness().open();
+
+    expect(popover.className).not.toMatch(/available-height/);
+    expect(popover).toHaveClass('max-h-[calc(100dvh-16px)]');
+  });
+
   it('the Dono do Lorkarium is there since the beginning, not since a date', async () => {
     const popover = await new ProfileCardHarness().open(lyraCard({ lorkariumOwner: true }));
 
