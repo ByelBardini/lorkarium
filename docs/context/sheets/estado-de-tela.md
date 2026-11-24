@@ -31,6 +31,7 @@ O frame da ficha remonta a cada troca de aba ou janela (o `createPortal` ↔ `<d
 - A sala: `WorkspaceSheet` passa `deps.sheetViews` no `SheetPanelServices.sheetViews`; o `SheetPanel` dá à ponte `view: sheetViewSlotOf(…, campaignId, sheet.id)`. Sem `sheetViews`, a ponte usa um slot só dela (perde ao remontar).
 - A ponte (`createSheetBridgeHost`, opção `view`): `view.set` vem logo depois do `dice.roll`, antes do `canEdit`; guarda no slot e responde `result` sem `value`, **sem tocar a rede e sem mandar `state`** (o frame já tem o valor; um `state` aqui seria eco em laço). Todo `state` leva `view: slot.current()`; o `state` não é reenviado só porque o view mudou.
 - Prévia do editor (`createSheetPreviewHost`, opção `view`): o mesmo pedido, limite e "sem `state`". O `SheetTemplatePreview` segura um `localSheetViewSlot()` (`useState`), então "Rodar de novo" e o código novo mantêm a aba; fechar o editor esquece.
+- Referência e autocompletar: `VIEW_SDK_CALLS` (`src/features/sheets/sheet-api-reference-view.ts`, com `SHEET_VIEW_MAX_BYTES` e `SHEET_VIEW_RATE`), somado ao `SDK_CALLS` pelo `sheet-api-reference-content.ts` (`lorkarium.view.` → `get`, `set`).
 
 ## Provas
 
