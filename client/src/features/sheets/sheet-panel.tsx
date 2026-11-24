@@ -24,6 +24,7 @@ import {
   type SheetViewSlot,
   type SheetViewStore,
 } from '@/stores/sheet-view-store';
+import { pressShiftKey } from './press-shift-key';
 import { SheetConsoleButton } from './sheet-console-button';
 import { SheetFrameChrome } from './sheet-frame-chrome';
 import { SheetSandboxView } from './sheet-sandbox-view';
@@ -211,6 +212,7 @@ function useBridgeOf(
         onConsole,
         notice,
         view: viewSlotOf(services.sheetViews, campaignId, store),
+        onShortcut: (key) => pressShiftKey(key),
       }),
     [campaignId, store, tokens, services, diceTray, holderless, onConsole, notice],
   );

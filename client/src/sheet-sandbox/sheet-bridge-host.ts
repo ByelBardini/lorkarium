@@ -97,6 +97,8 @@ export type SheetBridgeHostOptions = Readonly<{
   onConsole?: SheetConsoleSink;
   /** A line the host writes to the console as the frame connects (the JS the plan does not run). */
   notice?: string;
+  /** Shift+letter pressed in the frame (one letter, as `KeyboardEvent.key`); absent = dropped. */
+  onShortcut?: (key: string) => void;
   /** Where `view.set` keeps the view state of who looks, read back into every `state`; absent =
    *  kept only by this host (gone when the frame remounts). */
   view?: SheetViewSlot;
@@ -214,6 +216,7 @@ async function receive(bridge: Bridge, data: unknown): Promise<void> {
   const request = parsed.data;
   if (request.type === 'console' || request.type === 'console.dropped')
     return bridge.console(request);
+  if (request.type === 'shortcut') return bridge.options.onShortcut?.(request.key);
   const answer = await answerOf(bridge, request);
   if (!answer.ok) return postError(bridge, request.requestId, answer.code, answer.message);
   const { requestId } = request;

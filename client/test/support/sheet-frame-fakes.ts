@@ -9,6 +9,7 @@ import type {
 } from '@/sheet-sandbox/sheet-bridge-bootstrap';
 import type { SheetHtmlParserClass } from '@/sheet-sandbox/sheet-html-sanitizer';
 import type { SheetChannel } from '@/sheet-sandbox/sheet-frame';
+import type { SheetFrameKeyEvent } from '@/sheet-sandbox/sheet-frame-keys';
 
 /** The frame's end of the `MessageChannel`: records what the SDK sends and lets the test play the
  *  host by `deliver(message)`.
@@ -70,6 +71,7 @@ type FrameListeners = {
   message: Array<(event: SheetFrameMessageEvent) => void>;
   error: Array<(event: SheetFrameErrorEvent) => void>;
   unhandledrejection: Array<(event: SheetFrameRejectionEvent) => void>;
+  keydown: Array<(event: SheetFrameKeyEvent) => void>;
 };
 
 /** Another window as the frame reads it across origins: only its `parent`, itself at the top.
@@ -97,7 +99,12 @@ export class SheetFrameWindowFake implements SheetFrameScope {
   // The bootstrap text reads `window.DOMParser`: jsdom's here, the browser's in the frame.
   // Writable, as the author's `window` is.
   DOMParser: SheetHtmlParserClass = DOMParser as unknown as SheetHtmlParserClass;
-  private readonly listeners: FrameListeners = { message: [], error: [], unhandledrejection: [] };
+  private readonly listeners: FrameListeners = {
+    message: [],
+    error: [],
+    unhandledrejection: [],
+    keydown: [],
+  };
 
   setTimeout(callback: () => void, delayMs: number): unknown {
     return globalThis.setTimeout(callback, delayMs);
@@ -109,6 +116,7 @@ export class SheetFrameWindowFake implements SheetFrameScope {
     type: 'unhandledrejection',
     listener: (event: SheetFrameRejectionEvent) => void,
   ): void;
+  addEventListener(type: 'keydown', listener: (event: SheetFrameKeyEvent) => void): void;
   addEventListener(type: keyof FrameListeners, listener: unknown): void {
     (this.listeners[type] as unknown[]).push(listener);
   }
@@ -120,6 +128,16 @@ export class SheetFrameWindowFake implements SheetFrameScope {
   /** An uncaught error reached the frame's `window`. */
   throwUncaught(event: SheetFrameErrorEvent): void {
     for (const listener of this.listeners.error) listener(event);
+  }
+
+  /** A key reached the frame's `window`: a real Shift+F on the page unless `press` says otherwise. */
+  pressKey(press: Partial<SheetFrameKeyEvent> = {}): void {
+    const event: SheetFrameKeyEvent = {
+      ...{ key: 'F', isTrusted: true, repeat: false, shiftKey: true, ctrlKey: false },
+      ...{ metaKey: false, altKey: false, defaultPrevented: false, target: null },
+      ...press,
+    };
+    for (const listener of this.listeners.keydown) listener(event);
   }
 
   /** A promise was rejected with no handler. */

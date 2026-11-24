@@ -144,6 +144,8 @@ function receive(preview: Preview, data: unknown): void {
   const request = parsed.data;
   if (request.type === 'console' || request.type === 'console.dropped')
     return preview.console(request);
+  // The editor has no room keys to press.
+  if (request.type === 'shortcut') return;
   if (isSheetDocumentRead(request)) return void readDocuments(preview, request);
   if (request.type === 'view.set') return keepView(preview, request);
   const before = preview.data;
