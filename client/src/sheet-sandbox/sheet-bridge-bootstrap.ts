@@ -6,6 +6,11 @@ import {
 } from './sheet-frame-bindings';
 import { SHEET_FRAME_CONSOLE_SOURCE, type SheetFrameConsoleFactory } from './sheet-frame-console';
 import {
+  SHEET_FRAME_KEYS_SOURCE,
+  type SheetFrameKeyScope,
+  type SheetFrameKeysInstaller,
+} from './sheet-frame-keys';
+import {
   SHEET_FRAME_VIEW_MAX_BYTES,
   SHEET_FRAME_VIEW_SOURCE,
   type SheetFrameViewFactory,
@@ -136,6 +141,7 @@ function installLorkariumSdk(
   createBindings: SheetFrameBindingsFactory,
   createView: SheetFrameViewFactory,
   viewMaxBytes: number,
+  installShiftKeys: SheetFrameKeysInstaller,
 ): void {
   const parse = JSON.parse;
   const stringify = JSON.stringify;
@@ -483,10 +489,11 @@ function installLorkariumSdk(
   scope.addEventListener('error', frameConsole.onScriptError);
   scope.addEventListener('unhandledrejection', frameConsole.onRejection);
   frameConsole.wrap();
+  installShiftKeys(scope as unknown as SheetFrameKeyScope, send);
 }
 
 /** The script the srcdoc runs before any author code: defines `window.lorkarium`, waits for the
  *  host's port and sends the frame's console (and uncaught errors) to the host.
  *
  *  Example: `<script>${SHEET_BRIDGE_BOOTSTRAP}</script>` */
-export const SHEET_BRIDGE_BOOTSTRAP = `'use strict';(${installLorkariumSdk.toString()})(window, ${JSON.stringify(SHEET_CONSOLE_FRAME_LIMITS)}, (${SHEET_HTML_SANITIZER_SOURCE})(window.DOMParser), ${SHEET_FRAME_CONSOLE_SOURCE}, ${SHEET_FRAME_BINDINGS_SOURCE}, ${SHEET_FRAME_VIEW_SOURCE}, ${SHEET_FRAME_VIEW_MAX_BYTES});`;
+export const SHEET_BRIDGE_BOOTSTRAP = `'use strict';(${installLorkariumSdk.toString()})(window, ${JSON.stringify(SHEET_CONSOLE_FRAME_LIMITS)}, (${SHEET_HTML_SANITIZER_SOURCE})(window.DOMParser), ${SHEET_FRAME_CONSOLE_SOURCE}, ${SHEET_FRAME_BINDINGS_SOURCE}, ${SHEET_FRAME_VIEW_SOURCE}, ${SHEET_FRAME_VIEW_MAX_BYTES}, ${SHEET_FRAME_KEYS_SOURCE});`;
