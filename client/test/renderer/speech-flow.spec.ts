@@ -3,9 +3,15 @@ import { flowSpeechItems, speechRunsOf, type SpeechRun } from '@/renderer/speech
 
 function shapeOf(runs: readonly SpeechRun[]): string[] {
   return runs.map((run) => {
-    const shown = run.kind === 'word' ? run.text : `[${run.emote.id}]`;
+    const shown = shownOf(run);
     return run.spaced ? `${shown}_` : shown;
   });
+}
+
+function shownOf(run: SpeechRun): string {
+  if (run.kind === 'word') return run.text;
+  if (run.kind === 'emote') return `[${run.emote.id}]`;
+  return `[custom ${run.emojiId}]`;
 }
 
 function size(width: number, height = 20, gapAfter = 0) {
@@ -21,6 +27,15 @@ describe('speechRunsOf', () => {
       'pega_',
       '[doge]_',
       '[grin]',
+    ]);
+  });
+
+  it('draws the speaker’s custom emoji the message carries, and leaves another :name: as a word', () => {
+    const festa = [{ name: 'festa', emojiId: 'e1' }];
+    expect(shapeOf(speechRunsOf('Viva :festa: :bolo:', festa))).toEqual([
+      'Viva_',
+      '[custom e1]_',
+      ':bolo:',
     ]);
   });
 

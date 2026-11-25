@@ -32,6 +32,7 @@ import { HttpCampaignsApi } from '@/services/campaigns-api';
 import { HttpLibraryApi } from '@/services/library-api';
 import { HttpProfileApi } from '@/services/profile-api';
 import { HttpSavedColorsApi } from '@/services/saved-colors-api';
+import { HttpCustomEmojisApi } from '@/services/custom-emojis-api';
 import { NavigatorClipboard } from '@/services/clipboard';
 import { BrowserFileDownload } from '@/services/file-download';
 import { DocumentFieldEditing } from '@/services/field-editing';
@@ -180,6 +181,7 @@ const router = createBrowserRouter(
     campaignsApi: new HttpCampaignsApi(transport),
     profileApi: new HttpProfileApi(transport),
     savedColorsApi: new HttpSavedColorsApi(transport),
+    customEmojisApi: new HttpCustomEmojisApi(transport),
     accountSecurityApi: new HttpAccountSecurityApi(transport),
     accountPlanApi: new HttpAccountPlanApi(transport),
     billingApi: new HttpBillingApi(transport),

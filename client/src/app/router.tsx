@@ -43,6 +43,8 @@ import { useSignOutWhenRefused } from '@/features/sessions/use-sign-out-when-ref
 import type { AccountLinksApi } from '@/services/account-links-api';
 import type { SignUpApi } from '@/services/sign-up-api';
 import type { AccountPlanApi } from '@/services/account-plan-api';
+import type { CustomEmojisApi } from '@/services/custom-emojis-api';
+import { CustomEmojisProvider } from '@/components/custom-emojis/custom-emojis-context';
 import type { BillingApi } from '@/services/billing-api';
 import type { DataExportApi } from '@/services/data-export-api';
 import type { TabStorage } from '@/stores/scene-tabs-storage';
@@ -119,6 +121,8 @@ export type AppDependencies = Readonly<{
   profileApi: ProfileApi;
   /** The colors the account saved to reuse in any color picker. */
   savedColorsApi: SavedColorsApi;
+  /** The account's own emojis: the chat fields, the picker and "Minha conta". */
+  customEmojisApi: CustomEmojisApi;
   /** Password, e-mail, signed-in devices and 2FA ("Minha conta"). */
   accountSecurityApi: AccountSecurityApi;
   /** The plan, its limits and the usage ("Seu plano" in "Minha conta"). */
@@ -471,20 +475,22 @@ function shellRoute(deps: AppDependencies): () => React.JSX.Element | null {
     return (
       <AccountPlanProvider account={session.user}>
         <SavedColorsProvider api={deps.savedColorsApi} userId={session.user.id}>
-          <ProfileCardProvider deps={deps} viewerId={session.user.id}>
-            <AppShell
-              railStore={railStore}
-              openTables={openTables}
-              user={session.user}
-              onSignOut={signOut}
-              friendsBadge={friendsBadge}
-              presence={presence}
-              onFeedback={feedback.open}
-              brandInTitleBar={desktopWindow !== null}
-            />
-            {feedback.dialog}
-            <DocumentWorkspaceHost deps={deps} />
-          </ProfileCardProvider>
+          <CustomEmojisProvider api={deps.customEmojisApi} userId={session.user.id}>
+            <ProfileCardProvider deps={deps} viewerId={session.user.id}>
+              <AppShell
+                railStore={railStore}
+                openTables={openTables}
+                user={session.user}
+                onSignOut={signOut}
+                friendsBadge={friendsBadge}
+                presence={presence}
+                onFeedback={feedback.open}
+                brandInTitleBar={desktopWindow !== null}
+              />
+              {feedback.dialog}
+              <DocumentWorkspaceHost deps={deps} />
+            </ProfileCardProvider>
+          </CustomEmojisProvider>
         </SavedColorsProvider>
       </AccountPlanProvider>
     );

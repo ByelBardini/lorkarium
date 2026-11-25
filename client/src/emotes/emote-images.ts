@@ -7,6 +7,13 @@ const IMAGE_URLS = import.meta.glob<string>('./images/*.png', {
   import: 'default',
 });
 
+/** The URL of a custom emoji's picture, served by id (it follows the owner's plan).
+ *
+ *  Example: `customEmojiImageUrlOf(emojiId) // '/api/custom-emojis/<id>'` */
+export function customEmojiImageUrlOf(emojiId: string): string {
+  return `/api/custom-emojis/${emojiId}`;
+}
+
 /** The URL (hashed by Vite, cached for good) of an emote's picture.
  *
  *  Example: `emoteImageUrlOf('doge') // '/assets/doge-3f2a1c.png'` */

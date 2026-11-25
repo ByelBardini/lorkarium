@@ -1,5 +1,5 @@
 /** A tab of "Minha conta", as it is written in `?aba=`. */
-export type AccountTab = 'perfil' | 'seguranca' | 'plano';
+export type AccountTab = 'perfil' | 'emojis' | 'seguranca' | 'plano';
 
 /** The query parameter that keeps the open tab: reloading or going back lands on it again. */
 export const ACCOUNT_TAB_PARAM = 'aba';
@@ -7,6 +7,7 @@ export const ACCOUNT_TAB_PARAM = 'aba';
 /** The tabs in their order, with the label of each trigger. */
 export const ACCOUNT_TABS: readonly Readonly<{ value: AccountTab; label: string }>[] = [
   { value: 'perfil', label: 'Perfil' },
+  { value: 'emojis', label: 'Emojis' },
   { value: 'seguranca', label: 'Segurança' },
   { value: 'plano', label: 'Plano' },
 ];

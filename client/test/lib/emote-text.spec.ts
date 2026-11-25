@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { emotePiecesOf, emotesOnly, type EmotePiece } from '@/lib/emote-text';
 
 function shapeOf(pieces: readonly EmotePiece[]): string[] {
-  return pieces.map((piece) =>
-    piece.kind === 'text' ? `text:${piece.text}` : `${piece.emote.id}:${piece.code}`,
-  );
+  return pieces.map((piece) => {
+    if (piece.kind === 'text') return `text:${piece.text}`;
+    if (piece.kind === 'custom') return `custom ${piece.emojiId}:${piece.code}`;
+    return `${piece.emote.id}:${piece.code}`;
+  });
 }
 
 describe('emotePiecesOf', () => {
@@ -73,6 +75,33 @@ describe('emotePiecesOf with a keyboard emoji', () => {
   it('draws two emojis side by side as a sticker', () => {
     const pieces = emotePiecesOf('😂😂');
     expect(shapeOf(pieces)).toEqual(['joy:😂', 'joy:😂']);
+    expect(emotesOnly(pieces)).toBe(true);
+  });
+});
+
+describe('emotePiecesOf with the custom emojis of the message', () => {
+  const FESTA = [{ name: 'festa', emojiId: 'e1' }];
+
+  it('draws a :name: the message carries, keeping the code as typed', () => {
+    expect(shapeOf(emotePiecesOf('bora :Festa:!', FESTA))).toEqual([
+      'text:bora ',
+      'custom e1::Festa:',
+      'text:!',
+    ]);
+  });
+
+  it('leaves a :name: the message does not carry as text', () => {
+    expect(shapeOf(emotePiecesOf(':festa:'))).toEqual(['text::festa:']);
+    expect(shapeOf(emotePiecesOf(':bolo:', FESTA))).toEqual(['text::bolo:']);
+  });
+
+  it('keeps the rule of a code on its own: glued to a word it is text', () => {
+    expect(shapeOf(emotePiecesOf('oi:festa:', FESTA))).toEqual(['text:oi:festa:']);
+  });
+
+  it('mixes with the catalog, and a message of only pictures is a sticker', () => {
+    const pieces = emotePiecesOf(':festa: :doge:', FESTA);
+    expect(shapeOf(pieces)).toEqual(['custom e1::festa:', 'text: ', 'doge::doge:']);
     expect(emotesOnly(pieces)).toBe(true);
   });
 });

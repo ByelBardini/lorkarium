@@ -53,5 +53,6 @@ function balloonOf({ event, receivedAtMs }: ChatMessage): SpeechBalloon | null {
     speakerName: speaker.name,
     text: event.text,
     shownAt: receivedAtMs,
+    customEmojis: event.customEmojis,
   };
 }

@@ -215,9 +215,14 @@ describe('account route (/account)', () => {
       return within(screen.getByRole('tablist', { name: 'Seções da conta' })).getAllByRole('tab');
     }
 
-    it('opens on Perfil, dice included, with Segurança and Plano beside it', async () => {
+    it('opens on Perfil, dice included, with Emojis, Segurança and Plano beside it', async () => {
       await openAccount();
-      expect(tabs().map((tab) => tab.textContent)).toEqual(['Perfil', 'Segurança', 'Plano']);
+      expect(tabs().map((tab) => tab.textContent)).toEqual([
+        'Perfil',
+        'Emojis',
+        'Segurança',
+        'Plano',
+      ]);
       expect(screen.getByRole('tab', { name: 'Perfil' })).toHaveAttribute('aria-selected', 'true');
       const form = screen.getByRole('form', { name: 'Perfil' });
       expect(within(form).getByRole('group', { name: 'Seus dados' })).toBeVisible();

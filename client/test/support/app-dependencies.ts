@@ -57,6 +57,7 @@ import { ProfileApiFake } from './profile-api-fake';
 import { PageReloadFake, PublishedBuildFake } from './published-build-fake';
 import { RetryWaitFake } from './retry-wait-fake';
 import { SavedColorsApiFake } from './saved-colors-api-fake';
+import { CustomEmojisApiFake } from './custom-emojis-api-fake';
 import { SavedRollsApiFake } from './saved-rolls-api-fake';
 import { TableBoardCommandsFake } from './table-board-commands-fake';
 import { TableSessionApiFake } from './table-session-api-fake';
@@ -77,6 +78,7 @@ export type TestDependencies = AppDependencies & {
   campaignsApi: CampaignsApiFake;
   profileApi: ProfileApiFake;
   savedColorsApi: SavedColorsApiFake;
+  customEmojisApi: CustomEmojisApiFake;
   accountSecurityApi: AccountSecurityApiFake;
   accountPlanApi: AccountPlanApiFake;
   billingApi: BillingApiFake;
@@ -240,6 +242,7 @@ export function testDependencies(): TestDependencies {
     campaignsApi: new CampaignsApiFake(),
     profileApi: new ProfileApiFake(),
     savedColorsApi: new SavedColorsApiFake(),
+    customEmojisApi: new CustomEmojisApiFake(),
     accountSecurityApi: new AccountSecurityApiFake(TEST_NOW),
     accountPlanApi: new AccountPlanApiFake(),
     billingApi: new BillingApiFake(),

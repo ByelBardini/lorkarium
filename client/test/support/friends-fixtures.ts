@@ -81,6 +81,7 @@ export function dmSent(changes: Partial<DmSentDto> = {}): DmSentDto {
     text: 'oi',
     at: AT,
     replyToMessageId: null,
+    customEmojis: [],
     ...changes,
   };
 }

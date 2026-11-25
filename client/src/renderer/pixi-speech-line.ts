@@ -8,8 +8,8 @@ import {
   Texture,
   type TextStyleOptions,
 } from 'pixi.js';
-import { emoteImageUrlOf } from '@/emotes/emote-images';
-import type { Emote } from '@lorkarium/contracts';
+import { customEmojiImageUrlOf, emoteImageUrlOf } from '@/emotes/emote-images';
+import type { CustomEmojiRefDto } from '@lorkarium/contracts';
 import { zoomProofTextResolution } from './camera';
 import { flowSpeechItems, speechRunsOf, type SpeechRun } from './speech-flow';
 
@@ -24,6 +24,8 @@ export type SpeechLineStyle = Readonly<{
   ink: number;
   maxWidth: number;
   redraw: () => void;
+  /** The sender's custom emojis the line may name (`customEmojis` of the message). */
+  customEmojis?: readonly CustomEmojiRefDto[];
 }>;
 
 // The text's line is 20 px: a smiley fits it, a meme makes its row a little taller.
@@ -34,8 +36,8 @@ const EMOTE_PX = { smiley: 20, meme: 26 } as const;
  *
  *  Example: `const line = speechLineOf('Ha :D', { style, ink: 0x15130f, maxWidth: 216, redraw })` */
 export function speechLineOf(text: string, look: SpeechLineStyle): SpeechLine {
-  const runs = speechRunsOf(text);
-  if (!runs.some((run) => run.kind === 'emote')) {
+  const runs = speechRunsOf(text, look.customEmojis);
+  if (runs.every((run) => run.kind === 'word')) {
     const plain = speechTextOf(text, look.style, look.ink);
     return { view: plain, width: plain.width, height: plain.height };
   }
@@ -73,16 +75,19 @@ function spaceWidthOf(style: TextStyleOptions): number {
 
 function runViewOf(run: SpeechRun, look: SpeechLineStyle): Container {
   if (run.kind === 'word') return speechTextOf(run.text, look.style, look.ink);
-  return emoteSpriteOf(run.emote, look.redraw);
+  if (run.kind === 'emote') {
+    return pictureSpriteOf(emoteImageUrlOf(run.emote.id), EMOTE_PX[run.emote.kind], look.redraw);
+  }
+  return pictureSpriteOf(customEmojiImageUrlOf(run.emojiId), EMOTE_PX.meme, look.redraw);
 }
 
 // Sized at once, so the line is laid out before the picture arrives; a picture that fails leaves
 // the empty space (the chat has the code).
-function emoteSpriteOf(emote: Emote, redraw: () => void): Sprite {
-  const size = EMOTE_PX[emote.kind];
+// The parser is named: a custom emoji's URL has no extension to pick it by.
+function pictureSpriteOf(url: string, size: number, redraw: () => void): Sprite {
   const sprite = new Sprite(Texture.EMPTY);
   sprite.setSize(size);
-  Assets.load<Texture>(emoteImageUrlOf(emote.id)).then(
+  Assets.load<Texture>({ src: url, parser: 'texture' }).then(
     (texture) => {
       if (sprite.destroyed) return;
       sprite.texture = texture;

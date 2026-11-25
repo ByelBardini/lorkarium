@@ -1,3 +1,4 @@
+import type { CustomEmojiRefDto } from '@lorkarium/contracts';
 import { Container, Graphics, type TextStyleOptions } from 'pixi.js';
 import type { Camera, Point } from './camera';
 import { speechLineOf, speechTextOf } from './pixi-speech-line';
@@ -26,6 +27,7 @@ export type SpeechBubbleMaker = (
   speakerName: string,
   text: string,
   redraw: () => void,
+  customEmojis: readonly CustomEmojiRefDto[],
 ) => Container;
 
 /** What placing the balloons needs each frame: the camera. */
@@ -114,7 +116,8 @@ export class PixiSpeechLayer {
   private addNew(shown: readonly ShownSpeech[]): boolean {
     const fresh = shown.filter(({ id }) => !this.bubbles.has(id));
     for (const speech of fresh) {
-      const bubble = this.bubbleOf(speech.speakerName, speech.text, this.markRedraw);
+      const custom = speech.customEmojis ?? [];
+      const bubble = this.bubbleOf(speech.speakerName, speech.text, this.markRedraw, custom);
       this.bubbles.set(speech.id, bubble);
       this.container.addChild(bubble);
     }
@@ -147,9 +150,11 @@ export function speechBubbleOf(
   speakerName: string,
   text: string,
   redraw: () => void = () => undefined,
+  customEmojis: readonly CustomEmojiRefDto[] = [],
 ): Container {
   const name = speechTextOf(speakerName, nameStyle(), INK_COLOR);
-  const look = { style: lineStyle(), ink: INK_COLOR, maxWidth: TEXT_WIDTH_MAX, redraw };
+  const ink = INK_COLOR;
+  const look = { style: lineStyle(), ink, maxWidth: TEXT_WIDTH_MAX, redraw, customEmojis };
   const line = speechLineOf(text, look);
   line.view.position.set(PAD_X, PAD_Y + name.height + LINE_GAP);
   name.position.set(PAD_X, PAD_Y);

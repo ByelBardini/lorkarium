@@ -59,6 +59,7 @@ describe('useSpeechBalloons', () => {
             speakerName: 'Lyra',
             text: 'Pela luz!',
             shownAt: 1000,
+            customEmojis: [],
           },
         ],
       },

@@ -3,6 +3,7 @@ import { MEMES } from '@lorkarium/contracts';
 import {
   EMOTE_SUGGESTION_LIMIT,
   searchEmotes,
+  suggestCustomEmojis,
   suggestEmotes,
   withEmoteCode,
 } from '@/lib/emote-input';
@@ -38,6 +39,25 @@ describe('suggestEmotes', () => {
 
   it('offers nothing for a word no emote starts with', () => {
     expect(suggestEmotes('xyzw')).toEqual([]);
+  });
+});
+
+describe('suggestCustomEmojis', () => {
+  const own = [
+    { id: 'e1', name: 'festa' },
+    { id: 'e2', name: 'feliz_demais' },
+    { id: 'e3', name: 'bolo' },
+  ];
+
+  it('offers the account’s own emojis whose name starts with what was typed, any case', () => {
+    expect(suggestCustomEmojis('FE', own)).toEqual([
+      { emojiId: 'e1', code: ':festa:' },
+      { emojiId: 'e2', code: ':feliz_demais:' },
+    ]);
+  });
+
+  it('offers nothing when none starts so', () => {
+    expect(suggestCustomEmojis('xyz', own)).toEqual([]);
   });
 });
 

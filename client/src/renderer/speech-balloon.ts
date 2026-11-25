@@ -1,3 +1,4 @@
+import type { CustomEmojiRefDto } from '@lorkarium/contracts';
 import { worldToScreen, type Camera, type Point } from './camera';
 import { tokenWorldRect, type TokenFootprint } from './token-box';
 import type { TokenView } from './token-view';
@@ -22,6 +23,8 @@ export type SpeechBalloon = Readonly<{
   speakerName: string;
   text: string;
   shownAt: number;
+  /** The speaker's custom emojis the line names (`customEmojis` of the message). */
+  customEmojis?: readonly CustomEmojiRefDto[];
 }>;
 
 /** A balloon to draw now: the clipped text and the footprint of the token it hangs over. */
@@ -31,6 +34,7 @@ export type ShownSpeech = Readonly<{
   speakerName: string;
   text: string;
   token: TokenFootprint;
+  customEmojis?: readonly CustomEmojiRefDto[];
 }>;
 
 /** What decides which balloons show: the grid on screen, the lines handed over, the tokens of
@@ -93,8 +97,9 @@ function speaksHere(balloon: SpeechBalloon, input: SpeechInput): boolean {
 
 function shownOver(balloon: SpeechBalloon, token: TokenView | undefined): ShownSpeech[] {
   if (!token) return [];
-  const { id, tokenId, speakerName } = balloon;
+  const { id, tokenId, speakerName, customEmojis } = balloon;
   const { col, row, width, height } = token;
   const footprint = { col, row, width, height };
-  return [{ id, tokenId, speakerName, text: clippedSpeechText(balloon.text), token: footprint }];
+  const text = clippedSpeechText(balloon.text);
+  return [{ id, tokenId, speakerName, text, token: footprint, customEmojis }];
 }

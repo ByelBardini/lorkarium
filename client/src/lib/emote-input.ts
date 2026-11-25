@@ -20,6 +20,23 @@ export function suggestEmotes(typed: string): EmoteSuggestion[] {
   }).slice(0, EMOTE_SUGGESTION_LIMIT);
 }
 
+/** One of the account's own emojis in the `:` list. */
+export type CustomEmojiSuggestion = Readonly<{ emojiId: string; code: string }>;
+
+/** The account's own emojis whose name starts with what was typed after the `:` (no case), in
+ *  their order; the list shows them before the catalog.
+ *
+ *  Example: `suggestCustomEmojis('fes', [{ id, name: 'festa' }]) // [{ emojiId: id, code: ':festa:' }]` */
+export function suggestCustomEmojis(
+  typed: string,
+  own: readonly Readonly<{ id: string; name: string }>[],
+): CustomEmojiSuggestion[] {
+  const folded = typed.toLowerCase();
+  return own
+    .filter((emoji) => emoji.name.startsWith(folded))
+    .map((emoji) => ({ emojiId: emoji.id, code: `:${emoji.name}:` }));
+}
+
 /** The emotes of the picker's search: any code or keyword containing what was typed (no accent,
  *  no case); a blank search keeps them all.
  *

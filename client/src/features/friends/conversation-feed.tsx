@@ -116,7 +116,7 @@ function MessageBubble({ message, mine, authors, quoted, onReply }: BubbleProps)
             mine ? 'bg-primary/15' : 'bg-muted',
           )}
         >
-          <EmoteText text={message.text} />
+          <EmoteText text={message.text} customEmojis={message.customEmojis} />
         </p>
         <ReplyButton
           authorName={authorNameOf(message, authors)}

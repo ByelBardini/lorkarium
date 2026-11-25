@@ -1,6 +1,8 @@
 import { SmileIcon } from 'lucide-react';
 import { useState } from 'react';
-import { EmoteImage } from '@/components/emote-text';
+import { OwnEmojiGrid } from '@/components/custom-emojis/own-emoji-grid';
+import { useCustomEmojisStore } from '@/components/custom-emojis/use-custom-emojis-store';
+import { CustomEmojiImage, EmoteImage } from '@/components/emote-text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -9,10 +11,12 @@ import {
   EMOTE_CATEGORIES,
   EMOTES,
   emotesIn,
+  type CustomEmojiDto,
   type Emote,
   type EmoteCategory,
 } from '@lorkarium/contracts';
 import { searchEmotes } from '@/lib/emote-input';
+import { activeCustomEmojisOf, useCustomEmojis } from '@/stores/custom-emojis-store';
 
 export type EmotePickerProps = Readonly<{
   /** Gets the code of the picture clicked (the emote's first code). */
@@ -60,8 +64,16 @@ export function EmotePicker({ onPick, disabled }: EmotePickerProps): React.JSX.E
   );
 }
 
+// The account's active emojis, from the provider around the chat (none outside one).
+function useOwnEmojis(): readonly CustomEmojiDto[] {
+  const store = useCustomEmojisStore();
+  return activeCustomEmojisOf(useCustomEmojis(store, (state) => state.list));
+}
+
 function EmotePickerBody({ onPick }: Readonly<{ onPick: (code: string) => void }>) {
   const [search, setSearch] = useState('');
+  const own = useOwnEmojis();
+  const typed = search.trim().toLowerCase();
   return (
     <>
       <Input
@@ -71,10 +83,14 @@ function EmotePickerBody({ onPick }: Readonly<{ onPick: (code: string) => void }
         value={search}
         onChange={(event) => setSearch(event.target.value)}
       />
-      {search.trim() === '' ? (
-        <EmoteTabs onPick={onPick} />
+      {typed === '' ? (
+        <EmoteTabs own={own} onPick={onPick} />
       ) : (
-        <EmoteGrid emotes={searchEmotes(EMOTES, search)} onPick={onPick} />
+        <SearchResults
+          own={own.filter((emoji) => emoji.name.includes(typed))}
+          search={search}
+          onPick={onPick}
+        />
       )}
     </>
   );
@@ -90,20 +106,52 @@ const CATEGORY_TABS: Readonly<Record<EmoteCategory, { label: string; iconId: str
   memes: { label: 'Memes', iconId: 'doge' },
 };
 
-function EmoteTabs({ onPick }: Readonly<{ onPick: (code: string) => void }>) {
+type PickerPartProps = Readonly<{
+  own: readonly CustomEmojiDto[];
+  onPick: (code: string) => void;
+}>;
+
+function SearchResults({ own, search, onPick }: PickerPartProps & Readonly<{ search: string }>) {
+  const catalog = searchEmotes(EMOTES, search);
+  if (own.length === 0) return <EmoteGrid emotes={catalog} onPick={onPick} />;
   return (
-    <Tabs defaultValue="reactions" className="gap-2">
+    <>
+      <OwnEmojiGrid emojis={own} onPick={onPick} />
+      {catalog.length > 0 && <EmoteGrid emotes={catalog} onPick={onPick} />}
+    </>
+  );
+}
+
+// "Meus" comes first, and opens first, when the account has emojis of its own.
+function EmoteTabs({ own, onPick }: PickerPartProps) {
+  const [first] = own;
+  return (
+    <Tabs defaultValue={first === undefined ? 'reactions' : 'mine'} className="gap-2">
       <TabsList className="w-full">
+        {first !== undefined && <OwnTab emojiId={first.id} />}
         {EMOTE_CATEGORIES.map((category) => (
           <CategoryTab key={category} category={category} />
         ))}
       </TabsList>
+      {first !== undefined && (
+        <TabsContent value="mine">
+          <OwnEmojiGrid emojis={own} onPick={onPick} />
+        </TabsContent>
+      )}
       {EMOTE_CATEGORIES.map((category) => (
         <TabsContent key={category} value={category}>
           <EmoteGrid emotes={emotesIn(category)} onPick={onPick} />
         </TabsContent>
       ))}
     </Tabs>
+  );
+}
+
+function OwnTab({ emojiId }: Readonly<{ emojiId: string }>) {
+  return (
+    <TabsTrigger value="mine" aria-label="Meus emojis" title="Meus emojis">
+      <CustomEmojiImage emojiId={emojiId} code="" sticker={false} decorative className="size-5" />
+    </TabsTrigger>
   );
 }
 
