@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 384">
+  <g stroke="#000" stroke-width="12" stroke-linejoin="round">
+    <path d="M40,200 L344,200 L344,350 L40,350 Z" fill="#a0612b"/>
+    <path d="M40,200 C40,120 344,120 344,200 L344,150 C344,40 40,40 40,150 Z" fill="#7a4520"/>
+    <path d="M60,200 C80,260 304,260 324,200 Z" fill="#c0282d"/>
+  </g>
+  <path d="M120,236 C150,300 240,300 268,236 C240,262 150,262 120,236 Z" fill="#ff6b8b" stroke="#000" stroke-width="8" stroke-linejoin="round"/>
+  <g fill="#fff" stroke="#000" stroke-width="7" stroke-linejoin="round">
+    <polygon points="62,200 84,200 73,236"/><polygon points="96,200 120,200 108,244"/><polygon points="132,200 156,200 144,250"/><polygon points="168,200 192,200 180,252"/><polygon points="204,200 228,200 216,252"/><polygon points="240,200 264,200 252,250"/><polygon points="276,200 300,200 288,244"/><polygon points="310,200 326,200 318,232"/>
+    <polygon points="70,172 92,172 81,140"/><polygon points="112,176 136,176 124,138"/><polygon points="152,178 176,178 164,138"/><polygon points="208,178 232,178 220,138"/><polygon points="248,176 272,176 260,138"/><polygon points="292,172 314,172 303,140"/>
+  </g>
+  <g stroke="#000" stroke-width="12"><line x1="40" y1="200" x2="344" y2="200"/></g>
+  <g stroke="#000" stroke-width="8">
+    <rect x="166" y="290" width="52" height="44" rx="6" fill="#f5c542"/>
+  </g>
+  <g stroke="#000" stroke-width="8" fill="#fff">
+    <ellipse cx="140" cy="96" rx="34" ry="26"/><ellipse cx="244" cy="96" rx="34" ry="26"/>
+  </g>
+  <g fill="#000"><circle cx="150" cy="100" r="11"/><circle cx="234" cy="100" r="11"/></g>
+  <g stroke="#000" stroke-width="10" stroke-linecap="round"><line x1="104" y1="62" x2="168" y2="80"/><line x1="280" y1="62" x2="216" y2="80"/></g>
+</svg>

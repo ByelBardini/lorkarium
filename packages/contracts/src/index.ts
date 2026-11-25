@@ -74,6 +74,7 @@ export * from './library/library.dto';
 export * from './dice/dice.dto';
 export * from './dice/saved-roll.dto';
 export * from './chat/chat.dto';
+export * from './emotes/emote-catalog';
 
 export * from './library/library-image.dto';
 export * from './library/image-presentation.dto';

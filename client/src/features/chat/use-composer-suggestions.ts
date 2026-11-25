@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import { suggestChatCommands, type ChatCommandEntry } from '@/lib/chat-commands-catalog';
 import type { ChatInputMember } from '@/lib/chat-input';
-import type { Emote } from '@/lib/emote-catalog';
+import type { Emote } from '@lorkarium/contracts';
 import { suggestEmotes, type EmoteSuggestion } from '@/lib/emote-input';
 import {
   mentionTextOf,

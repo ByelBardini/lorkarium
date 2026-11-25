@@ -47,6 +47,36 @@ describe('emotePiecesOf', () => {
   });
 });
 
+describe('emotePiecesOf with a keyboard emoji', () => {
+  it('draws an emoji of the catalog after a space', () => {
+    expect(shapeOf(emotePiecesOf('boa 😂'))).toEqual(['text:boa ', 'joy:😂']);
+  });
+
+  it('draws it even glued to a word, unlike a text code', () => {
+    expect(shapeOf(emotePiecesOf('oi😂kkk'))).toEqual(['text:oi', 'joy:😂', 'text:kkk']);
+  });
+
+  it('takes the emoji with or without the variation selector, keeping it as typed', () => {
+    expect(shapeOf(emotePiecesOf('⚔'))).toEqual(['crossed_swords:⚔']);
+    expect(shapeOf(emotePiecesOf('⚔\u{FE0F}!'))).toEqual(['crossed_swords:⚔\u{FE0F}', 'text:!']);
+  });
+
+  it('leaves an emoji off the catalog as text', () => {
+    expect(shapeOf(emotePiecesOf('oi 🫃'))).toEqual(['text:oi 🫃']);
+  });
+
+  it('leaves as text a bigger emoji that starts with one of the catalog (joiner, skin tone)', () => {
+    expect(shapeOf(emotePiecesOf('🧙\u{200D}♀'))).toEqual(['text:🧙\u{200D}♀']);
+    expect(shapeOf(emotePiecesOf('👏🏽'))).toEqual(['text:👏🏽']);
+  });
+
+  it('draws two emojis side by side as a sticker', () => {
+    const pieces = emotePiecesOf('😂😂');
+    expect(shapeOf(pieces)).toEqual(['joy:😂', 'joy:😂']);
+    expect(emotesOnly(pieces)).toBe(true);
+  });
+});
+
 describe('emotesOnly', () => {
   it('is true for pictures and spaces only', () => {
     expect(emotesOnly(emotePiecesOf(':vish:  :D'))).toBe(true);

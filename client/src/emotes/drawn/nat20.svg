@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 384">
+  <g fill="#ffd84a" stroke="#000" stroke-width="10" stroke-linejoin="round" transform="translate(192 200) scale(1.2) translate(-192 -160)">
+    <polygon points="192,8 210,70 270,40 250,100 320,100 270,140 330,180 262,190 290,250 230,224 192,290 154,224 94,250 122,190 54,180 114,140 64,100 134,100 114,40 174,70" fill="#fff3a6" stroke-width="6"/>
+  </g>
+  <g stroke="#000" stroke-width="12" stroke-linejoin="round">
+    <polygon points="192,40 330,120 330,280 192,360 54,280 54,120" fill="#f5b800"/>
+    <polygon points="192,105 290,270 94,270" fill="#ffd84a"/>
+  </g>
+  <g stroke="#000" stroke-width="8" fill="none" stroke-linecap="round">
+    <line x1="192" y1="40" x2="192" y2="105"/><line x1="54" y1="120" x2="192" y2="105"/><line x1="330" y1="120" x2="192" y2="105"/>
+    <line x1="54" y1="120" x2="94" y2="270"/><line x1="330" y1="120" x2="290" y2="270"/>
+    <line x1="54" y1="280" x2="94" y2="270"/><line x1="330" y1="280" x2="290" y2="270"/>
+    <line x1="94" y1="270" x2="192" y2="360"/><line x1="290" y1="270" x2="192" y2="360"/>
+  </g>
+  <text x="192" y="236" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="104" fill="#000">20</text>
+  <g fill="#fff" stroke="#000" stroke-width="6" stroke-linejoin="round">
+    <polygon points="336,24 346,52 374,62 346,72 336,100 326,72 298,62 326,52"/>
+    <polygon points="44,290 51,310 71,317 51,324 44,344 37,324 17,317 37,310"/>
+  </g>
+</svg>

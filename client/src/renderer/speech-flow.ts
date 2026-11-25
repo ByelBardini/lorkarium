@@ -1,4 +1,4 @@
-import type { Emote } from '@/lib/emote-catalog';
+import type { Emote } from '@lorkarium/contracts';
 import { emotePiecesOf } from '@/lib/emote-text';
 import type { Point } from './camera';
 

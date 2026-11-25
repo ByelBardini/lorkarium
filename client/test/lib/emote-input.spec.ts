@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MEMES } from '@/lib/emote-catalog';
+import { MEMES } from '@lorkarium/contracts';
 import {
   EMOTE_SUGGESTION_LIMIT,
   searchEmotes,
@@ -10,27 +10,40 @@ import {
 describe('suggestEmotes', () => {
   it('offers the :name: code that starts with what was typed', () => {
     expect(suggestEmotes('dog').map((each) => each.code)).toEqual([':doge:']);
-    expect(suggestEmotes('godw').map((each) => each.code)).toEqual([':godwhy:']);
+    expect(suggestEmotes('ston').map((each) => each.code)).toEqual([':stonks:']);
   });
 
   it('finds by a pt-BR keyword without accent or case, offering the first :name:', () => {
-    expect(suggestEmotes('CORAÇ').map((each) => each.code)).toEqual([':heart:']);
+    expect(suggestEmotes('CORAÇÃO PA').map((each) => each.code)).toEqual([':broken_heart:']);
   });
 
-  it('keeps the catalog order, smileys before memes, within the limit', () => {
+  it('keeps the catalog order and stops at the limit', () => {
     const found = suggestEmotes('p');
-    expect(found.map((each) => each.code)).toEqual([':wink:', ':poop:', ':pokerface:']);
-    expect(found.length).toBeLessThanOrEqual(EMOTE_SUGGESTION_LIMIT);
+    expect(found.map((each) => each.code)).toEqual([
+      ':wink:',
+      ':poop:',
+      ':thinking:',
+      ':pleading:',
+      ':partying:',
+      ':skull_crossbones:',
+      ':clown:',
+      ':clap:',
+    ]);
+    expect(found).toHaveLength(EMOTE_SUGGESTION_LIMIT);
+  });
+
+  it('puts smileys before memes', () => {
+    expect(suggestEmotes('do').map((each) => each.code)).toEqual([':sleeping:', ':doge:']);
   });
 
   it('offers nothing for a word no emote starts with', () => {
-    expect(suggestEmotes('zzz')).toEqual([]);
+    expect(suggestEmotes('xyzw')).toEqual([]);
   });
 });
 
 describe('searchEmotes', () => {
   it('keeps the emotes with any code or keyword containing the search', () => {
-    expect(searchEmotes(MEMES, 'god').map((emote) => emote.id)).toEqual(['ohgodwhy']);
+    expect(searchEmotes(MEMES, 'ston').map((emote) => emote.id)).toEqual(['stonks']);
   });
 
   it('a blank search keeps them all', () => {

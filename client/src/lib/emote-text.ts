@@ -1,4 +1,4 @@
-import { EMOTES, isNamedEmoteCode, type Emote } from './emote-catalog';
+import { EMOTES, emoteOfUnicode, isNamedEmoteCode, type Emote } from '@lorkarium/contracts';
 
 /** A run of a message: plain text, or one code drawn as its picture (`code` as typed). */
 export type EmotePiece =
@@ -14,6 +14,10 @@ const AFTER_CODE = /[\s.,!?;]/u;
 
 const CODES_BY_START = indexCodes(EMOTES);
 
+const VARIATION_SELECTOR = '\u{FE0F}';
+const ZERO_WIDTH_JOINER = 0x200d;
+const SKIN_TONES = { first: 0x1f3fb, last: 0x1f3ff } as const;
+
 /** The message cut into text and pictures; the longest code wins (`:-D` over `:-`).
  *
  *  Example: `emotePiecesOf('oi :D').map((piece) => piece.kind) // ['text', 'emote']` */
@@ -22,7 +26,7 @@ export function emotePiecesOf(text: string): EmotePiece[] {
   let plainFrom = 0;
   let at = 0;
   while (at < text.length) {
-    const found = codeAt(text, at);
+    const found = unicodeAt(text, at) ?? codeAt(text, at);
     if (found === null) {
       at += 1;
       continue;
@@ -46,6 +50,24 @@ export function emotePiecesOf(text: string): EmotePiece[] {
 export function emotesOnly(pieces: readonly EmotePiece[]): boolean {
   const pictured = pieces.some((piece) => piece.kind === 'emote');
   return pictured && pieces.every((piece) => piece.kind === 'emote' || piece.text.trim() === '');
+}
+
+function unicodeAt(text: string, at: number): CodeEntry | null {
+  const point = text.codePointAt(at);
+  if (point === undefined || point < 0x80) return null;
+  const character = String.fromCodePoint(point);
+  const emote = emoteOfUnicode(character);
+  if (emote === null) return null;
+  const selected = text.startsWith(VARIATION_SELECTOR, at + character.length);
+  const typed = selected ? character + VARIATION_SELECTOR : character;
+  if (extendsEmoji(text.codePointAt(at + typed.length))) return null;
+  return { code: typed, emote, named: false };
+}
+
+// A joiner or a skin tone after the emoji makes it part of a bigger one the catalog lacks.
+function extendsEmoji(point: number | undefined): boolean {
+  if (point === undefined) return false;
+  return point === ZERO_WIDTH_JOINER || (point >= SKIN_TONES.first && point <= SKIN_TONES.last);
 }
 
 function codeAt(text: string, at: number): CodeEntry | null {

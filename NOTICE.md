@@ -16,7 +16,8 @@ Up to and including commit `6564d1006f5d021cc72492b72f08b0c944251116`, the repos
 These files belong to their authors. Neither the AGPL nor the MIT grant gives any right to them.
 
 - `client/src/emotes/images/` (smileys): [Noto Emoji](https://github.com/googlefonts/noto-emoji), Google, Apache License 2.0.
-- `client/src/emotes/images/` (memes): internet memes with no license, kept for the chat only. Do not reuse them.
+- `client/src/emotes/images/` (memes `okayface`, `vish`, `yaoming`, `huehue`, `dinofauro`, `doge`, `chad`, `stonks`): internet memes with no license, kept for the chat only. Do not reuse them.
+- `client/src/emotes/images/` (`nat20`, `nat1`, `mimic`) and their sources in `client/src/emotes/drawn/`: drawn for Lorkarium, under the repository license.
 - `client/src/dice-audio/dice-rolls.wav`: recordings from Pixabay, under the Pixabay Content License.
 - `client/src/chat-audio/chat-notice.wav`: "UI alert - synth beep", Epic Stock Media, under its own license.
 

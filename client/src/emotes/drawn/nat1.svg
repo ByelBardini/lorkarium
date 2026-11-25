@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 384">
+  <g stroke="#000" stroke-width="12" stroke-linejoin="round">
+    <polygon points="192,40 330,120 330,280 192,360 54,280 54,120" fill="#8a2a2a"/>
+    <polygon points="192,105 290,270 94,270" fill="#b23a3a"/>
+  </g>
+  <g stroke="#000" stroke-width="8" fill="none" stroke-linecap="round">
+    <line x1="192" y1="40" x2="192" y2="105"/><line x1="54" y1="120" x2="192" y2="105"/><line x1="330" y1="120" x2="192" y2="105"/>
+    <line x1="54" y1="120" x2="94" y2="270"/><line x1="330" y1="120" x2="290" y2="270"/>
+    <line x1="54" y1="280" x2="94" y2="270"/><line x1="330" y1="280" x2="290" y2="270"/>
+    <line x1="94" y1="270" x2="192" y2="360"/><line x1="290" y1="270" x2="192" y2="360"/>
+  </g>
+  <polyline points="250,48 228,110 262,150 232,206 270,250 248,300" fill="none" stroke="#000" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>
+  <polyline points="250,48 228,110 262,150 232,206 270,250 248,300" fill="none" stroke="#e8e8e8" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+  <text x="180" y="240" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="120" fill="#fff" stroke="#000" stroke-width="6">1</text>
+  <g fill="#9fd3ff" stroke="#000" stroke-width="6">
+    <path d="M330,20 C330,20 300,60 300,78 A30,30 0 0 0 360,78 C360,60 330,20 330,20 Z"/>
+  </g>
+</svg>

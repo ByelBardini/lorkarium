@@ -9,7 +9,7 @@ import {
   type TextStyleOptions,
 } from 'pixi.js';
 import { emoteImageUrlOf } from '@/emotes/emote-images';
-import type { Emote } from '@/lib/emote-catalog';
+import type { Emote } from '@lorkarium/contracts';
 import { zoomProofTextResolution } from './camera';
 import { flowSpeechItems, speechRunsOf, type SpeechRun } from './speech-flow';
 

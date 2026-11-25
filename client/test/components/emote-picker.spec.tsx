@@ -18,32 +18,63 @@ async function openPicker(): Promise<{ picked: PickedCodes; panel: HTMLElement }
 }
 
 describe('EmotePicker', () => {
-  it('opens on the smileys, and the Memes tab shows the 20 memes', async () => {
+  it('opens on the Reações tab, one tab per category', async () => {
     const { panel } = await openPicker();
+    const tabs = within(panel).getAllByRole('tab');
+    expect(tabs.map((tab) => tab.getAttribute('aria-label'))).toEqual([
+      'Reações',
+      'Gestos',
+      'RPG',
+      'Símbolos',
+      'Macacos',
+      'Memes',
+    ]);
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
     expect(within(panel).getByRole('button', { name: '=)' })).toBeInTheDocument();
+  });
+
+  it('the RPG tab shows the dice and not the reactions', async () => {
+    const { panel } = await openPicker();
+    await userEvent.click(within(panel).getByRole('tab', { name: 'RPG' }));
+    const rpg = within(screen.getByRole('tabpanel'));
+    expect(rpg.getByRole('button', { name: ':dice:' })).toBeInTheDocument();
+    expect(rpg.queryByRole('button', { name: ':joy:' })).toBeNull();
+  });
+
+  it('the Memes tab shows the 11 memes', async () => {
+    const { panel } = await openPicker();
     await userEvent.click(within(panel).getByRole('tab', { name: 'Memes' }));
-    const memes = within(screen.getByRole('tabpanel')).getAllByRole('button');
-    expect(memes).toHaveLength(20);
+    expect(within(screen.getByRole('tabpanel')).getAllByRole('button')).toHaveLength(11);
+  });
+
+  it('moves between tabs with the arrow keys', async () => {
+    const { panel } = await openPicker();
+    within(panel).getByRole('tab', { name: 'Reações' }).focus();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(within(panel).getByRole('tab', { name: 'Gestos' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
   });
 
   it('a click gives the first code and closes the grid', async () => {
     const { picked, panel } = await openPicker();
-    await userEvent.click(within(panel).getByRole('button', { name: '<3' }));
-    expect(picked.codes).toEqual(['<3']);
+    await userEvent.click(within(panel).getByRole('button', { name: '=)' }));
+    expect(picked.codes).toEqual(['=)']);
     expect(screen.queryByRole('dialog', { name: 'Memes e smileys' })).toBeNull();
   });
 
-  it('the search looks across both tabs by code or name, and says when nothing matches', async () => {
+  it('the search looks across every tab by code or name, and says when nothing matches', async () => {
     const { panel } = await openPicker();
     const search = within(panel).getByRole('searchbox', { name: 'Buscar meme ou smiley' });
-    await userEvent.type(search, 'coração');
+    await userEvent.type(search, 'dado');
     expect(
       within(panel)
         .getAllByRole('button')
         .map((each) => each.getAttribute('aria-label')),
-    ).toEqual(['<3']);
+    ).toEqual([':dice:']);
     await userEvent.clear(search);
-    await userEvent.type(search, 'zzz');
+    await userEvent.type(search, 'xyzw');
     expect(within(panel).getByText('Nada encontrado.')).toBeInTheDocument();
   });
 

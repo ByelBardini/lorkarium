@@ -5,7 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { EMOTES, MEMES, SMILEYS, type Emote } from '@/lib/emote-catalog';
+import {
+  EMOTE_CATEGORIES,
+  EMOTES,
+  emotesIn,
+  type Emote,
+  type EmoteCategory,
+} from '@lorkarium/contracts';
 import { searchEmotes } from '@/lib/emote-input';
 
 export type EmotePickerProps = Readonly<{
@@ -14,7 +20,7 @@ export type EmotePickerProps = Readonly<{
   disabled?: boolean;
 }>;
 
-/** "Memes e smileys": a button beside the message field opening a grid in two tabs, with a
+/** "Memes e smileys": a button beside the message field opening a grid in one tab per category, with a
  *  search over codes and names. A click writes the code and closes it; the field takes the
  *  focus back (`onPick`).
  *
@@ -74,20 +80,42 @@ function EmotePickerBody({ onPick }: Readonly<{ onPick: (code: string) => void }
   );
 }
 
+// Each tab is drawn as one of its pictures: six words would not fit the popover.
+const CATEGORY_TABS: Readonly<Record<EmoteCategory, { label: string; iconId: string }>> = {
+  reactions: { label: 'Reações', iconId: 'smile' },
+  gestures: { label: 'Gestos', iconId: 'thumbs-up' },
+  rpg: { label: 'RPG', iconId: 'dice' },
+  symbols: { label: 'Símbolos', iconId: 'heart' },
+  monkeys: { label: 'Macacos', iconId: 'see_no_evil' },
+  memes: { label: 'Memes', iconId: 'doge' },
+};
+
 function EmoteTabs({ onPick }: Readonly<{ onPick: (code: string) => void }>) {
   return (
-    <Tabs defaultValue="smileys" className="gap-2">
-      <TabsList>
-        <TabsTrigger value="smileys">Smileys</TabsTrigger>
-        <TabsTrigger value="memes">Memes</TabsTrigger>
+    <Tabs defaultValue="reactions" className="gap-2">
+      <TabsList className="w-full">
+        {EMOTE_CATEGORIES.map((category) => (
+          <CategoryTab key={category} category={category} />
+        ))}
       </TabsList>
-      <TabsContent value="smileys">
-        <EmoteGrid emotes={SMILEYS} onPick={onPick} />
-      </TabsContent>
-      <TabsContent value="memes">
-        <EmoteGrid emotes={MEMES} onPick={onPick} />
-      </TabsContent>
+      {EMOTE_CATEGORIES.map((category) => (
+        <TabsContent key={category} value={category}>
+          <EmoteGrid emotes={emotesIn(category)} onPick={onPick} />
+        </TabsContent>
+      ))}
     </Tabs>
+  );
+}
+
+function CategoryTab({ category }: Readonly<{ category: EmoteCategory }>) {
+  const { label, iconId } = CATEGORY_TABS[category];
+  const icon = EMOTES.find((emote) => emote.id === iconId);
+  return (
+    <TabsTrigger value={category} aria-label={label} title={label}>
+      {icon === undefined ? null : (
+        <EmoteImage emote={icon} code={label} sticker={false} decorative className="size-5" />
+      )}
+    </TabsTrigger>
   );
 }
 

@@ -1,5 +1,6 @@
-// Smileys: Noto Emoji (Google, Apache 2.0). Memes: from the Firecast pack the user
-// asked for. Each file is 96 px, enough for the 40 px sticker size at 2x.
+// Smileys: Noto Emoji (Google, Apache 2.0). Memes: from the Firecast pack and the Discord CDN (no
+// license, the user took the risk) and drawn for the project (src/emotes/drawn/). Each file is
+// 96 px, enough for the 40 px sticker size at 2x.
 const IMAGE_URLS = import.meta.glob<string>('./images/*.png', {
   eager: true,
   query: '?url',

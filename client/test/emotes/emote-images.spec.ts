@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { emoteImageUrlOf } from '@/emotes/emote-images';
-import { EMOTES } from '@/lib/emote-catalog';
+import { EMOTES } from '@lorkarium/contracts';
 
 describe('emoteImageUrlOf', () => {
   it('has a picture for every emote of the catalog', () => {

@@ -1,4 +1,4 @@
-import { EMOTES, isNamedEmoteCode, type Emote } from './emote-catalog';
+import { EMOTES, isNamedEmoteCode, type Emote } from '@lorkarium/contracts';
 import { searchText } from './search-text';
 
 /** One line of the `:` list: the emote and the `:name:` code accepting writes. */
@@ -23,7 +23,7 @@ export function suggestEmotes(typed: string): EmoteSuggestion[] {
 /** The emotes of the picker's search: any code or keyword containing what was typed (no accent,
  *  no case); a blank search keeps them all.
  *
- *  Example: `searchEmotes(MEMES, 'god').map((emote) => emote.id) // ['ohgodwhy']` */
+ *  Example: `searchEmotes(MEMES, 'ston').map((emote) => emote.id) // ['stonks']` */
 export function searchEmotes(emotes: readonly Emote[], typed: string): Emote[] {
   const folded = searchText(typed.trim());
   if (folded === '') return [...emotes];

@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import { emoteImageUrlOf } from '@/emotes/emote-images';
-import type { Emote } from '@/lib/emote-catalog';
+import type { Emote } from '@lorkarium/contracts';
 import { emotePiecesOf, emotesOnly } from '@/lib/emote-text';
 import { cn } from '@/lib/utils';
 
