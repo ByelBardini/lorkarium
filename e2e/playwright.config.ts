@@ -110,6 +110,8 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
   // badges creates, grants and deletes its own badge on Bia; feedback sends Bia's bug report and
   // archives it.
   'profile-card': ['profile-card', 'badges', 'feedback'],
+  // Moves Bia to Lenda and Narrador for her custom emoji (back to her seeded plan at the end).
+  'custom-emojis': ['custom-emojis'],
 };
 
 assertEverySpecIsGrouped(SPEC_GROUPS);
