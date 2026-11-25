@@ -27,7 +27,7 @@ client/src/components/color-picker/ # Seletor de cor personalizada (popover, cor
 client/src/components/human-check/ # Widget do Cloudflare Turnstile (cadastro e "esqueci a senha"): o único lugar que carrega o script da Cloudflare
 client/src/components/image-crop/ # Diálogo de recorte por formato (foto 1:1, capa 2:1, banner 3:1); `crop-area.tsx` é o único import do `react-easy-crop`, por `lazy`
 client/src/error-reports/ # `@sentry/browser` (o único lugar que o importa, por `import()`): o sink do relato de erro (ver docs/context/error-reports.md)
-client/src/emotes/       # Imagens dos memes e smileys do chat (PNG 96 px) e o `emoteImageUrlOf`; catálogo e troca em src/lib/emote-*.ts
+client/src/emotes/       # Imagens dos memes e smileys do chat (PNG 96 px, SVG dos desenhados em drawn/), `emoteImageUrlOf` e `customEmojiImageUrlOf`; catálogo em packages/contracts/src/emotes/, troca em src/lib/emote-*.ts
 client/src/sheet-sandbox/ # Iframe isolado da ficha (srcdoc + CSP), SDK `window.lorkarium`, ponte do host e host da prévia
 server/                  # API Fastify (PORT 3333, rotas sob /api); encanamento em src/{app,config,database}/
 site/                    # @lorkarium/site: landing comercial em Astro (download do .exe); specs em site/test/, imagem em site/Dockerfile
