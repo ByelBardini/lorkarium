@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { CustomEmojisContext } from '@/components/custom-emojis/use-custom-emojis-store';
@@ -104,7 +104,8 @@ describe('CustomEmojisSection', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Apagar :festa:' }));
     await userEvent.click(screen.getByRole('button', { name: 'Apagar' }));
-    await waitFor(() => expect(screen.queryByText(':festa:')).toBeNull());
+    expect(await screen.findByText('Nenhum emoji ainda.')).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Seus emojis' })).toBeNull();
   });
 
   it('renames in place', async () => {
