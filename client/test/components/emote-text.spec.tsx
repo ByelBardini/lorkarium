@@ -24,4 +24,14 @@ describe('EmoteText', () => {
     expect(container).toHaveTextContent('às 10:30');
     expect(screen.queryByRole('img')).toBeNull();
   });
+
+  it('draws the sender’s custom emoji from its id, at a meme’s size', () => {
+    const festa = [{ name: 'festa', emojiId: '0b6f8a7e-7d43-4a5e-9a1c-1f6f0c9b2d11' }];
+    render(<EmoteText text="bora :festa: :bolo:" customEmojis={festa} />);
+
+    const picture = screen.getByRole('img', { name: ':festa:' });
+    expect(picture).toHaveAttribute('src', `/api/custom-emojis/${festa[0]?.emojiId}`);
+    expect(picture).toHaveClass('size-[1.75em]');
+    expect(screen.queryByRole('img', { name: ':bolo:' })).toBeNull();
+  });
 });

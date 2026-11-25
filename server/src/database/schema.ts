@@ -47,6 +47,7 @@ export { invitationOrigin, invitations } from '../modules/account-links/invitati
 export { passwordResets } from '../modules/account-links/password-resets.po';
 export { savedRollFolders, savedRolls } from '../modules/saved-rolls/saved-rolls.po';
 export { accountSavedColors } from '../modules/saved-colors/saved-colors.po';
+export { customEmojis } from '../modules/custom-emojis/custom-emoji.po';
 export { friendRequests } from '../modules/friends/friend-requests.po';
 export { friendships } from '../modules/friends/friendships.po';
 export { userBlocks } from '../modules/friends/user-blocks.po';

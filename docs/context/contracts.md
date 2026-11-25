@@ -19,6 +19,8 @@ DTOs em Zod 4 do que atravessa client ↔ server (corpo HTTP, resposta, payload 
 - `src/library/` — biblioteca de grids: grids e pastas da mesa por REST, `library:changed`
 - `src/documents/` — documentos da biblioteca: conteúdo rico fechado, comandos versionados, resumos, a prévia da biblioteca (`document-preview.dto.ts`) e imagens; [contratos](documents/contratos.md).
 - `src/dice/` — rolagem de dados (Socket.IO): comando, ack e eventos com o trajeto 3D; rolagens salvas (REST)
+- `src/emotes/` — catálogo de memes e smileys (dados puros: ids, códigos, categoria, emoji do teclado), usado pelo client e pelo server: [`client/chat-emotes.md`](client/chat-emotes.md)
+- `src/custom-emojis/` — emojis da conta: `customEmojiNameDto` (padrão + fora do catálogo), lista, renomear, params (o do admin também), `customEmojiRefsDto` dos eventos, `CUSTOM_EMOJI_*` (2 MiB, 128 px, 20 por mensagem, códigos de erro): [`custom-emojis.md`](custom-emojis.md)
 - `src/chat/` — chat da mesa (Socket.IO): `chat:send`, ack e `chat:sent`, sem versão
 - `src/plans/` — planos da conta: `USER_PLANS`, recursos do `PLAN_LIMIT`, a grade `PLAN_LIMITS` e `planLimitsDto`; [contratos](contracts/planos.md), com os DTOs que levam `planLocked` (o item só leitura pelo plano)
 - `src/plans/paid-plan.dto.ts` — `higherPlanOf(plan, paidPlan)` (o maior na ordem de `USER_PLANS`, server e client), `paidPlanFields` e `checkPaidPlanPair` (o pago e a data vêm juntos)

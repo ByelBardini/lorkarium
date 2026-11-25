@@ -1,6 +1,7 @@
 import { dataExportDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import {
+  customEmojiImagesOf,
   profileImagesOf,
   sentImageOf,
   toDataExportDto,
@@ -295,6 +296,29 @@ describe('profileImagesOf', () => {
 
   it('an account without images has none to add', () => {
     expect(profileImagesOf(exportedAccountRow())).toEqual([]);
+  });
+});
+
+describe('the custom emojis', () => {
+  const festa = {
+    id: MAP_ASSET_ID,
+    ownerId: ANA_ID,
+    name: 'festa',
+    animated: true,
+    createdAt: AT,
+  };
+
+  it('list in the JSON by name, whether they move, and when they were made', () => {
+    const dto = toDataExportDto(emptyExportParts({ customEmojis: [festa] }), cipher, NOW);
+    expect(dto.customEmojis).toEqual([
+      { name: 'festa', animated: true, createdAt: AT.toISOString() },
+    ]);
+  });
+
+  it('file each picture under its name, from the moving key', () => {
+    expect(customEmojiImagesOf([festa])).toEqual([
+      { path: 'imagens/emojis/festa.webp', storageKey: `custom-emojis/${MAP_ASSET_ID}` },
+    ]);
   });
 });
 

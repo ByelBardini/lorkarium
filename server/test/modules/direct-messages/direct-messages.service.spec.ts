@@ -11,6 +11,7 @@ import {
   FriendshipExistsFake,
   VisiblePresenceFake,
 } from '../../support/direct-messages-fakes';
+import { CustomEmojiRefsFake } from '../../support/custom-emojis-fakes';
 
 const NOW = new Date('2026-11-12T12:00:00Z');
 const MESSAGE_ID = '7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d';
@@ -22,6 +23,7 @@ describe('DirectMessagesService', () => {
   let friendships: FriendshipExistsFake;
   let presence: VisiblePresenceFake;
   let publisher: DirectMessagePublisherFake;
+  let emojis: CustomEmojiRefsFake;
   let service: DirectMessagesService;
 
   beforeEach(() => {
@@ -31,11 +33,13 @@ describe('DirectMessagesService', () => {
     presence = new VisiblePresenceFake();
     presence.online.add(ANA_ID).add(BIA_ID).add(CAIO_ID);
     publisher = new DirectMessagePublisherFake();
+    emojis = new CustomEmojiRefsFake();
     service = new DirectMessagesService({
       friendships,
       presence,
       publisher,
       clock,
+      emojis,
       newId: () => MESSAGE_ID,
     });
   });
@@ -60,8 +64,22 @@ describe('DirectMessagesService', () => {
         text: 'oi',
         at: NOW.toISOString(),
         replyToMessageId: null,
+        customEmojis: [],
       },
     ]);
+  });
+
+  it('the dm:sent carries the sender’s active emojis the text names', async () => {
+    const festa = { id: MESSAGE_ID, name: 'festa' };
+    emojis.give(ANA_ID, [festa]).give(BIA_ID, [{ id: QUOTED_ID, name: 'bolo' }]);
+    await service.send(ANA_ID, {
+      actionId: ACTION_ID,
+      toUserId: BIA_ID,
+      text: ':festa: :bolo:',
+      replyToMessageId: null,
+    });
+
+    expect(publisher.sentEvents[0]?.customEmojis).toEqual([{ name: 'festa', emojiId: MESSAGE_ID }]);
   });
 
   it('a reply goes out with the quoted id', async () => {

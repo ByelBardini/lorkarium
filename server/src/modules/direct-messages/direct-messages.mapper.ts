@@ -1,4 +1,4 @@
-import type { DmSentDto, DmTypingFromDto } from '@lorkarium/contracts';
+import type { CustomEmojiRefDto, DmSentDto, DmTypingFromDto } from '@lorkarium/contracts';
 
 export type DirectMessage = Readonly<{
   messageId: string;
@@ -7,11 +7,12 @@ export type DirectMessage = Readonly<{
   text: string;
   at: Date;
   replyToMessageId: string | null;
+  customEmojis: readonly CustomEmojiRefDto[];
 }>;
 
 /** Example: `toDmSentDto({ messageId, fromUserId: anaId, toUserId: biaId, text: 'oi', at })` */
 export function toDmSentDto(message: DirectMessage): DmSentDto {
-  return { ...message, at: message.at.toISOString() };
+  return { ...message, at: message.at.toISOString(), customEmojis: [...message.customEmojis] };
 }
 
 /** Example: `toDmTypingFromDto(anaId, clock.now()) // { fromUserId: anaId, at: '…' }` */

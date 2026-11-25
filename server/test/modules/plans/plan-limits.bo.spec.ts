@@ -45,7 +45,7 @@ describe('effectiveLimitsOf', () => {
 
   it('a user on Apoiador gets the grid of Grátis under the name apoiador', () => {
     const limits = effectiveLimitsOf({ role: 'user', plan: 'apoiador', lorkariumOwner: false });
-    expect(limits).toEqual({ ...PLAN_LIMITS.free, plan: 'apoiador' });
+    expect(limits).toEqual({ ...PLAN_LIMITS.free, plan: 'apoiador', maxCustomEmojis: 10 });
   });
 
   it('a user in lenda gets the grid of lenda', () => {

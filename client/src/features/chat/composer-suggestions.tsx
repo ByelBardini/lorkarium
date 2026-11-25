@@ -1,4 +1,4 @@
-import { EmoteImage } from '@/components/emote-text';
+import { CustomEmojiImage, EmoteImage } from '@/components/emote-text';
 import { cn } from '@/lib/utils';
 import { optionIdOf, type ComposerSuggestionsState } from './use-composer-suggestions';
 
@@ -27,13 +27,22 @@ export function ComposerSuggestions({
           onClick={() => suggestions.accept(index)}
           className={cn(
             'flex cursor-pointer gap-2 rounded-sm px-2 py-1.5 text-sm',
-            option.emote ? 'items-center' : 'items-baseline',
+            option.emote || option.customEmojiId ? 'items-center' : 'items-baseline',
             index === suggestions.active ? 'bg-accent text-foreground' : 'text-label',
           )}
         >
           {option.emote && (
             <EmoteImage
               emote={option.emote}
+              code={option.value}
+              sticker={false}
+              decorative
+              className="size-6 shrink-0 align-middle"
+            />
+          )}
+          {option.customEmojiId && (
+            <CustomEmojiImage
+              emojiId={option.customEmojiId}
               code={option.value}
               sticker={false}
               decorative

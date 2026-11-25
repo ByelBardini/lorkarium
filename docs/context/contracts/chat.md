@@ -26,7 +26,7 @@ O chat da mesa por Socket.IO: comando `chat:send`, ack com `messageId` e o event
 - `chatReplyDto` `{ messageId, mentionUserId: uuid | null }` (estrito: texto ou nome citado é recusado) — a resposta leva **só o id** da original; cada client a acha no próprio histórico. `mentionUserId` = o autor chamado pelo @ da resposta, ou `null`.
 - `chatSendCommandDto` `{ actionId, campaignId, channel, speaker, text, replyTo }` (`replyTo` `chatReplyDto | null`, padrão `null`), estrito (`userId` forjado é recusado, §7.3). Tipos `ChatSendCommandDto`/`ChatSendCommandInput`.
 - `chatSendAckDto` — `{ ok: true, messageId }` | `realtimeAckFailureDto`. Códigos próprios do chat (string livre no `ApiErrorDto`): `CHAT_RECIPIENT_NOT_MEMBER`, `CHAT_SPEAKER_NOT_ALLOWED` (token fora da Mesa sem sussurro), `CHAT_RECIPIENT_IS_SENDER`, `CHAT_SENDER_NOT_IN_GROUP`; detalhe em [`../chat.md`](../chat.md).
-- `chatSentDto` `{ campaignId, messageId, at, fromUserId, channel, speaker, text, replyTo }` (`replyTo` padrão `null`: o histórico gravado antes das respostas continua legível). Nome, cor e foto do autor saem do roster no client.
+- `chatSentDto` `{ campaignId, messageId, at, fromUserId, channel, speaker, text, replyTo, customEmojis }` (`replyTo` padrão `null`: o histórico gravado antes das respostas continua legível; `customEmojis` = `customEmojiRefsDto`, até 20 `{ name, emojiId }`, padrão `[]`, o mesmo no `dmSentDto`). Nome, cor e foto do autor saem do roster no client.
 - `ChatClientEvents` / `ChatServerEvents` entram no `TableClientEvents` / `TableServerEvents` de `board/board.dto.ts`.
 
 ## Testes

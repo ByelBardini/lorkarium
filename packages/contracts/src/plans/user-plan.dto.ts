@@ -33,6 +33,7 @@ export const PLAN_COUNT_RESOURCES = [
   'sightBlockers',
   'savedRolls',
   'savedRollFolders',
+  'customEmojis',
 ] as const;
 
 /** Things a plan has or has not: the table's (`sceneCopy`, `auraKind`…) or, for `diceTexture`,

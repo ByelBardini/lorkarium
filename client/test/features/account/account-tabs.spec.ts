@@ -5,6 +5,7 @@ describe('accountTabOf', () => {
   it('reads each known tab of ?aba=', () => {
     expect(ACCOUNT_TABS.map(({ value }) => accountTabOf(value))).toEqual([
       'perfil',
+      'emojis',
       'seguranca',
       'plano',
     ]);

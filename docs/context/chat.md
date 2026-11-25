@@ -21,6 +21,7 @@ O chat da sala: a Mesa (a mesa toda), o sussurro inline na Mesa, a conversa priv
 - **Falar como personagem** (`speaker: { kind: 'character', characterId }`): mesmas regras de canal e de espectador do token, mas **sem grid**: `CharactersDao.findInCampaign` (personagem de outra mesa ou inexistente → `CHARACTER_NOT_FOUND`; guardado, para quem não é mestre, também) e `CharacterBo.canControl()` (jogador, controladores, mestre) → senão `FORBIDDEN`. O evento leva `{ kind: 'character', characterId, name }` com o nome do banco.
 - Ordem das conferências: mesa → canal × quem fala → público (si mesmo, grupo) → membros destinatários → token (grid, existência, controle). Nada é publicado em nenhuma recusa.
 - `messageId` vem do `newId` (`randomUUID`) e `at` do `ClockPort`.
+- **Emojis personalizados:** depois de todas as conferências, `emojis.refsIn(userId, text)` (a `CustomEmojiRefsPort`, [`custom-emojis.md`](custom-emojis.md)) põe no evento os emojis **ativos de quem manda** que o texto cita (`customEmojis`), também falando como token ou personagem. Texto sem `:nome:` não consulta; com, no máximo uma consulta por conta por minuto (cache em memória, esquecido quando a conta muda os emojis).
 - **Resposta** (`replyTo`): o server só a repassa (`toChatSentDto`), sem conferir. Não guarda mensagem, então não há como validar o id citado; e o `mentionUserId` só destaca para quem recebe o evento — forjá-lo não chama ninguém de fora do público (equivale a escrever `@nome`). Detalhe no client em [`client/chat-respostas.md`](client/chat-respostas.md).
 
 ## Estrutura (server)
@@ -33,7 +34,7 @@ O chat da sala: a Mesa (a mesa toda), o sussurro inline na Mesa, a conversa priv
   - `chat.error.ts` — `ChatError` e as quatro recusas (tabela abaixo).
   - `chat.gateway.ts` — `createChatGateway` (`chat:send`); `chat.plugin.ts` — `createChatModule({ members, audience, tokens, publisher, clock, newId, realtime, rate, log })` → `{ gateway }`.
 - **Sem `chat-speaker.port.ts`**: o service usa a `GridAudiencePort` do `pings` (estar na sala do grid) e `Pick<TokensDao, 'findInScene'>`, como o `dice` usa `Pick<ProfilesDao, 'findById'>`. Uma porta a mais só embrulharia os dois.
-- `server/src/app/wire-chat.ts` — `wireChat(realtime, { db, members, clock, log })`, chamado no `wireRealtime` do `build-app.ts` logo depois do `wireDice`: `SocketIoGridAudience`, `new TokensDao(db)`, `new CharactersDao(db)`, `SocketIoChatPublisher`, `randomUUID` e um `CommandRateGuard` com `CHAT_RATE`.
+- `server/src/app/wire-chat.ts` — `wireChat(realtime, { db, members, clock, emojis, log })` (`emojis` = o `CustomEmojiRefsService` do `buildApp`), chamado no `wireRealtime` do `build-app.ts` logo depois do `wireDice`: `SocketIoGridAudience`, `new TokensDao(db)`, `new CharactersDao(db)`, `SocketIoChatPublisher`, `randomUUID` e um `CommandRateGuard` com `CHAT_RATE`.
 - `server/src/infrastructure/chat-publisher/socket-io-chat-publisher.ts` — `SocketIoChatPublisher.sent` (salas abaixo).
 
 ## Salas

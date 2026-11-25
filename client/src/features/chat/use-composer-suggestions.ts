@@ -1,8 +1,16 @@
 import { useId, useState } from 'react';
 import { suggestChatCommands, type ChatCommandEntry } from '@/lib/chat-commands-catalog';
 import type { ChatInputMember } from '@/lib/chat-input';
-import type { Emote } from '@/lib/emote-catalog';
-import { suggestEmotes, type EmoteSuggestion } from '@/lib/emote-input';
+import type { Emote } from '@lorkarium/contracts';
+import {
+  EMOTE_SUGGESTION_LIMIT,
+  suggestCustomEmojis,
+  suggestEmotes,
+  type CustomEmojiSuggestion,
+  type EmoteSuggestion,
+} from '@/lib/emote-input';
+import { useCustomEmojisStore } from '@/components/custom-emojis/use-custom-emojis-store';
+import { activeCustomEmojisOf, useCustomEmojis } from '@/stores/custom-emojis-store';
 import {
   mentionTextOf,
   suggestionQueryOf,
@@ -18,6 +26,8 @@ export type ComposerSuggestion = Readonly<{
   insert: string;
   description: string;
   emote?: Emote;
+  /** One of the account's own emojis: its picture by id. */
+  customEmojiId?: string;
 }>;
 
 export type ComposerSuggestionsInput = Readonly<{
@@ -53,8 +63,9 @@ export function useComposerSuggestions(input: ComposerSuggestionsInput): Compose
   const listId = useId();
   const [dismissed, setDismissed] = useState(false);
   const [moved, setMoved] = useState({ key: '', index: 0 });
+  const own = useOwnEmojis();
   const query = suggestionQueryOf(input.draft, input.caret);
-  const options = query === null ? [] : optionsOf(query, input);
+  const options = query === null ? [] : optionsOf(query, input, own);
   const key = query === null ? '' : `${query.kind}:${query.typed}`;
   const active = moved.key === key ? Math.min(moved.index, options.length - 1) : 0;
   const open = !dismissed && options.length > 0;
@@ -98,13 +109,22 @@ function handleKey(event: React.KeyboardEvent, actions: KeyActions): boolean {
   return true;
 }
 
+type OwnEmoji = Readonly<{ id: string; name: string }>;
+
+// The account's active emojis, from the provider around the chat (none outside one).
+function useOwnEmojis(): readonly OwnEmoji[] {
+  const store = useCustomEmojisStore();
+  return activeCustomEmojisOf(useCustomEmojis(store, (state) => state.list));
+}
+
 function optionsOf(
   query: SuggestionQuery,
   input: ComposerSuggestionsInput,
+  own: readonly OwnEmoji[],
 ): readonly ComposerSuggestion[] {
   if (query.kind === 'command')
     return suggestChatCommands(input.catalog, query.typed).map(commandOption);
-  if (query.kind === 'emote') return suggestEmotes(query.typed).map(emoteOption);
+  if (query.kind === 'emote') return emoteOptionsOf(query.typed, own);
   return suggestMembers(input.members, query.typed).map((member) => {
     const mention = mentionTextOf(member);
     return { value: mention, insert: `${mention} `, description: member.name };
@@ -115,6 +135,15 @@ function commandOption(entry: ChatCommandEntry): ComposerSuggestion {
   const value = `/${entry.command}`;
   if (entry.kind === 'saved') return { value, insert: value, description: entry.savedRoll.name };
   return { value, insert: `${value} `, description: `${entry.usage} · ${entry.description}` };
+}
+
+function emoteOptionsOf(typed: string, own: readonly OwnEmoji[]): ComposerSuggestion[] {
+  const mine = suggestCustomEmojis(typed, own).map(customEmojiOption);
+  return [...mine, ...suggestEmotes(typed).map(emoteOption)].slice(0, EMOTE_SUGGESTION_LIMIT);
+}
+
+function customEmojiOption({ emojiId, code }: CustomEmojiSuggestion): ComposerSuggestion {
+  return { value: code, insert: `${code} `, description: 'Seu emoji', customEmojiId: emojiId };
 }
 
 function emoteOption({ emote, code }: EmoteSuggestion): ComposerSuggestion {

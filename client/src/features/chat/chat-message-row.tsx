@@ -75,7 +75,7 @@ export const ChatMessageRow = memo(function ChatMessageRow(
               spoken && 'font-display text-[17px] leading-snug italic',
             )}
           >
-            <EmoteText text={event.text} />
+            <EmoteText text={event.text} customEmojis={event.customEmojis} />
           </p>
           {mentioned && <span className="sr-only">{MENTION_MARK}</span>}
         </div>

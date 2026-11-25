@@ -59,5 +59,9 @@ export const planLimitsDto = z.strictObject({
   profileBanner: z.boolean(),
   /** A token sees invisible tokens (its magic sight); past the plan it is kept, but not turned on. */
   magicSight: z.boolean(),
+  /** The account's own emojis (`:nome:`); past it the newest stop working, none is deleted. */
+  maxCustomEmojis: countCeiling.nullable(),
+  /** A custom emoji keeps its GIF animated; without it the first frame is shown. */
+  animatedCustomEmojis: z.boolean(),
 });
 export type PlanLimits = z.infer<typeof planLimitsDto>;

@@ -44,6 +44,7 @@ export function chatSent(overrides: Partial<ChatSentDto> = {}): ChatSentDto {
     speaker: { kind: 'self' },
     text: 'Oi, mesa.',
     replyTo: null,
+    customEmojis: [],
     ...overrides,
   };
 }

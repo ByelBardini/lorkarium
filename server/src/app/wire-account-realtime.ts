@@ -11,6 +11,7 @@ import type { ClockPort } from '../modules/auth/clock.port';
 import { CommandRateLimitedError } from '../modules/board/board.error';
 import { CampaignsDao } from '../modules/campaigns/campaigns.dao';
 import { createDirectMessagesModule } from '../modules/direct-messages/direct-messages.plugin';
+import type { CustomEmojiRefsPort } from '../modules/custom-emojis/custom-emoji-refs.port';
 import type { FriendsChangedPort } from '../modules/friends/friends-changed.port';
 import { FriendshipsDao } from '../modules/friends/friendships.dao';
 import type { SchedulerPort } from '../modules/sessions/scheduler.port';
@@ -24,6 +25,7 @@ export type AccountRealtimeWiring = Readonly<{
   scheduler: SchedulerPort;
   /** The bucket the session and board commands share. */
   rate: CommandRateGuard;
+  emojis: CustomEmojiRefsPort;
   log: FastifyBaseLogger;
 }>;
 
@@ -44,7 +46,7 @@ export function wireAccountRealtime(
   realtime: Realtime,
   wiring: AccountRealtimeWiring,
 ): AccountRealtime {
-  const { db, clock, scheduler, rate, log } = wiring;
+  const { db, clock, scheduler, rate, emojis, log } = wiring;
   const friendships = new FriendshipsDao(db);
   const presence = createAccountPresenceModule({
     registry: new InMemoryAccountPresenceRegistry(),
@@ -63,6 +65,7 @@ export function wireAccountRealtime(
     presence: presence.service,
     publisher: new SocketIoDirectMessagePublisher(realtime.io),
     clock,
+    emojis,
     newId: randomUUID,
     realtime,
     sendRate: guardOf(clock, DM_RATE),

@@ -83,7 +83,7 @@ describe('PlansService.accountPlanOf', () => {
     const plan = await serviceWith(accounts, new OwnedCampaignsFake()).accountPlanOf(ANA_ID);
 
     expect(plan).toMatchObject({ plan: 'apoiador', customization: true });
-    expect(plan.limits).toEqual({ ...PLAN_LIMITS.free, plan: 'apoiador' });
+    expect(plan.limits).toEqual({ ...PLAN_LIMITS.free, plan: 'apoiador', maxCustomEmojis: 10 });
   });
 
   it('an account that is gone fails naming the id', async () => {

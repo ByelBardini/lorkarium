@@ -1,4 +1,4 @@
-import type { Emote } from '@/lib/emote-catalog';
+import type { CustomEmojiRefDto, Emote } from '@lorkarium/contracts';
 import { emotePiecesOf } from '@/lib/emote-text';
 import type { Point } from './camera';
 
@@ -6,7 +6,8 @@ import type { Point } from './camera';
  *  (drawn as a gap: PixiJS measures a `Text` without its trailing space). */
 export type SpeechRun =
   | Readonly<{ kind: 'word'; text: string; spaced: boolean }>
-  | Readonly<{ kind: 'emote'; emote: Emote; spaced: boolean }>;
+  | Readonly<{ kind: 'emote'; emote: Emote; spaced: boolean }>
+  | Readonly<{ kind: 'custom'; emojiId: string; spaced: boolean }>;
 
 /** The measured size of one run, in screen px, and the gap after it (a space, or 0). */
 export type FlowSize = Readonly<{ width: number; height: number; gapAfter: number }>;
@@ -19,11 +20,16 @@ type FlowEntry = Readonly<{ index: number; size: FlowSize }>;
 /** A balloon's line cut into words and pictures, so it can wrap between them.
  *
  *  Example: `speechRunsOf('Ha :D').map((run) => run.kind) // ['word', 'emote']` */
-export function speechRunsOf(text: string): SpeechRun[] {
+export function speechRunsOf(
+  text: string,
+  customEmojis: readonly CustomEmojiRefDto[] = [],
+): SpeechRun[] {
   const runs: SpeechRun[] = [];
-  for (const piece of emotePiecesOf(text)) {
-    if (piece.kind === 'emote') runs.push({ kind: 'emote', emote: piece.emote, spaced: false });
-    else pushWords(runs, piece.text);
+  for (const piece of emotePiecesOf(text, customEmojis)) {
+    if (piece.kind === 'text') pushWords(runs, piece.text);
+    else if (piece.kind === 'emote')
+      runs.push({ kind: 'emote', emote: piece.emote, spaced: false });
+    else runs.push({ kind: 'custom', emojiId: piece.emojiId, spaced: false });
   }
   return runs;
 }

@@ -11,6 +11,7 @@ import type { CampaignExportDao } from './campaign-export.dao';
 import type { DataExportBo } from './data-export.bo';
 import {
   profileImagesOf,
+  customEmojiImagesOf,
   sentImageOf,
   toDataExportDto,
   type ArchiveImage,
@@ -50,6 +51,7 @@ type ContactPart =
   | 'twoFactorEnabledAt'
   | 'sessions'
   | 'savedColors'
+  | 'customEmojis'
   | 'friends'
   | 'requestsSent'
   | 'requestsReceived';
@@ -89,7 +91,11 @@ export class DataExportService {
   private planOf(parts: DataExportParts, now: Date): ArchivePlan {
     return {
       dto: toDataExportDto(parts, this.deps.cipher, now),
-      images: [...profileImagesOf(parts.account), ...parts.assets.map(sentImageOf)],
+      images: [
+        ...profileImagesOf(parts.account),
+        ...customEmojiImagesOf(parts.customEmojis),
+        ...parts.assets.map(sentImageOf),
+      ],
       username: parts.account.username,
       exportedAt: now,
     };
@@ -118,16 +124,18 @@ export class DataExportService {
 
   private async contactPartsOf(id: string): Promise<Pick<DataExportParts, ContactPart>> {
     const { accounts } = this.deps;
-    const [twoFactorEnabledAt, sessions, savedColors, friends, requestsSent, requestsReceived] =
+    const [twoFactorEnabledAt, sessions, savedColors, customEmojis, friends, sent, received] =
       await Promise.all([
         accounts.twoFactorEnabledAt(id),
         accounts.sessionsOf(id),
         accounts.savedColorsOf(id),
+        accounts.customEmojisOf(id),
         accounts.friendsOf(id),
         accounts.requestsSentBy(id),
         accounts.requestsReceivedBy(id),
       ]);
-    return { twoFactorEnabledAt, sessions, savedColors, friends, requestsSent, requestsReceived };
+    const requests = { requestsSent: sent, requestsReceived: received };
+    return { twoFactorEnabledAt, sessions, savedColors, customEmojis, friends, ...requests };
   }
 
   /** The votes received leave only as the sum the card shows, never who gave them. */

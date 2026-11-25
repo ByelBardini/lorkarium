@@ -1,3 +1,4 @@
+import { CustomEmojisDao } from '../custom-emojis/custom-emojis.dao';
 import type { AdminInvitationDto } from '@lorkarium/contracts';
 import type { FastifyInstance } from 'fastify';
 import type { Database } from '../../database/database';
@@ -69,6 +70,7 @@ export function createUserAdminModule(options: UserAdminModuleOptions): UserAdmi
         deletions: new StorageDeletionsDao(tx),
         bannedEmails: new BannedEmailIndexesDao(tx),
         feedbackShots: new FeedbackAttachmentsDao(tx),
+        customEmojis: new CustomEmojisDao(tx),
         scheduledBans: new AccountSanctionsDao(tx),
       }),
     );

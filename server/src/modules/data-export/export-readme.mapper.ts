@@ -13,6 +13,7 @@ const PARTS_GUIDE = [
   '  account: a conta (@, apelido, e-mail, papel, plano, datas, aceite dos Termos, 2FA ligado ou não).',
   '  profile: o perfil (cor, bio, preferências de jogo, contadores dos dados e as imagens).',
   '  savedColors, friends, friendRequests, blocks: cores salvas, amigos, pedidos e bloqueios que você fez.',
+  '  customEmojis: os seus emojis personalizados (as imagens ficam em imagens/emojis/).',
   '  reputation: os votos que você deu e, dos que recebeu, só o resumo (os votos são de outras pessoas).',
   '  reportsMade e sanctions: as denúncias que você fez e as medidas que recebeu, com a contestação.',
   '  feedback: os relatos de bug e sugestões que ainda esperam análise (os prints não entram).',

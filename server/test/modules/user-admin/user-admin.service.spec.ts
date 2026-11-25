@@ -15,6 +15,7 @@ import {
 import { authSessionPo, userPo } from '../../support/auth-factories';
 import { ProfileChangedFake } from '../../support/profiles-fakes';
 import { FeedbackShotKeysFake } from '../../support/feedback-fakes';
+import { CustomEmojisDaoFake } from '../../support/custom-emojis-fakes';
 import { StagedDeletionQueueFake } from '../../support/storage-deletions-fakes';
 import {
   AdminSeatsFake,
@@ -41,6 +42,7 @@ describe('UserAdminService', () => {
   let deletions: StagedDeletionQueueFake;
   let bannedEmails: BannedEmailsFake;
   let feedbackShots: FeedbackShotKeysFake;
+  let customEmojis: CustomEmojisDaoFake;
   let mailer: MailerFake;
   let journal: string[];
   let adminSeats: AdminSeatsFake;
@@ -74,6 +76,7 @@ describe('UserAdminService', () => {
     deletions = new StagedDeletionQueueFake();
     bannedEmails = new BannedEmailsFake();
     feedbackShots = new FeedbackShotKeysFake();
+    customEmojis = new CustomEmojisDaoFake();
     mailer = new MailerFake();
     journal = [];
     adminSeats = new AdminSeatsFake(journal);
@@ -91,6 +94,7 @@ describe('UserAdminService', () => {
       deletions,
       bannedEmails,
       feedbackShots,
+      customEmojis,
       scheduledBans: new ScheduledBansFake(journal),
     };
     service = new UserAdminService({
@@ -296,13 +300,14 @@ describe('UserAdminService', () => {
       expect(memberships.forgotten).toEqual([BIA_ID]);
     });
 
-    it("queues the files of her 2 solo tables, her photo, texture and banner and her feedback screenshots in the deletion's transaction", async () => {
+    it("queues the files of her 2 solo tables, her photo, texture and banner, her emojis and her feedback screenshots in the deletion's transaction", async () => {
       accounts.owned.set(BIA_ID, [
         { id: 'vharn', name: 'Vharn', otherMembers: 0 },
         { id: 'quelm', name: 'Quelm', otherMembers: 0 },
       ]);
       accounts.ownedKeys.set(BIA_ID, ['assets/v1', 'assets/v2', 'assets/v3', 'assets/q1']);
       feedbackShots.keys.set(BIA_ID, ['feedback/f1']);
+      customEmojis.seed(BIA_ID, 'e1', 'festa', true).seed('someone-else', 'e2', 'bolo');
 
       await service.delete(ADMIN, BIA_ID);
 
@@ -314,6 +319,8 @@ describe('UserAdminService', () => {
         'avatars/33333333-3333-4333-8333-333333333333',
         'dice-textures/44444444-4444-4444-8444-444444444444',
         'banners/55555555-5555-4555-8555-555555555555',
+        'custom-emojis/e1',
+        'custom-emojis/e1-still',
         'feedback/f1',
       ]);
     });

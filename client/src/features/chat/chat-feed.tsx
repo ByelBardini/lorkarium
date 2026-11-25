@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+﻿import { useMemo } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { SceneTabsStore } from '@/stores/scene-tabs-store';
 import type { ChatMessage } from '@/lib/chat-conversations';
@@ -10,7 +10,8 @@ import { HistoryRow } from '@/features/dice/history-row';
 import { useRevealClock } from '@/features/dice/use-reveal-clock';
 import { ChatMessageRow } from './chat-message-row';
 import { EMPTY_CONVERSATION } from './chat-messages';
-import { useFollowBottom } from './use-follow-bottom';
+import { NewMessagesNotice } from '@/components/new-messages-notice';
+import { useFollowBottom, type FollowBottomLatest } from '@/components/use-follow-bottom';
 import type { ChatPeople } from './use-chat-people';
 import { chatFaceOf, chatVoicesOf, useChatTokenFaces, type ChatTokenFaces } from './use-chat-token';
 
@@ -28,52 +29,73 @@ export type ChatFeedProps = Readonly<{
   /** The wall clock of the rolls' `revealAtMs`. */
   diceClock: InteractionClock;
   tabs: StoreApi<SceneTabsStore>;
-  /** Starts answering a message (the composer shows "Respondendo a …"). */
+  /** Starts answering a message (the composer shows "Respondendo a â€¦"). */
   onReply: (message: ChatMessage) => void;
 }>;
 
 /** The feed of one conversation: messages in blocks of one voice, the Table's rolls by the dice
  *  tab's own card, and "Novas" above what was unread. A log that announces nothing by itself
  *  (`aria-live="off"`): the chat's announcer speaks for the messages and the dice notice for the
- *  rolls. Follows the bottom as it grows.
+ *  rolls. Follows the bottom while the reader is there; scrolled up, it stays put and offers
+ *  "Novas mensagens" when something arrives (the viewer's own message still goes to the end).
  *
  *  Example: `<ChatFeed name="Mesa" messages={table.messages} rolls={dice} filter="all" firstUnreadId={null} people={people} viewerNames={names} diceClock={clock} />` */
 export function ChatFeed(props: ChatFeedProps): React.JSX.Element {
   const unreadCount = unreadCountSince(props.messages, props.firstUnreadId);
   const items = chatFeedOf({ ...props, unreadCount });
   const { now } = useRevealClock(props.rolls, props.diceClock);
-  const { scroller, content } = useFollowBottom(items.length);
+  const { scroller, content, hasUnseen, jumpToEnd } = useFollowBottom(
+    latestOf(items, props.people.viewerId),
+  );
   const voices = useMemo(() => chatVoicesOf(props.messages), [props.messages]);
   const faces = useChatTokenFaces(props.tabs, voices);
   const byId = useMemo(() => messagesByIdOf(props.messages), [props.messages]);
   return (
-    <div
-      ref={scroller}
-      role="log"
-      aria-live="off"
-      aria-label={`Mensagens: ${props.name}`}
-      className="min-h-0 flex-1 overflow-y-auto py-2"
-    >
-      <div ref={content}>
-        {items.length === 0 ? (
-          <p className="px-2 py-6 text-sm text-muted-foreground">{EMPTY_CONVERSATION}</p>
-        ) : (
-          <ol data-message-list className="flex flex-col">
-            {items.map((item) => (
-              <FeedItem
-                key={keyOf(item)}
-                item={item}
-                now={now}
-                faces={faces}
-                byId={byId}
-                {...props}
-              />
-            ))}
-          </ol>
-        )}
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div
+        ref={scroller}
+        role="log"
+        aria-live="off"
+        aria-label={`Mensagens: ${props.name}`}
+        className="min-h-0 flex-1 overflow-y-auto py-2"
+      >
+        <div ref={content}>
+          {items.length === 0 ? (
+            <p className="px-2 py-6 text-sm text-muted-foreground">{EMPTY_CONVERSATION}</p>
+          ) : (
+            <ol data-message-list className="flex flex-col">
+              {items.map((item) => (
+                <FeedItem
+                  key={keyOf(item)}
+                  item={item}
+                  now={now}
+                  faces={faces}
+                  byId={byId}
+                  {...props}
+                />
+              ))}
+            </ol>
+          )}
+        </div>
       </div>
+      {hasUnseen && <NewMessagesNotice onJump={jumpToEnd} />}
     </div>
   );
+}
+
+function latestOf(
+  items: readonly ChatFeedItem<DiceHistoryEntry>[],
+  viewerId: string | null,
+): FollowBottomLatest {
+  const last = items.at(-1);
+  if (!last) return { key: null, mine: false };
+  return { key: keyOf(last), mine: viewerId !== null && authorIdOf(last) === viewerId };
+}
+
+function authorIdOf(item: ChatFeedItem<DiceHistoryEntry>): string | null {
+  if (item.kind === 'unread-divider') return null;
+  if (item.kind === 'roll') return item.entry.event.rollerId;
+  return item.message.event.fromUserId;
 }
 
 type FeedItemProps = ChatFeedProps &

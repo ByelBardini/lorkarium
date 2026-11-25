@@ -27,7 +27,7 @@ client/src/components/color-picker/ # Seletor de cor personalizada (popover, cor
 client/src/components/human-check/ # Widget do Cloudflare Turnstile (cadastro e "esqueci a senha"): o único lugar que carrega o script da Cloudflare
 client/src/components/image-crop/ # Diálogo de recorte por formato (foto 1:1, capa 2:1, banner 3:1); `crop-area.tsx` é o único import do `react-easy-crop`, por `lazy`
 client/src/error-reports/ # `@sentry/browser` (o único lugar que o importa, por `import()`): o sink do relato de erro (ver docs/context/error-reports.md)
-client/src/emotes/       # Imagens dos memes e smileys do chat (PNG 96 px) e o `emoteImageUrlOf`; catálogo e troca em src/lib/emote-*.ts
+client/src/emotes/       # Imagens dos memes e smileys do chat (PNG 96 px, SVG dos desenhados em drawn/), `emoteImageUrlOf` e `customEmojiImageUrlOf`; catálogo em packages/contracts/src/emotes/, troca em src/lib/emote-*.ts
 client/src/sheet-sandbox/ # Iframe isolado da ficha (srcdoc + CSP), SDK `window.lorkarium`, ponte do host e host da prévia
 server/                  # API Fastify (PORT 3333, rotas sob /api); encanamento em src/{app,config,database}/
 site/                    # @lorkarium/site: landing comercial em Astro (download do .exe); specs em site/test/, imagem em site/Dockerfile
@@ -106,6 +106,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | profiles         | Perfil: apelido, cor, bio, foto, banner, preferências, card de outra conta              | [`docs/context/profiles.md`](docs/context/profiles.md)                 |
 | badges           | Insígnias: catálogo do admin, imagem 128, ordem, concessão por conta, card              | [`docs/context/badges.md`](docs/context/badges.md)                     |
 | saved-colors     | Cores salvas por conta: tabela, teto de 24, três rotas, trava da corrida                | [`docs/context/saved-colors.md`](docs/context/saved-colors.md)         |
+| custom-emojis    | Emojis da conta: cota por plano, GIF na Lenda, inativos, rotas, cache do chat, admin    | [`docs/context/custom-emojis.md`](docs/context/custom-emojis.md)       |
 | plans            | Planos: grade, dono × conta, Dono, Apoiador, `PLAN_LIMIT`, excedente só leitura, cota   | [`docs/context/plans.md`](docs/context/plans.md)                       |
 | billing          | Cobrança: costura com o serviço de cobrança, plano pago, `/api/billing`, telas          | [`docs/context/billing.md`](docs/context/billing.md)                   |
 | combat           | Condições (lista, cor, stacks, imagem) e combate: entradas, turno, rodada               | [`docs/context/combat.md`](docs/context/combat.md)                     |

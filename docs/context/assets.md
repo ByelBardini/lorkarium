@@ -36,6 +36,8 @@ As imagens da mesa: fundos, tokens, capas, condições, auras e itens da bibliot
   - `outlineOf(userId, assetId)` → `{ outline }`, sob a mesma guarda do `open`, sem abrir o objeto.
 - Erros (`assets.error.ts`, todos `AssetError` com `code`): `ASSET_NOT_FOUND`, `UNSUPPORTED_IMAGE`, `ASSET_TOO_LARGE`, `LINK_BLOCKED`, `LINK_UNREACHABLE`, `LINK_NOT_IMAGE`, `INVALID_BODY` (`InvalidCropError`).
 
+Prefixos da conta no mesmo bucket: `avatars/`, `banners/`, `dice-textures/` ([`profiles.md`](profiles.md)) e `custom-emojis/` (`<id>` e `<id>-still`, [`custom-emojis.md`](custom-emojis.md)).
+
 ## Armazenamento (`AssetStoragePort`)
 
 - `server/src/modules/assets/asset-storage.port.ts` — `AssetStoragePort { ensureBucket(), put(key, bytes, contentType), open(key) → StoredObject | null, remove(key), listKeys(prefix) → ListedObject[] }`; `StoredObject` = `{ body: Readable, size, contentType }` (o corpo vai em fluxo para a resposta); `ListedObject` = `{ key, lastModified }` (só o `pnpm db:remove-orphan-objects` lista, ver `server/scripts.md`). A chave é sempre `assets/<uuid>` (ou `avatars/<uuid>`, as fotos de perfil no mesmo bucket, ver `profiles.md`), nunca o nome do arquivo (§8.5). `remove` é idempotente: chamam direto o perfil (trocar ou tirar a foto) e o `drain` da fila `storage_deletions`, por onde passam a varredura dos arquivos soltos e a exclusão da mesa ([`assets/cota-e-varredura.md`](assets/cota-e-varredura.md)).

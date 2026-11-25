@@ -1,11 +1,20 @@
-import { EMOTES, isNamedEmoteCode, type Emote } from './emote-catalog';
+import {
+  EMOTES,
+  emoteOfUnicode,
+  isNamedEmoteCode,
+  type CustomEmojiRefDto,
+  type Emote,
+} from '@lorkarium/contracts';
 
-/** A run of a message: plain text, or one code drawn as its picture (`code` as typed). */
+/** A run of a message: plain text, one code of the catalog drawn as its picture, or one of the
+ *  sender's custom emojis (`code` as typed). */
 export type EmotePiece =
   | Readonly<{ kind: 'text'; text: string }>
-  | Readonly<{ kind: 'emote'; emote: Emote; code: string }>;
+  | Readonly<{ kind: 'emote'; emote: Emote; code: string }>
+  | Readonly<{ kind: 'custom'; emojiId: string; code: string }>;
 
-type CodeEntry = Readonly<{ code: string; emote: Emote; named: boolean }>;
+type CodeEntry = Readonly<{ code: string; named: boolean }> &
+  (Readonly<{ emote: Emote }> | Readonly<{ emojiId: string }>);
 
 // A code counts only on its own: after a space (or the start) and before a space, the end or a
 // punctuation mark. So `10:30`, `http://` and `a:b` stay text.
@@ -14,25 +23,35 @@ const AFTER_CODE = /[\s.,!?;]/u;
 
 const CODES_BY_START = indexCodes(EMOTES);
 
-/** The message cut into text and pictures; the longest code wins (`:-D` over `:-`).
+const VARIATION_SELECTOR = '\u{FE0F}';
+const ZERO_WIDTH_JOINER = 0x200d;
+const SKIN_TONES = { first: 0x1f3fb, last: 0x1f3ff } as const;
+
+/** The message cut into text and pictures; the longest code wins (`:-D` over `:-`). The sender's
+ *  custom emojis come with the message (`customEmojis` of the event): a `:name:` it does not
+ *  carry stays text.
  *
  *  Example: `emotePiecesOf('oi :D').map((piece) => piece.kind) // ['text', 'emote']` */
-export function emotePiecesOf(text: string): EmotePiece[] {
+export function emotePiecesOf(
+  text: string,
+  customEmojis: readonly CustomEmojiRefDto[] = [],
+): EmotePiece[] {
+  const custom = customEmojis.map((ref) => ({
+    code: `:${ref.name}:`,
+    emojiId: ref.emojiId,
+    named: true,
+  }));
   const pieces: EmotePiece[] = [];
   let plainFrom = 0;
   let at = 0;
   while (at < text.length) {
-    const found = codeAt(text, at);
+    const found = unicodeAt(text, at) ?? codeAt(text, at, custom);
     if (found === null) {
       at += 1;
       continue;
     }
     pushText(pieces, text.slice(plainFrom, at));
-    pieces.push({
-      kind: 'emote',
-      emote: found.emote,
-      code: text.slice(at, at + found.code.length),
-    });
+    pieces.push(pieceOf(found, text.slice(at, at + found.code.length)));
     at += found.code.length;
     plainFrom = at;
   }
@@ -44,12 +63,37 @@ export function emotePiecesOf(text: string): EmotePiece[] {
  *
  *  Example: `emotesOnly(emotePiecesOf(':vish: :D')) // true` */
 export function emotesOnly(pieces: readonly EmotePiece[]): boolean {
-  const pictured = pieces.some((piece) => piece.kind === 'emote');
-  return pictured && pieces.every((piece) => piece.kind === 'emote' || piece.text.trim() === '');
+  const pictured = pieces.some((piece) => piece.kind !== 'text');
+  return pictured && pieces.every((piece) => piece.kind !== 'text' || piece.text.trim() === '');
 }
 
-function codeAt(text: string, at: number): CodeEntry | null {
+function pieceOf(found: CodeEntry, code: string): EmotePiece {
+  if ('emojiId' in found) return { kind: 'custom', emojiId: found.emojiId, code };
+  return { kind: 'emote', emote: found.emote, code };
+}
+
+function unicodeAt(text: string, at: number): CodeEntry | null {
+  const point = text.codePointAt(at);
+  if (point === undefined || point < 0x80) return null;
+  const character = String.fromCodePoint(point);
+  const emote = emoteOfUnicode(character);
+  if (emote === null) return null;
+  const selected = text.startsWith(VARIATION_SELECTOR, at + character.length);
+  const typed = selected ? character + VARIATION_SELECTOR : character;
+  if (extendsEmoji(text.codePointAt(at + typed.length))) return null;
+  return { code: typed, emote, named: false };
+}
+
+// A joiner or a skin tone after the emoji makes it part of a bigger one the catalog lacks.
+function extendsEmoji(point: number | undefined): boolean {
+  if (point === undefined) return false;
+  return point === ZERO_WIDTH_JOINER || (point >= SKIN_TONES.first && point <= SKIN_TONES.last);
+}
+
+function codeAt(text: string, at: number, custom: readonly CodeEntry[]): CodeEntry | null {
   if (at > 0 && !BEFORE_CODE.test(text.charAt(at - 1))) return null;
+  const mine = custom.find((entry) => matchesAt(text, at, entry));
+  if (mine !== undefined) return mine;
   const candidates = CODES_BY_START.get(text.charAt(at).toLowerCase()) ?? [];
   return candidates.find((entry) => matchesAt(text, at, entry)) ?? null;
 }

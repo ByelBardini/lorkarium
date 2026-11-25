@@ -55,7 +55,7 @@ describe('dmSentDto e digitando', () => {
       text: 'oi',
       at: AT,
     };
-    expect(dmSentDto.parse(event)).toEqual({ ...event, replyToMessageId: null });
+    expect(dmSentDto.parse(event)).toEqual({ ...event, replyToMessageId: null, customEmojis: [] });
   });
 
   it('a resposta leva só o id da original, e o histórico antigo lê sem ela', () => {

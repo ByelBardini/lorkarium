@@ -20,6 +20,8 @@ import type { CampaignChangedPort } from '../campaigns/campaign-changed.port';
 import type { CampaignMembersDao, RevokedAdminSeat } from '../campaigns/campaign-members.dao';
 import type { ProfileChangedPort } from '../profiles/profile-changed.port';
 import { avatarKeyOf, bannerKeyOf, diceTextureKeyOf } from '../profiles/profiles.mapper';
+import type { CustomEmojisDao } from '../custom-emojis/custom-emojis.dao';
+import { customEmojiKeysOf } from '../custom-emojis/custom-emojis.mapper';
 import type { OwnerLimitsPort } from './owner-limits.port';
 import type { RevokedSeatsPort } from './revoked-seats.port';
 import { deletionVerdict, requireOtherAccount } from './user-admin.bo';
@@ -51,6 +53,8 @@ export type UserAdminWriteDaos = Readonly<{
   bannedEmails: Pick<BannedEmailIndexesDao, 'ban'>;
   /** The screenshots the account sent with a bug report or a suggestion (they go by cascade). */
   feedbackShots: Pick<FeedbackAttachmentsDao, 'storageKeysOfUploader'>;
+  /** The account's custom emojis (they go by cascade; their pictures wait here). */
+  customEmojis: Pick<CustomEmojisDao, 'listOf'>;
   /** "Reativar acesso" also lifts a ban's pending deletion. */
   scheduledBans: Pick<AccountSanctionsDao, 'cancelDeletionsOf'>;
 }>;
@@ -219,7 +223,9 @@ export class UserAdminService {
     // Read under the lock, before the cascade takes the rows: an upload in flight finished first.
     const tableKeys = await daos.accounts.storageKeysOfOwnedCampaigns(userId);
     const shotKeys = await daos.feedbackShots.storageKeysOfUploader(userId);
-    await daos.deletions.enqueue([...tableKeys, ...accountImageKeysOf(found), ...shotKeys]);
+    const emojiKeys = (await daos.customEmojis.listOf(userId)).flatMap(customEmojiKeysOf);
+    const imageKeys = [...accountImageKeysOf(found), ...emojiKeys];
+    await daos.deletions.enqueue([...tableKeys, ...imageKeys, ...shotKeys]);
     const ended = await daos.sessions.deleteAllOf(userId);
     // Before the row goes: its foreign key would null who issued them.
     await daos.invitations.deleteAdminRoleIssuedBy(userId);

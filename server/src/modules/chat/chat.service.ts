@@ -12,6 +12,7 @@ import { TokenAccessBo } from '../tokens/token-access.bo';
 import type { TokensDao } from '../tokens/tokens.dao';
 import { TokenNotFoundError } from '../tokens/tokens.error';
 import { ChatMessageBo } from './chat-message.bo';
+import type { CustomEmojiRefsPort } from '../custom-emojis/custom-emoji-refs.port';
 import type { ChatPublisherPort } from './chat-publisher.port';
 import { ChatRecipientNotMemberError } from './chat.error';
 import { toChatCharacterSpeakerDto, toChatSentDto, toChatTokenSpeakerDto } from './chat.mapper';
@@ -26,6 +27,8 @@ export type ChatServiceDeps = Readonly<{
   characters: Pick<CharactersDao, 'findInCampaign'>;
   publisher: ChatPublisherPort;
   clock: ClockPort;
+  /** The sender's custom emojis the text names, for the event. */
+  emojis: CustomEmojiRefsPort;
   newId: () => string;
 }>;
 
@@ -51,12 +54,14 @@ export class ChatService {
     message.requireSpeaker(command.speaker, access);
     const audience = message.audience();
     await this.requireMembers(command.campaignId, message.recipientIds());
+    const speaker = await this.speakerOf(access, command, connectionId);
     const event = toChatSentDto({
       command,
       messageId: this.deps.newId(),
       fromUserId: userId,
-      speaker: await this.speakerOf(access, command, connectionId),
+      speaker,
       at: this.deps.clock.now().toISOString(),
+      customEmojis: await this.deps.emojis.refsIn(userId, command.text),
     });
     this.deps.publisher.sent(event, audience);
     return { messageId: event.messageId };

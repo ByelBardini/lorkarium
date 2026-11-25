@@ -7,6 +7,7 @@ import type { ChatPreferencesStore } from '@/stores/chat-preferences-store';
 import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
 import type { SessionStore } from '@/stores/session-store';
 import type { AccountLoaderData } from './account-routes';
+import { CustomEmojisSection } from './custom-emojis-section';
 import { DataExportSection, type DataExportSectionProps } from './data-export-section';
 import {
   ACCOUNT_TAB_PARAM,
@@ -33,8 +34,9 @@ export type AccountPageProps = AccountLoaderData &
     dataExport: Pick<DataExportSectionProps, 'dataExportApi' | 'fileDownload' | 'now'>;
   }>;
 
-/** "Minha conta" in tabs: how the person shows up to the table and rolls the dice (Perfil), how
- *  they look after the account (Segurança) and what their plan allows (Plano). The open tab is in
+/** "Minha conta" in tabs: how the person shows up to the table and rolls the dice (Perfil), their
+ *  own emojis (Emojis), how they look after the account (Segurança) and what their plan allows
+ *  (Plano). The open tab is in
  *  `?aba=`; the profile draft is the page's, so an edit survives a switch of tab.
  *
  *  Example: `<AccountPage {...useLoaderData()} now={now} profileApi={profileApi} sessionStore={sessionStore} clipboard={clipboard} dicePreferences={dicePreferences} chatPreferences={chatPreferences} />` */
@@ -106,6 +108,9 @@ function AccountTabPanels(
           dicePreferences={props.dicePreferences}
           chatPreferences={props.chatPreferences}
         />
+      </TabsContent>
+      <TabsContent value="emojis">
+        <CustomEmojisSection author={profile} />
       </TabsContent>
       <TabsContent value="seguranca" className="flex flex-col gap-14">
         <SecuritySection

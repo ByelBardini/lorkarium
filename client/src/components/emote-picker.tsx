@@ -1,12 +1,22 @@
 import { SmileIcon } from 'lucide-react';
 import { useState } from 'react';
-import { EmoteImage } from '@/components/emote-text';
+import { OwnEmojiGrid } from '@/components/custom-emojis/own-emoji-grid';
+import { useCustomEmojisStore } from '@/components/custom-emojis/use-custom-emojis-store';
+import { CustomEmojiImage, EmoteImage } from '@/components/emote-text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { EMOTES, MEMES, SMILEYS, type Emote } from '@/lib/emote-catalog';
+import {
+  EMOTE_CATEGORIES,
+  EMOTES,
+  emotesIn,
+  type CustomEmojiDto,
+  type Emote,
+  type EmoteCategory,
+} from '@lorkarium/contracts';
 import { searchEmotes } from '@/lib/emote-input';
+import { activeCustomEmojisOf, useCustomEmojis } from '@/stores/custom-emojis-store';
 
 export type EmotePickerProps = Readonly<{
   /** Gets the code of the picture clicked (the emote's first code). */
@@ -14,7 +24,7 @@ export type EmotePickerProps = Readonly<{
   disabled?: boolean;
 }>;
 
-/** "Memes e smileys": a button beside the message field opening a grid in two tabs, with a
+/** "Memes e smileys": a button beside the message field opening a grid in one tab per category, with a
  *  search over codes and names. A click writes the code and closes it; the field takes the
  *  focus back (`onPick`).
  *
@@ -54,8 +64,16 @@ export function EmotePicker({ onPick, disabled }: EmotePickerProps): React.JSX.E
   );
 }
 
+// The account's active emojis, from the provider around the chat (none outside one).
+function useOwnEmojis(): readonly CustomEmojiDto[] {
+  const store = useCustomEmojisStore();
+  return activeCustomEmojisOf(useCustomEmojis(store, (state) => state.list));
+}
+
 function EmotePickerBody({ onPick }: Readonly<{ onPick: (code: string) => void }>) {
   const [search, setSearch] = useState('');
+  const own = useOwnEmojis();
+  const typed = search.trim().toLowerCase();
   return (
     <>
       <Input
@@ -65,29 +83,87 @@ function EmotePickerBody({ onPick }: Readonly<{ onPick: (code: string) => void }
         value={search}
         onChange={(event) => setSearch(event.target.value)}
       />
-      {search.trim() === '' ? (
-        <EmoteTabs onPick={onPick} />
+      {typed === '' ? (
+        <EmoteTabs own={own} onPick={onPick} />
       ) : (
-        <EmoteGrid emotes={searchEmotes(EMOTES, search)} onPick={onPick} />
+        <SearchResults
+          own={own.filter((emoji) => emoji.name.includes(typed))}
+          search={search}
+          onPick={onPick}
+        />
       )}
     </>
   );
 }
 
-function EmoteTabs({ onPick }: Readonly<{ onPick: (code: string) => void }>) {
+// Each tab is drawn as one of its pictures: six words would not fit the popover.
+const CATEGORY_TABS: Readonly<Record<EmoteCategory, { label: string; iconId: string }>> = {
+  reactions: { label: 'Reações', iconId: 'smile' },
+  gestures: { label: 'Gestos', iconId: 'thumbs-up' },
+  rpg: { label: 'RPG', iconId: 'dice' },
+  symbols: { label: 'Símbolos', iconId: 'heart' },
+  monkeys: { label: 'Macacos', iconId: 'see_no_evil' },
+  memes: { label: 'Memes', iconId: 'doge' },
+};
+
+type PickerPartProps = Readonly<{
+  own: readonly CustomEmojiDto[];
+  onPick: (code: string) => void;
+}>;
+
+function SearchResults({ own, search, onPick }: PickerPartProps & Readonly<{ search: string }>) {
+  const catalog = searchEmotes(EMOTES, search);
+  if (own.length === 0) return <EmoteGrid emotes={catalog} onPick={onPick} />;
   return (
-    <Tabs defaultValue="smileys" className="gap-2">
-      <TabsList>
-        <TabsTrigger value="smileys">Smileys</TabsTrigger>
-        <TabsTrigger value="memes">Memes</TabsTrigger>
+    <>
+      <OwnEmojiGrid emojis={own} onPick={onPick} />
+      {catalog.length > 0 && <EmoteGrid emotes={catalog} onPick={onPick} />}
+    </>
+  );
+}
+
+// "Meus" comes first, and opens first, when the account has emojis of its own.
+function EmoteTabs({ own, onPick }: PickerPartProps) {
+  const [first] = own;
+  return (
+    <Tabs defaultValue={first === undefined ? 'reactions' : 'mine'} className="gap-2">
+      <TabsList className="w-full">
+        {first !== undefined && <OwnTab emojiId={first.id} />}
+        {EMOTE_CATEGORIES.map((category) => (
+          <CategoryTab key={category} category={category} />
+        ))}
       </TabsList>
-      <TabsContent value="smileys">
-        <EmoteGrid emotes={SMILEYS} onPick={onPick} />
-      </TabsContent>
-      <TabsContent value="memes">
-        <EmoteGrid emotes={MEMES} onPick={onPick} />
-      </TabsContent>
+      {first !== undefined && (
+        <TabsContent value="mine">
+          <OwnEmojiGrid emojis={own} onPick={onPick} />
+        </TabsContent>
+      )}
+      {EMOTE_CATEGORIES.map((category) => (
+        <TabsContent key={category} value={category}>
+          <EmoteGrid emotes={emotesIn(category)} onPick={onPick} />
+        </TabsContent>
+      ))}
     </Tabs>
+  );
+}
+
+function OwnTab({ emojiId }: Readonly<{ emojiId: string }>) {
+  return (
+    <TabsTrigger value="mine" aria-label="Meus emojis" title="Meus emojis">
+      <CustomEmojiImage emojiId={emojiId} code="" sticker={false} decorative className="size-5" />
+    </TabsTrigger>
+  );
+}
+
+function CategoryTab({ category }: Readonly<{ category: EmoteCategory }>) {
+  const { label, iconId } = CATEGORY_TABS[category];
+  const icon = EMOTES.find((emote) => emote.id === iconId);
+  return (
+    <TabsTrigger value={category} aria-label={label} title={label}>
+      {icon === undefined ? null : (
+        <EmoteImage emote={icon} code={label} sticker={false} decorative className="size-5" />
+      )}
+    </TabsTrigger>
   );
 }
 

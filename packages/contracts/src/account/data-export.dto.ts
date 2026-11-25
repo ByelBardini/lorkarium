@@ -203,6 +203,10 @@ export const dataExportDto = z.strictObject({
   account: exportedAccountDto,
   profile: exportedProfileDto,
   savedColors: z.array(z.strictObject({ color: z.string(), savedAt: instant })),
+  /** The account's own emojis; their pictures are in `imagens/emojis/`. */
+  customEmojis: z.array(
+    z.strictObject({ name: z.string(), animated: z.boolean(), createdAt: instant }),
+  ),
   friends: z.array(otherAccount),
   friendRequests: z.strictObject({ sent: z.array(otherAccount), received: z.array(otherAccount) }),
   blocks: z.array(otherAccount),

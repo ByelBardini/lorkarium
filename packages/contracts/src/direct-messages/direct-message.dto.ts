@@ -1,3 +1,4 @@
+import { customEmojiRefsDto } from '../custom-emojis/custom-emoji.dto';
 import { z } from 'zod';
 import { realtimeAckFailureDto } from '../http/realtime-ack.dto';
 import { DIRECT_MESSAGE_MAX_LENGTH } from '../realtime-limits';
@@ -61,6 +62,8 @@ export const dmSentDto = z.strictObject({
   at: z.iso.datetime(),
   /** Absent in a history saved before replies existed. */
   replyToMessageId: z.uuid().nullable().default(null),
+  /** The sender's custom emojis in `text`; absent in a history saved before them. */
+  customEmojis: customEmojiRefsDto.default([]),
 });
 export type DmSentDto = z.infer<typeof dmSentDto>;
 

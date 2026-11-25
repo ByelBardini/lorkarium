@@ -1,3 +1,4 @@
+import { customEmojiRefsDto } from '../custom-emojis/custom-emoji.dto';
 import { z } from 'zod';
 import { TOKEN_NAME_MAX_LENGTH } from '../board/token.dto';
 import { realtimeAckFailureDto } from '../http/realtime-ack.dto';
@@ -155,6 +156,8 @@ export const chatSentDto = z.strictObject({
   text: chatTextDto,
   /** Absent in a history saved before replies existed. */
   replyTo: chatReplyDto.nullable().default(null),
+  /** The sender's custom emojis in `text`; absent in a history saved before them. */
+  customEmojis: customEmojiRefsDto.default([]),
 });
 export type ChatSentDto = z.infer<typeof chatSentDto>;
 
