@@ -1,7 +1,9 @@
-import type { DmSentDto, FriendDto } from '@lorkarium/contracts';
-import { useEffect, useMemo, useRef } from 'react';
+﻿import type { DmSentDto, FriendDto } from '@lorkarium/contracts';
+import { useMemo } from 'react';
 import { EmoteText } from '@/components/emote-text';
 import { ReplyButton, ReplyQuote, type QuotedMessage } from '@/components/message-reply';
+import { NewMessagesNotice } from '@/components/new-messages-notice';
+import { useFollowBottom } from '@/components/use-follow-bottom';
 import { formatClockTime } from '@/lib/clock-time';
 import { directFeedOf, type DirectFeedRun } from '@/lib/direct-feed';
 import { cn } from '@/lib/utils';
@@ -11,7 +13,7 @@ export type ConversationFeedProps = Readonly<{
   accountId: string;
   friend: FriendDto;
   now: () => Date;
-  /** Starts answering a message (the composer shows "Respondendo a …"). */
+  /** Starts answering a message (the composer shows "Respondendo a â€¦"). */
   onReply: (message: DmSentDto) => void;
 }>;
 
@@ -19,43 +21,58 @@ type Authors = Readonly<{ accountId: string; friendName: string }>;
 
 /** The messages of a conversation: a separator per day, blocks of one author with the time at
  *  the end of each, mine on the right. A reply quotes its original above the bubble (clicking
- *  scrolls to it); hovering a bubble offers "Responder". Scrolls to the newest as they arrive.
+ *  scrolls to it); hovering a bubble offers "Responder". Follows the newest while the reader is at
+ *  the end; scrolled up, it stays put and offers "Novas mensagens" (my own still goes to the end).
  *
  *  Example: `<ConversationFeed messages={conversation.messages} accountId={me.id} friend={bia} now={() => new Date()} onReply={reply.start} />` */
 export function ConversationFeed(props: ConversationFeedProps): React.JSX.Element {
   const { messages, accountId, friend } = props;
-  const scroller = useRef<HTMLDivElement>(null);
   const byId = useMemo(() => new Map(messages.map((each) => [each.messageId, each])), [messages]);
   const authors: Authors = { accountId, friendName: friend.name };
-  useEffect(() => {
-    const element = scroller.current;
-    if (element) element.scrollTop = element.scrollHeight;
-  }, [messages]);
-  if (messages.length === 0) {
-    return (
-      <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
-        {`Nenhuma mensagem com ${friend.name} ainda. As conversas ficam só neste aparelho.`}
-      </div>
-    );
-  }
+  const last = messages.at(-1);
+  const { scroller, content, hasUnseen, jumpToEnd } = useFollowBottom({
+    key: last?.messageId ?? null,
+    mine: last?.fromUserId === accountId,
+  });
   return (
-    <div ref={scroller} data-message-list className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-      {directFeedOf(messages, accountId, props.now()).map((day) => (
-        <section key={day.key} aria-label={day.label} className="flex flex-col gap-3">
-          <p role="separator" className="py-2 text-center text-xs text-muted-foreground">
-            {day.label}
-          </p>
-          {day.runs.map((run) => (
-            <MessageRun
-              key={run.messages[0]?.messageId}
-              run={run}
-              authors={authors}
-              byId={byId}
-              onReply={props.onReply}
-            />
-          ))}
-        </section>
-      ))}
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div
+        ref={scroller}
+        data-message-list
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4"
+      >
+        <div ref={content} className="flex flex-1 flex-col">
+          {messages.length === 0 ? (
+            <EmptyConversation friendName={friend.name} />
+          ) : (
+            directFeedOf(messages, accountId, props.now()).map((day) => (
+              <section key={day.key} aria-label={day.label} className="flex flex-col gap-3">
+                <p role="separator" className="py-2 text-center text-xs text-muted-foreground">
+                  {day.label}
+                </p>
+                {day.runs.map((run) => (
+                  <MessageRun
+                    key={run.messages[0]?.messageId}
+                    run={run}
+                    authors={authors}
+                    byId={byId}
+                    onReply={props.onReply}
+                  />
+                ))}
+              </section>
+            ))
+          )}
+        </div>
+      </div>
+      {hasUnseen && <NewMessagesNotice onJump={jumpToEnd} />}
+    </div>
+  );
+}
+
+function EmptyConversation({ friendName }: Readonly<{ friendName: string }>): React.JSX.Element {
+  return (
+    <div className="flex flex-1 items-center justify-center p-4 text-center text-sm text-muted-foreground">
+      {`Nenhuma mensagem com ${friendName} ainda. As conversas ficam sÃ³ neste aparelho.`}
     </div>
   );
 }
@@ -71,7 +88,7 @@ function MessageRun({ run, authors, byId, onReply }: RunProps): React.JSX.Elemen
   const last = run.messages.at(-1);
   return (
     <div className={cn('flex flex-col gap-1', run.mine ? 'items-end' : 'items-start')}>
-      <span className="sr-only">{run.mine ? 'Você' : authors.friendName}</span>
+      <span className="sr-only">{run.mine ? 'VocÃª' : authors.friendName}</span>
       {run.messages.map((message) => (
         <MessageBubble
           key={message.messageId}
@@ -129,7 +146,7 @@ function MessageBubble({ message, mine, authors, quoted, onReply }: BubbleProps)
 }
 
 function authorNameOf(message: DmSentDto, authors: Authors): string {
-  return message.fromUserId === authors.accountId ? 'Você' : authors.friendName;
+  return message.fromUserId === authors.accountId ? 'VocÃª' : authors.friendName;
 }
 
 function quotedOf(
