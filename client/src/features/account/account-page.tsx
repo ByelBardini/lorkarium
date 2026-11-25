@@ -110,7 +110,7 @@ function AccountTabPanels(
         />
       </TabsContent>
       <TabsContent value="emojis">
-        <CustomEmojisSection />
+        <CustomEmojisSection author={profile} />
       </TabsContent>
       <TabsContent value="seguranca" className="flex flex-col gap-14">
         <SecuritySection

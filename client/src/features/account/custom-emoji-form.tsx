@@ -1,5 +1,5 @@
-import { CUSTOM_EMOJI_MIME_TYPES } from '@lorkarium/contracts';
-import { ImageUpIcon, Loader2Icon, PlusIcon } from 'lucide-react';
+import { CUSTOM_EMOJI_MIME_TYPES, type CustomEmojiDto } from '@lorkarium/contracts';
+import { ImageUpIcon, Loader2Icon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { useId, useState, type DragEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,50 +10,122 @@ import type { EmojiDraft } from './custom-emoji-draft';
 
 export type CustomEmojiFormProps = Readonly<{
   draft: EmojiDraft;
-  /** The `blob:` URL of the chosen picture, for the drop area. */
+  /** The picture shown in the square: the one chosen, or the emoji being edited. */
   pictureUrl: string | null;
+  /** The emoji loaded from the gallery; `null` makes a new one. */
+  editing: CustomEmojiDto | null;
   onDraft: (draft: EmojiDraft) => void;
-  /** Answers whether the server kept it; on yes the section clears the draft. */
   onCreate: (name: string, picture: File) => Promise<boolean>;
+  onRename: (emojiId: string, name: string) => Promise<boolean>;
+  onRemove: (emojiId: string) => Promise<boolean>;
+  /** Leaves the emoji being edited: back to a new one. */
+  onCancel: () => void;
 }>;
 
 const PICTURE_ACCEPT = CUSTOM_EMOJI_MIME_TYPES.join(',');
 
-/** "Novo emoji": a square that takes a dropped or chosen picture and shows it, the name between
- *  colons and "Adicionar emoji".
+/** The emoji in the making: a square that takes a dropped or chosen picture and shows it, the name
+ *  between colons and the actions. A new one is added; one picked from the gallery is renamed or
+ *  removed (its picture stays: to change it, remove and add again).
  *
- *  Example: `<CustomEmojiForm draft={draft} pictureUrl={url} onDraft={setDraft} onCreate={create} />` */
+ *  Example: `<CustomEmojiForm draft={draft} pictureUrl={url} editing={null} … />` */
 export function CustomEmojiForm(props: CustomEmojiFormProps): React.JSX.Element {
-  const { draft, onDraft } = props;
-  const [sending, setSending] = useState(false);
+  const { draft, editing, onDraft } = props;
+  const [busy, setBusy] = useState(false);
   const problem = draft.name === '' ? null : customEmojiNameProblem(draft.name);
-  const ready = draft.picture !== null && draft.name !== '' && problem === null;
+  const named = draft.name !== '' && problem === null;
+  const run = async (work: () => Promise<boolean>): Promise<void> => {
+    setBusy(true);
+    await work();
+    setBusy(false);
+  };
   const submit = async (event: React.FormEvent): Promise<void> => {
     event.preventDefault();
-    if (!ready || draft.picture === null) return;
-    setSending(true);
-    await props.onCreate(draft.name, draft.picture);
-    setSending(false);
+    if (!named) return;
+    if (editing !== null) return run(() => props.onRename(editing.id, draft.name));
+    const { picture } = draft;
+    if (picture !== null) return run(() => props.onCreate(draft.name, picture));
   };
   return (
-    <form aria-label="Novo emoji" onSubmit={submit} className="flex flex-wrap items-start gap-6">
-      <PictureDrop url={props.pictureUrl} onPicture={(picture) => onDraft({ ...draft, picture })} />
+    <form
+      aria-label={editing === null ? 'Novo emoji' : `Editar :${editing.name}:`}
+      onSubmit={submit}
+      className="flex flex-wrap items-start gap-6"
+    >
+      <PictureDrop
+        url={props.pictureUrl}
+        locked={editing !== null}
+        onPicture={(picture) => onDraft({ ...draft, picture })}
+      />
       <div className="flex min-w-60 flex-1 flex-col gap-4">
         <NameField
           name={draft.name}
           problem={problem}
           onName={(name) => onDraft({ ...draft, name })}
         />
-        <Button type="submit" size="xl" disabled={sending || !ready} className="self-start">
-          {sending ? (
-            <Loader2Icon aria-hidden="true" className="animate-spin" />
-          ) : (
-            <PlusIcon aria-hidden="true" />
-          )}
-          {sending ? 'Enviando…' : 'Adicionar emoji'}
-        </Button>
+        {editing === null ? (
+          <CreateButton busy={busy} ready={named && draft.picture !== null} />
+        ) : (
+          <EditButtons
+            busy={busy}
+            renamed={named && draft.name !== editing.name}
+            onRemove={() => void run(() => props.onRemove(editing.id))}
+            onCancel={props.onCancel}
+          />
+        )}
       </div>
     </form>
+  );
+}
+
+function CreateButton({ busy, ready }: Readonly<{ busy: boolean; ready: boolean }>) {
+  return (
+    <Button type="submit" size="xl" disabled={busy || !ready} className="self-start">
+      {busy ? (
+        <Loader2Icon aria-hidden="true" className="animate-spin" />
+      ) : (
+        <PlusIcon aria-hidden="true" />
+      )}
+      {busy ? 'Enviando…' : 'Adicionar emoji'}
+    </Button>
+  );
+}
+
+type EditButtonsProps = Readonly<{
+  busy: boolean;
+  renamed: boolean;
+  onRemove: () => void;
+  onCancel: () => void;
+}>;
+
+function EditButtons({ busy, renamed, onRemove, onCancel }: EditButtonsProps) {
+  const [asking, setAsking] = useState(false);
+  if (asking) {
+    return (
+      <div role="group" aria-label="Apagar este emoji?" className="flex items-center gap-2">
+        <span className="text-sm text-label">Apagar este emoji?</span>
+        <Button type="button" variant="destructive" disabled={busy} onClick={onRemove}>
+          Apagar
+        </Button>
+        <Button type="button" variant="ghost" onClick={() => setAsking(false)}>
+          Manter
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button type="submit" size="xl" disabled={busy || !renamed}>
+        Salvar nome
+      </Button>
+      <Button type="button" size="xl" variant="outline" onClick={() => setAsking(true)}>
+        <Trash2Icon aria-hidden="true" />
+        Apagar
+      </Button>
+      <Button type="button" size="xl" variant="ghost" onClick={onCancel}>
+        Cancelar
+      </Button>
+    </div>
   );
 }
 
@@ -97,10 +169,24 @@ function NameField({ name, problem, onName }: NameFieldProps): React.JSX.Element
   );
 }
 
-type PictureDropProps = Readonly<{ url: string | null; onPicture: (picture: File) => void }>;
+type PictureDropProps = Readonly<{
+  url: string | null;
+  /** Editing: the picture is shown, not changed. */
+  locked: boolean;
+  onPicture: (picture: File) => void;
+}>;
 
-function PictureDrop({ url, onPicture }: PictureDropProps): React.JSX.Element {
+const PICTURE_FRAME = 'grid size-32 shrink-0 place-items-center rounded-md border bg-card';
+
+function PictureDrop({ url, locked, onPicture }: PictureDropProps): React.JSX.Element {
   const [over, setOver] = useState(false);
+  if (locked) {
+    return (
+      <div className={cn(PICTURE_FRAME, 'border-border')}>
+        {url !== null && <img src={url} alt="" className="size-20 object-contain" />}
+      </div>
+    );
+  }
   const drop = (event: DragEvent<HTMLLabelElement>): void => {
     event.preventDefault();
     setOver(false);
@@ -116,7 +202,8 @@ function PictureDrop({ url, onPicture }: PictureDropProps): React.JSX.Element {
       onDragLeave={() => setOver(false)}
       onDrop={drop}
       className={cn(
-        'grid size-32 shrink-0 cursor-pointer place-items-center rounded-md border border-dashed bg-card text-center transition-colors has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring',
+        PICTURE_FRAME,
+        'cursor-pointer border-dashed text-center transition-colors has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring',
         over ? 'border-primary bg-primary/10' : 'border-input hover:border-primary',
       )}
     >

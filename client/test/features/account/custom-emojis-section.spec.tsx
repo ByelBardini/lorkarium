@@ -6,12 +6,18 @@ import { CustomEmojisSection } from '@/features/account/custom-emojis-section';
 import { createCustomEmojisStore } from '@/stores/custom-emojis-store';
 import { CustomEmojisApiFake } from '../../support/custom-emojis-api-fake';
 
+const AUTHOR = { name: 'Bia', color: 'gold', avatarId: null } as const;
+
+function previewOf(): HTMLElement {
+  return screen.getByRole('figure', { name: 'Assim aparece no chat' });
+}
+
 async function renderSection(api: CustomEmojisApiFake) {
   const store = createCustomEmojisStore(api);
   await store.getState().load();
   render(
     <CustomEmojisContext value={store}>
-      <CustomEmojisSection />
+      <CustomEmojisSection author={AUTHOR} />
     </CustomEmojisContext>,
   );
   return store;
@@ -82,7 +88,7 @@ describe('CustomEmojisSection', () => {
     expect(tres).toHaveTextContent(':tres:Inativo');
     expect(screen.getByText(/passam do que o seu plano permite \(2\)/u)).toBeInTheDocument();
     expect(screen.queryByRole('form', { name: 'Novo emoji' })).toBeNull();
-    expect(screen.getByText(/Apague um para adicionar outro/u)).toBeInTheDocument();
+    expect(screen.getByText(/Clique num deles para apagar/u)).toBeInTheDocument();
   });
 
   it('Grátis sees which plan opens it, and no form', async () => {
@@ -94,30 +100,61 @@ describe('CustomEmojisSection', () => {
     expect(screen.queryByRole('form', { name: 'Novo emoji' })).toBeNull();
   });
 
-  it('removing asks first, "Manter" keeps it and "Apagar" removes it', async () => {
+  it('the preview stays empty until a picture is chosen, then shows it in two messages', async () => {
+    await renderSection(new CustomEmojisApiFake().with('velho'));
+
+    expect(within(previewOf()).queryByRole('img')).toBeNull();
+    await fillForm('festa');
+
+    const pictures = within(previewOf()).getAllByRole('img', { name: ':festa:' });
+    expect(pictures).toHaveLength(2);
+    expect(within(previewOf()).getByText('Bia')).toBeInTheDocument();
+  });
+
+  it('clicking an emoji loads it into the form and the preview; "Cancelar" leaves it', async () => {
+    await renderSection(new CustomEmojisApiFake().with('festa'));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Editar :festa:' }));
+
+    const form = screen.getByRole('form', { name: 'Editar :festa:' });
+    expect(within(form).getByLabelText('Nome')).toHaveValue('festa');
+    expect(screen.getByRole('button', { name: 'Editar :festa:' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(within(previewOf()).getAllByRole('img', { name: ':festa:' })).toHaveLength(2);
+    await userEvent.click(within(form).getByRole('button', { name: 'Cancelar' }));
+    expect(screen.getByRole('form', { name: 'Novo emoji' })).toBeInTheDocument();
+  });
+
+  it('removing from the form asks first, "Manter" keeps it and "Apagar" removes it', async () => {
     const api = new CustomEmojisApiFake().with('festa');
     await renderSection(api);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Apagar :festa:' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Editar :festa:' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Apagar' }));
     await userEvent.click(screen.getByRole('button', { name: 'Manter' }));
     expect(api.calls).toEqual(['list']);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Apagar :festa:' }));
     await userEvent.click(screen.getByRole('button', { name: 'Apagar' }));
+    const question = screen.getByRole('group', { name: 'Apagar este emoji?' });
+    await userEvent.click(within(question).getByRole('button', { name: 'Apagar' }));
     expect(await screen.findByText('Nenhum emoji ainda.')).toBeInTheDocument();
-    expect(screen.queryByRole('list', { name: 'Seus emojis' })).toBeNull();
+    expect(screen.getByRole('form', { name: 'Novo emoji' })).toBeInTheDocument();
   });
 
-  it('renames in place', async () => {
+  it('renames from the form, and the full ceiling still lets one be edited', async () => {
     const api = new CustomEmojisApiFake().with('festa');
+    api.limit = 1;
     await renderSection(api);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Renomear :festa:' }));
-    const field = screen.getByRole('textbox', { name: 'Novo nome de :festa:' });
+    await userEvent.click(screen.getByRole('button', { name: 'Editar :festa:' }));
+    const field = screen.getByLabelText('Nome');
     await userEvent.clear(field);
     await userEvent.type(field, 'bolo');
-    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar nome' }));
 
-    expect(await screen.findByText(':bolo:')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Editar :bolo:' })).toBeInTheDocument();
+    expect(api.calls.some((call) => /^rename \S+ bolo$/u.test(call))).toBe(true);
   });
 });
