@@ -108,7 +108,8 @@ describe('CustomEmojisSection', () => {
 
     const pictures = within(previewOf()).getAllByRole('img', { name: ':festa:' });
     expect(pictures).toHaveLength(2);
-    expect(within(previewOf()).getByText('Bia')).toBeInTheDocument();
+    expect(within(previewOf()).getAllByText('Bia')).toHaveLength(2);
+    expect(within(previewOf()).getByText('Sozinho, vira figurinha')).toBeInTheDocument();
   });
 
   it('clicking an emoji loads it into the form and the preview; "Cancelar" leaves it', async () => {
