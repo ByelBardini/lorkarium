@@ -34,7 +34,7 @@ O chat da sala: a Mesa (a mesa toda), o sussurro inline na Mesa, a conversa priv
   - `chat.error.ts` — `ChatError` e as quatro recusas (tabela abaixo).
   - `chat.gateway.ts` — `createChatGateway` (`chat:send`); `chat.plugin.ts` — `createChatModule({ members, audience, tokens, publisher, clock, newId, realtime, rate, log })` → `{ gateway }`.
 - **Sem `chat-speaker.port.ts`**: o service usa a `GridAudiencePort` do `pings` (estar na sala do grid) e `Pick<TokensDao, 'findInScene'>`, como o `dice` usa `Pick<ProfilesDao, 'findById'>`. Uma porta a mais só embrulharia os dois.
-- `server/src/app/wire-chat.ts` — `wireChat(realtime, { db, members, clock, log })`, chamado no `wireRealtime` do `build-app.ts` logo depois do `wireDice`: `SocketIoGridAudience`, `new TokensDao(db)`, `new CharactersDao(db)`, `SocketIoChatPublisher`, `randomUUID` e um `CommandRateGuard` com `CHAT_RATE`.
+- `server/src/app/wire-chat.ts` — `wireChat(realtime, { db, members, clock, emojis, log })` (`emojis` = o `CustomEmojiRefsService` do `buildApp`), chamado no `wireRealtime` do `build-app.ts` logo depois do `wireDice`: `SocketIoGridAudience`, `new TokensDao(db)`, `new CharactersDao(db)`, `SocketIoChatPublisher`, `randomUUID` e um `CommandRateGuard` com `CHAT_RATE`.
 - `server/src/infrastructure/chat-publisher/socket-io-chat-publisher.ts` — `SocketIoChatPublisher.sent` (salas abaixo).
 
 ## Salas

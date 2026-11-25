@@ -24,14 +24,14 @@ function picture(): File {
 async function fillForm(name: string): Promise<void> {
   const form = screen.getByRole('form', { name: 'Novo emoji' });
   await userEvent.type(within(form).getByLabelText('Nome'), name);
-  await userEvent.upload(form.querySelector('input[type=file]') as HTMLInputElement, picture());
+  await userEvent.upload(within(form).getByLabelText('Escolher imagem'), picture());
 }
 
 describe('CustomEmojisSection', () => {
   it('shows the count against the plan and each emoji by its :name:', async () => {
     await renderSection(new CustomEmojisApiFake().with('festa', 'bolo'));
 
-    expect(screen.getByText('2 de 10 emojis')).toBeInTheDocument();
+    expect(screen.getByText('2 de 10')).toBeInTheDocument();
     const list = screen.getByRole('list', { name: 'Seus emojis' });
     expect(within(list).getByText(':festa:')).toBeInTheDocument();
   });
@@ -41,7 +41,7 @@ describe('CustomEmojisSection', () => {
     await renderSection(api);
 
     await fillForm('Festa Boa');
-    await userEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Adicionar emoji' }));
 
     expect(api.calls).toContain('create festa_boa');
     expect(await screen.findByText(':festa_boa:')).toBeInTheDocument();
@@ -55,7 +55,7 @@ describe('CustomEmojisSection', () => {
     await fillForm('doge');
 
     expect(screen.getByRole('alert')).toHaveTextContent('Esse nome já é de um emoji do catálogo.');
-    expect(screen.getByRole('button', { name: 'Adicionar' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Adicionar emoji' })).toBeDisabled();
     expect(api.calls).toEqual(['list']);
   });
 
@@ -64,7 +64,7 @@ describe('CustomEmojisSection', () => {
     await renderSection(api);
 
     await fillForm('festa');
-    await userEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Adicionar emoji' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Você já tem um emoji com esse nome.',
@@ -76,7 +76,11 @@ describe('CustomEmojisSection', () => {
     api.limit = 2;
     await renderSection(api);
 
-    expect(screen.getByText('Inativo — seu plano permite até 2')).toBeInTheDocument();
+    const tres = within(screen.getByRole('list', { name: 'Seus emojis' })).getAllByRole(
+      'listitem',
+    )[2]!;
+    expect(tres).toHaveTextContent(':tres:Inativo');
+    expect(screen.getByText(/passam do que o seu plano permite \(2\)/u)).toBeInTheDocument();
     expect(screen.queryByRole('form', { name: 'Novo emoji' })).toBeNull();
     expect(screen.getByText(/Apague um para adicionar outro/u)).toBeInTheDocument();
   });

@@ -35,9 +35,10 @@ Corpo JSON `{ intent, input? }` revalidado por um `z.discriminatedUnion` sobre o
 
 ## Página (`account-page.tsx`)
 
-O `h1` "Minha conta" (sem frase de apoio) e, logo embaixo, o `Tabs` do design system (`tablist` "Seções da conta", gatilhos de 15 px): **Perfil · Segurança · Plano**. Cada aba mostra uma seção com título em display (`section-heading.tsx`), sem caixa; as outras não ficam montadas.
+O `h1` "Minha conta" (sem frase de apoio) e, logo embaixo, o `Tabs` do design system (`tablist` "Seções da conta", gatilhos de 15 px): **Perfil · Emojis · Segurança · Plano**. Cada aba mostra uma seção com título em display (`section-heading.tsx`), sem caixa; as outras não ficam montadas.
 
-- `account-tabs.ts` — puro: `ACCOUNT_TABS` (valor + rótulo), `ACCOUNT_TAB_PARAM` (`'aba'`), `accountTabOf(valor)` (ausente ou desconhecido → `'perfil'`; o antigo `?aba=dados` também, já que os dados moram no Perfil) e `accountTabSearch(aba)` (`''` no Perfil, `?aba=seguranca|plano`).
+- `account-tabs.ts` — puro: `ACCOUNT_TABS` (valor + rótulo), `ACCOUNT_TAB_PARAM` (`'aba'`), `accountTabOf(valor)` (ausente ou desconhecido → `'perfil'`; o antigo `?aba=dados` também, já que os dados moram no Perfil) e `accountTabSearch(aba)` (`''` no Perfil, `?aba=emojis|seguranca|plano`).
+- Aba **Emojis** = `CustomEmojisSection` (`custom-emojis-section.tsx` e os `custom-emoji-*.tsx`), sem props: lê a store do `CustomEmojisProvider` (`useCustomEmojisStore`). Detalhe em [`chat-emotes.md`](chat-emotes.md), regra em [`../custom-emojis.md`](../custom-emojis.md).
 - A troca de aba é `navigate({ pathname, search }, { replace: true, preventScrollReset: true })`: recarregar ou voltar cai na mesma aba, sem encher o histórico. Com o rascunho do perfil sujo, a aba Perfil ganha um ponto dourado e o nome "Perfil (alterações não salvas)" por `aria-label` (o `sr-only` perde o espaço no nome acessível do jsdom).
 - `use-profile-editor.ts` — `useProfileEditor(perfil)` → `{ draft, save }`, da página (não da aba): a edição sobrevive à ida a Segurança ou Plano. `profile-form.tsx` — `ProfileForm label editor` (o `form` com a barra embaixo). O `LeaveWithoutSavingDialog` também é da página.
 
