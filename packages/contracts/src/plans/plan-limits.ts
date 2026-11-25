@@ -39,6 +39,7 @@ export const PLAN_COUNT_LIMIT_KEY: Readonly<Record<PlanCountResource, PlanCountL
   sightBlockers: 'maxSightBlockers',
   savedRolls: 'maxSavedRolls',
   savedRollFolders: 'maxSavedRollFolders',
+  customEmojis: 'maxCustomEmojis',
 };
 
 // Amigo do Dono = today: no ceiling of plan, only the technical ones (performance; the client
@@ -76,6 +77,8 @@ const UNBOUNDED: PlanLimits = {
   sheetScripts: true,
   profileBanner: true,
   magicSight: true,
+  maxCustomEmojis: null,
+  animatedCustomEmojis: true,
 };
 
 const LENDA: PlanLimits = {
@@ -90,6 +93,7 @@ const LENDA: PlanLimits = {
   maxLibraryMaps: 100,
   maxSheetTemplates: 50,
   maxNpcSheets: 1000,
+  maxCustomEmojis: 50,
 };
 
 // The middle step: everything a table of one or two fixed groups needs, the Lenda keeping more
@@ -120,6 +124,8 @@ const NARRADOR: PlanLimits = {
   desktopWindows: false,
   animatedCampaignArt: false,
   profileBanner: false,
+  maxCustomEmojis: 25,
+  animatedCustomEmojis: false,
 };
 
 const FREE: PlanLimits = {
@@ -155,6 +161,8 @@ const FREE: PlanLimits = {
   sheetScripts: false,
   profileBanner: false,
   magicSight: false,
+  maxCustomEmojis: 0,
+  animatedCustomEmojis: false,
 };
 
 /** The grid of each plan, as is (no role): the server resolves the effective limits
@@ -163,8 +171,9 @@ const FREE: PlanLimits = {
  *  Example: `PLAN_LIMITS.narrador.maxScenes // 15` */
 export const PLAN_LIMITS: Readonly<Record<UserPlan, PlanLimits>> = {
   free: FREE,
-  // The Apoiador supports the house: its own account opens up, its tables stay on Grátis.
-  apoiador: { ...FREE, plan: 'apoiador' },
+  // The Apoiador supports the house: its own account opens up (custom emojis included), its
+  // tables stay on Grátis.
+  apoiador: { ...FREE, plan: 'apoiador', maxCustomEmojis: 10 },
   narrador: NARRADOR,
   lenda: LENDA,
   amigo_do_dono: UNBOUNDED,

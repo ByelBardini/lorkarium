@@ -6,6 +6,8 @@ import {
 import type { AssetPo } from '../assets/assets.po';
 import type { DataCipherPort } from '../auth/data-cipher.port';
 import { avatarKeyOf, bannerKeyOf, diceTextureKeyOf } from '../profiles/profiles.mapper';
+import type { CustomEmojiPo } from '../custom-emojis/custom-emoji.po';
+import { customEmojiKeyOf } from '../custom-emojis/custom-emojis.mapper';
 import type { ReputationSummary } from '../reputation/reputation.bo';
 import type { SavedColorPo } from '../saved-colors/saved-colors.po';
 import type {
@@ -35,6 +37,7 @@ export type DataExportParts = Readonly<{
   twoFactorEnabledAt: Date | null;
   sessions: readonly ExportedSessionRow[];
   savedColors: readonly SavedColorPo[];
+  customEmojis: readonly CustomEmojiPo[];
   friends: readonly RelatedAccountRow[];
   requestsSent: readonly RelatedAccountRow[];
   requestsReceived: readonly RelatedAccountRow[];
@@ -61,6 +64,7 @@ export type ArchiveImage = Readonly<{ path: string; storageKey: string }>;
 type JsonValue = DataExportDto['sheets'][number]['values'];
 
 export const PROFILE_IMAGES_FOLDER = 'imagens/perfil';
+const CUSTOM_EMOJI_IMAGES_FOLDER = 'imagens/emojis';
 const TABLE_IMAGES_FOLDER = 'imagens/mesas';
 
 const EXTENSION_BY_MIME: Readonly<Record<AssetPo['mimeType'], string>> = {
@@ -97,6 +101,16 @@ function profileImage(
 
 function profileImagePath(name: string, id: string | null): string | null {
   return id === null ? null : `${PROFILE_IMAGES_FOLDER}/${name}.webp`;
+}
+
+/** Each custom emoji under its name (WebP; the moving one when it is a GIF).
+ *
+ *  Example: `customEmojiImagesOf(rows)[0]?.path // 'imagens/emojis/festa.webp'` */
+export function customEmojiImagesOf(rows: readonly CustomEmojiPo[]): ArchiveImage[] {
+  return rows.map((row) => ({
+    path: `${CUSTOM_EMOJI_IMAGES_FOLDER}/${row.name}.webp`,
+    storageKey: customEmojiKeyOf(row.id),
+  }));
 }
 
 /** An image sent to a table, filed by the table and its own id.
@@ -180,9 +194,14 @@ const relatedOf = (row: RelatedAccountRow): { username: string; at: string } => 
 
 function relationsOf(
   parts: DataExportParts,
-): Pick<DataExportDto, 'savedColors' | 'friends' | 'friendRequests' | 'blocks'> {
+): Pick<DataExportDto, 'savedColors' | 'customEmojis' | 'friends' | 'friendRequests' | 'blocks'> {
   return {
     savedColors: parts.savedColors.map((c) => ({ color: c.color, savedAt: iso(c.createdAt) })),
+    customEmojis: parts.customEmojis.map((e) => ({
+      name: e.name,
+      animated: e.animated,
+      createdAt: iso(e.createdAt),
+    })),
     friends: parts.friends.map(relatedOf),
     friendRequests: {
       sent: parts.requestsSent.map(relatedOf),

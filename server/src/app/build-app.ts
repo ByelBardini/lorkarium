@@ -31,6 +31,11 @@ import { createAssetsModule } from '../modules/assets/assets.plugin';
 import { SharpAvatarProcessor } from '../infrastructure/avatar-processor/sharp-avatar-processor';
 import type { ProfileCardPresencePort } from '../modules/profiles/profile-card-presence.port';
 import { createProfilesModule } from '../modules/profiles/profiles.plugin';
+import type { CustomEmojiRefsService } from '../modules/custom-emojis/custom-emoji-refs.service';
+import {
+  createCustomEmojiRefs,
+  createCustomEmojisModule,
+} from '../modules/custom-emojis/custom-emojis.plugin';
 import { createBadgesModule } from '../modules/badges/badges.plugin';
 import type { ProfileChangedPort } from '../modules/profiles/profile-changed.port';
 import { CryptoCampaignCode } from '../infrastructure/campaign-code/crypto-campaign-code';
@@ -222,7 +227,9 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const assets = createAssetsModule({ ...assetsOptions, clock, readPolicy });
   await app.register(assets.plugin, { prefix: API_PREFIX });
   wireAssetSweep(app, { db: deps.db, storage, clock });
+  const emojiRefs = createCustomEmojiRefs({ db: deps.db, clock });
   const realtimeModules = {
+    emojiRefs,
     campaigns: campaigns.service,
     clock,
     db: deps.db,
@@ -301,6 +308,8 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   };
   const profiles = createProfilesModule(profilesOptions);
   await app.register(profiles.plugin, { prefix: API_PREFIX });
+  const emojiOptions = { db: deps.db, storage, processor: avatars, refs: emojiRefs };
+  await app.register(createCustomEmojisModule(emojiOptions).plugin, { prefix: API_PREFIX });
   const { notices, recovery } = security;
   const humanCheck = deps.humanCheck ?? humanCheckOf(app, env.signUp.humanCheck);
   const signUp = { signUp: env.signUp, humanCheck };
@@ -342,6 +351,8 @@ type RealtimeModules = Pick<SessionsModuleOptions, 'campaigns' | 'clock' | 'regi
   sessionEnded: SocketIoSessionEnded;
   memberships: MembershipReader;
   accessLog: AccessLogModule | null;
+  /** The senders' custom emojis on chat and direct messages (shared with the HTTP module). */
+  emojiRefs: CustomEmojiRefsService;
 };
 
 // What the HTTP modules that announce changes or move sockets use, over the same Socket.IO server.
@@ -375,7 +386,14 @@ function wireRealtime(
   guards: AuthGuards,
   modules: RealtimeModules,
 ): RealtimeOutlets {
-  const { db, sessionEnded, memberships: members, accessLog, ...sessionModules } = modules;
+  const {
+    db,
+    sessionEnded,
+    memberships: members,
+    accessLog,
+    emojiRefs,
+    ...sessionModules
+  } = modules;
   const { clock } = modules;
   const authenticate = guards.authenticateConnection;
   const realtime = attachRealtime(app, { authenticate, sessionCookie: SESSION_COOKIE, clock });
@@ -388,7 +406,8 @@ function wireRealtime(
   const scheduler = new TimerScheduler();
   app.addHook('onClose', async () => scheduler.cancelAll());
   // Before the table session: every connection is already in its own room and counted online.
-  const account = wireAccountRealtime(realtime, { db, clock, scheduler, rate, log: app.log });
+  const accountWiring = { db, clock, scheduler, rate, emojis: emojiRefs, log: app.log };
+  const account = wireAccountRealtime(realtime, accountWiring);
   const publisher = new SocketIoBoardPublisher(realtime.io);
   const shared = { db, publisher, clock, members };
   const outlets = {
@@ -477,7 +496,7 @@ function wireRealtime(
   });
   realtime.onConnection(board.gateway);
   wireDice(realtime, { db, members, clock, log: app.log });
-  wireChat(realtime, { db, members, clock, log: app.log });
+  wireChat(realtime, { db, members, clock, emojis: emojiRefs, log: app.log });
   const memberRemoved = removedInOrder(sessions.service, characters.seats);
   const { seatIn } = characters;
   const { friendsChanged } = account;

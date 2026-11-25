@@ -1,3 +1,4 @@
+import type { CustomEmojiPo } from '../../src/modules/custom-emojis/custom-emoji.po';
 import type { FeedbackEntryPo } from '../../src/modules/feedback/feedback-entries.po';
 import { Readable } from 'node:stream';
 import type { ReputationCounts } from '../../src/modules/reputation/reputation.bo';
@@ -71,6 +72,7 @@ export function emptyExportParts(overrides: Partial<DataExportParts> = {}): Data
     twoFactorEnabledAt: null,
     sessions: [],
     savedColors: [],
+    customEmojis: [],
     friends: [],
     requestsSent: [],
     requestsReceived: [],
@@ -104,6 +106,7 @@ export class AccountExportDaoFake implements Pick<AccountExportDao, keyof Accoun
   twoFactor: Date | null = null;
   sessions: ExportedSessionRow[] = [];
   savedColors: SavedColorPo[] = [];
+  customEmojis: CustomEmojiPo[] = [];
   friends: RelatedAccountRow[] = [];
   sent: RelatedAccountRow[] = [];
   received: RelatedAccountRow[] = [];
@@ -133,6 +136,10 @@ export class AccountExportDaoFake implements Pick<AccountExportDao, keyof Accoun
   async sessionsOf(): Promise<ExportedSessionRow[]> {
     return this.sessions;
   }
+  async customEmojisOf(): Promise<CustomEmojiPo[]> {
+    return this.customEmojis;
+  }
+
   async savedColorsOf(): Promise<SavedColorPo[]> {
     return this.savedColors;
   }

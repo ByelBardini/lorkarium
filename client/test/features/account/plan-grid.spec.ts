@@ -61,6 +61,8 @@ describe('plan grid texts', () => {
     ['Banner de perfil', 'não', 'não', 'não', 'sim'],
     ['Rolagens salvas por pessoa', '3', '15', '15', '50'],
     ['Pastas de rolagens por pessoa', '0', '5', '5', '50'],
+    ['Emojis personalizados', '0', '10', '25', '50'],
+    ['Emoji personalizado animado (GIF)', 'não', 'não', 'não', 'sim'],
   ] as const)(
     'the "%s" row reads %s / %s / %s / %s on Grátis, Apoiador, Narrador and Lenda',
     (label, free, apoiador, narrador, lenda) => {
@@ -88,7 +90,12 @@ describe('plan grid texts', () => {
   });
 
   it('the Apoiador column keeps the table limits of Grátis', () => {
-    const personal = ['Personalizações', 'Rolagens salvas', 'Pastas de rolagens'];
+    const personal = [
+      'Personalizações',
+      'Rolagens salvas',
+      'Pastas de rolagens',
+      'Emojis personalizados',
+    ];
     const tableRows = PLAN_GRID_ROWS.filter(
       (line) => !personal.some((start) => line.label.startsWith(start)),
     );

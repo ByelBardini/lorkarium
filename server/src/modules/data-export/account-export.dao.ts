@@ -4,6 +4,7 @@ import { authSessions, type AuthSessionPo } from '../auth/auth-sessions.po';
 import { userTwoFactor } from '../auth/two-factor.po';
 import { users, type UserPo } from '../auth/users.po';
 import { badges, userBadges } from '../badges/badges.po';
+import { customEmojis, type CustomEmojiPo } from '../custom-emojis/custom-emoji.po';
 import { friendRequests } from '../friends/friend-requests.po';
 import { friendships } from '../friends/friendships.po';
 import { userBlocks } from '../friends/user-blocks.po';
@@ -115,6 +116,17 @@ export class AccountExportDao {
       .from(accountSavedColors)
       .where(eq(accountSavedColors.userId, userId))
       .orderBy(desc(accountSavedColors.createdAt));
+  }
+
+  /** The account's own emojis, oldest first.
+   *
+   *  Example: `const rows = await accounts.customEmojisOf(biaId)` */
+  async customEmojisOf(userId: string): Promise<CustomEmojiPo[]> {
+    return this.db
+      .select()
+      .from(customEmojis)
+      .where(eq(customEmojis.ownerId, userId))
+      .orderBy(asc(customEmojis.createdAt), asc(customEmojis.id));
   }
 
   /** The @ of each friend: the pair is stored once, in canonical order, so either side is "me". */

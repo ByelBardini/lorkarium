@@ -4,6 +4,7 @@ import type {
   ChatSentChannelDto,
   ChatSentDto,
   ChatSentSpeakerDto,
+  CustomEmojiRefDto,
 } from '@lorkarium/contracts';
 
 export type ChatSentInput = Readonly<{
@@ -12,6 +13,7 @@ export type ChatSentInput = Readonly<{
   fromUserId: string;
   speaker: ChatSentSpeakerDto;
   at: string;
+  customEmojis: readonly CustomEmojiRefDto[];
 }>;
 
 /** The channel as the event names it: a direct conversation carries both people in ascending
@@ -49,7 +51,7 @@ export function toChatCharacterSpeakerDto(characterId: string, name: string): Ch
  *
  *  Example: `toChatSentDto({ command, messageId, fromUserId, speaker, at })` */
 export function toChatSentDto(input: ChatSentInput): ChatSentDto {
-  const { command, messageId, fromUserId, speaker, at } = input;
+  const { command, messageId, fromUserId, speaker, at, customEmojis } = input;
   return {
     campaignId: command.campaignId,
     messageId,
@@ -59,5 +61,6 @@ export function toChatSentDto(input: ChatSentInput): ChatSentDto {
     speaker,
     text: command.text,
     replyTo: command.replyTo,
+    customEmojis: [...customEmojis],
   };
 }

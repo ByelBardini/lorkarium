@@ -876,6 +876,13 @@
       "when": 1795206822755,
       "tag": "0124_legal_promises",
       "breakpoints": true
+    },
+    {
+      "idx": 125,
+      "version": "7",
+      "when": 1795567063414,
+      "tag": "0125_custom_emojis",
+      "breakpoints": true
     }
   ]
 }

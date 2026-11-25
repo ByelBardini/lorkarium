@@ -74,6 +74,12 @@ export const PLAN_COUNT_LABEL: Readonly<Record<PlanCountResource, PlanCountLabel
     'pastas de rolagens por pessoa',
     'Pasta de rolagens está',
   ),
+  customEmojis: countLabel(
+    'emoji personalizado',
+    'emojis personalizados',
+    'Emoji personalizado está',
+    'account',
+  ),
 };
 
 /** The pt-BR name of every feature a plan may lack, as the subject of "está no plano Narrador". */

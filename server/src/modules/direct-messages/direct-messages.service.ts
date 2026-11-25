@@ -6,6 +6,7 @@ import { canonicalPair, type FriendshipsDao } from '../friends/friendships.dao';
 import { DirectMessageBo } from './direct-message.bo';
 import type { DirectMessagePublisherPort } from './direct-message-publisher.port';
 import { toDmSentDto, toDmTypingFromDto } from './direct-messages.mapper';
+import type { CustomEmojiRefsPort } from '../custom-emojis/custom-emoji-refs.port';
 
 // A conversation sends many messages in a row: the friendship is read once in this window. Any
 // saved change of the pair's lists forgets it first (`friendsChanged`), so a removal or a block
@@ -17,6 +18,8 @@ export type DirectMessagesServiceDeps = Readonly<{
   presence: Pick<AccountPresenceService, 'isVisiblyOnline'>;
   publisher: DirectMessagePublisherPort;
   clock: ClockPort;
+  /** The sender's custom emojis the text names, for the event. */
+  emojis: CustomEmojiRefsPort;
   newId: () => string;
 }>;
 
@@ -41,7 +44,9 @@ export class DirectMessagesService {
     const messageId = this.deps.newId();
     const at = this.deps.clock.now();
     const { toUserId, text, replyToMessageId } = command;
-    const message = { messageId, fromUserId: senderId, toUserId, text, at, replyToMessageId };
+    const customEmojis = await this.deps.emojis.refsIn(senderId, text);
+    const sent = { toUserId, text, at, replyToMessageId, customEmojis };
+    const message = { messageId, fromUserId: senderId, ...sent };
     this.deps.publisher.sent(toDmSentDto(message));
     return { messageId };
   }

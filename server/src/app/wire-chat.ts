@@ -4,6 +4,7 @@ import type { Database } from '../database/database';
 import { SocketIoChatPublisher } from '../infrastructure/chat-publisher/socket-io-chat-publisher';
 import { SocketIoGridAudience } from '../infrastructure/grid-audience/socket-io-grid-audience';
 import type { ClockPort } from '../modules/auth/clock.port';
+import type { CustomEmojiRefsPort } from '../modules/custom-emojis/custom-emoji-refs.port';
 import { CommandRateLimitedError } from '../modules/board/board.error';
 import type { MembershipReader } from '../modules/campaigns/cached-memberships';
 import { CharactersDao } from '../modules/characters/characters.dao';
@@ -17,6 +18,7 @@ export type ChatWiring = Readonly<{
   db: Database;
   members: MembershipReader;
   clock: ClockPort;
+  emojis: CustomEmojiRefsPort;
   log: FastifyBaseLogger;
 }>;
 
@@ -26,7 +28,7 @@ export type ChatWiring = Readonly<{
  *
  *  Example: `wireChat(realtime, { db, members, clock, log: app.log })` */
 export function wireChat(realtime: Realtime, wiring: ChatWiring): void {
-  const { db, members, clock, log } = wiring;
+  const { db, members, clock, emojis, log } = wiring;
   const rate = new CommandRateGuard(
     clock,
     (socketId, retryAfterSeconds) => new CommandRateLimitedError(socketId, retryAfterSeconds),
@@ -39,6 +41,7 @@ export function wireChat(realtime: Realtime, wiring: ChatWiring): void {
     characters: new CharactersDao(db),
     publisher: new SocketIoChatPublisher(realtime.io),
     clock,
+    emojis,
     newId: randomUUID,
     realtime,
     rate,

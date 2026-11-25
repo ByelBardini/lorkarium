@@ -186,12 +186,34 @@ describe('PLAN_LIMITS', () => {
       sheetScripts: true,
       profileBanner: true,
       magicSight: true,
+      maxCustomEmojis: null,
+      animatedCustomEmojis: true,
     } satisfies PlanLimits);
   });
 
   it('Apoiador has the table limits of Grátis under its own name: only the account opens', () => {
-    expect(PLAN_LIMITS.apoiador).toEqual({ ...PLAN_LIMITS.free, plan: 'apoiador' });
+    expect(PLAN_LIMITS.apoiador).toEqual({
+      ...PLAN_LIMITS.free,
+      plan: 'apoiador',
+      maxCustomEmojis: 10,
+    });
     expect(PLAN_LIMITS.apoiador.customColor).toBe(false);
+  });
+
+  it('custom emojis: 10 on Apoiador, 25 on Narrador, 50 on Lenda, none on Grátis', () => {
+    expect(USER_PLANS.map((plan) => PLAN_LIMITS[plan].maxCustomEmojis)).toEqual([
+      0,
+      10,
+      25,
+      50,
+      null,
+    ]);
+    expect(PLAN_COUNT_LIMIT_KEY.customEmojis).toBe('maxCustomEmojis');
+  });
+
+  it('an animated custom emoji is Lenda only', () => {
+    const animated = USER_PLANS.filter((plan) => PLAN_LIMITS[plan].animatedCustomEmojis);
+    expect(animated).toEqual(['lenda', 'amigo_do_dono']);
   });
 
   it('Grátis keeps only the palette, the color aura and the smaller sides', () => {

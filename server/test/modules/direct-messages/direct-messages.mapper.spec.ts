@@ -17,6 +17,7 @@ describe('direct messages mapper', () => {
       toUserId: BIA_ID,
       text: 'oi',
       replyToMessageId: null,
+      customEmojis: [],
     };
 
     expect(toDmSentDto({ ...message, at: AT })).toEqual({ ...message, at: AT.toISOString() });
@@ -29,6 +30,7 @@ describe('direct messages mapper', () => {
       toUserId: BIA_ID,
       text: 'isso',
       replyToMessageId: MESSAGE_ID,
+      customEmojis: [],
     };
 
     expect(toDmSentDto({ ...reply, at: AT }).replyToMessageId).toBe(MESSAGE_ID);

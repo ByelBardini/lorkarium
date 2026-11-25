@@ -27,6 +27,7 @@ import {
 import { characterRow, LYRA_CHARACTER_ID } from '../../support/characters-factories';
 import { CharactersDaoFake } from '../../support/characters-fakes';
 import { ChatPublisherFake } from '../../support/chat-fakes';
+import { CustomEmojiRefsFake } from '../../support/custom-emojis-fakes';
 import { GridAudienceFake } from '../../support/pings-fakes';
 import { VHARN_SCENE_ID } from '../../support/scenes-factories';
 import { TokensDaoFake } from '../../support/tokens-fakes';
@@ -49,6 +50,7 @@ type Harness = Readonly<{
   members: MembershipReadsFake;
   audience: GridAudienceFake;
   publisher: ChatPublisherFake;
+  emojis: CustomEmojiRefsFake;
 }>;
 
 function harness(): Harness {
@@ -64,8 +66,10 @@ function harness(): Harness {
   const characters = new CharactersDaoFake([], [characterRow({ controllerIds: [BIA_ID] })]);
   const publisher = new ChatPublisherFake();
   const clock = new ClockFake(NOW);
-  const deps = { members, audience, tokens, characters, publisher, clock, newId: () => MESSAGE_ID };
-  return { service: new ChatService(deps), members, audience, publisher };
+  const emojis = new CustomEmojiRefsFake();
+  const newId = (): string => MESSAGE_ID;
+  const deps = { members, audience, tokens, characters, publisher, clock, emojis, newId };
+  return { service: new ChatService(deps), members, audience, publisher, emojis };
 }
 
 function commandOf(overrides: Partial<ChatSendCommandDto> = {}): ChatSendCommandDto {
@@ -83,6 +87,43 @@ function commandOf(overrides: Partial<ChatSendCommandDto> = {}): ChatSendCommand
 function group(memberIds: string[]): ChatChannelDto {
   return { kind: 'group', groupId: GROUP_ID, name: 'Conselho', memberIds };
 }
+
+describe('ChatService.send — custom emojis', () => {
+  const FESTA_ID = '5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c8d';
+
+  it('the event carries the sender’s active emojis the text names', async () => {
+    const { service, publisher, emojis } = harness();
+    emojis
+      .give(BIA_ID, [{ id: FESTA_ID, name: 'festa' }])
+      .give(CAIO_ID, [{ id: 'x', name: 'bolo' }]);
+
+    await service.send(BIA_ID, commandOf({ text: 'bora :festa: :bolo:' }), CONNECTION);
+
+    expect(publisher.published[0]?.event.customEmojis).toEqual([
+      { name: 'festa', emojiId: FESTA_ID },
+    ]);
+    expect(emojis.asked).toEqual([{ userId: BIA_ID, text: 'bora :festa: :bolo:' }]);
+  });
+
+  it('speaking as a token still carries the person’s own emojis', async () => {
+    const { service, publisher, emojis } = harness();
+    emojis.give(BIA_ID, [{ id: FESTA_ID, name: 'festa' }]);
+
+    await service.send(BIA_ID, commandOf({ speaker: AS_LYRA, text: ':festa:' }), CONNECTION);
+
+    expect(publisher.published[0]?.event.customEmojis).toEqual([
+      { name: 'festa', emojiId: FESTA_ID },
+    ]);
+  });
+
+  it('a refused message never asks for emojis', async () => {
+    const { service, emojis } = harness();
+
+    await expect(service.send(QUELM_ID, commandOf(), CONNECTION)).rejects.toThrow();
+
+    expect(emojis.asked).toEqual([]);
+  });
+});
 
 describe('ChatService.send — channels and audience', () => {
   it('Bia on the Table: the whole table hears it, with the clock time and the new id', async () => {
@@ -102,6 +143,7 @@ describe('ChatService.send — channels and audience', () => {
           speaker: { kind: 'self' },
           text: 'Abram a porta.',
           replyTo: null,
+          customEmojis: [],
         },
         audience: { kind: 'table' },
       },

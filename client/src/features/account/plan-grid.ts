@@ -94,6 +94,7 @@ export const PLAN_FEATURE_ROWS: readonly PlanGridRow[] = [
     cellOf: (l) => yesNo(l.plan !== 'free'),
   },
   { label: 'Banner de perfil', cellOf: (l) => yesNo(l.profileBanner) },
+  { label: 'Emoji personalizado animado (GIF)', cellOf: (l) => yesNo(l.animatedCustomEmojis) },
   { label: 'Aura', cellOf: auraCell },
 ];
 
