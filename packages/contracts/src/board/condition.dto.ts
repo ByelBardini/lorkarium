@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { paletteOrHexDto } from '../color/hex-color.dto';
 import { realtimeAckFailureDto } from '../http/realtime-ack.dto';
 import { boardCommandShape, boardEventShape, tableEventShape } from './board-event.dto';
+import { CONDITION_ICON_KEYS } from './condition-icon-keys';
 import { tokenIdGroupDto } from './token-id-group.dto';
 
 export const CONDITION_NAME_MAX_LENGTH = 32;
@@ -44,9 +45,8 @@ export type ConditionToneDto = z.infer<typeof conditionToneDto>;
 export const conditionLookDto = z.enum(['unconscious', 'invisible']);
 export type ConditionLookDto = z.infer<typeof conditionLookDto>;
 
-/** The icon of a condition, a closed list so the client only ever draws a known glyph. The keys
- *  are the client icon set's names (lucide). */
-export const CONDITION_ICONS = [
+/** The 28 Lucide icons of before, unprefixed: saved conditions keep these keys. */
+export const LEGACY_CONDITION_ICONS = [
   'circle-dot',
   'skull',
   'eye-off',
@@ -76,6 +76,12 @@ export const CONDITION_ICONS = [
   'hourglass',
   'anchor',
 ] as const;
+
+/** The icon of a condition, a closed list so the client only ever draws a known file and no free
+ *  text turns into an SVG: the 28 of before, then the generated `<library>:<name>` keys.
+ *
+ *  Example: `conditionIconDto.parse('game-icons:manacles')` */
+export const CONDITION_ICONS = [...LEGACY_CONDITION_ICONS, ...CONDITION_ICON_KEYS] as const;
 export const conditionIconDto = z.enum(CONDITION_ICONS);
 export type ConditionIconDto = z.infer<typeof conditionIconDto>;
 
