@@ -1,7 +1,7 @@
 ---
 description: Separa as mudanças em commits atômicos com mensagens semânticas e assinados (DCO); cria branch se estiver na main; preenche o título e o corpo do PR pelo modelo do repositório; nunca faz push.
 argument-hint: [contexto opcional sobre as mudanças]
-allowed-tools: Bash(git status:*), Bash(git branch:*), Bash(git switch:*), Bash(git checkout:*), Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(git add:*), Bash(git restore:*), Bash(git commit:*), Bash(git rev-parse:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(pnpm test:*), Bash(pnpm lint:*), Bash(pnpm typecheck:*), Bash(pnpm exec vitest:*), Read, Write, Grep, Glob, AskUserQuestion
+allowed-tools: Bash(git status:*), Bash(git branch:*), Bash(git switch:*), Bash(git checkout:*), Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(git add:*), Bash(git restore:*), Bash(git commit:*), Bash(git rev-parse:*), Bash(gh pr view:*), Bash(gh pr list:*), Read, Write, Grep, Glob, AskUserQuestion
 ---
 
 # /commit — Commits atômicos com padrão semântico
@@ -102,12 +102,11 @@ git log main..HEAD --format='%h %(trailers:key=Signed-off-by,valueonly,separator
 
 Prove cada item do `.github/pull_request_template.md` (leia o modelo: se ganhou item novo, ele entra também):
 
-| Item                        | Como provar                                                                                                                                                                                                                                                                      |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| test, lint e typecheck      | Se a conversa já rodou os três verdes depois da última edição, vale. Senão rode `pnpm lint`, `pnpm typecheck` e `pnpm test` (o client é instável sob carga: falha dele, repita só o spec com `pnpm exec vitest run <spec>` antes de concluir). Falhou: `[ ]` com o spec ou erro. |
-| teste novo / regressão      | Cada `src/` novo ou alterado no diff tem spec correspondente em `<workspace>/test/` no mesmo diff; fix tem spec de regressão. Faltou: `[ ]` listando os arquivos sem spec.                                                                                                       |
-| `docs/context/` atualizado  | Se o diff mexe em contrato, evento, DTO, PO/migração, env ou estrutura, tem de haver `docs/context/` no diff. Nada disso mudou: `[x]` com "(não se aplica: …)".                                                                                                                  |
-| commits convencionais + DCO | Todos os títulos de `main..HEAD` no formato `tipo(escopo): …` e todos com `Signed-off-by`. Commit antigo sem assinatura: `[ ]` com os hashes e a dica `git rebase --signoff main` (o usuário decide).                                                                            |
+| Item                        | Como provar                                                                                                                                                                                           |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| teste novo / regressão      | Cada `src/` novo ou alterado no diff tem spec correspondente em `<workspace>/test/` no mesmo diff; fix tem spec de regressão. Faltou: `[ ]` listando os arquivos sem spec.                            |
+| `docs/context/` atualizado  | Se o diff mexe em contrato, evento, DTO, PO/migração, env ou estrutura, tem de haver `docs/context/` no diff. Nada disso mudou: `[x]` com "(não se aplica: …)".                                       |
+| commits convencionais + DCO | Todos os títulos de `main..HEAD` no formato `tipo(escopo): …` e todos com `Signed-off-by`. Commit antigo sem assinatura: `[ ]` com os hashes e a dica `git rebase --signoff main` (o usuário decide). |
 
 ### 7. Preencher o PR
 

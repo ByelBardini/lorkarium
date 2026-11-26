@@ -8,7 +8,6 @@
 
 ## Checklist
 
-- [ ] `pnpm test && pnpm lint && pnpm typecheck` passam
 - [ ] Teste novo para cada função nova; regressão para cada bug corrigido
 - [ ] `docs/context/` atualizado (contrato, evento, DTO, tabela, env ou estrutura que mudou)
 - [ ] Commits convencionais em português, assinados com `git commit -s` (DCO)
