@@ -16,7 +16,12 @@ import {
   joinByCodeAndEnter,
   openRoomPeople,
 } from './support/tables';
-import { cardOf, createCharacterTokenWithPv, openCard } from './support/token-cards';
+import {
+  applyConditionFromCard,
+  cardOf,
+  createCharacterTokenWithPv,
+  openCard,
+} from './support/token-cards';
 
 async function openLyraDialog(admin: Page): Promise<Locator> {
   await openCard(admin, 'Lyra');
@@ -36,13 +41,7 @@ async function lightLyraHere(admin: Page): Promise<void> {
 
 async function poisonLyra(admin: Page): Promise<void> {
   await openCard(admin, 'Lyra');
-  const dock = cardOf(admin, 'Lyra');
-  await dock.getByRole('combobox', { name: 'Adicionar condição' }).fill('Envenenado');
-  await dock.getByLabel('Rodadas').fill('3');
-  await dock.getByRole('button', { name: 'Aplicar' }).click();
-  await expect(dock.getByRole('list', { name: 'Condições ativas de Lyra' })).toContainText(
-    'Envenenado',
-  );
+  await applyConditionFromCard(admin, 'Lyra', 'Envenenado', '3');
 }
 
 // Bia takes 7 PV off her own Lyra through the balloon of the dock.

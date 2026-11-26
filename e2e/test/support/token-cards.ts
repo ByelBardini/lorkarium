@@ -33,6 +33,30 @@ export async function openCard(page: Page, name: string): Promise<void> {
   await expect(cardOf(page, name)).toBeVisible();
 }
 
+/** Applies `condition` to the token whose card is open, through the balloon of its "Condição"
+ *  button (empty `rounds` = no limit), and closes the balloon again by its button: the balloon
+ *  covers the card, and Escape goes to the name field.
+ *
+ *  Example: `await openCard(admin, 'Lyra'); await applyConditionFromCard(admin, 'Lyra', 'Envenenado', '3')` */
+export async function applyConditionFromCard(
+  page: Page,
+  token: string,
+  condition: string,
+  rounds = '',
+): Promise<void> {
+  const toggle = cardOf(page, token).getByRole('button', { name: 'Condição', exact: true });
+  await toggle.click();
+  const balloon = page.getByRole('dialog', { name: `Condição em ${token}` });
+  await balloon.getByRole('combobox', { name: 'Adicionar condição' }).fill(condition);
+  await balloon.getByLabel('Rodadas').fill(rounds);
+  await balloon.getByRole('button', { name: 'Aplicar' }).click();
+  await toggle.click();
+  await expect(balloon).toBeHidden();
+  await expect(
+    cardOf(page, token).getByRole('list', { name: `Condições ativas de ${token}` }),
+  ).toContainText(condition);
+}
+
 /** Presses the player's button in "Quem controla" of the token dialog (nobody pressed is the
  *  master's). */
 export async function chooseController(dialog: Locator, player: string): Promise<void> {
