@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { useBoardSeen } from '@/features/board/use-board-sight';
 import { ConditionsEditor } from '@/features/combat/conditions-editor';
+import { barFill } from '@/lib/bar-display';
 import { seenTokensOf } from '@/lib/board-sight';
 import { cellsText, positionText } from '@/lib/cells-text';
 import { facingLabel } from '@/lib/facing-label';
@@ -13,12 +14,14 @@ import {
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
+import { useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store';
 import { characterOfUser, useCharacters, type CharactersStore } from '@/stores/characters-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
 import { BarQuickEdit } from './bar-quick-edit';
 import { BarLine } from './bar-line';
+import { BarTrack } from './bar-track';
 import { CharacterDock } from './character-dock';
-import { DockHeader } from './token-dock-header';
+import { DockHeader, type DockCollapse } from './token-dock-header';
 import { TokenDockActions } from './token-dock-actions';
 
 export type TokenDockProps = Readonly<{
@@ -29,18 +32,22 @@ export type TokenDockProps = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
   isMaster: boolean;
   onEditToken: (tokenId: string) => void;
+  /** Where the dock's opened or collapsed state is remembered (per browser). */
+  roomLayout: StoreApi<RoomLayoutStore>;
 }>;
 
 /** The token at the foot of the panel (in combat and out of it): who plays it and where, every bar
  *  received with −/+, Dano/Cura and "Máx." for whoever controls it, its conditions, and the actions
  *  (initiative, "Editar token", "Tirar do combate"). One selected token this viewer sees opens it;
  *  with none (or a group), the token of the viewer's character in this grid does, and with none
- *  of it here, the character itself (`CharacterDock`). The list above never grows.
+ *  of it here, the character itself (`CharacterDock`). The list above never grows. Collapsed, only
+ *  the head and a strip of the bars stay, so the tracker gets the panel.
  *
- *  Example: `<TokenDock board={board} presence={presence} interaction={interaction} isMaster onEditToken={edit} />` */
+ *  Example: `<TokenDock board={board} presence={presence} interaction={interaction} isMaster onEditToken={edit} roomLayout={roomLayout} />` */
 export function TokenDock(props: TokenDockProps): React.JSX.Element | null {
   const docked = useDockedToken(props);
   const members = useTablePresence(props.presence, (state) => state.members);
+  const collapse = useDockCollapse(props.roomLayout);
   if (!docked) return null;
   if (docked.kind === 'character') {
     return <CharacterDock character={docked.character} interaction={props.interaction} />;
@@ -50,7 +57,7 @@ export function TokenDock(props: TokenDockProps): React.JSX.Element | null {
     <section
       aria-label={selected ? 'Token selecionado' : 'Token principal'}
       // -mx-1 px-1: overflow-y-auto also clips X, and the avatar's side ring is a shadow outside it.
-      className="-mx-1 flex max-h-[58%] shrink-0 flex-col gap-3 overflow-y-auto border-t border-border px-1 pt-3"
+      className="-mx-1 flex max-h-[45%] shrink-0 flex-col gap-2 overflow-y-auto border-t border-border px-1 pt-3"
     >
       <DockHeader
         token={token}
@@ -58,7 +65,38 @@ export function TokenDock(props: TokenDockProps): React.JSX.Element | null {
         isMaster={props.isMaster}
         members={members}
         interaction={props.interaction}
+        collapse={collapse}
       />
+      {collapse.collapsed ? (
+        <DockBarStrip token={token} />
+      ) : (
+        <DockDetail {...props} token={token} />
+      )}
+    </section>
+  );
+}
+
+function useDockCollapse(roomLayout: StoreApi<RoomLayoutStore>): DockCollapse {
+  const collapsed = useRoomLayout(roomLayout, (state) => state.dock === 'closed');
+  return { collapsed, toggle: () => roomLayout.getState().toggleDock() };
+}
+
+// Collapsed: the bars stay in sight as a row of tracks, read in full by opening the dock again.
+function DockBarStrip({ token }: Readonly<{ token: TokenDto }>) {
+  if (token.bars.length === 0) return null;
+  return (
+    <span className="flex gap-1">
+      {token.bars.map((bar) => (
+        <BarTrack key={bar.id} fill={barFill(bar)} color={bar.color} className="h-1 flex-1" />
+      ))}
+    </span>
+  );
+}
+
+function DockDetail(props: TokenDockProps & Readonly<{ token: TokenDto }>) {
+  const { token } = props;
+  return (
+    <>
       <p className="text-xs text-muted-foreground">{whereText(token)}</p>
       <DockBars token={token} interaction={props.interaction} isMaster={props.isMaster} />
       <ConditionsEditor
@@ -68,7 +106,7 @@ export function TokenDock(props: TokenDockProps): React.JSX.Element | null {
         isMaster={props.isMaster}
       />
       <TokenDockActions {...props} token={token} />
-    </section>
+    </>
   );
 }
 
@@ -126,7 +164,7 @@ function DockBars({ token, interaction, isMaster }: DockBarsProps) {
     );
   }
   return (
-    <ul className="flex flex-col gap-3">
+    <ul className="flex flex-col gap-1.5">
       {token.bars.map((bar) => (
         <li key={bar.id}>
           {token.canControl ? (

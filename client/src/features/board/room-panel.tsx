@@ -160,6 +160,7 @@ function RoomPanelTabs(props: PanelTabsProps): React.JSX.Element {
             interaction={props.interaction}
             isMaster={props.isMaster}
             onEditToken={props.onEditToken}
+            roomLayout={roomLayout}
           />
         )}
       </TabsContent>
