@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ASSET_FRAME,
   ASSET_MAX_SIDE,
+  CHAT_IMAGE_MAX_BYTES,
   assetOutlineResponseDto,
   assetPurposeDto,
   importAssetRequestDto,
@@ -180,6 +181,15 @@ describe('assetPurposeDto', () => {
   it('sheet_image is an asset purpose kept up to 4096 px', () => {
     expect(assetPurposeDto.parse('sheet_image')).toBe('sheet_image');
     expect(ASSET_MAX_SIDE.sheet_image).toBe(4096);
+  });
+
+  it('chat_image is sent like any image, kept up to 2048 px and 10 MiB', () => {
+    expect(uploadAssetQueryDto.parse({ purpose: 'chat_image' })).toEqual({ purpose: 'chat_image' });
+    expect(
+      importAssetRequestDto.parse({ url: `${HOST}a.png`, purpose: 'chat_image' }).purpose,
+    ).toBe('chat_image');
+    expect(ASSET_MAX_SIDE.chat_image).toBe(2048);
+    expect(CHAT_IMAGE_MAX_BYTES).toBe(10 * 1024 * 1024);
   });
 });
 

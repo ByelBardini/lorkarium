@@ -45,12 +45,12 @@ export function frameFor(
 /** How much a kept image may animate (the contract's `AURA_ANIMATION_LIMITS`). */
 export type AnimationLimits = Readonly<{ maxFrames: number; maxDecodedPixels: number }>;
 
-// The aura moves on the board and a sheet image in its frame, on any plan; the three images of
+// The aura moves on the board, a sheet image in its frame and a chat picture in the feed, on any plan; the three images of
 // the table move only on an owner whose plan has `animatedCampaignArt`, a Lenda exclusive (on
 // Grátis, Apoiador and Narrador their GIF keeps the first frame, never refused; the still cover
 // and banner stay on Narrador through `campaignArt`). A token, a background or a condition stays
 // still.
-const ANIMATED_PURPOSES: ReadonlySet<AssetPurpose> = new Set(['aura', 'sheet_image']);
+const ANIMATED_PURPOSES: ReadonlySet<AssetPurpose> = new Set(['aura', 'sheet_image', 'chat_image']);
 const PAID_ANIMATED_PURPOSES: ReadonlySet<AssetPurpose> = new Set([
   'campaign_photo',
   'cover',
@@ -81,6 +81,16 @@ const CAMPAIGN_ART_PURPOSES: ReadonlySet<AssetPurpose> = new Set(['cover', 'camp
 export function requireCampaignArtFor(purpose: AssetPurpose, limits: PlanLimits): void {
   if (!CAMPAIGN_ART_PURPOSES.has(purpose)) return;
   PlanLimitsBo.requireFeature('campaignArt', limits.campaignArt, limits);
+}
+
+/** The largest file per purpose before decoding: `default` for any purpose not named. */
+export type ByteLimits = Readonly<{ default: number } & Partial<Record<AssetPurpose, number>>>;
+
+/** The largest file, before decoding, a `purpose` accepts.
+ *
+ *  Example: `maxBytesFor('chat_image', { default: ASSET_MAX_BYTES, chat_image: CHAT_IMAGE_MAX_BYTES }) // 10 MiB` */
+export function maxBytesFor(purpose: AssetPurpose, limits: ByteLimits): number {
+  return limits[purpose] ?? limits.default;
 }
 
 /** Refuses a file above the byte limit before anything decodes it.
@@ -124,6 +134,8 @@ const PROTECTED_PURPOSES: ReadonlySet<AssetPurpose> = new Set([
   'sheet_image',
   'sheet_template_asset',
   'library_map',
+  // Lives a day and may come from a whisper: never cached, never a token or a background.
+  'chat_image',
 ]);
 
 /** Whether an image of `purpose` is reserved to its own feature and read through a policy.
@@ -145,6 +157,16 @@ const DEDICATED_ENDPOINTS: Readonly<Partial<Record<AssetPurpose, string>>> = {
  *  Example: `dedicatedEndpointOf('sheet_image') // 'the sheet image endpoint'` */
 export function dedicatedEndpointOf(purpose: AssetPurpose): string | null {
   return DEDICATED_ENDPOINTS[purpose] ?? null;
+}
+
+// A spectator writes in the chat like everyone else, so they send its pictures too.
+const SPECTATOR_PURPOSES: ReadonlySet<AssetPurpose> = new Set(['chat_image']);
+
+/** Whether a spectator may send an image of `purpose` (every other write is the players').
+ *
+ *  Example: `isSpectatorAssetPurpose('chat_image') // true` */
+export function isSpectatorAssetPurpose(purpose: AssetPurpose): boolean {
+  return SPECTATOR_PURPOSES.has(purpose);
 }
 
 const MASTER_ONLY_PURPOSES: ReadonlySet<AssetPurpose> = new Set([

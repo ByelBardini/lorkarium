@@ -4,6 +4,7 @@ import {
   ASSET_MAX_BYTES,
   ASSET_MAX_SIDE,
   AURA_ANIMATION_LIMITS,
+  CHAT_IMAGE_MAX_BYTES,
   SHEET_TEMPLATE_FONT_MAX_BYTES,
   SHEET_TEMPLATE_FONT_MIME_TYPE,
   type AssetDto,
@@ -18,7 +19,8 @@ import type { UsersDao } from '../auth/users.dao';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import type { CampaignsDao } from '../campaigns/campaigns.dao';
 import { CampaignNotFoundError } from '../campaigns/campaigns.error';
-import { memberAccessOf } from '../campaigns/member-access';
+import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
+import { memberAccessOf, viewerAccessOf } from '../campaigns/member-access';
 import { PlanLimitsBo, effectiveLimitsOf } from '../plans/plan-limits.bo';
 import { looseCutoffOf, planSidesOf } from './asset-quota.bo';
 import type { AssetReferencesDao } from './asset-references.dao';
@@ -28,12 +30,15 @@ import {
   frameFor,
   isMasterOnlyAssetPurpose,
   isProtectedAssetPurpose,
+  isSpectatorAssetPurpose,
+  maxBytesFor,
   opaqueAsWebpFor,
   outlineFor,
   requireCampaignArtFor,
   requireSize,
   requireWoff2,
   resizeFor,
+  type ByteLimits,
   type SideLimits,
 } from './asset-upload.bo';
 import { assetEtagOf, isRevalidated, PROTECTED_ASSET_CACHE_CONTROL } from './asset-revalidation.bo';
@@ -63,6 +68,9 @@ import type {
   NormalizedImage,
   NormalizeOptions,
 } from './image-processor.port';
+
+// A chat picture lives a day: half the ceiling keeps a burst of prints from eating the quota.
+const BYTE_LIMITS: ByteLimits = { default: ASSET_MAX_BYTES, chat_image: CHAT_IMAGE_MAX_BYTES };
 
 /** The DAOs of the transaction that keeps a file within the storage of the table's owner. */
 export type AssetKeepScope = Readonly<{
@@ -186,9 +194,9 @@ export class AssetsService {
     campaignId: string,
     file: UploadedFile,
   ): Promise<AssetDto> {
-    const access = await memberAccessOf(this.deps.members, campaignId, userId);
+    const access = await this.senderAccessOf({ campaignId, userId }, file.purpose);
     if (isMasterOnlyAssetPurpose(file.purpose)) access.requireMaster(`upload a ${file.purpose}`);
-    requireSize(file.bytes.byteLength, ASSET_MAX_BYTES);
+    requireSize(file.bytes.byteLength, maxBytesFor(file.purpose, BYTE_LIMITS));
     const owner = await this.ownerPlanOf({ campaignId, userId });
     requireCampaignArtFor(file.purpose, owner.limits);
     const kept = keptAs(file.purpose, owner, file.crop ?? null);
@@ -210,6 +218,14 @@ export class AssetsService {
     return this.importFor(userId, campaignId, { url, purpose: 'document_image' });
   }
 
+  private async senderAccessOf(
+    table: TableOfUser,
+    purpose: AssetPurposeDto,
+  ): Promise<CampaignAccessBo> {
+    const accessOf = isSpectatorAssetPurpose(purpose) ? viewerAccessOf : memberAccessOf;
+    return accessOf(this.deps.members, table.campaignId, table.userId);
+  }
+
   // Before any I/O: a reserved image sent here would have no owner to authorize its readers.
   private async refuseDedicated(
     userId: string,
@@ -228,13 +244,13 @@ export class AssetsService {
     campaignId: string,
     link: Readonly<{ url: string; purpose: AssetPurposeDto }>,
   ): Promise<AssetDto> {
-    const access = await memberAccessOf(this.deps.members, campaignId, userId);
+    const access = await this.senderAccessOf({ campaignId, userId }, link.purpose);
     if (isMasterOnlyAssetPurpose(link.purpose)) access.requireMaster(`import a ${link.purpose}`);
     const owner = await this.ownerPlanOf({ campaignId, userId });
     requireCampaignArtFor(link.purpose, owner.limits);
     const fetched = await this.deps.fetcher.fetch(link.url);
     if (!fetched.ok) throw linkErrorOf(link.url, fetched.refusal);
-    requireSize(fetched.image.bytes.byteLength, ASSET_MAX_BYTES);
+    requireSize(fetched.image.bytes.byteLength, maxBytesFor(link.purpose, BYTE_LIMITS));
     const kept = keptAs(link.purpose, owner);
     const image = await this.normalizeLinked(link.url, fetched.image.bytes, kept);
     return this.keep({ campaignId, userId, purpose: link.purpose }, image);

@@ -883,6 +883,13 @@
       "when": 1795567063414,
       "tag": "0125_custom_emojis",
       "breakpoints": true
+    },
+    {
+      "idx": 126,
+      "version": "7",
+      "when": 1795645451007,
+      "tag": "0126_chat_image_purpose",
+      "breakpoints": true
     }
   ]
 }

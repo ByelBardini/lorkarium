@@ -66,7 +66,7 @@ Foto, Capa e Banner, o retângulo do envio e o `frameFor`: [`assets/formatos.md`
 
 ## Plano, cota e varredura
 
-Lado do mapa e do fundo pelo plano do dono, cota de armazenamento somando as mesas do dono, a varredura de hora em hora dos arquivos soltos há mais de 24 h, a fila de remoção dos objetos (`storage_deletions`) e a exclusão da mesa: [`assets/cota-e-varredura.md`](assets/cota-e-varredura.md).
+Lado do mapa e do fundo pelo plano do dono, cota de armazenamento somando as mesas do dono, a varredura de hora em hora dos arquivos soltos há mais de 24 h, a fila de remoção dos objetos (`storage_deletions`) e a exclusão da mesa: [`assets/cota-e-varredura.md`](assets/cota-e-varredura.md). Chat: [`assets/imagens-do-chat.md`](assets/imagens-do-chat.md).
 
 ## Link (`ImageFetcherPort`)
 
