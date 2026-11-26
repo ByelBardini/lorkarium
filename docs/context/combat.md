@@ -56,6 +56,8 @@ Condições e combate da mesa (spec §3.5, §3.7, §5.3, §6): a lista de condi�
 | `combat:previousTurn`                                                                             | mestre                                                  | `combat:turnChanged` `{ combat, conditionChanges: [] }`         |
 | (no `combat:nextTurn` de uma entrada com token ligado, e `condition:*` num ligado)                | —                                                       | `character:changed` (versão dos personagens)                    |
 
+Numa mesa com ciclo por rodada, os comandos de combate também publicam `cycle:listChanged` e `cycle:announced`: [`round-cycles.md`](round-cycles.md).
+
 ## Testes
 
 - Lista da mesa e permissão nova: os specs em [`combat/lista-da-mesa.md`](combat/lista-da-mesa.md), Testes.

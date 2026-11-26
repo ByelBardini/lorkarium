@@ -32,6 +32,8 @@ Hub: [`../assets.md`](../assets.md). DTOs em [`../contracts/assets.md`](../contr
 
 ## GIF animado
 
+- `round_cycle_phase` (na migração `0127_round_cycles`, `ALTER TYPE … ADD VALUE`): cortada no quadrado do centro como a `condition` (`SQUARE_PURPOSES` do `frameFor`) e animada pela **mesma** regra da Foto, Capa e Banner (`PAID_ANIMATED_PURPOSES`: só com `animatedCampaignArt` do dono; fora disso, o 1º quadro). No client o `animatesImage` a inclui (o seletor aceita GIF).
+
 - Dono com `animatedCampaignArt` (Lenda, `amigo_do_dono`): o GIF da Foto, Capa ou Banner fica **GIF animado** (o mesmo `keptAnimatedGif` da aura, mesmo orçamento `AURA_ANIMATION_LIMITS`: 120 quadros, 16 MP decodificados; GIF longo perde resolução em vez de quadros). Cada quadro é cortado pela mesma `frameBoxOf` (o `sharp` com `animated: true` aplica o `extract` a cada página) e depois reduzido ao lado da finalidade.
 - Dono no Grátis, Apoiador ou Narrador: o 1º quadro, em PNG, nunca recusado (no Narrador vale também para a Capa e o Banner; no Grátis e no Apoiador esses dois já são recusados pelo `campaignArt`). Um link segue a mesma regra (cortado no centro).
 - No client, o `animatesImage` (`lib/image-file.ts`) inclui as três: o seletor aceita GIF, e o recorte mostra o arquivo no `react-easy-crop` (um `<img>`); a imagem é desenhada por `<img>`, que anima sozinho.

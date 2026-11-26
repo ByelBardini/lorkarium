@@ -28,6 +28,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Papéis na mesa: dono, co-mestre, juggernaut, troca de papel e o modo do admin                          | [`table-roles.md`](client/table-roles.md)                       |
 | Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro                           | [`combat.md`](client/combat.md)                                 |
 | Condições: etiquetas, descrição, stacks, página "Condições da mesa", ferramenta (C)                    | [`conditions.md`](client/conditions.md)                         |
+| Ciclos por rodada: selo no tabuleiro, escolha da próxima fase, aba Ciclos, aviso da fase               | [`round-cycles.md`](client/round-cycles.md)                     |
 | Desenhos na sala, copiar/colar (Ctrl+C/V) e desfazer/refazer (Ctrl+Z/Y)                                | [`drawings.md`](client/drawings.md)                             |
 | Áreas de efeito na sala: estado, ferramenta (M), seleção, alças, copiar                                | [`effect-areas.md`](client/effect-areas.md)                     |
 | Paredes e portas na sala: estado, ferramenta (P), linhas, edição, portas                               | [`walls.md`](client/walls.md)                                   |

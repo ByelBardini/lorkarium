@@ -110,6 +110,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | plans            | Planos: grade, dono × conta, Dono, Apoiador, `PLAN_LIMIT`, excedente só leitura, cota   | [`docs/context/plans.md`](docs/context/plans.md)                       |
 | billing          | Cobrança: costura com o serviço de cobrança, plano pago, `/api/billing`, telas          | [`docs/context/billing.md`](docs/context/billing.md)                   |
 | combat           | Condições (lista, cor, stacks, imagem) e combate: entradas, turno, rodada               | [`docs/context/combat.md`](docs/context/combat.md)                     |
+| round-cycles     | Ciclos por rodada: fases com imagem, virada no combate, escolha, quem vê, aviso         | [`docs/context/round-cycles.md`](docs/context/round-cycles.md)         |
 | drawings         | Desenhos da cena: formas, cor, dono, camada própria, lote, precondição                  | [`docs/context/drawings.md`](docs/context/drawings.md)                 |
 | effect-areas     | Áreas de efeito: formas, casas pintadas, autor, alças, versão                           | [`docs/context/effect-areas.md`](docs/context/effect-areas.md)         |
 | walls            | Paredes e portas: tipos, formas, passagem, porta vista, visão                           | [`docs/context/walls.md`](docs/context/walls.md)                       |
