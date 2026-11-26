@@ -33,6 +33,15 @@ describe('RealtimeChatCommands', () => {
     ]);
   });
 
+  it('a message with a picture goes out with the picture as asked', () => {
+    const assetId = '6d7e8f9a-0b1c-4d2e-8f3a-4b5c6d7e8f9a';
+    const withImage: ChatSendRequest = { ...WHISPER_TO_BIA, text: '', image: { assetId } };
+
+    void chat.send(VHARN.id, withImage);
+
+    expect(transport.sent[0]?.payload).toMatchObject({ text: '', image: { assetId } });
+  });
+
   it('an ok ack answers ok with the id of the message', async () => {
     const result = chat.send(VHARN.id, WHISPER_TO_BIA);
     await transport.answerAck({ ok: true, messageId: CHAT_MESSAGE_ID }, EVENT);
@@ -66,6 +75,7 @@ describe('RealtimeChatCommands', () => {
     ['CHAT_SENDER_NOT_IN_GROUP', 'sender_not_in_group'],
     ['SCENE_NOT_FOUND', 'speaker_not_found'],
     ['TOKEN_NOT_FOUND', 'speaker_not_found'],
+    ['CHAT_IMAGE_NOT_FOUND', 'image_expired'],
     ['INVALID_BODY', 'invalid'],
     ['UNAUTHENTICATED', 'unauthenticated'],
     ['INTERNAL_ERROR', 'unexpected'],

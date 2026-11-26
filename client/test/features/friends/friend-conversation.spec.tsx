@@ -202,6 +202,17 @@ describe('friend conversation', () => {
       expect(screen.queryByText(/Respondendo a/)).toBeNull();
     });
 
+    it('a double click on a message answers it', async () => {
+      receive({ messageId: QUOTED_ID, text: 'Bora jogar?' });
+      renderAt(BIA_PATH);
+      const input = await field();
+
+      await userEvent.dblClick(screen.getByText('Bora jogar?'));
+
+      expect(screen.getByText(/Respondendo a/)).toHaveTextContent('Respondendo a Bia');
+      expect(input).toHaveFocus();
+    });
+
     it('a reply quotes its original, and one this device lost shows as unavailable', async () => {
       receive({ messageId: QUOTED_ID, text: 'Bora jogar?' });
       receive({ text: 'Respondendo eu mesma', replyToMessageId: QUOTED_ID });

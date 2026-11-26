@@ -3,6 +3,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { Database } from '../database/database';
 import { SocketIoChatPublisher } from '../infrastructure/chat-publisher/socket-io-chat-publisher';
 import { SocketIoGridAudience } from '../infrastructure/grid-audience/socket-io-grid-audience';
+import { AssetsDao } from '../modules/assets/assets.dao';
 import type { ClockPort } from '../modules/auth/clock.port';
 import type { CustomEmojiRefsPort } from '../modules/custom-emojis/custom-emoji-refs.port';
 import { CommandRateLimitedError } from '../modules/board/board.error';
@@ -23,7 +24,7 @@ export type ChatWiring = Readonly<{
 }>;
 
 /** Puts `chat:send` on every connection: the grid rooms prove a speaking token's grid is reached,
- *  the tokens DAO reads its name and control, and the chat drains a bucket of its own
+ *  the tokens DAO reads its name and control, the assets DAO a cited picture, and the chat drains a bucket of its own
  *  (`CHAT_RATE`), apart from the board's and the dice's.
  *
  *  Example: `wireChat(realtime, { db, members, clock, log: app.log })` */
@@ -42,6 +43,7 @@ export function wireChat(realtime: Realtime, wiring: ChatWiring): void {
     publisher: new SocketIoChatPublisher(realtime.io),
     clock,
     emojis,
+    images: new AssetsDao(db),
     newId: randomUUID,
     realtime,
     rate,

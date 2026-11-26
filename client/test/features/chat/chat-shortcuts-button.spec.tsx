@@ -29,6 +29,8 @@ describe('ChatShortcutsButton', () => {
     expect(help).toHaveTextContent('@nome');
     expect(help).toHaveTextContent(':nomeMeme ou smiley');
     expect(help).toHaveTextContent(':) :D <3Smileys de texto viram imagem');
+    expect(help).toHaveTextContent('Ctrl+VColar uma imagem');
+    expect(help).toHaveTextContent('Ctrl+IAnexar a imagem de um link');
     expect(help).not.toHaveTextContent('/w');
     expect(help).not.toHaveTextContent('Digite /');
   });

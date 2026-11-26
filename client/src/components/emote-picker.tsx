@@ -25,16 +25,12 @@ export type EmotePickerProps = Readonly<{
 }>;
 
 /** "Memes e smileys": a button beside the message field opening a grid in one tab per category, with a
- *  search over codes and names. A click writes the code and closes it; the field takes the
- *  focus back (`onPick`).
+ *  search over codes and names. A click writes the code and keeps the grid open, so several go in
+ *  a row; the field takes the focus back (`onPick`).
  *
  *  Example: `<EmotePicker onPick={(code) => insertAtCaret(code)} disabled={!live} />` */
 export function EmotePicker({ onPick, disabled }: EmotePickerProps): React.JSX.Element {
   const [open, setOpen] = useState(false);
-  const pick = (code: string) => {
-    setOpen(false);
-    onPick(code);
-  };
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -54,11 +50,14 @@ export function EmotePicker({ onPick, disabled }: EmotePickerProps): React.JSX.E
         side="top"
         align="end"
         aria-label="Memes e smileys"
-        className="w-80 max-w-[calc(100vw-2rem)] gap-2 p-3"
+        // A fixed height: the grid does not grow or shrink with the tab or the search.
+        className="h-96 w-80 max-w-[calc(100vw-2rem)] gap-2 p-3"
         // The field gets the focus back from `onPick`, not the button.
         onCloseAutoFocus={(event) => event.preventDefault()}
+        // `onPick` focuses the field, which would close the grid after the first pick.
+        onFocusOutside={(event) => event.preventDefault()}
       >
-        <EmotePickerBody onPick={pick} />
+        <EmotePickerBody onPick={onPick} />
       </PopoverContent>
     </Popover>
   );
@@ -102,7 +101,6 @@ const CATEGORY_TABS: Readonly<Record<EmoteCategory, { label: string; iconId: str
   gestures: { label: 'Gestos', iconId: 'thumbs-up' },
   rpg: { label: 'RPG', iconId: 'dice' },
   symbols: { label: 'Símbolos', iconId: 'heart' },
-  monkeys: { label: 'Macacos', iconId: 'see_no_evil' },
   memes: { label: 'Memes', iconId: 'doge' },
 };
 
@@ -113,20 +111,25 @@ type PickerPartProps = Readonly<{
 
 function SearchResults({ own, search, onPick }: PickerPartProps & Readonly<{ search: string }>) {
   const catalog = searchEmotes(EMOTES, search);
-  if (own.length === 0) return <EmoteGrid emotes={catalog} onPick={onPick} />;
   return (
-    <>
-      <OwnEmojiGrid emojis={own} onPick={onPick} />
-      {catalog.length > 0 && <EmoteGrid emotes={catalog} onPick={onPick} />}
-    </>
+    <div className={SCROLL_AREA}>
+      {own.length > 0 && <OwnEmojiGrid emojis={own} onPick={onPick} />}
+      {(own.length === 0 || catalog.length > 0) && <EmoteGrid emotes={catalog} onPick={onPick} />}
+    </div>
   );
 }
+
+// Takes what the popover's fixed height leaves and scrolls inside it.
+const SCROLL_AREA = 'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto';
 
 // "Meus" comes first, and opens first, when the account has emojis of its own.
 function EmoteTabs({ own, onPick }: PickerPartProps) {
   const [first] = own;
   return (
-    <Tabs defaultValue={first === undefined ? 'reactions' : 'mine'} className="gap-2">
+    <Tabs
+      defaultValue={first === undefined ? 'reactions' : 'mine'}
+      className="min-h-0 flex-1 gap-2"
+    >
       <TabsList className="w-full">
         {first !== undefined && <OwnTab emojiId={first.id} />}
         {EMOTE_CATEGORIES.map((category) => (
@@ -134,12 +137,12 @@ function EmoteTabs({ own, onPick }: PickerPartProps) {
         ))}
       </TabsList>
       {first !== undefined && (
-        <TabsContent value="mine">
+        <TabsContent value="mine" className={SCROLL_AREA}>
           <OwnEmojiGrid emojis={own} onPick={onPick} />
         </TabsContent>
       )}
       {EMOTE_CATEGORIES.map((category) => (
-        <TabsContent key={category} value={category}>
+        <TabsContent key={category} value={category} className={SCROLL_AREA}>
           <EmoteGrid emotes={emotesIn(category)} onPick={onPick} />
         </TabsContent>
       ))}
@@ -175,7 +178,7 @@ function EmoteGrid({
     return <p className="py-4 text-center text-xs text-muted-foreground">Nada encontrado.</p>;
   }
   return (
-    <div className="grid max-h-60 grid-cols-7 gap-1 overflow-y-auto">
+    <div className="grid grid-cols-7 gap-1">
       {emotes.map((emote) => (
         <EmoteCell key={emote.id} emote={emote} onPick={onPick} />
       ))}

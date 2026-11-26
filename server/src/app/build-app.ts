@@ -1,3 +1,4 @@
+import type { ImageFetcherPort } from '../modules/assets/image-fetcher.port';
 import { LibraryImageReadPolicy } from '../modules/library/library-image-read-policy.service';
 import { wireHousekeeping } from '../modules/housekeeping/housekeeping.plugin';
 import { SuspensionEndedNoticeService } from '../modules/sanctions/suspension-ended-notice.service';
@@ -133,7 +134,9 @@ declare module 'fastify' {
 /** `clock` defaults to the system clock, `mailer` to the one of `env.mailer`,
  *  `accessLogArchive` to the bucket of `env.accessLog`, `issueTracker` to the GitHub App of
  *  `env.issueTracker`, `humanCheck` to the Turnstile of `env.signUp`, `errorReportSink` to
- *  nowhere and `clientErrorRelay` to the ingest of `env.errorReporting`; integration specs pass fakes to cross a deadline or read what was sent or recorded. */
+ *  nowhere, `clientErrorRelay` to the ingest of `env.errorReporting` and `imageFetcher` to the
+ *  SSRF-guarded download of a link; integration specs pass fakes to cross a deadline or read what
+ *  was sent or recorded. */
 export type AppDependencies = Readonly<{
   env: Env;
   db: Database;
@@ -144,6 +147,7 @@ export type AppDependencies = Readonly<{
   humanCheck?: HumanCheckPort;
   errorReportSink?: ErrorReportSink;
   clientErrorRelay?: ClientErrorRelay;
+  imageFetcher?: ImageFetcherPort;
 }>;
 
 const API_PREFIX = '/api';
@@ -187,7 +191,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   // After the asset bucket is ensured: dev and CI keep the access log in that same bucket.
   const accessLog = wireAccessLog(app, { env, clock, archive: deps.accessLogArchive });
   const processor = new SharpImageProcessor();
-  const fetcher = new GuardedImageFetcher();
+  const fetcher = deps.imageFetcher ?? new GuardedImageFetcher();
   // The membership the asset read already warmed: a policy does not read it again.
   const { memberships } = campaigns;
   const libraryReadPolicy = new LibraryImageReadPolicy((work) =>
@@ -210,6 +214,8 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
       assetId: string,
       purpose: AssetPurposeDto,
     ): Promise<boolean> => {
+      // The asset read already checked the membership: every member reads a chat picture.
+      if (purpose === 'chat_image') return true;
       if (purpose === 'library_map') return mapReadPolicy.canRead(userId, campaignId, assetId);
       if (purpose === 'sheet_image')
         return sheetReadPolicy.canRead(userId, campaignId, assetId, purpose);

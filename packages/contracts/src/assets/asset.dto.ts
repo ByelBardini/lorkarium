@@ -3,8 +3,11 @@ import { z } from 'zod';
 /** 20 MiB: the largest file `POST /assets` (and a link import) accepts, before decoding. */
 export const ASSET_MAX_BYTES = 20 * 1024 * 1024;
 
-/** The only image types the server keeps; SVG is refused (§8.5) and GIF is kept only for an aura,
- *  the one purpose that animates. */
+/** 10 MiB: a chat picture is a print or a meme kept for a day, so it gets half the ceiling. */
+export const CHAT_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+
+/** The only image types the server keeps; SVG is refused (§8.5) and GIF is kept only for an aura
+ *  and a chat picture, the purposes that animate. */
 export const ASSET_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const;
 
 export const ASSET_URL_MAX_LENGTH = 2048;
@@ -27,6 +30,7 @@ export const assetPurposeDto = z.enum([
   'document_image',
   'sheet_image',
   'sheet_template_asset',
+  'chat_image',
 ]);
 
 export type AssetPurposeDto = z.infer<typeof assetPurposeDto>;
@@ -51,6 +55,8 @@ export const ASSET_MAX_SIDE: Readonly<Record<AssetPurposeDto, number>> = {
   condition: 256,
   // An aura spans a few cells around the token; 512 stays sharp and keeps a GIF's frames small.
   aura: 512,
+  // A chat picture opens full screen; 2048 keeps a print readable without a map's weight.
+  chat_image: 2048,
 };
 
 /** The purposes the server cuts to a fixed aspect: the three images of a campaign. */

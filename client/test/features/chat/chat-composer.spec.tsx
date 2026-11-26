@@ -102,6 +102,7 @@ describe('ChatComposer — rolls by command', () => {
       speaker: { kind: 'self' },
       text: 'psiu',
       replyTo: null,
+      image: null,
     });
   });
 
@@ -191,6 +192,17 @@ describe('ChatComposer — suggestions', () => {
     await user.click(screen.getByRole('button', { name: ':doge:' }));
     expect(field()).toHaveValue('boa :doge: ');
     expect(field()).toHaveFocus();
+  });
+
+  // The grid closed on the first pick, even with the field taking the focus back (2026-11-25).
+  it('"Memes e smileys" stays open for several picks in a row, until Escape', async () => {
+    await user.click(screen.getByRole('button', { name: 'Memes e smileys' }));
+    await user.click(screen.getByRole('tab', { name: 'Memes' }));
+    await user.click(screen.getByRole('button', { name: ':doge:' }));
+    await user.click(screen.getByRole('button', { name: ':huehue:' }));
+    expect(field()).toHaveValue(':doge: :huehue: ');
+    expect(screen.getByRole('dialog', { name: 'Memes e smileys' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog', { name: 'Memes e smileys' })).toBeNull();
   });
 

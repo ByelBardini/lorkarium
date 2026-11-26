@@ -23,6 +23,45 @@ export const chatTextDto = z
   .min(1, 'chat text is empty; expected 1 to 2000 characters')
   .max(CHAT_TEXT_MAX, `chat text is too long; expected at most ${CHAT_TEXT_MAX} characters`);
 
+/** A message's text beside a picture: trimmed, up to 2000 characters, empty when the picture
+ *  goes alone (`requireTextOrImage` refuses a message with neither).
+ *
+ *  Example: `chatCaptionDto.parse(undefined) // ''` */
+export const chatCaptionDto = z
+  .string()
+  .trim()
+  .max(CHAT_TEXT_MAX, `chat text is too long; expected at most ${CHAT_TEXT_MAX} characters`)
+  .default('');
+
+/** The picture a command cites: only the id of a `chat_image` the sender uploaded; the server
+ *  reads its size and checks it.
+ *
+ *  Example: `chatImageRefDto.parse({ assetId })` */
+export const chatImageRefDto = z.strictObject({ assetId: z.uuid() });
+export type ChatImageRefDto = z.infer<typeof chatImageRefDto>;
+
+/** The picture of an event, with the size the server read so the feed reserves its space.
+ *
+ *  Example: `chatImageDto.parse({ assetId, width: 800, height: 600 })` */
+export const chatImageDto = z.strictObject({
+  assetId: z.uuid(),
+  width: z.int().positive(),
+  height: z.int().positive(),
+});
+export type ChatImageDto = z.infer<typeof chatImageDto>;
+
+function requireTextOrImage(
+  message: Readonly<{ text: string; image: unknown }>,
+  context: z.RefinementCtx,
+): void {
+  if (message.text !== '' || message.image !== null) return;
+  context.addIssue({
+    code: 'custom',
+    path: ['text'],
+    message: 'chat message has no text and no image; expected text or an image',
+  });
+}
+
 const groupMemberIdsDto = z
   .array(z.uuid())
   .min(CHAT_GROUP_MEMBERS_MIN)
@@ -121,15 +160,19 @@ export type ChatReplyDto = z.infer<typeof chatReplyDto>;
 
 /** `chat:send`: the sender comes from the connection, never from here (§7.3). Nothing is saved.
  *
- *  Example: `chatSendCommandDto.parse({ actionId, campaignId, channel, speaker: { kind: 'self' }, text: 'oi' })` */
-export const chatSendCommandDto = z.strictObject({
-  actionId: z.uuid(),
-  campaignId: z.uuid(),
-  channel: chatChannelDto,
-  speaker: chatSpeakerDto,
-  text: chatTextDto,
-  replyTo: chatReplyDto.nullable().default(null),
-});
+ *  Example: `chatSendCommandDto.parse({ actionId, campaignId, channel, speaker: { kind: 'self' }, text: 'oi' })`
+ *  (`image: { assetId }` sends a picture; then `text` may be left out) */
+export const chatSendCommandDto = z
+  .strictObject({
+    actionId: z.uuid(),
+    campaignId: z.uuid(),
+    channel: chatChannelDto,
+    speaker: chatSpeakerDto,
+    text: chatCaptionDto,
+    image: chatImageRefDto.nullable().default(null),
+    replyTo: chatReplyDto.nullable().default(null),
+  })
+  .superRefine(requireTextOrImage);
 export type ChatSendCommandDto = z.infer<typeof chatSendCommandDto>;
 export type ChatSendCommandInput = z.input<typeof chatSendCommandDto>;
 
@@ -146,19 +189,23 @@ export type ChatSendAckDto = z.infer<typeof chatSendAckDto>;
  *  included, every tab). No `version`: nothing is saved, like `dice:rolled`.
  *
  *  Example: `chatSentDto.safeParse(payload).success` */
-export const chatSentDto = z.strictObject({
-  campaignId: z.uuid(),
-  messageId: z.uuid(),
-  at: z.iso.datetime(),
-  fromUserId: z.uuid(),
-  channel: chatSentChannelDto,
-  speaker: chatSentSpeakerDto,
-  text: chatTextDto,
-  /** Absent in a history saved before replies existed. */
-  replyTo: chatReplyDto.nullable().default(null),
-  /** The sender's custom emojis in `text`; absent in a history saved before them. */
-  customEmojis: customEmojiRefsDto.default([]),
-});
+export const chatSentDto = z
+  .strictObject({
+    campaignId: z.uuid(),
+    messageId: z.uuid(),
+    at: z.iso.datetime(),
+    fromUserId: z.uuid(),
+    channel: chatSentChannelDto,
+    speaker: chatSentSpeakerDto,
+    text: chatCaptionDto,
+    /** Absent in a history saved before pictures existed. */
+    image: chatImageDto.nullable().default(null),
+    /** Absent in a history saved before replies existed. */
+    replyTo: chatReplyDto.nullable().default(null),
+    /** The sender's custom emojis in `text`; absent in a history saved before them. */
+    customEmojis: customEmojiRefsDto.default([]),
+  })
+  .superRefine(requireTextOrImage);
 export type ChatSentDto = z.infer<typeof chatSentDto>;
 
 /** Client → server chat events, for the Socket.IO generics on both ends. */

@@ -50,6 +50,14 @@ describe('ChatPanel — answering a message', () => {
     expect(screen.queryByText(/Respondendo a/)).toBeNull();
   });
 
+  it('a double click on the message answers it, and lets go of the word it selected', async () => {
+    await user.dblClick(within(rowOf(CHAT_MESSAGE_ID)).getByText(chatSent().text));
+
+    expect(screen.getByText(/Respondendo a/)).toHaveTextContent('Respondendo a Bia');
+    expect(field()).toHaveFocus();
+    expect(document.getSelection()?.toString()).toBe('');
+  });
+
   it('turning the @ off answers without calling the author', async () => {
     await user.click(screen.getByRole('button', { name: 'Responder Bia' }));
     const mention = screen.getByRole('button', { name: 'Mencionar Bia' });

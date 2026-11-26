@@ -7,6 +7,8 @@ O chat da mesa por Socket.IO: comando `chat:send`, ack com `messageId` e o event
 - `CHAT_EVENTS` `{ send: 'chat:send', sent: 'chat:sent' }`.
 - `CHAT_TEXT_MAX` (2000), `CHAT_GROUP_NAME_MAX` (40), `CHAT_GROUP_MEMBERS_MIN` (2, quem manda incluso), `CHAT_GROUP_MEMBERS_MAX` (30).
 - `chatTextDto` — aparado, de 1 a 2000 caracteres (a mensagem de erro cita o limite).
+- `chatCaptionDto` — o `text` do comando e do evento: aparado, até 2000, padrão `''` (a imagem pode ir sozinha). `requireTextOrImage` (o `superRefine` dos dois) recusa sem texto e sem imagem, no caminho `text`, citando "expected text or an image".
+- `chatImageRefDto` `{ assetId }` (comando, estrito) e `chatImageDto` `{ assetId, width, height }` (evento; inteiros positivos lidos do banco pelo server).
 
 ## Canal
 
@@ -24,11 +26,11 @@ O chat da mesa por Socket.IO: comando `chat:send`, ack com `messageId` e o event
 ## Comando, ack e evento
 
 - `chatReplyDto` `{ messageId, mentionUserId: uuid | null }` (estrito: texto ou nome citado é recusado) — a resposta leva **só o id** da original; cada client a acha no próprio histórico. `mentionUserId` = o autor chamado pelo @ da resposta, ou `null`.
-- `chatSendCommandDto` `{ actionId, campaignId, channel, speaker, text, replyTo }` (`replyTo` `chatReplyDto | null`, padrão `null`), estrito (`userId` forjado é recusado, §7.3). Tipos `ChatSendCommandDto`/`ChatSendCommandInput`.
+- `chatSendCommandDto` `{ actionId, campaignId, channel, speaker, text, image, replyTo }` (`image` `chatImageRefDto | null`, padrão `null`; `replyTo` `chatReplyDto | null`, padrão `null`), estrito (`userId` forjado é recusado, §7.3). Tipos `ChatSendCommandDto`/`ChatSendCommandInput`.
 - `chatSendAckDto` — `{ ok: true, messageId }` | `realtimeAckFailureDto`. Códigos próprios do chat (string livre no `ApiErrorDto`): `CHAT_RECIPIENT_NOT_MEMBER`, `CHAT_SPEAKER_NOT_ALLOWED` (token fora da Mesa sem sussurro), `CHAT_RECIPIENT_IS_SENDER`, `CHAT_SENDER_NOT_IN_GROUP`; detalhe em [`../chat.md`](../chat.md).
-- `chatSentDto` `{ campaignId, messageId, at, fromUserId, channel, speaker, text, replyTo, customEmojis }` (`replyTo` padrão `null`: o histórico gravado antes das respostas continua legível; `customEmojis` = `customEmojiRefsDto`, até 20 `{ name, emojiId }`, padrão `[]`, o mesmo no `dmSentDto`). Nome, cor e foto do autor saem do roster no client.
+- `chatSentDto` `{ campaignId, messageId, at, fromUserId, channel, speaker, text, image, replyTo, customEmojis }` (`image` `chatImageDto | null`, padrão `null` para o histórico de antes; `replyTo` padrão `null`: o histórico gravado antes das respostas continua legível; `customEmojis` = `customEmojiRefsDto`, até 20 `{ name, emojiId }`, padrão `[]`, o mesmo no `dmSentDto`). Nome, cor e foto do autor saem do roster no client.
 - `ChatClientEvents` / `ChatServerEvents` entram no `TableClientEvents` / `TableServerEvents` de `board/board.dto.ts`.
 
 ## Testes
 
-`packages/contracts/test/chat/chat.dto.spec.ts`: aparo e vazio do texto, 2000/2001, `userId` forjado, grupo de 1, 30/31 e repetido, nome vazio/41, `speaker` token sem `tokenId` ou com `name`, par do privado fora de ordem ou consigo mesmo, evento de cada canal, `replyTo` (padrão, com e sem menção, texto citado recusado, evento antigo sem o campo).
+`packages/contracts/test/chat/chat.dto.spec.ts`: aparo e vazio do texto, 2000/2001, `userId` forjado, grupo de 1, 30/31 e repetido, nome vazio/41, `speaker` token sem `tokenId` ou com `name`, par do privado fora de ordem ou consigo mesmo, evento de cada canal, `replyTo` (padrão, com e sem menção, texto citado recusado, evento antigo sem o campo), imagem (com legenda, sozinha, legenda de 2000, nem texto nem imagem, id que não é uuid, campo a mais, evento com tamanho, evento antigo, largura 0 ou negativa).

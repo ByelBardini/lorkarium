@@ -42,3 +42,20 @@ export function lyraPortraitPo(overrides: Partial<AssetPo> = {}): AssetPo {
     ...overrides,
   };
 }
+
+export const CHAT_IMAGE_ID = '6d7e8f9a-0b1c-4d2e-8f3a-4b5c6d7e8f9a';
+
+/** A chat picture of VHARN sent at 2026-10-27 19:00 UTC: the row `chat:send` reads.
+ *
+ *  Example: `new ChatImagesFake().with(chatImagePo({ ownerId: BIA_ID }))` */
+export function chatImagePo(overrides: Partial<AssetPo> = {}): AssetPo {
+  return lyraPortraitPo({
+    id: CHAT_IMAGE_ID,
+    purpose: 'chat_image',
+    width: 800,
+    height: 600,
+    storageKey: `assets/${overrides.id ?? CHAT_IMAGE_ID}`,
+    createdAt: new Date('2026-10-27T19:00:00Z'),
+    ...overrides,
+  });
+}

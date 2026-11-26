@@ -310,6 +310,22 @@ describe('chat history store', () => {
       });
     });
 
+    it('a message with a picture survives an F5, and an old one without the field still reads', () => {
+      const image = { assetId: '6d7e8f9a-0b1c-4d2e-8f3a-4b5c6d7e8f9a', width: 800, height: 600 };
+      receive(chatSent({ text: '', image }), 1000);
+      const old = { ...chatSent({ messageId: chatMessageIdOf(2) }) } as Record<string, unknown>;
+      delete old.image;
+      const raw = JSON.parse(storage.values.get(KEY) ?? '{}') as {
+        conversations: Array<{ messages: Array<{ event: unknown; receivedAtMs: number }> }>;
+      };
+      raw.conversations[0]?.messages.push({ event: old, receivedAtMs: 2000 });
+      storage.values.set(KEY, JSON.stringify(raw));
+
+      const messages = storeOver(storage).getState().conversations[0]?.messages ?? [];
+
+      expect(messages.map((message) => message.event.image)).toEqual([image, null]);
+    });
+
     it.each([
       ['not JSON', '{oops'],
       ['the wrong shape', JSON.stringify({ conversations: [{ key: 'table' }] })],

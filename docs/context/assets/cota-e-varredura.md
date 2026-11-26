@@ -10,6 +10,7 @@ Hub: [`../assets.md`](../assets.md). O plano que vale é o do **dono** da mesa (
 ## Cota de armazenamento
 
 - Uso do dono = soma de `size_bytes` dos assets de todas as mesas de que ele é **dono** (`campaigns.owner_id`), menos os **soltos** criados há mais de 24 h (`LOOSE_ASSET_GRACE_MS`, `looseCutoffOf(now)`). Mesa em que só joga não conta. O admin e o `amigo_do_dono` não têm teto (`maxStorageBytes: null`).
+- Solto = nenhuma referência (abaixo). A `chat_image` é solta por desenho: conta na cota por 24 h e sai na varredura seguinte ([`imagens-do-chat.md`](imagens-do-chat.md)).
 - Solto = nenhuma referência (abaixo). A idade é a do envio (`created_at`): não há coluna "solto desde", então um arquivo antigo que deixa de ser usado sai na varredura seguinte, sem esperar mais 24 h.
 - `AssetsService.keepWithin` (todo envio: `upload`, `importLink`, imagem de documento e de ficha, imagem e fonte do modelo), depois de normalizar e **antes do `put`**, numa transação (`keeping`, montada no `assets.plugin.ts`): `CampaignsDao.lockWithOwner(campaignId)` → `UsersDao.lockForPlan(ownerId)` (serializa todo envio das mesas do dono) → `AssetReferencesDao.usageOfOwner(ownerId, cutoff)` → `PlanLimitsBo.requireRoom('storage', usado, bytes normalizados, effectiveLimitsOf(dono))` → `put` → `insert`. Recusa: 403 `PLAN_LIMIT` `{ resource: 'storage', limit, plan }` e nada vai ao S3. Mesa sumida entre a participação e a trava → `CAMPAIGN_NOT_FOUND`.
 - `GET /api/account/plan` mostra o mesmo número em `usage.storageBytes` (`PlansService`, `AssetReferencesDao` sem trava).

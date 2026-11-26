@@ -7,6 +7,8 @@ import {
   frameFor,
   isMasterOnlyAssetPurpose,
   isProtectedAssetPurpose,
+  isSpectatorAssetPurpose,
+  maxBytesFor,
   opaqueAsWebpFor,
   outlineFor,
   requireCampaignArtFor,
@@ -31,6 +33,7 @@ const SIDES = {
   campaign_banner: 1800,
   condition: 256,
   aura: 512,
+  chat_image: 2048,
 };
 const CROP = { x: 10, y: 0, w: 50, h: 100 } as const;
 const FRAMES = {
@@ -54,6 +57,7 @@ describe('resizeFor', () => {
     ['campaign_photo', 512],
     ['campaign_banner', 1800],
     ['aura', 512],
+    ['chat_image', 2048],
   ] as const)('a %s image is kept up to %i px', (purpose, maxSide) => {
     expect(resizeFor(purpose, SIDES)).toEqual({ maxSide });
   });
@@ -338,4 +342,37 @@ describe('requireCampaignArtFor', () => {
       expect(() => requireCampaignArtFor(purpose, PLAN_LIMITS.free)).not.toThrow();
     },
   );
+});
+
+describe('chat_image', () => {
+  it('stays animated on any plan, like an aura', () => {
+    expect(animationFor('chat_image', ANIMATION, false)).toEqual(ANIMATION);
+  });
+
+  it('is protected, sent by any member through the generic routes', () => {
+    expect(isProtectedAssetPurpose('chat_image')).toBe(true);
+    expect(isMasterOnlyAssetPurpose('chat_image')).toBe(false);
+    expect(dedicatedEndpointOf('chat_image')).toBeNull();
+  });
+
+  it('is the one purpose a spectator may send', () => {
+    expect(isSpectatorAssetPurpose('chat_image')).toBe(true);
+    expect(isSpectatorAssetPurpose('token')).toBe(false);
+    expect(isSpectatorAssetPurpose('background')).toBe(false);
+  });
+});
+
+describe('maxBytesFor', () => {
+  const BYTES = { default: LIMIT, chat_image: 10 * MIB };
+
+  it('a purpose named in the limits takes its own, any other the default', () => {
+    expect(maxBytesFor('chat_image', BYTES)).toBe(10 * MIB);
+    expect(maxBytesFor('token', BYTES)).toBe(LIMIT);
+  });
+
+  it('a chat picture one byte above 10 MiB is refused citing its size and the limit', () => {
+    expect(() => requireSize(10 * MIB + 1, maxBytesFor('chat_image', BYTES))).toThrow(
+      `${10 * MIB + 1}`,
+    );
+  });
 });

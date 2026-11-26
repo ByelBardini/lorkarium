@@ -1,4 +1,5 @@
 import {
+  assetResponseDto,
   chatSendAckDto,
   chatSentDto,
   diceRollAckDto,
@@ -7,6 +8,7 @@ import {
 } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { setAccountPlan } from '../support/account-plans';
+import { pngOf } from '../support/images';
 import { envelope, eventPayload, send, silence, synced } from '../support/live-table';
 import {
   recordEventsOf,
@@ -299,5 +301,86 @@ describe('chat:send — refusals', () => {
     };
     const rolled = diceRollAckDto.parse(await emitParsed(ana, 'dice:roll', roll));
     expect(rolled).toMatchObject({ ok: true });
+  });
+});
+
+// A chat picture sent through the real HTTP edge by `user` to `table`.
+async function chatImageOf(user: SignedInUser, table: Table = live.vharn): Promise<string> {
+  const response = await live.http(user, {
+    method: 'POST',
+    url: `/api/campaigns/${table.id}/assets?purpose=chat_image`,
+    headers: { 'content-type': 'image/png' },
+    payload: await pngOf(120, 80),
+  });
+  expect(response.statusCode, response.body).toBe(201);
+  return assetResponseDto.parse(response.json()).asset.id;
+}
+
+describe('chat:send — a picture', () => {
+  it('Bia sends a picture on the Table: Ana, Caio and Duda hear it with its size', async () => {
+    const { clients } = await vharnTable();
+    const recorders = clients.map(recordEventsOf);
+    const assetId = await chatImageOf(live.bia);
+
+    const ack = await say(clients[1]!, messageOf(live.vharn, { text: '', image: { assetId } }));
+
+    expect(ack).toMatchObject({ ok: true });
+    const events = await Promise.all(recorders.map(sentOf));
+    for (const event of events) {
+      expect(event).toMatchObject({ text: '', image: { assetId, width: 120, height: 80 } });
+    }
+  });
+
+  it('a picture whispered from Bia to Caio reaches only the two', async () => {
+    const { clients } = await vharnTable();
+    const [ana, bia, caio, duda] = clients.map(recordEventsOf);
+    const assetId = await chatImageOf(live.bia);
+    const channel = { kind: 'table', whisperTo: live.caio.id };
+
+    await say(clients[1]!, messageOf(live.vharn, { channel, image: { assetId } }));
+
+    const events = await Promise.all([sentOf(bia!), sentOf(caio!)]);
+    expect(events.map((event) => event.image?.assetId)).toEqual([assetId, assetId]);
+    await silence();
+    expect([ana!, duda!].map(heard)).toEqual([[], []]);
+  });
+
+  it('Duda, the spectator, sends a picture of her own', async () => {
+    const { duda, clients } = await vharnTable();
+    const ana = recordEventsOf(clients[0]!);
+    const assetId = await chatImageOf(duda);
+
+    const ack = await say(clients[3]!, messageOf(live.vharn, { image: { assetId } }));
+
+    expect(ack).toMatchObject({ ok: true });
+    expect((await sentOf(ana)).image?.assetId).toBe(assetId);
+  });
+
+  it('Bia speaking as Lyra sends a picture with the name read from the grid', async () => {
+    const { clients } = await vharnTable();
+    const speaker = await lyraSpeaker(clients[0]!);
+    const caio = recordEventsOf(clients[2]!);
+    const assetId = await chatImageOf(live.bia);
+
+    await say(clients[1]!, messageOf(live.vharn, { speaker, image: { assetId } }));
+
+    const event = await sentOf(caio);
+    expect(event.speaker).toMatchObject({ kind: 'token', name: expect.any(String) });
+    expect(event.image?.assetId).toBe(assetId);
+  });
+
+  it("a picture of Quelm cited in Vharn, and Bia's cited by Caio, are CHAT_IMAGE_NOT_FOUND", async () => {
+    const { clients } = await vharnTable();
+    const listener = recordEventsOf(clients[0]!);
+    const quelmImage = await chatImageOf(live.caio, live.quelm);
+    const biaImage = await chatImageOf(live.bia);
+    const refused = { ok: false, error: { code: 'CHAT_IMAGE_NOT_FOUND' } };
+
+    const fromQuelm = { image: { assetId: quelmImage } };
+    expect(await say(clients[2]!, messageOf(live.vharn, fromQuelm))).toMatchObject(refused);
+    const notHis = { image: { assetId: biaImage } };
+    expect(await say(clients[2]!, messageOf(live.vharn, notHis))).toMatchObject(refused);
+    await silence();
+    expect(heard(listener)).toEqual([]);
   });
 });

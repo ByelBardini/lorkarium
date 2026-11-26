@@ -156,12 +156,12 @@ export const SMILEYS: readonly Emote[] = [
   noto('hourglass', 'symbols', '⏳', ['ampulheta tempo']),
   noto('bell', 'symbols', '🔔', ['sino']),
   noto('zzz', 'symbols', '💤', ['sono']),
-  // monkeys
-  noto('see_no_evil', 'monkeys', '🙈', ['macaco nao vejo']),
-  noto('hear_no_evil', 'monkeys', '🙉', ['macaco nao ouco']),
-  noto('speak_no_evil', 'monkeys', '🙊', ['macaco nao falo']),
-  noto('monkey_face', 'monkeys', '🐵', ['macaco']),
-  noto('monkey', 'monkeys', '🐒', ['macaco']),
-  noto('gorilla', 'monkeys', '🦍', ['gorila']),
-  noto('orangutan', 'monkeys', '🦧', ['orangotango']),
+  // monkeys (in the Reações tab)
+  noto('see_no_evil', 'reactions', '🙈', ['macaco nao vejo']),
+  noto('hear_no_evil', 'reactions', '🙉', ['macaco nao ouco']),
+  noto('speak_no_evil', 'reactions', '🙊', ['macaco nao falo']),
+  noto('monkey_face', 'reactions', '🐵', ['macaco']),
+  noto('monkey', 'reactions', '🐒', ['macaco']),
+  noto('gorilla', 'reactions', '🦍', ['gorila']),
+  noto('orangutan', 'reactions', '🦧', ['orangotango']),
 ];

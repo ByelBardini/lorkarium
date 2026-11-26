@@ -12,7 +12,7 @@ export type OwnEmojiGridProps = Readonly<{
  *  Example: `<OwnEmojiGrid emojis={active} onPick={insertAtCaret} />` */
 export function OwnEmojiGrid({ emojis, onPick }: OwnEmojiGridProps): React.JSX.Element {
   return (
-    <div className="grid max-h-60 grid-cols-7 gap-1 overflow-y-auto">
+    <div className="grid grid-cols-7 gap-1">
       {emojis.map((emoji) => {
         const code = `:${emoji.name}:`;
         return (

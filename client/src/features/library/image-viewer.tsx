@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { assetUrlOf } from '@/services/assets-api';
 
-export type ImageView = Readonly<{ name: string; asset: AssetDto }>;
+/** Only the id is read: a chat picture has no full `AssetDto` at hand. */
+export type ImageView = Readonly<{ name: string; asset: Pick<AssetDto, 'id'> }>;
 
 /** Shared complete-image preview with recoverable loading errors. Example: `<ImageViewer image={image} />`. */
 export function ImageViewer({ image }: Readonly<{ image: ImageView }>): React.JSX.Element {
@@ -43,7 +44,13 @@ export function ImageViewer({ image }: Readonly<{ image: ImageView }>): React.JS
 export function ImageViewerModal({
   image,
   onClose,
-}: Readonly<{ image: ImageView; onClose: () => void }>): React.JSX.Element {
+  description = 'Imagem da biblioteca da mesa',
+}: Readonly<{
+  image: ImageView;
+  onClose: () => void;
+  /** For the screen reader: where the picture comes from. */
+  description?: string;
+}>): React.JSX.Element {
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
@@ -52,7 +59,7 @@ export function ImageViewerModal({
         onKeyDown={(event) => event.stopPropagation()}
       >
         <DialogTitle>{image.name}</DialogTitle>
-        <DialogDescription className="sr-only">Imagem da biblioteca da mesa</DialogDescription>
+        <DialogDescription className="sr-only">{description}</DialogDescription>
         <ImageViewer key={image.asset.id} image={image} />
         <Button variant="outline" className="self-end" onClick={onClose}>
           Fechar imagem

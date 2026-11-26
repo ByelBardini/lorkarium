@@ -11,6 +11,8 @@ import { SceneNotFoundError } from '../scenes/scenes.error';
 import { TokenAccessBo } from '../tokens/token-access.bo';
 import type { TokensDao } from '../tokens/tokens.dao';
 import { TokenNotFoundError } from '../tokens/tokens.error';
+import type { AssetsDao } from '../assets/assets.dao';
+import { ChatImageBo, type ChatImage } from './chat-image.bo';
 import { ChatMessageBo } from './chat-message.bo';
 import type { CustomEmojiRefsPort } from '../custom-emojis/custom-emoji-refs.port';
 import type { ChatPublisherPort } from './chat-publisher.port';
@@ -29,6 +31,8 @@ export type ChatServiceDeps = Readonly<{
   clock: ClockPort;
   /** The sender's custom emojis the text names, for the event. */
   emojis: CustomEmojiRefsPort;
+  /** Reads a cited picture within the table: one of another table is never found. */
+  images: Pick<AssetsDao, 'findInCampaign'>;
   newId: () => string;
 }>;
 
@@ -55,6 +59,7 @@ export class ChatService {
     const audience = message.audience();
     await this.requireMembers(command.campaignId, message.recipientIds());
     const speaker = await this.speakerOf(access, command, connectionId);
+    const image = await this.imageOf(userId, command);
     const event = toChatSentDto({
       command,
       messageId: this.deps.newId(),
@@ -62,9 +67,17 @@ export class ChatService {
       speaker,
       at: this.deps.clock.now().toISOString(),
       customEmojis: await this.deps.emojis.refsIn(userId, command.text),
+      image,
     });
     this.deps.publisher.sent(event, audience);
     return { messageId: event.messageId };
+  }
+
+  private async imageOf(userId: string, command: ChatSendCommandDto): Promise<ChatImage | null> {
+    if (command.image === null) return null;
+    const { assetId } = command.image;
+    const row = await this.deps.images.findInCampaign(command.campaignId, assetId);
+    return new ChatImageBo(assetId, row).requireUsableBy(userId, this.deps.clock.now());
   }
 
   private async requireMembers(campaignId: string, userIds: readonly string[]): Promise<void> {

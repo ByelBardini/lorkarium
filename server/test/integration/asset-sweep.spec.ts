@@ -12,7 +12,7 @@ import {
 } from '../../src/modules/assets/asset-references.dao';
 import type { AssetStoragePort } from '../../src/modules/assets/asset-storage.port';
 import type { AssetSweepService } from '../../src/modules/assets/asset-sweep.service';
-import { assets } from '../../src/modules/assets/assets.po';
+import { assets, type AssetPo } from '../../src/modules/assets/assets.po';
 import { storageDeletions } from '../../src/modules/assets/storage-deletions.po';
 import { scenes } from '../../src/modules/scenes/scenes.po';
 import { ClockFake } from '../support/auth-fakes';
@@ -37,6 +37,7 @@ async function looseFile(
   storage: AssetStoragePort,
   table: Table,
   hoursAgo: number,
+  purpose: AssetPo['purpose'] = 'token',
 ): Promise<string> {
   const id = randomUUID();
   const storageKey = `assets/${id}`;
@@ -44,7 +45,9 @@ async function looseFile(
   const createdAt = new Date(Date.now() - hoursAgo * HOUR);
   await live.connection.db
     .insert(assets)
-    .values(newAssetPo({ id, campaignId: table.id, storageKey, sizeBytes: 700, createdAt }));
+    .values(
+      newAssetPo({ id, campaignId: table.id, storageKey, sizeBytes: 700, createdAt, purpose }),
+    );
   return id;
 }
 
@@ -98,6 +101,19 @@ describe('the sweep of loose files', () => {
     expect(await rowExists(fresh)).toBe(true);
     expect(await queuedKeys()).toEqual([]);
     expect(await storageOf(live.ana)).toBe(700);
+    storage.destroy();
+  });
+
+  it('a chat image of 25 h leaves with its key queued, one of 23 h stays', async () => {
+    const storage = bucket();
+    const old = await looseFile(storage, live.vharn, 25, 'chat_image');
+    const fresh = await looseFile(storage, live.vharn, 23, 'chat_image');
+
+    expect(await sweep().sweep()).toEqual({ deleted: 1 });
+
+    expect(await rowExists(old)).toBe(false);
+    expect(await rowExists(fresh)).toBe(true);
+    expect(await queuedKeys()).toEqual([`assets/${old}`]);
     storage.destroy();
   });
 

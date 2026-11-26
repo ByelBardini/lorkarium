@@ -1,4 +1,5 @@
 import type { CampaignRoleDto } from '@lorkarium/contracts';
+import type { AssetsApi } from '@/services/assets-api';
 import { useEffect, useMemo, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { SegmentField } from '@/components/segment-field';
@@ -39,6 +40,8 @@ export type ChatServices = Readonly<{
   savedRolls: SavedRollsApi;
   /** The wall clock of the dice history's `revealAtMs`. */
   diceClock: InteractionClock;
+  /** Where a picture of the composer goes, as a `chat_image` of the table. */
+  assets: AssetsApi;
 }>;
 
 export type ChatPanelProps = Readonly<{

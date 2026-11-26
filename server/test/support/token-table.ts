@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
 import { buildApp } from '../../src/app/build-app';
 import { readEnv, type Env } from '../../src/config/env';
 import type { DatabaseConnection } from '../../src/database/database';
+import type { ImageFetcherPort } from '../../src/modules/assets/image-fetcher.port';
 import type { ClockPort } from '../../src/modules/auth/clock.port';
 import type { AssetDto } from '@lorkarium/contracts';
 import { sendImage } from './images';
@@ -30,10 +31,14 @@ export class TokenTableHarness {
   private readonly clients: RealtimeClient[] = [];
   private readonly env: Env = { ...readEnv(process.env), adminSeed: null };
 
-  constructor(private readonly clock?: ClockPort) {}
+  constructor(
+    private readonly clock?: ClockPort,
+    private readonly imageFetcher?: ImageFetcherPort,
+  ) {}
 
   async start(): Promise<void> {
-    this.app = await buildApp({ env: this.env, db: this.connection.db, clock: this.clock });
+    const { clock, imageFetcher } = this;
+    this.app = await buildApp({ env: this.env, db: this.connection.db, clock, imageFetcher });
     this.baseUrl = await this.app.listen({ port: 0, host: '127.0.0.1' });
   }
 
@@ -105,8 +110,11 @@ export class TokenTableHarness {
 /** Registers the hooks of a three-client table spec and hands back the harness.
  *
  *  Example: `const live = useTokenTable(); it('…', async () => live.atTable(live.ana, live.vharn))` */
-export function useTokenTable(clock?: ClockPort): TokenTableHarness {
-  const harness = new TokenTableHarness(clock);
+export function useTokenTable(
+  clock?: ClockPort,
+  imageFetcher?: ImageFetcherPort,
+): TokenTableHarness {
+  const harness = new TokenTableHarness(clock, imageFetcher);
   beforeAll(async () => {
     harness.connection = await openTestDatabase({ queryLog: harness.queries });
   });

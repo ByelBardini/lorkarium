@@ -2,7 +2,8 @@ export type ChatErrorCode =
   | 'CHAT_RECIPIENT_NOT_MEMBER'
   | 'CHAT_RECIPIENT_IS_SENDER'
   | 'CHAT_SENDER_NOT_IN_GROUP'
-  | 'CHAT_SPEAKER_NOT_ALLOWED';
+  | 'CHAT_SPEAKER_NOT_ALLOWED'
+  | 'CHAT_IMAGE_NOT_FOUND';
 
 /** Where a chat message goes, as the errors name it. */
 export type ChatChannelKind = 'whisper' | 'direct' | 'group';
@@ -64,6 +65,20 @@ export class ChatSpeakerNotAllowedError extends ChatError {
     super(
       'CHAT_SPEAKER_NOT_ALLOWED',
       `speaking as a token is not allowed in a ${kind} message; expected the Table without a whisper, or speaking as oneself`,
+    );
+  }
+}
+
+/** A picture that is not a chat image the sender uploaded to this table in the last 24 h: it
+ *  may be someone else's, of another table, or already swept. */
+export class ChatImageNotFoundError extends ChatError {
+  constructor(
+    readonly assetId: string,
+    readonly senderId: string,
+  ) {
+    super(
+      'CHAT_IMAGE_NOT_FOUND',
+      `asset ${assetId} is not a chat image of user ${senderId}; expected a chat_image they sent to this campaign in the last 24 h`,
     );
   }
 }

@@ -5,6 +5,7 @@ import {
   ForbiddenActionError,
 } from '../../../src/modules/campaigns/campaigns.error';
 import {
+  ChatImageNotFoundError,
   ChatRecipientNotMemberError,
   ChatSenderNotInGroupError,
   ChatSpeakerNotAllowedError,
@@ -26,7 +27,8 @@ import {
 } from '../../support/campaigns-factories';
 import { characterRow, LYRA_CHARACTER_ID } from '../../support/characters-factories';
 import { CharactersDaoFake } from '../../support/characters-fakes';
-import { ChatPublisherFake } from '../../support/chat-fakes';
+import { CHAT_IMAGE_ID, chatImagePo } from '../../support/assets-factories';
+import { ChatImagesFake, ChatPublisherFake } from '../../support/chat-fakes';
 import { CustomEmojiRefsFake } from '../../support/custom-emojis-fakes';
 import { GridAudienceFake } from '../../support/pings-fakes';
 import { VHARN_SCENE_ID } from '../../support/scenes-factories';
@@ -41,6 +43,12 @@ const OTHER_TABLE_ID = '4c2f0b63-7d5e-4a9b-8f3c-2b8d6e4a9f21';
 const GROUP_ID = '1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f';
 const MISSING_TOKEN_ID = '9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a';
 const CONNECTION = 'socket-1';
+const DUDA_IMAGE_ID = '5c6d7e8f-9a0b-4c1d-8e2f-3a4b5c6d7e8f';
+const QUELM_IMAGE_ID = '7e8f9a0b-1c2d-4e3f-9a4b-5c6d7e8f9a0b';
+const CAIO_IMAGE_ID = '8f9a0b1c-2d3e-4f4a-8b5c-6d7e8f9a0b1c';
+const TOKEN_IMAGE_ID = '9a0b1c2d-3e4f-4a5b-9c6d-7e8f9a0b1c2d';
+const OLD_IMAGE_ID = '0b1c2d3e-4f5a-4b6c-8d7e-8f9a0b1c2d3e';
+const DAY_BEFORE = new Date('2026-10-26T19:00:00Z');
 const TABLE: ChatChannelDto = { kind: 'table', whisperTo: null };
 const AS_LYRA_CHARACTER: ChatSpeakerDto = { kind: 'character', characterId: LYRA_CHARACTER_ID };
 const AS_LYRA: ChatSpeakerDto = { kind: 'token', sceneId: VHARN_SCENE_ID, tokenId: LYRA_ID };
@@ -51,6 +59,7 @@ type Harness = Readonly<{
   audience: GridAudienceFake;
   publisher: ChatPublisherFake;
   emojis: CustomEmojiRefsFake;
+  images: ChatImagesFake;
 }>;
 
 function harness(): Harness {
@@ -68,8 +77,15 @@ function harness(): Harness {
   const clock = new ClockFake(NOW);
   const emojis = new CustomEmojiRefsFake();
   const newId = (): string => MESSAGE_ID;
-  const deps = { members, audience, tokens, characters, publisher, clock, emojis, newId };
-  return { service: new ChatService(deps), members, audience, publisher, emojis };
+  const images = new ChatImagesFake()
+    .with(chatImagePo({ ownerId: BIA_ID }))
+    .with(chatImagePo({ id: DUDA_IMAGE_ID, ownerId: DUDA_ID }))
+    .with(chatImagePo({ id: QUELM_IMAGE_ID, ownerId: BIA_ID, campaignId: OTHER_TABLE_ID }))
+    .with(chatImagePo({ id: CAIO_IMAGE_ID, ownerId: CAIO_ID }))
+    .with(chatImagePo({ id: TOKEN_IMAGE_ID, ownerId: BIA_ID, purpose: 'token' }))
+    .with(chatImagePo({ id: OLD_IMAGE_ID, ownerId: BIA_ID, createdAt: DAY_BEFORE }));
+  const deps = { members, audience, tokens, characters, publisher, clock, emojis, images, newId };
+  return { service: new ChatService(deps), members, audience, publisher, emojis, images };
 }
 
 function commandOf(overrides: Partial<ChatSendCommandDto> = {}): ChatSendCommandDto {
@@ -79,6 +95,7 @@ function commandOf(overrides: Partial<ChatSendCommandDto> = {}): ChatSendCommand
     channel: TABLE,
     speaker: { kind: 'self' },
     text: 'Abram a porta.',
+    image: null,
     replyTo: null,
     ...overrides,
   };
@@ -142,6 +159,7 @@ describe('ChatService.send — channels and audience', () => {
           channel: TABLE,
           speaker: { kind: 'self' },
           text: 'Abram a porta.',
+          image: null,
           replyTo: null,
           customEmojis: [],
         },
@@ -391,5 +409,75 @@ describe('ChatService.send — speaking as a character', () => {
     );
 
     await expect(sent).rejects.toBeInstanceOf(ChatSpeakerNotAllowedError);
+  });
+});
+
+describe('ChatService.send — a picture', () => {
+  function withImage(assetId: string, overrides: Partial<ChatSendCommandDto> = {}) {
+    return commandOf({ text: '', image: { assetId }, ...overrides });
+  }
+
+  it('the event carries the picture with the size of the row, never the command', async () => {
+    const { service, publisher } = harness();
+
+    await service.send(BIA_ID, withImage(CHAT_IMAGE_ID, { text: 'olha' }), CONNECTION);
+
+    expect(publisher.published[0]?.event).toMatchObject({
+      text: 'olha',
+      image: { assetId: CHAT_IMAGE_ID, width: 800, height: 600 },
+    });
+  });
+
+  it('a text-only message reads no asset and carries no picture', async () => {
+    const { service, publisher, images } = harness();
+
+    await service.send(BIA_ID, commandOf(), CONNECTION);
+
+    expect(images.lookups).toEqual([]);
+    expect(publisher.published[0]?.event.image).toBeNull();
+  });
+
+  it('the picture is read within the table of the command', async () => {
+    const { service, images } = harness();
+
+    await service.send(BIA_ID, withImage(CHAT_IMAGE_ID), CONNECTION);
+
+    expect(images.lookups).toEqual([{ campaignId: VHARN_ID, assetId: CHAT_IMAGE_ID }]);
+  });
+
+  it('a spectator sends a picture of their own', async () => {
+    const { service, publisher } = harness();
+
+    await service.send(DUDA_ID, withImage(DUDA_IMAGE_ID), CONNECTION);
+
+    expect(publisher.published[0]?.event.image?.assetId).toBe(DUDA_IMAGE_ID);
+  });
+
+  it.each([
+    ['of another table', QUELM_IMAGE_ID],
+    ["of another person (Caio's)", CAIO_IMAGE_ID],
+    ['of another purpose (a token)', TOKEN_IMAGE_ID],
+    ['sent 25 h ago', OLD_IMAGE_ID],
+  ])('a picture %s is CHAT_IMAGE_NOT_FOUND citing the id, and nothing is sent', async (_, id) => {
+    const { service, publisher } = harness();
+
+    const sending = service.send(BIA_ID, withImage(id), CONNECTION);
+
+    await expect(sending).rejects.toBeInstanceOf(ChatImageNotFoundError);
+    await expect(sending).rejects.toThrow(id);
+    expect(publisher.published).toEqual([]);
+  });
+
+  it('an earlier refusal comes before the picture is read', async () => {
+    const { service, images } = harness();
+    const stranger = withImage(CHAT_IMAGE_ID, { channel: { kind: 'direct', userId: QUELM_ID } });
+
+    await expect(
+      service.send(QUELM_ID, withImage(CHAT_IMAGE_ID), CONNECTION),
+    ).rejects.toBeInstanceOf(CampaignNotFoundError);
+    await expect(service.send(BIA_ID, stranger, CONNECTION)).rejects.toBeInstanceOf(
+      ChatRecipientNotMemberError,
+    );
+    expect(images.lookups).toEqual([]);
   });
 });

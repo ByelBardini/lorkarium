@@ -1,3 +1,5 @@
+import { imageFailureMessage } from '@/components/image-picker-messages';
+import type { ChatAttachment, ChatAttachmentRejection } from '@/lib/chat-attachment';
 import type { ChatMessage } from '@/lib/chat-conversations';
 import type { ChatInputRefusal } from '@/lib/chat-input';
 import type { ChatSendFailure } from '@/services/chat-commands';
@@ -28,6 +30,7 @@ const SEND_FAILURES: Readonly<Record<Exclude<ChatSendFailure['kind'], 'rate_limi
   sender_not_in_group: 'Você não está nesse grupo.',
   speaker_not_allowed: 'Um personagem só fala para a mesa toda.',
   speaker_not_found: 'Esse personagem não está mais no grid. Você voltou a falar como você.',
+  image_expired: 'Essa imagem não está mais disponível. Anexe de novo.',
   invalid: INVALID_MESSAGE,
   unauthenticated: 'Sua sessão terminou. Entre de novo para conversar.',
   offline: OFFLINE_MESSAGE,
@@ -123,7 +126,7 @@ export function chatAnnouncement(author: string, place: AnnouncedPlace, text: st
  *
  *  Example: `chatLineOf(message, people.nameOf) // 'Caio: Vou abrir a porta'` */
 export function chatLineOf(message: ChatMessage, nameOf: (userId: string) => string): string {
-  return chatAnnouncement(chatVoiceOf(message, nameOf), placeOf(message), message.event.text);
+  return chatAnnouncement(chatVoiceOf(message, nameOf), placeOf(message), lineTextOf(message));
 }
 
 /** Who a message speaks as: the token's or character's name, or the author's — the start of its `chatLineOf`.
@@ -132,6 +135,13 @@ export function chatLineOf(message: ChatMessage, nameOf: (userId: string) => str
 export function chatVoiceOf(message: ChatMessage, nameOf: (userId: string) => string): string {
   const { event } = message;
   return spokenNameOf(event.speaker) ?? nameOf(event.fromUserId);
+}
+
+/** What a message with only a picture says in a line (the bar, the announcer, the preview). */
+export const IMAGE_ONLY_LINE = 'enviou uma imagem';
+
+function lineTextOf({ event }: ChatMessage): string {
+  return event.text === '' && event.image !== null ? IMAGE_ONLY_LINE : event.text;
 }
 
 function placeOf({ event }: ChatMessage): AnnouncedPlace {
@@ -146,4 +156,22 @@ function placeOf({ event }: ChatMessage): AnnouncedPlace {
  *  Example: `chatUnreadText(3) // '3 mensagens não lidas'` */
 export function chatUnreadText(count: number): string {
   return count === 1 ? '1 mensagem não lida' : `${count} mensagens não lidas`;
+}
+
+const CHAT_IMAGE_TOO_LARGE = 'A imagem passa de 10 MB.';
+
+const REJECTIONS: Readonly<Record<ChatAttachmentRejection, string>> = {
+  type: 'Só dá para anexar imagens: PNG, JPEG, WebP ou GIF.',
+  size: CHAT_IMAGE_TOO_LARGE,
+  link: 'Cole um link que comece com http:// ou https://.',
+};
+
+/** Why the picture of the composer did not go, in pt-BR; `null` while it is fine.
+ *
+ *  Example: `chatAttachmentProblem({ kind: 'rejected', reason: 'size' }) // 'A imagem passa de 10 MB.'` */
+export function chatAttachmentProblem(attachment: ChatAttachment): string | null {
+  if (attachment.kind === 'rejected') return REJECTIONS[attachment.reason];
+  if (attachment.kind !== 'failed') return null;
+  const { failure } = attachment;
+  return failure.kind === 'too_large' ? CHAT_IMAGE_TOO_LARGE : imageFailureMessage(failure);
 }

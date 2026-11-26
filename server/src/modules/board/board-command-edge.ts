@@ -103,6 +103,7 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   CHAT_RECIPIENT_IS_SENDER: 'A private message needs someone else',
   CHAT_SENDER_NOT_IN_GROUP: 'You are not in this group',
   CHAT_SPEAKER_NOT_ALLOWED: 'A character only speaks to the whole table',
+  CHAT_IMAGE_NOT_FOUND: 'That image is no longer available',
   SHEET_NOT_FOUND: 'Sheet not found',
   SHEET_HAS_NO_TOKEN: 'This sheet is not held by a token',
 };
