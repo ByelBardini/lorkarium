@@ -1,4 +1,5 @@
 import type { TokenDto } from '@lorkarium/contracts';
+import { LogOutIcon, PencilIcon } from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import { useViewerTokenRights } from '@/features/board/table-token-rights';
@@ -30,6 +31,8 @@ export function TokenDockActions(props: TokenDockActionsProps): React.JSX.Elemen
   const canEdit = useViewerTokenRights(props.board).of(token).edit;
   if (readOnly && !runs && !isMaster && !canEdit) return null;
   const send = interaction.getState().command;
+  // Icon-only actions: with "Condição" and the initiative, two labelled buttons overflow the
+  // panel's width and the master's row wrapped once a combat began.
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-divider pt-2">
       <AddConditionButton {...props} />
@@ -51,21 +54,25 @@ export function TokenDockActions(props: TokenDockActionsProps): React.JSX.Elemen
         <Button
           type="button"
           variant="ghost"
-          size="sm"
+          size="icon-sm"
+          aria-label="Tirar do combate"
+          title="Tirar do combate"
           disabled={readOnly}
           onClick={() => void send((c, id) => c.regroupTokens(id, [token.id], { kind: 'out' }))}
         >
-          Tirar do combate
+          <LogOutIcon aria-hidden="true" />
         </Button>
       )}
       {canEdit && (
         <Button
           type="button"
           variant="outline"
-          size="sm"
+          size="icon-sm"
+          aria-label="Editar token"
+          title="Editar token"
           onClick={() => props.onEditToken(token.id)}
         >
-          Editar token
+          <PencilIcon aria-hidden="true" />
         </Button>
       )}
     </div>
