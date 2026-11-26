@@ -399,6 +399,19 @@ Extensão aprovada em 12/11/2026. A conta tem amigos fora de qualquer mesa, vê 
 
 Contratos, regras e provas: [context/friends.md](context/friends.md), [context/direct-messages.md](context/direct-messages.md) e [context/client/friends.md](context/client/friends.md). Fora desta entrega: convidar amigo para a mesa, mensagem para quem está offline e histórico no servidor, recibo de leitura, ausente manual, conversa de amigo dentro da sala e várias instâncias do servidor.
 
+### 3.16. Ciclos por rodada
+
+Extensão aprovada em 25/11/2026. Um **ciclo** é uma sequência de 2 a 12 fases, cada uma com nome e imagem da mesa (GIF anima pela regra de plano da arte da mesa), que vira sozinha no começo de cada rodada do combate. Exemplo: as fases da Lua de uma personagem (Nova › Crescente › Cheia › Minguante › Nova). O mestre (co-mestre incluso) cria os ciclos numa aba própria da sala; até 20 por mesa.
+
+- **Dono.** O ciclo é da mesa (entra em todo combate) ou de um personagem (NPC incluso) ou token solto: entra no combate quando o portador entra e sai quando ele sai. Apagar o portador apaga o ciclo.
+- **Virada.** Todo combate começa o ciclo na 1ª fase; fechar a rodada leva à fase seguinte (a 1ª depois da última), no mesmo comando e na mesma versão do grid. O portador que entra no meio do combate começa na 1ª fase.
+- **Escolha da próxima fase.** O mestre e os membros marcados no ciclo escolhem, a qualquer hora da rodada, qual será a fase da próxima (repetir a atual vale); o ciclo segue a partir dela. Dá para trocar ou desfazer até a virada. O sistema não cobra o uso da habilidade (§2.1, §3.7).
+- **Quem vê.** Todos, só alguns membros escolhidos ou só o mestre; quem pode escolher também vê. O server corta cada evento por público: quem não vê o ciclo recebe a mesma versão sem ele.
+- **Aviso.** Opcional por ciclo: anuncia cada fase (começo do combate e cada virada) a **todos** os membros da sala do grid, mesmo a quem não vê o ciclo. Efêmero, sem versão.
+- **Tela.** Um selo por ciclo visto no topo do tabuleiro, com a fase atual, a próxima e, para quem pode, a escolha; a virada também entra no aviso da rodada.
+
+Fora desta entrega: efeito mecânico da fase, ciclo fora de combate, virada por turno ou a cada N rodadas, contagem do uso da habilidade.
+
 ## 4. Tecnologias
 
 ### 4.1. Frontend

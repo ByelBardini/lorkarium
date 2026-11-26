@@ -28,6 +28,7 @@ import {
   type TableScope,
 } from './board-command-sender';
 import { RealtimeCombatCommands, type CombatCommands } from './combat-commands';
+import { RealtimeRoundCycleCommands, type RoundCycleCommands } from './round-cycle-commands';
 import {
   RealtimeLightCommands,
   type LightAt,
@@ -94,6 +95,7 @@ export type * from './board-command-targets';
 export interface TableBoardCommands
   extends
     CombatCommands,
+    RoundCycleCommands,
     EffectAreaCommands,
     WallCommands,
     LightCommands,
@@ -177,6 +179,11 @@ export class RealtimeTableBoardCommands
   private readonly patrols = new RealtimeTokenPatrolCommands(this.sender);
   readonly setTokenPatrol = this.patrols.setTokenPatrol.bind(this.patrols);
   readonly setTokenPatrolsActive = this.patrols.setTokenPatrolsActive.bind(this.patrols);
+  private readonly cycles = new RealtimeRoundCycleCommands(this.sender);
+  readonly defineRoundCycle = this.cycles.defineRoundCycle.bind(this.cycles);
+  readonly updateRoundCycle = this.cycles.updateRoundCycle.bind(this.cycles);
+  readonly deleteRoundCycle = this.cycles.deleteRoundCycle.bind(this.cycles);
+  readonly chooseNextPhase = this.cycles.chooseNextPhase.bind(this.cycles);
 
   constructor(transport: RealtimeTransport, newActionId: () => string) {
     super(new BoardCommandSender(transport, newActionId));

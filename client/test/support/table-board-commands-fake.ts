@@ -1,3 +1,4 @@
+import type { RoundCycleFields } from '@/services/round-cycle-commands';
 import type {
   BarChangeDto,
   CombatEntryInput,
@@ -256,6 +257,30 @@ export class TableBoardCommandsFake implements TableBoardCommands {
     active: boolean,
   ): Promise<BoardCommandResult> {
     return this.record('setTokenPatrolsActive', scope, { tokenIds: [...ids], active });
+  }
+
+  defineRoundCycle(scope: TableScope, cycle: RoundCycleFields): Promise<BoardCommandResult> {
+    return this.record('defineRoundCycle', scope, { ...cycle });
+  }
+
+  updateRoundCycle(
+    scope: TableScope,
+    cycleId: string,
+    cycle: RoundCycleFields,
+  ): Promise<BoardCommandResult> {
+    return this.record('updateRoundCycle', scope, { cycleId, ...cycle });
+  }
+
+  deleteRoundCycle(scope: TableScope, cycleId: string): Promise<BoardCommandResult> {
+    return this.record('deleteRoundCycle', scope, { cycleId });
+  }
+
+  chooseNextPhase(
+    scope: BoardScope,
+    cycleId: string,
+    phaseId: string | null,
+  ): Promise<BoardCommandResult> {
+    return this.record('chooseNextPhase', scope, { cycleId, phaseId });
   }
 
   setTokensHidden(

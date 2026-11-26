@@ -12,6 +12,8 @@ import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
 import { memberAccessOf, viewerAccessOf } from '../campaigns/member-access';
 import type { ConditionsDao } from '../conditions/conditions.dao';
 import { toConditionDefinitionDto } from '../conditions/conditions.mapper';
+import type { CycleViewer } from '../round-cycles/round-cycle-rules.bo';
+import { roundCyclesFor, type RoundCycleReadDaos } from '../round-cycles/round-cycles.service';
 import type { SheetsDao } from '../sheets/sheets.dao';
 import type { BarValuesPo } from '../tokens/tokens.po';
 import type { CharacterBo } from './character.bo';
@@ -55,6 +57,8 @@ export type CharacterReadDaos = Readonly<{
   characters: Pick<CharactersDao, 'versionOf' | 'listOfCampaign'>;
   /** The table's condition list rides the same stream (and version) as the characters. */
   conditions: Pick<ConditionsDao, 'listDefinitions'>;
+  /** The round cycles ride the same stream: each member reads the ones they see. */
+  roundCycles: RoundCycleReadDaos['roundCycles'];
 }>;
 
 export type CharacterTransactionRunner = CharactersTransaction<CharacterWriteDaos>;
@@ -142,14 +146,17 @@ export class CharactersService {
    *  Example: `(await characters.sync(dudaId, vharnId)).characters.length // 2` */
   async sync(userId: string, campaignId: string): Promise<CharacterSyncDto> {
     const access = await viewerAccessOf(this.deps.members, campaignId, userId);
-    const { version, rows, definitions } = await this.deps.snapshot(async (daos) => ({
+    const viewer = viewerOf(access, userId);
+    const { version, rows, definitions, roundCycles } = await this.deps.snapshot(async (daos) => ({
       version: await daos.characters.versionOf(campaignId),
       rows: await daos.characters.listOfCampaign(campaignId),
       definitions: await daos.conditions.listDefinitions(campaignId),
+      roundCycles: await roundCyclesFor(daos, campaignId, viewer),
     }));
     if (version === undefined) throw new Error(`campaign ${campaignId} vanished during its sync`);
     const characters = rows.flatMap((row) => seenDtoOf(access, row));
-    return { version, characters, conditionDefinitions: definitions.map(toConditionDefinitionDto) };
+    const conditionDefinitions = definitions.map(toConditionDefinitionDto);
+    return { version, characters, conditionDefinitions, roundCycles };
   }
 
   private async write(
@@ -183,4 +190,9 @@ async function rowIn(
   const row = await daos.characters.findInCampaign(campaignId, characterId);
   if (!row) throw new CharacterNotFoundError(campaignId, characterId);
   return row;
+}
+
+// The masters see every cycle; anyone else what the cycles show them (none named: everyone's).
+function viewerOf(access: CampaignAccessBo, userId: string): CycleViewer {
+  return access.isMaster() ? { kind: 'master' } : { kind: 'member', userId };
 }

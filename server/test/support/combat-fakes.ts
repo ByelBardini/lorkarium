@@ -1,3 +1,4 @@
+import { RoundCyclesDaoFake } from './round-cycles-fakes';
 import { CharactersDaoFake } from './characters-fakes';
 import type {
   CombatDao,
@@ -170,12 +171,15 @@ export class CombatTransactionRunnerFake {
       conditions: ConditionsDaoFake;
       /** The characters linked tokens wear (none by default): their conditions count down there. */
       characters?: CharactersDaoFake;
+      /** The table's round cycles (none by default): they enter, leave and turn with the combat. */
+      roundCycles?: RoundCyclesDaoFake;
     }>,
   ) {}
 
   readonly run: CombatTransactionRunner = async (work) => {
     const characters = this.daos.characters ?? new CharactersDaoFake(this.daos.scenes.journal);
-    const result = await work({ ...this.daos, characters });
+    const roundCycles = this.daos.roundCycles ?? new RoundCyclesDaoFake(this.daos.scenes.journal);
+    const result = await work({ ...this.daos, characters, roundCycles });
     this.daos.scenes.journal.push('commit');
     return result;
   };

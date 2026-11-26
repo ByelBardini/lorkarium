@@ -26,6 +26,7 @@ import { SceneError } from '../scenes/scenes.error';
 import { SessionEndedError, SessionError } from '../sessions/sessions.error';
 import { InsufficientBarError, SheetError } from '../sheets/sheets.error';
 import { TokenError } from '../tokens/tokens.error';
+import { RoundCycleError } from '../round-cycles/round-cycles.error';
 import { WallError } from '../walls/walls.error';
 import { BoardError, CommandRateLimitedError } from './board.error';
 import { planLimitErrorBody } from '../plans/plan-limit-response';
@@ -106,6 +107,12 @@ const PUBLIC_MESSAGE: Readonly<Record<string, string>> = {
   CHAT_IMAGE_NOT_FOUND: 'That image is no longer available',
   SHEET_NOT_FOUND: 'Sheet not found',
   SHEET_HAS_NO_TOKEN: 'This sheet is not held by a token',
+  ROUND_CYCLE_NOT_FOUND: 'Round cycle not found',
+  ROUND_CYCLE_LIMIT: 'This table already has too many round cycles',
+  ROUND_CYCLE_MEMBER_NOT_PLAYER: 'Only players of the table can see or choose a cycle',
+  ROUND_CYCLE_HOLDER_NOT_FOUND: 'That character or token is not at this table',
+  ROUND_CYCLE_NOT_ACTIVE: 'This cycle is not in this combat',
+  ROUND_CYCLE_PHASE_NOT_FOUND: 'That phase is not in the cycle',
 };
 
 /** The answer of a command that only reports the version it produced.
@@ -194,7 +201,8 @@ type KnownError =
   | BoardError
   | ChatError
   | SheetError
-  | CharacterError;
+  | CharacterError
+  | RoundCycleError;
 
 function isKnown(error: unknown): error is KnownError {
   return (
@@ -212,6 +220,7 @@ function isKnown(error: unknown): error is KnownError {
     error instanceof BoardError ||
     error instanceof ChatError ||
     error instanceof SheetError ||
-    error instanceof CharacterError
+    error instanceof CharacterError ||
+    error instanceof RoundCycleError
   );
 }

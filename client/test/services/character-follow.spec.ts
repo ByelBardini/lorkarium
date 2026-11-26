@@ -1,3 +1,4 @@
+import { moonCycle } from '../support/round-cycle-fixtures';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   RealtimeTableSessionApi,
@@ -54,7 +55,8 @@ describe('the table stream of a table visit', () => {
     expect(transport.sent.at(-1)).toEqual({ event: SYNC, payload: { campaignId: VHARN.id } });
     const sync = { version: 3, characters: [lyraCharacter()], conditionDefinitions: [poisoned] };
     await transport.answerAck({ ok: true, ...sync }, SYNC);
-    expect(updates).toEqual([{ kind: 'characters', sync }]);
+    // An older server sends no cycles: the list comes empty.
+    expect(updates).toEqual([{ kind: 'characters', sync: { ...sync, roundCycles: [] } }]);
   });
 
   it('following once the table is joined asks the sync at once', async () => {
@@ -94,6 +96,37 @@ describe('the table stream of a table visit', () => {
       { kind: 'characterChanged', event: characterChanged(4, lyraCharacter()) },
       { kind: 'characterRemoved', event: characterRemoved(5, LYRA_CHARACTER_ID) },
     ]);
+  });
+
+  it('cycle:announced of this table reaches the listener, with no version', () => {
+    follow();
+    const event = {
+      campaignId: VHARN.id,
+      sceneId: '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d',
+      round: 2,
+      at: '2026-11-25T21:00:00.000Z',
+      announcements: [
+        {
+          cycleId: '7a6b5c4d-3e2f-4a1b-9c8d-7e6f5a4b3c2d',
+          cycleName: 'Fases da Lua',
+          phase: { name: 'Crescente', imageAssetId: null },
+        },
+      ],
+    };
+    transport.serverEmits('cycle:announced', event);
+    expect(updates).toEqual([{ kind: 'roundCyclesAnnounced', event }]);
+  });
+
+  it('cycle:listChanged of this table reaches the listener with the cycles this viewer sees', () => {
+    follow();
+    const event = {
+      campaignId: VHARN.id,
+      version: 6,
+      at: '2026-11-25T21:00:00.000Z',
+      cycles: [moonCycle()],
+    };
+    transport.serverEmits('cycle:listChanged', event);
+    expect(updates).toEqual([{ kind: 'roundCyclesChanged', event }]);
   });
 
   it.each([

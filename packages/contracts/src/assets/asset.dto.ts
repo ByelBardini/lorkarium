@@ -31,6 +31,7 @@ export const assetPurposeDto = z.enum([
   'sheet_image',
   'sheet_template_asset',
   'chat_image',
+  'round_cycle_phase',
 ]);
 
 export type AssetPurposeDto = z.infer<typeof assetPurposeDto>;
@@ -57,6 +58,8 @@ export const ASSET_MAX_SIDE: Readonly<Record<AssetPurposeDto, number>> = {
   aura: 512,
   // A chat picture opens full screen; 2048 keeps a print readable without a map's weight.
   chat_image: 2048,
+  // A phase reaches ~150 px in the announcement (300 px on 2x screens), square like a condition.
+  round_cycle_phase: 512,
 };
 
 /** The purposes the server cuts to a fixed aspect: the three images of a campaign. */

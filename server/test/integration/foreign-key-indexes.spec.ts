@@ -8,6 +8,8 @@ import { openTestDatabase } from '../support/test-database';
 // A column only lands here when its FK never fires in normal use; each one says why.
 const ASSET_GOES_WITH_ITS_TABLE = 'an asset row is only deleted by its campaign cascade';
 const ACCOUNT_DELETION = 'fires only when an admin deletes an account';
+const ROUND_CYCLE_PHASE =
+  'a phase leaves only when the master edits its cycle; a combat holds a few cycle rows';
 const CAMPAIGN_PREFIX = 'an index led by campaign_id narrows it to one table, a few dozen rows';
 const ACCEPTED_WITHOUT_INDEX: Record<string, string> = {
   'account_sanctions.appeal_decided_by': ACCOUNT_DELETION,
@@ -25,6 +27,9 @@ const ACCEPTED_WITHOUT_INDEX: Record<string, string> = {
   'characters.image_asset_id': ASSET_GOES_WITH_ITS_TABLE,
   'characters.user_id': ACCOUNT_DELETION,
   'condition_definitions.image_asset_id': ASSET_GOES_WITH_ITS_TABLE,
+  'combat_round_cycles.chosen_phase_id': ROUND_CYCLE_PHASE,
+  'combat_round_cycles.current_phase_id': ROUND_CYCLE_PHASE,
+  'round_cycle_phases.image_asset_id': ASSET_GOES_WITH_ITS_TABLE,
   'drawings.author_id': ACCOUNT_DELETION,
   'effect_areas.author_id': ACCOUNT_DELETION,
   'invitations.invited_by': ACCOUNT_DELETION,

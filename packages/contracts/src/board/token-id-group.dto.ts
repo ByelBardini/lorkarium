@@ -6,7 +6,7 @@ export const TOKEN_GROUP_MAX = 64;
 /** The first id that appears twice, if any.
  *
  *  Example: `firstRepeated(['a', 'b', 'a'])` → `'a'` */
-export function firstRepeated(ids: string[]): string | undefined {
+export function firstRepeated(ids: readonly string[]): string | undefined {
   const seen = new Set<string>();
   for (const id of ids) {
     if (seen.has(id)) return id;

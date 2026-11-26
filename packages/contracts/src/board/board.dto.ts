@@ -14,6 +14,7 @@ import {
 } from '../sessions/session.dto';
 import { boardCommandShape, boardEventShape, type BoardAdvancedDto } from './board-event.dto';
 import type { CharacterClientEvents, CharacterServerEvents } from './character.dto';
+import type { RoundCycleClientEvents, RoundCycleServerEvents } from './round-cycle.dto';
 import {
   combatDto,
   type AddCombatantsCommandDto,
@@ -271,6 +272,12 @@ export const BOARD_EVENTS = {
   combatEnded: 'combat:ended',
   ping: 'board:ping',
   pinged: 'board:pinged',
+  defineRoundCycle: 'cycle:define',
+  updateRoundCycle: 'cycle:update',
+  deleteRoundCycle: 'cycle:delete',
+  chooseNextPhase: 'cycle:chooseNext',
+  roundCyclesChanged: 'cycle:listChanged',
+  roundCyclesAnnounced: 'cycle:announced',
 } as const;
 
 /** Base of every board command and the payload of `board:sync`; who asks comes from the
@@ -420,6 +427,7 @@ export type BoardClientEvents = {
   'combat:renameCombatant': Command<RenameCombatantCommandDto>;
   'board:ping': (command: PingCommandDto, ack: BoardAck<PingAckDto>) => void;
 } & CharacterClientEvents &
+  RoundCycleClientEvents &
   TokenPatrolClientEvents;
 
 /** Server → room board events, for the Socket.IO generics on both ends. */
@@ -474,6 +482,7 @@ export type BoardServerEvents = {
   'combat:ended': (event: CombatEndedDto) => void;
   'board:pinged': (event: BoardPingedDto) => void;
 } & CharacterServerEvents &
+  RoundCycleServerEvents &
   TokenPatrolServerEvents;
 
 /** Every client → server event of a connection (session + board + dice + chat + sheets, plus

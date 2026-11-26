@@ -4,6 +4,8 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/s
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OpenWindowButton, type ChatWindowSlot } from '@/features/chat/chat-window-slot';
 import { CombatPanel } from '@/features/combat/combat-panel';
+import { CyclesPanel } from '@/features/round-cycles/cycles-panel';
+import type { CycleImageTarget } from '@/features/round-cycles/cycle-phase-row';
 import { DicePanel, type DicePanelProps } from '@/features/dice/dice-panel';
 import { SessionPresencePanel } from '@/features/sessions/session-presence-panel';
 import type { BoardInteractionStore } from '@/stores/board-interaction-store';
@@ -50,6 +52,8 @@ export type RoomPanelProps = Readonly<{
   /** The "Dados" tab (its presence is the table's, from `table`). */
   dice: Omit<DicePanelProps, 'presence'>;
   diceWindow?: ChatWindowSlot | null;
+  /** Where the master's "Ciclos" tab sends the phases' images. */
+  cycleImages?: CycleImageTarget;
 }>;
 
 const PANEL_TITLE = 'Painel da mesa';
@@ -77,6 +81,7 @@ export function RoomSidePanel(props: RoomPanelProps): React.JSX.Element | null {
         roomLayout={props.roomLayout}
         presence={props.table?.presence ?? null}
         diceTray={diceTrayOf(props.dice)}
+        isMaster={props.isMaster}
       />
     </>
   );
@@ -110,7 +115,9 @@ type PanelTabsProps = RoomPanelProps & Readonly<{ withList: boolean }>;
 // rail and keeps the list.
 function RoomPanelTabs(props: PanelTabsProps): React.JSX.Element {
   const { roomLayout, table } = props;
-  const tab = useRoomLayout(roomLayout, (state) => state.tab);
+  const stored = useRoomLayout(roomLayout, (state) => state.tab);
+  // A tab remembered from when this member was a master: "Ciclos" is the masters'.
+  const tab = stored === 'cycles' && !props.isMaster ? 'combat' : stored;
   return (
     <Tabs
       value={tab}
@@ -131,6 +138,7 @@ function RoomPanelTabs(props: PanelTabsProps): React.JSX.Element {
               Dados
               <TrayPartsPill diceTray={diceTrayOf(props.dice)} />
             </TabsTrigger>
+            {props.isMaster && <TabsTrigger value="cycles">Ciclos</TabsTrigger>}
           </TabsList>
         ) : (
           <h2 className="h-10 min-w-0 flex-1 content-center font-display text-base font-semibold">
@@ -179,6 +187,15 @@ function RoomPanelTabs(props: PanelTabsProps): React.JSX.Element {
       >
         <RoomDice {...props} />
       </TabsContent>
+      {props.isMaster && table && props.cycleImages && (
+        <TabsContent
+          value="cycles"
+          aria-label={ROOM_TAB_NAME.cycles}
+          className="-mx-1 overflow-y-auto px-1 py-4"
+        >
+          <CyclesPanel table={table} interaction={props.interaction} images={props.cycleImages} />
+        </TabsContent>
+      )}
     </Tabs>
   );
 }

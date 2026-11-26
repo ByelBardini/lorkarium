@@ -46,6 +46,11 @@ export type BoardFailureCode =
   | 'combat_inactive'
   | 'name_taken'
   | 'invalid_stacks'
+  | 'cycle_not_found'
+  | 'cycle_limit'
+  | 'cycle_not_active'
+  | 'cycle_member_not_player'
+  | 'cycle_holder_not_found'
   | 'invalid'
   | 'rate_limited'
   | 'unauthenticated'
@@ -119,6 +124,12 @@ const FAILURE_BY_CODE: Readonly<Record<string, BoardFailureCode>> = {
   TURN_ALREADY_CHANGED: 'turn_changed',
   COMBAT_ALREADY_ACTIVE: 'combat_active',
   COMBAT_NOT_ACTIVE: 'combat_inactive',
+  ROUND_CYCLE_NOT_FOUND: 'cycle_not_found',
+  ROUND_CYCLE_PHASE_NOT_FOUND: 'cycle_not_found',
+  ROUND_CYCLE_LIMIT: 'cycle_limit',
+  ROUND_CYCLE_NOT_ACTIVE: 'cycle_not_active',
+  ROUND_CYCLE_MEMBER_NOT_PLAYER: 'cycle_member_not_player',
+  ROUND_CYCLE_HOLDER_NOT_FOUND: 'cycle_holder_not_found',
   INVALID_BODY: 'invalid',
   INVALID_CONTROLLER: 'invalid',
   RATE_LIMITED: 'rate_limited',

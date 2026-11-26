@@ -80,7 +80,7 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
     'pings',
     'custom-colors',
   ],
-  combat: ['combat'],
+  combat: ['combat', 'round-cycles'],
   vision: ['vision', 'vision-cone', 'sight-blockers'],
   lighting: ['lighting'],
   library: [

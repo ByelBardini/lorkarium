@@ -78,6 +78,8 @@ import {
 import type { TableEditStore } from '@/stores/table-edit-store';
 import { useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store';
 import type { TablePresenceStore } from '@/stores/table-presence-store';
+import { CycleAnnouncement } from '@/features/round-cycles/cycle-announcement';
+import { RoundCycleBadges } from '@/features/round-cycles/round-cycle-badges';
 import { BoardArea } from './board-area';
 import { DeleteSelectionDialog, type SelectionToDelete } from './delete-selection-dialog';
 import { tokenCommandFailureMessage } from './board-messages';
@@ -339,6 +341,14 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
               />
             )}
             {table && <RoomPatrolPanel editor={patrol.editor} presence={table.presence} />}
+            {table && (
+              <RoundCycleBadges
+                board={table.board}
+                characters={table.characters}
+                interaction={interaction}
+              />
+            )}
+            {table && <CycleAnnouncement board={table.board} characters={table.characters} />}
             {tool === 'area' && !focus && (
               <EffectAreaPanel effectAreaStyle={props.effectAreaStyle} />
             )}
@@ -525,6 +535,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
                   },
                 }}
                 diceWindow={diceWindow.slot}
+                cycleImages={{ campaignId: campaign.id, assets: props.assets }}
               />
             )}
           </div>

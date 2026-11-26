@@ -16,7 +16,8 @@ const BUDGET = {
   move: 9,
   moveAgain: 8,
   createMany64: 9,
-  nextTurn: 10,
+  // +1 since the round cycles: does the table keep any (spec §3.16)?
+  nextTurn: 11,
   sync: 15,
   setDoor: 10,
   setDoorMaster: 6,
@@ -271,9 +272,10 @@ describe('the queries each hot board command costs', () => {
       applyMany: 12,
       lightGroup: 6,
       lightsCreateMany: 6,
-      combatStart: 17,
-      regroupOwn: 15,
-      moveInTie: 12,
+      // Each +1 since the round cycles: does the table keep any (spec §3.16)?
+      combatStart: 18,
+      regroupOwn: 16,
+      moveInTie: 13,
       setKindMany: 6,
       reshapeMany: 6,
       addPlayers: 18,

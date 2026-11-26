@@ -1,3 +1,4 @@
+import { RoundCyclePublisherFake } from '../../support/round-cycles-fakes';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { CombatService } from '../../../src/modules/combat/combat.service';
 import { ANA_ID } from '../../support/auth-factories';
@@ -34,7 +35,16 @@ describe('the end of the turn of a token linked to a character', () => {
       characters,
     });
     const { characterPublisher } = table;
-    const deps = { members, transaction: runner.run, publisher, characterPublisher, clock };
+    const roundCyclePublisher = new RoundCyclePublisherFake();
+    const transaction = runner.run;
+    const deps = {
+      members,
+      transaction,
+      publisher,
+      characterPublisher,
+      roundCyclePublisher,
+      clock,
+    };
     service = new CombatService(deps);
   });
 

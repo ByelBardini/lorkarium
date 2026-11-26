@@ -21,7 +21,7 @@ import type {
   StartCombatCommandDto,
   TurnCommandDto,
 } from '@lorkarium/contracts';
-import { orderCombatants, tickAtTurnEnd, type TurnState } from '@lorkarium/game-core';
+import { orderCombatants, type TurnState } from '@lorkarium/game-core';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignAccessBo } from '../campaigns/campaign-access.bo';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
@@ -32,16 +32,23 @@ import {
   inLockedGridWithCharacters,
   requireCharactersLock,
 } from '../characters/locked-characters-grid';
-import type { ActiveConditionRow, ConditionsDao } from '../conditions/conditions.dao';
-import { holderIdOf, holderIdOfRow, type ConditionHolder } from '../conditions/conditions.po';
-import { toActiveConditionDto } from '../conditions/conditions.mapper';
+import type { ConditionsDao } from '../conditions/conditions.dao';
 import type { BoardPublisherPort, GridEvent } from '../scenes/board-publisher.port';
-import { gridEventBase, inLockedGrid, type SavedInScene } from '../scenes/locked-scene';
+import { gridEventBase, type SavedInScene } from '../scenes/locked-scene';
 import type { ScenesDao } from '../scenes/scenes.dao';
 import type { ScenePo } from '../scenes/scenes.po';
 import { publishCharactersChange } from '../tokens/character-writes';
 import { charactersIn } from '../tokens/linked-token';
 import type { TokenControlPo, TokensDao } from '../tokens/tokens.dao';
+import type { CombatMoment } from '../round-cycles/combat-cycles.bo';
+import {
+  publishCombatCycles,
+  type CombatCycleDaos,
+  type CombatCyclesSynced,
+} from '../round-cycles/combat-cycles.service';
+import { cyclesIn, lockTableIfCycles, turnedRow } from './combat-cycles-sync';
+import { changeOf, holdersOf, holdersToTick, tickConditions } from './combat-ticks';
+import type { RoundCyclePublisherPort } from '../round-cycles/round-cycle-publisher.port';
 import { CombatBo } from './combat.bo';
 import { CombatRosterBo, type RosterChange } from './combat-roster.bo';
 import type { CombatDao, CombatRow } from './combat.dao';
@@ -79,6 +86,8 @@ export type CombatWriteDaos = Readonly<{
   conditions: Pick<ConditionsDao, 'listOfHolders' | 'decrementRemaining' | 'deleteActive'>;
   /** A linked token's conditions live on its character: its lock, version and reread. */
   characters: Pick<CharactersDao, 'lockVersion' | 'bumpVersion' | 'findManyInCampaign'>;
+  /** The round cycles of the combat enter, leave and turn with it (spec §3.16). */
+  roundCycles: CombatCycleDaos['roundCycles'];
 }>;
 
 export type CombatTransactionRunner = <T>(
@@ -91,6 +100,8 @@ export type CombatServiceDeps = Readonly<{
   publisher: BoardPublisherPort;
   /** Where the conditions a turn counts down on a character are told: the character, whole. */
   characterPublisher: CharacterPublisherPort;
+  /** The cycles' list after a combat command changed them, and the announced phases. */
+  roundCyclePublisher: RoundCyclePublisherPort;
   clock: ClockPort;
 }>;
 
@@ -110,6 +121,11 @@ type InCombat = Readonly<{
 /** What a combat transaction saved, with the veil of the scene it read. */
 type Veiled<Saved> = Saved & Readonly<{ veil: TokenVeil }>;
 
+/** The cycles a combat command synced and the table stream version they took. */
+type CyclesSaved = Readonly<{ version: number | null; synced: CombatCyclesSynced | null }>;
+
+type CombatSaved<T> = Veiled<SavedInScene<T>> & Readonly<{ cycles: CyclesSaved }>;
+
 type TurnChange = Readonly<{ combat: CombatDto; conditionChanges: ConditionChangeDto[] }>;
 
 /** The combat of each grid (spec §3.5): every command locks the grid it names, decides by the rule, saves,
@@ -124,9 +140,7 @@ export class CombatService {
   async start(userId: string, campaignId: string, command: StartCombat): Promise<number> {
     const now = this.deps.clock.now();
     const saved = await this.inCombat(
-      userId,
-      campaignId,
-      command.sceneId,
+      { userId, campaignId, sceneId: command.sceneId, moment: 'start' },
       async ({ daos, scene, tokens, roster }) => {
         const entries = roster.start(command.entries, idsOf(tokens));
         const started = await daos.combat.start(scene.id, entries);
@@ -141,14 +155,17 @@ export class CombatService {
     const event = withPatrolPauses({ ...base, combat }, paused.patrolPauses);
     this.deps.publisher.combatStarted(event, cutsOf(event, saved.veil, STARTED_SEEN_BY));
     publishVeiledLights(this.deps.publisher, base, paused.lights);
+    this.publishCycles(campaignId, saved);
     return saved.version;
   }
 
   async end(userId: string, campaignId: string, command: EndCombat = {}): Promise<number> {
-    const saved = await this.inCombat(userId, campaignId, command.sceneId, async ({ daos, bo }) => {
+    const where = { userId, campaignId, sceneId: command.sceneId, moment: 'end' } as const;
+    const saved = await this.inCombat(where, async ({ daos, bo }) => {
       await daos.combat.end(bo.end().id);
     });
     this.deps.publisher.combatEnded(gridEventBase(campaignId, saved, this.deps.clock));
+    this.publishCycles(campaignId, saved);
     return saved.version;
   }
 
@@ -218,7 +235,9 @@ export class CombatService {
       this.deps.transaction,
       address,
       async (locked) => {
-        const { daos, row, bo, tokens, veil } = await this.combatIn(locked, access);
+        const hasCycles = await lockTableIfCycles(locked, locked.daos, campaignId);
+        const combatIn = await this.combatIn(locked, access);
+        const { daos, row, bo, tokens, veil } = combatIn;
         const turn = bo.nextTurn(command.fromCombatantId);
         const ended = row?.combatants.find(({ id }) => id === turn.endedTurnOf);
         const { loose, characterIds } = holdersOf(tokens, ended?.tokenIds ?? []);
@@ -228,23 +247,33 @@ export class CombatService {
         const ticks = await tickConditions(daos, holders, row?.combat.round ?? turn.round);
         const conditionChanges = loose.map((tokenId) => changeOf(tokenId, ticks));
         const characters = await charactersIn(daos, campaignId, characterIds);
-        const value = { combat: turnedCombat(row, turn), conditionChanges, characters, veil };
-        return { value, grid: true, characters: characterIds.length > 0 };
+        const moment = turn.round > (row?.combat.round ?? turn.round) ? 'round' : 'roster';
+        const turned = { ...combatIn, row: turnedRow(row, turn) };
+        const synced = hasCycles ? await cyclesIn(locked, turned, moment) : null;
+        const value = {
+          combat: turnedCombat(row, turn),
+          conditionChanges,
+          characters,
+          veil,
+          synced,
+        };
+        return { value, grid: true, characters: characterIds.length > 0 || synced !== null };
       },
     );
-    const { combat, conditionChanges, characters, veil } = saved.value;
+    const { combat, conditionChanges, characters, veil, synced } = saved.value;
     const outlet = { publisher: this.deps.characterPublisher, clock: this.deps.clock };
     publishCharactersChange(outlet, campaignId, saved.characters, characters);
     if (saved.grid)
       this.publishTurn(campaignId, { ...saved.grid, value: { combat, conditionChanges }, veil });
+    const cyclesOutlet = { publisher: this.deps.roundCyclePublisher, clock: this.deps.clock };
+    const where = { campaignId, sceneId: saved.grid?.sceneId ?? '' };
+    publishCombatCycles(cyclesOutlet, where, saved.characters, synced);
     return saved.version;
   }
 
   async previousTurn(userId: string, campaignId: string, command: TurnCommand): Promise<number> {
     const saved = await this.inCombat(
-      userId,
-      campaignId,
-      command.sceneId,
+      { userId, campaignId, sceneId: command.sceneId, moment: 'roster' },
       async ({ daos, row, bo }) => {
         const turn = bo.previousTurn(command.fromCombatantId);
         await saveTurn(daos, row, turn);
@@ -252,6 +281,7 @@ export class CombatService {
       },
     );
     this.publishTurn(campaignId, saved);
+    this.publishCycles(campaignId, saved);
     return saved.version;
   }
 
@@ -262,7 +292,8 @@ export class CombatService {
     sceneId: string | undefined,
     work: (locked: InCombat) => Promise<EnteringPauses | void>,
   ): Promise<number> {
-    const saved = await this.inCombat(userId, campaignId, sceneId, async (locked) => {
+    const where = { userId, campaignId, sceneId, moment: 'roster' } as const;
+    const saved = await this.inCombat(where, async (locked) => {
       const paused = (await work(locked)) ?? NO_PAUSES;
       return { combat: await combatOf(locked.daos, locked.scene), paused };
     });
@@ -271,24 +302,43 @@ export class CombatService {
     const event = withPatrolPauses({ ...base, combat }, paused.patrolPauses);
     this.deps.publisher.combatUpdated(event, cutsOf(event, saved.veil, UPDATED_SEEN_BY));
     publishVeiledLights(this.deps.publisher, base, paused.lights);
+    this.publishCycles(campaignId, saved);
     return saved.version;
   }
 
+  // Lock the grid → work → bring the combat's cycles in line (locking the table stream first,
+  // by a rerun, only when they change). The end reads them before the combat goes.
   private async inCombat<T>(
-    userId: string,
-    campaignId: string,
-    sceneId: string | undefined,
+    at: CombatAddress,
     work: (locked: InCombat) => Promise<T>,
-  ): Promise<Veiled<SavedInScene<T>>> {
-    const access = await this.accessOf(userId, campaignId);
-    const address = { campaignId, sceneId, access };
+  ): Promise<CombatSaved<T>> {
+    const access = await this.accessOf(at.userId, at.campaignId);
+    const address = { campaignId: at.campaignId, sceneId: at.sceneId, access };
     let veil: TokenVeil = { tokens: [] };
-    const saved = await inLockedGrid(this.deps.transaction, address, async (locked) => {
-      const inCombat = await this.combatIn(locked, access);
-      veil = inCombat.veil;
-      return work(inCombat);
-    });
-    return { ...saved, veil };
+    const saved = await inLockedGridWithCharacters(
+      this.deps.transaction,
+      address,
+      async (locked) => {
+        const hasCycles = await lockTableIfCycles(locked, locked.daos, at.campaignId);
+        const inCombat = await this.combatIn(locked, access);
+        veil = inCombat.veil;
+        const ending =
+          hasCycles && at.moment === 'end' ? await cyclesIn(locked, inCombat, 'end') : null;
+        const value = await work(inCombat);
+        const later = hasCycles && at.moment !== 'end';
+        const synced = later ? await cyclesIn(locked, inCombat, at.moment) : ending;
+        return { value: { value, synced }, grid: true, characters: synced !== null };
+      },
+    );
+    const grid = requireGridSaved(saved.grid);
+    const cycles = { version: saved.characters, synced: saved.value.synced };
+    return { value: saved.value.value, version: grid.version, sceneId: grid.sceneId, veil, cycles };
+  }
+
+  private publishCycles(campaignId: string, saved: CombatSaved<unknown>): void {
+    const outlet = { publisher: this.deps.roundCyclePublisher, clock: this.deps.clock };
+    const where = { campaignId, sceneId: saved.sceneId };
+    publishCombatCycles(outlet, where, saved.cycles.version, saved.cycles.synced);
   }
 
   private async combatIn(
@@ -327,33 +377,6 @@ function entryTokenIdsOf(entries: readonly Readonly<{ tokenIds: readonly string[
 
 function controllersIn(tokens: readonly TokenControlPo[]): (tokenId: string) => readonly string[] {
   return (tokenId) => tokens.find((token) => token.tokenId === tokenId)?.controllerIds ?? [];
-}
-
-// Whose conditions a turn counts down: the unlinked tokens' own, the linked ones' character's
-// (each once).
-function holdersOf(
-  tokens: readonly TokenControlPo[],
-  tokenIds: readonly string[],
-): Readonly<{ loose: string[]; characterIds: string[] }> {
-  const characterOf = (id: string) => tokens.find((t) => t.tokenId === id)?.characterId ?? null;
-  const loose = tokenIds.filter((tokenId) => characterOf(tokenId) === null);
-  const characterIds = tokenIds.flatMap((tokenId) => characterOf(tokenId) ?? []);
-  return { loose, characterIds: [...new Set(characterIds)] };
-}
-
-function holdersToTick(
-  loose: readonly string[],
-  characterIds: readonly string[],
-): ConditionHolder[] {
-  const tokens = loose.map((tokenId) => ({ tokenId }));
-  return [...tokens, ...characterIds.map((characterId) => ({ characterId }))];
-}
-
-function changeOf(
-  tokenId: string,
-  ticks: ReadonlyMap<string, readonly ActiveConditionRow[]>,
-): ConditionChangeDto {
-  return { tokenId, conditions: (ticks.get(tokenId) ?? []).map(toActiveConditionDto) };
 }
 
 function idsOf(tokens: readonly TokenControlPo[]): string[] {
@@ -399,34 +422,15 @@ async function combatOf(daos: CombatWriteDaos, scene: ScenePo): Promise<CombatDt
   return toCombatDto(row);
 }
 
-// The end of the turn of `holders` in `round`: their conditions count down, the ones at their
-// last round go — one read, one UPDATE and one DELETE for the whole entry. What each holder keeps,
-// by its id.
-async function tickConditions(
-  daos: CombatWriteDaos,
-  holders: readonly ConditionHolder[],
-  round: number,
-): Promise<ReadonlyMap<string, readonly ActiveConditionRow[]>> {
-  if (holders.length === 0) return new Map();
-  const active = await daos.conditions.listOfHolders(holders);
-  const ticks = holders.map((holder) => {
-    const holderId = holderIdOf(holder);
-    const own = active.filter((condition) => holderIdOfRow(condition) === holderId);
-    return { holderId, own, ...tickAtTurnEnd(own, round) };
-  });
-  const counted = ticks.flatMap(({ own, kept }) => countedDown(own, kept));
-  await daos.conditions.decrementRemaining(counted);
-  await daos.conditions.deleteActive(ticks.flatMap(({ expired }) => expired.map(({ id }) => id)));
-  return new Map(ticks.map(({ holderId, kept }) => [holderId, kept]));
-}
+/** Who runs a combat command, where, and what it does to the combat's cycles. */
+type CombatAddress = Readonly<{
+  userId: string;
+  campaignId: string;
+  sceneId: string | undefined;
+  moment: CombatMoment;
+}>;
 
-// The ids whose duration the tick lowered (the rest kept theirs: untimed or applied this round).
-function countedDown<T extends Readonly<{ id: string; remainingRounds: number | null }>>(
-  before: readonly T[],
-  after: readonly T[],
-): string[] {
-  const was = new Map(before.map(({ id, remainingRounds }) => [id, remainingRounds]));
-  return after
-    .filter(({ id, remainingRounds }) => was.get(id) !== remainingRounds)
-    .map(({ id }) => id);
+function requireGridSaved<T>(grid: T | null): T {
+  if (grid) return grid;
+  throw new Error('a combat command saved without bumping its grid');
 }

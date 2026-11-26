@@ -96,6 +96,8 @@ import { createCharactersModule } from '../modules/characters/characters.plugin'
 import { SocketIoCharacterPublisher } from '../infrastructure/character-publisher/socket-io-character-publisher';
 import { createPingsModule } from '../modules/pings/pings.plugin';
 import { createConditionsModule } from '../modules/conditions/conditions.plugin';
+import { createRoundCyclesModule } from '../modules/round-cycles/round-cycles.plugin';
+import { SocketIoRoundCyclePublisher } from '../infrastructure/round-cycle-publisher/socket-io-round-cycle-publisher';
 import { createCombatModule } from '../modules/combat/combat.plugin';
 import { healthPlugin } from '../modules/health/health.plugin';
 import { legalPlugin } from '../modules/legal/legal.plugin';
@@ -453,7 +455,9 @@ function wireRealtime(
   const { form: tokenForm, patrol: tokenPatrol } = tokensModule;
   const conditionsModule = createConditionsModule({ ...shared, characterPublisher });
   const { service: conditions, catalog: conditionCatalog } = conditionsModule;
-  const combat = createCombatModule({ ...shared, characterPublisher }).service;
+  const roundCyclePublisher = new SocketIoRoundCyclePublisher(realtime.io);
+  const roundCycles = createRoundCyclesModule({ ...shared, publisher: roundCyclePublisher });
+  const combat = createCombatModule({ ...shared, characterPublisher, roundCyclePublisher }).service;
   const drawings = createDrawingsModule(shared).service;
   const effectAreas = createEffectAreasModule(shared).service;
   const walls = createWallsModule({ ...shared, sceneWalls }).service;
@@ -488,6 +492,7 @@ function wireRealtime(
     pings,
     conditions,
     conditionCatalog,
+    roundCycles: roundCycles.service,
     sheetBars,
     combat,
     drawings,

@@ -38,7 +38,11 @@ function poisonedFor(remainingRounds: number | null) {
 }
 
 function eventOf(update: CharacterUpdate): TableStreamEvent {
-  if (update.kind === 'characters' || update.kind === 'charactersFailed') {
+  if (
+    update.kind === 'characters' ||
+    update.kind === 'charactersFailed' ||
+    update.kind === 'roundCyclesAnnounced'
+  ) {
     throw new Error(`expected a versioned event of the table stream; got ${update.kind}`);
   }
   return update;
@@ -49,7 +53,7 @@ function after(
   conditionDefinitions: ConditionDefinitionDto[],
   update: CharacterUpdate,
 ) {
-  return tableStreamAfter({ characters, conditionDefinitions }, eventOf(update));
+  return tableStreamAfter({ characters, conditionDefinitions, roundCycles: [] }, eventOf(update));
 }
 
 describe('tableStreamAfter, characters', () => {
