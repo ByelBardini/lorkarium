@@ -43,6 +43,7 @@ export function chatSent(overrides: Partial<ChatSentDto> = {}): ChatSentDto {
     channel: { kind: 'table', whisperTo: null },
     speaker: { kind: 'self' },
     text: 'Oi, mesa.',
+    image: null,
     replyTo: null,
     customEmojis: [],
     ...overrides,

@@ -13,7 +13,7 @@ export type ChatSendRequest = Omit<ChatSendCommandInput, 'actionId' | 'campaignI
  *  which must be open on this connection) the person spoke as, gone meanwhile;
  *  `speaker_not_allowed` a token speaking anywhere but the Table without a whisper;
  *  `recipient_is_sender` a whisper or direct to oneself; `sender_not_in_group` a group without
- *  the sender. */
+ *  the sender; `image_expired` a picture the server no longer has (swept after 24 h). */
 export type ChatSendFailure =
   | Readonly<{ kind: 'rate_limited'; retryAfterSeconds: number }>
   | Readonly<{
@@ -25,6 +25,7 @@ export type ChatSendFailure =
         | 'sender_not_in_group'
         | 'speaker_not_allowed'
         | 'speaker_not_found'
+        | 'image_expired'
         | 'invalid'
         | 'unauthenticated'
         | 'offline'
@@ -57,6 +58,7 @@ const FAILURE_BY_CODE: Readonly<Record<string, ChatSendFailure>> = {
   CHAT_SPEAKER_NOT_ALLOWED: { kind: 'speaker_not_allowed' },
   SCENE_NOT_FOUND: { kind: 'speaker_not_found' },
   TOKEN_NOT_FOUND: { kind: 'speaker_not_found' },
+  CHAT_IMAGE_NOT_FOUND: { kind: 'image_expired' },
   INVALID_BODY: { kind: 'invalid' },
   UNAUTHENTICATED: { kind: 'unauthenticated' },
 };

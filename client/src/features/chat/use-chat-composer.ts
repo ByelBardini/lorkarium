@@ -5,6 +5,7 @@ import type {
   SavedRollDto,
 } from '@lorkarium/contracts';
 import { useState } from 'react';
+import { canSendWith, chatImageRefOf } from '@/lib/chat-attachment';
 import type { ChatConversationTarget } from '@/lib/chat-conversations';
 import { chatReplyOf, replyWhisperToOf } from '@/lib/chat-replies';
 import { readChatInput, type ChatInputIntent, type ChatInputMember } from '@/lib/chat-input';
@@ -17,6 +18,7 @@ import {
   offlineRecipientsText,
 } from './chat-messages';
 import type { ChatPeople } from './use-chat-people';
+import type { ChatAttachmentControls } from './use-chat-attachment';
 import type { ChatReplyState } from './use-chat-reply';
 
 /** What rolling from the field needs; who only watches has `canRoll: false` and no roller. */
@@ -39,6 +41,8 @@ export type ChatComposerInput = Readonly<{
   onRefused: (failure: ChatSendFailure) => void;
   /** The message being answered: a plain message quotes it, in the original's whisper. */
   reply: ChatReplyState;
+  /** The picture of the message: a ready one goes with the text, or alone. */
+  picture: ChatAttachmentControls;
 }>;
 
 export type ChatComposerState = Readonly<{
@@ -55,8 +59,9 @@ export type ChatComposerState = Readonly<{
 }>;
 
 /** The composer's state and what Enter does with the field: a message, a whisper (`/w`), a roll
- *  (`/r`, `/gr`, `/<saved>`) through the dice tab's roller, or a refusal under the field. Only a
- *  confirmed send or roll empties the field.
+ *  (`/r`, `/gr`, `/<saved>`) through the dice tab's roller, or a refusal under the field. A ready
+ *  picture goes with the message or the whisper, or alone with an empty field. Only a confirmed
+ *  send or roll empties the field (and the picture).
  *
  *  Example: `const composer = useChatComposer({ target, people, live, send, tools, speaker: { kind: 'self' }, onRefused, reply })` */
 export function useChatComposer(input: ChatComposerInput): ChatComposerState {
@@ -68,7 +73,8 @@ export function useChatComposer(input: ChatComposerInput): ChatComposerState {
   const chosenWhisper = whisperChosenOf(input, whisperTo);
   const recipients = recipientsOf(input, chosenWhisper);
   const command = draft.trimStart().startsWith('/');
-  const canSend = input.live && !busy && draft.trim() !== '' && (command || !recipients.blocked);
+  const ready = canSendWith(input.picture.attachment, draft);
+  const canSend = input.live && !busy && ready && (command || !recipients.blocked);
   const outcome: Outcome = { say: setProblem, rollRefused: setRollRefused };
   const submit = () => {
     if (!canSend) return;
@@ -80,6 +86,7 @@ export function useChatComposer(input: ChatComposerInput): ChatComposerState {
       if (!done) return;
       setDraft('');
       input.reply.cancel();
+      input.picture.remove();
     });
   };
   const shown = problem ?? (rollRefused ? (input.tools.roller?.problem ?? null) : null);
@@ -134,14 +141,15 @@ async function carryOut(
   whisperTo: string | null,
   outcome: Outcome,
 ): Promise<boolean> {
-  if (intent.kind === 'empty') return false;
+  const image = chatImageRefOf(input.picture.attachment);
+  if (intent.kind === 'empty' && image === null) return false;
   if (intent.kind === 'refused') return refuse(chatInputRefusalMessage(intent.reason), outcome);
   if (intent.kind === 'roll') return rollFrom(intent, input, outcome);
   if (intent.kind === 'whisper') return whisperFrom(intent, input, outcome);
   const speaker = input.target.kind === 'table' && whisperTo === null ? input.speaker : SELF;
   const replyTo = chatReplyOf(input.reply.draft, input.people.viewerId);
-  const message = { channel: channelOf(input.target, whisperTo), speaker, replyTo };
-  return sendText(message, intent.text, input, outcome);
+  const message = { channel: channelOf(input.target, whisperTo), speaker, replyTo, image };
+  return sendText(message, intent.kind === 'empty' ? '' : intent.text, input, outcome);
 }
 
 const SELF: ChatSpeakerDto = { kind: 'self' };
@@ -173,13 +181,15 @@ async function whisperFrom(
     return refuse(offlineRecipientsText([input.people.nameOf(intent.userId)], true), outcome);
   }
   const channel: ChatChannelDto = { kind: 'table', whisperTo: intent.userId };
-  return sendText({ channel, speaker: SELF, replyTo: null }, intent.text, input, outcome);
+  const image = chatImageRefOf(input.picture.attachment);
+  return sendText({ channel, speaker: SELF, replyTo: null, image }, intent.text, input, outcome);
 }
 
 type OutgoingMessage = Readonly<{
   channel: ChatChannelDto;
   speaker: ChatSpeakerDto;
   replyTo: ChatReplyDto | null;
+  image: Readonly<{ assetId: string }> | null;
 }>;
 
 async function sendText(

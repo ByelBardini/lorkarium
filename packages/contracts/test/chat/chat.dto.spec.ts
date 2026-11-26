@@ -260,3 +260,66 @@ describe('chatSentDto', () => {
     expect(chatSentDto.parse(sentEvent()).replyTo).toBeNull();
   });
 });
+
+describe('chat image', () => {
+  const ASSET_ID = '2c3d4e5f-6a7b-4c8d-9e0f-1a2b3c4d5e6f';
+  const IMAGE = { assetId: ASSET_ID, width: 800, height: 600 };
+
+  function issuesOf(result: { success: boolean; error?: { issues: { message: string }[] } }) {
+    return (result.error?.issues ?? []).map((issue) => issue.message).join(' | ');
+  }
+
+  it('sends a picture with a caption, or alone with no text at all', () => {
+    const captioned = chatSendCommandDto.parse(
+      command({ text: 'olha', image: { assetId: ASSET_ID } }),
+    );
+    const alone = chatSendCommandDto.parse(
+      command({ text: undefined, image: { assetId: ASSET_ID } }),
+    );
+
+    expect(captioned.image).toEqual({ assetId: ASSET_ID });
+    expect(alone).toMatchObject({ text: '', image: { assetId: ASSET_ID } });
+  });
+
+  it('keeps a text-only command as before, with no picture', () => {
+    expect(chatSendCommandDto.parse(command()).image).toBeNull();
+  });
+
+  it('takes a caption of 2000 characters with a picture', () => {
+    const long = command({ text: 'a'.repeat(CHAT_TEXT_MAX), image: { assetId: ASSET_ID } });
+
+    expect(chatSendCommandDto.safeParse(long).success).toBe(true);
+  });
+
+  it('refuses a message with neither text nor a picture', () => {
+    const empty = chatSendCommandDto.safeParse(command({ text: '   ' }));
+
+    expect(empty.success).toBe(false);
+    expect(issuesOf(empty)).toContain('expected text or an image');
+  });
+
+  it('refuses a picture id that is not a uuid, and any extra field on it', () => {
+    const badId = chatSendCommandDto.safeParse(command({ image: { assetId: 'abc' } }));
+    const extra = chatSendCommandDto.safeParse(
+      command({ image: { assetId: ASSET_ID, width: 800 } }),
+    );
+
+    expect(badId.success).toBe(false);
+    expect(extra.success).toBe(false);
+  });
+
+  it('reads an event with the picture and its size, and an old one without it', () => {
+    expect(chatSentDto.parse(sentEvent({ text: '', image: IMAGE })).image).toEqual(IMAGE);
+    expect(chatSentDto.parse(sentEvent()).image).toBeNull();
+  });
+
+  it('refuses an event picture of zero or negative size, and an event with neither', () => {
+    const flat = chatSentDto.safeParse(sentEvent({ image: { ...IMAGE, width: 0 } }));
+    const negative = chatSentDto.safeParse(sentEvent({ image: { ...IMAGE, height: -1 } }));
+    const empty = chatSentDto.safeParse(sentEvent({ text: '' }));
+
+    expect(flat.success).toBe(false);
+    expect(negative.success).toBe(false);
+    expect(issuesOf(empty)).toContain('expected text or an image');
+  });
+});

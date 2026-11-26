@@ -4,6 +4,7 @@ import { memo } from 'react';
 import { ProfileCardTrigger } from '@/features/profile-card/profile-card-trigger';
 import { TokenFace } from '@/features/tokens/token-face';
 import { EmoteText } from '@/components/emote-text';
+import { ChatMessageImage } from './chat-message-image';
 import { ReplyButton, ReplyQuote, type QuotedMessage } from '@/components/message-reply';
 import { UserAvatar } from '@/components/user-avatar';
 import { mentionsAny, type ChatMessage } from '@/lib/chat-conversations';
@@ -70,14 +71,19 @@ export const ChatMessageRow = memo(function ChatMessageRow(
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           {!continued && <RowHeader event={event} people={people} mine={mine} />}
-          <p
-            className={cn(
-              'text-sm break-words whitespace-pre-wrap text-foreground',
-              spoken && 'font-display text-[17px] leading-snug italic',
-            )}
-          >
-            <EmoteText text={event.text} customEmojis={event.customEmojis} />
-          </p>
+          {event.text !== '' && (
+            <p
+              className={cn(
+                'text-sm break-words whitespace-pre-wrap text-foreground',
+                spoken && 'font-display text-[17px] leading-snug italic',
+              )}
+            >
+              <EmoteText text={event.text} customEmojis={event.customEmojis} />
+            </p>
+          )}
+          {event.image !== null && (
+            <ChatMessageImage image={event.image} authorName={chatVoiceNameOf(event, people)} />
+          )}
           {mentioned && <span className="sr-only">{MENTION_MARK}</span>}
         </div>
       </div>

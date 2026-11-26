@@ -16,6 +16,8 @@ import { ANA } from '../../support/auth-api-fake';
 import { chatSent, directBetween, trioGroup } from '../../support/chat-fixtures';
 import { BIA_AT_TABLE, VHARN_GRID } from '../../support/table-session-fixtures';
 
+const PICTURE = { assetId: '6d7e8f9a-0b1c-4d2e-8f3a-4b5c6d7e8f9a', width: 8, height: 6 };
+
 describe('chat messages', () => {
   it.each([
     [
@@ -111,6 +113,8 @@ describe('chat messages', () => {
       }),
       'Kael: Oi, mesa.',
     ],
+    [chatSent({ text: '', image: PICTURE }), 'Bia: enviou uma imagem'],
+    [chatSent({ text: 'olha', image: PICTURE }), 'Bia: olha'],
   ])('the line of %o is "%s"', (event, expected) => {
     expect(chatLineOf({ event, receivedAtMs: 0 }, nameOf)).toBe(expected);
   });

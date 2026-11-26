@@ -439,6 +439,7 @@ describe('ChatDock', () => {
             speaker: { kind: 'self' },
             text: 'Boa noite',
             replyTo: null,
+            image: null,
           },
         },
       ]);

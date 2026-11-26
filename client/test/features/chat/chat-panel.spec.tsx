@@ -123,6 +123,7 @@ describe('ChatPanel — feed and text', () => {
           speaker: { kind: 'self' },
           text: 'Boa noite!',
           replyTo: null,
+          image: null,
         },
       },
     ]);

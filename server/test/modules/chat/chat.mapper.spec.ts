@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   toChatCharacterSpeakerDto,
   toChatSentChannelDto,
+  toChatSentDto,
   toChatTokenSpeakerDto,
 } from '../../../src/modules/chat/chat.mapper';
 import { ANA_ID } from '../../support/auth-factories';
@@ -53,5 +54,35 @@ describe('toChatCharacterSpeakerDto', () => {
       characterId: LYRA_ID,
       name: 'Lyra',
     });
+  });
+});
+
+describe('toChatSentDto', () => {
+  const IMAGE_ID = '6d7e8f9a-0b1c-4d2e-8f3a-4b5c6d7e8f9a';
+  const input = {
+    command: {
+      actionId: '0f8b5b8e-1c1f-4d7c-9a51-6b3c2d1e0f9a',
+      campaignId: '3b9c1a7e-5d2f-4e8a-b6c4-1f0e9d8c7b6a',
+      channel: { kind: 'table', whisperTo: null } as const,
+      speaker: { kind: 'self' } as const,
+      text: '',
+      image: { assetId: IMAGE_ID },
+      replyTo: null,
+    },
+    messageId: '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a',
+    fromUserId: BIA_ID,
+    speaker: { kind: 'self' } as const,
+    at: '2026-10-27T20:00:00.000Z',
+    customEmojis: [],
+  };
+
+  it('carries the picture it is given, with its size', () => {
+    const image = { assetId: IMAGE_ID, width: 800, height: 600 };
+
+    expect(toChatSentDto({ ...input, image }).image).toEqual(image);
+  });
+
+  it('a message without a picture carries null', () => {
+    expect(toChatSentDto({ ...input, image: null }).image).toBeNull();
   });
 });

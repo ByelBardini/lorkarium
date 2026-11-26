@@ -274,3 +274,59 @@ async function brightBoardPixels(page: Page): Promise<number> {
     return bright;
   })()`);
 }
+
+// A 1x1 PNG: enough for the server to decode, keep and serve it back.
+const PICTURE = {
+  name: 'pista.png',
+  mimeType: 'image/png',
+  buffer: Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    'base64',
+  ),
+};
+
+async function attachPicture(page: Page): Promise<void> {
+  await page.getByLabel('Escolher imagem').setInputFiles(PICTURE);
+  await expect(page.getByRole('img', { name: 'Imagem anexada' })).toBeVisible();
+}
+
+test('a picture: Bia attaches one on the Table, Caio sees it and opens it full screen', async ({
+  newPlayerPage,
+}) => {
+  test.setTimeout(120_000);
+  const { bia, caio } = await openChatTable(newPlayerPage, true);
+  if (!caio) throw new Error('expected Caio at the chat table');
+  await attachPicture(bia);
+  await sendChat(bia, 'Olhem o mapa.');
+  await expect(bia.getByRole('img', { name: 'Imagem anexada' })).toHaveCount(0);
+  await expect(chatFeedOf(caio)).toContainText('Olhem o mapa.');
+  await chatFeedOf(caio).getByRole('button', { name: 'Abrir imagem de bia em tela cheia' }).click();
+  const viewer = caio.getByRole('dialog', { name: 'Imagem de Bia' });
+  await expect(viewer.getByRole('img', { name: 'Imagem de Bia' })).toBeVisible();
+  await viewer.getByRole('button', { name: 'Fechar imagem' }).click();
+  await expect(viewer).toHaveCount(0);
+});
+
+test('a picture whispered by the master reaches Bia only, and Ctrl+I refuses a local link', async ({
+  newPlayerPage,
+}) => {
+  test.setTimeout(120_000);
+  const { admin, bia, caio } = await openChatTable(newPlayerPage, true);
+  if (!caio) throw new Error('expected Caio at the chat table');
+  await attachPicture(admin);
+  await sendChat(admin, '/w Bia Só para você.');
+  await expect(chatFeedOf(bia)).toContainText('Só para você.');
+  await expect(chatFeedOf(bia).getByRole('img', { name: /^Imagem de / })).toBeVisible();
+  await sendChat(admin, 'Todos juntos.');
+  await expect(chatFeedOf(caio)).toContainText('Todos juntos.');
+  await expect(chatFeedOf(caio)).not.toContainText('Só para você.');
+  await expect(chatFeedOf(caio).getByRole('img', { name: /^Imagem de / })).toHaveCount(0);
+  const field = bia.getByRole('combobox', { name: 'Mensagem' });
+  await field.click();
+  await bia.keyboard.press('Control+i');
+  const link = bia.getByRole('textbox', { name: 'Link da imagem' });
+  await expect(link).toBeFocused();
+  await link.fill('http://127.0.0.1/pista.png');
+  await link.press('Enter');
+  await expect(bia.getByRole('alert')).toContainText('Esse link não pode ser usado.');
+});

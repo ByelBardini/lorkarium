@@ -68,6 +68,7 @@ function KeyedComposer(props: VoicedProps & Readonly<{ tools: ComposerTools }>) 
       tools={props.tools}
       voice={props.voice}
       reply={props.reply}
+      uploadTo={{ campaignId, assets: services.assets }}
     />
   );
 }

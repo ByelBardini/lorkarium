@@ -211,6 +211,7 @@ describe('the custom emojis in a message', () => {
       channel: { kind: 'table' as const, whisperTo: null },
       speaker: { kind: 'self' as const },
       replyTo: null,
+      image: null,
       text: 'bora :festa: :bolo:',
     };
 
@@ -228,6 +229,7 @@ describe('the custom emojis in a message', () => {
       channel: { kind: 'table' as const, whisperTo: null },
       speaker: { kind: 'self' as const },
       replyTo: null,
+      image: null,
       text,
     });
     await bia.timeout(4000).emitWithAck('chat:send', message(':festa:'));
