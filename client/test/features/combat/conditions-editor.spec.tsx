@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { ConditionDefinitionDto, TokenDto } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
-import { ConditionsEditor } from '@/features/combat/conditions-editor';
+import { AddConditionButton, ConditionsEditor } from '@/features/combat/conditions-editor';
 import {
   createBoardInteractionStore,
   type BoardInteractionStore,
@@ -98,14 +98,19 @@ describe('ConditionsEditor', () => {
       kind: 'board',
       state: vharnBoard({ tokens: [token], conditionDefinitions: [...DEFINITIONS] }),
     });
+    const props = { token, board, interaction, isMaster };
     render(
-      <ConditionsEditor
-        token={token}
-        board={board}
-        interaction={interaction}
-        isMaster={isMaster}
-      />,
+      <>
+        <ConditionsEditor {...props} />
+        <AddConditionButton {...props} />
+      </>,
     );
+  }
+
+  // "Adicionar condição" lives in the balloon of "Condição".
+  async function renderPicker(token: TokenDto, isMaster = false): Promise<void> {
+    renderEditor(token, isMaster);
+    await userEvent.click(screen.getByRole('button', { name: 'Condição' }));
   }
 
   function section(): HTMLElement {
@@ -222,7 +227,7 @@ describe('ConditionsEditor', () => {
   }
 
   it('"Adicionar condição" is typed, any case or accent, and sends condition:apply, 0 meaning no limit', async () => {
-    renderEditor(lyra());
+    await renderPicker(lyra());
     await userEvent.type(nameField(), 'concentrando');
     await userEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
     await userEvent.type(nameField(), 'Concentrando');
@@ -236,14 +241,14 @@ describe('ConditionsEditor', () => {
   });
 
   it('the confirmed apply empties the name', async () => {
-    renderEditor(lyra());
+    await renderPicker(lyra());
     await userEvent.type(nameField(), 'Envenenado{Enter}');
     expect(commands.sentAs('applyCondition')).toHaveLength(1);
     expect(nameField()).toHaveValue('');
   });
 
   it('the suggestions follow what is typed; ↓ and Enter take one', async () => {
-    renderEditor(lyra());
+    await renderPicker(lyra());
     await userEvent.type(nameField(), 'ven');
     const options = screen.getAllByRole('option').map((option) => option.textContent);
     expect(options).toEqual(['Envenenado']);
@@ -253,7 +258,7 @@ describe('ConditionsEditor', () => {
   });
 
   it('the suggestions are grouped by nature: benefits, then incapacitating, then harms', async () => {
-    renderEditor(lyra());
+    await renderPicker(lyra());
     await userEvent.click(nameField());
     const groups = screen.getAllByRole('group').map((group) => group.getAttribute('aria-label'));
     expect(groups).toEqual(['Benéficas', 'Incapacitantes', 'Prejudiciais']);
@@ -262,13 +267,13 @@ describe('ConditionsEditor', () => {
   });
 
   it('a new name with nothing alike opens no list over the icon and nature', async () => {
-    renderEditor(lyra(), true);
+    await renderPicker(lyra(), true);
     await userEvent.type(nameField(), 'Sangrando');
     expect(nameField()).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('a click on a suggestion takes it', async () => {
-    renderEditor(lyra());
+    await renderPicker(lyra());
     await userEvent.click(nameField());
     await userEvent.click(screen.getByRole('option', { name: 'Concentrando' }));
     expect(nameField()).toHaveValue('Concentrando');
@@ -287,7 +292,7 @@ describe('ConditionsEditor', () => {
   });
 
   it('the master picks the icon of a new condition and it goes with the definition', async () => {
-    renderEditor(lyra(), true);
+    await renderPicker(lyra(), true);
     await userEvent.type(nameField(), 'Sangrando');
     await userEvent.click(screen.getByRole('button', { name: 'Ícone: Marca' }));
     await userEvent.click(screen.getByRole('radio', { name: 'Gota' }));
@@ -303,7 +308,7 @@ describe('ConditionsEditor', () => {
   });
 
   it('a name already on the list offers no icon choice', async () => {
-    renderEditor(lyra(), true);
+    await renderPicker(lyra(), true);
     await userEvent.type(nameField(), 'Envenenado');
     expect(screen.queryByRole('button', { name: /^Ícone/ })).toBeNull();
   });
@@ -314,7 +319,7 @@ describe('ConditionsEditor', () => {
   });
 
   it('the master creates "Sangrando" and it is applied right after', async () => {
-    renderEditor(lyra(), true);
+    await renderPicker(lyra(), true);
     await userEvent.type(nameField(), 'Sangrando');
     expect(screen.getByRole('radiogroup', { name: 'Natureza' })).toBeInTheDocument();
     commands.hold();
@@ -341,7 +346,7 @@ describe('ConditionsEditor', () => {
   });
 
   it('a new name shows the three natures and "Aparência no token", which start on Prejudicial and Nenhuma', async () => {
-    renderEditor(lyra(), true);
+    await renderPicker(lyra(), true);
     await userEvent.type(nameField(), 'Inconsciente');
     const natures = within(screen.getByRole('radiogroup', { name: 'Natureza' }));
     expect(natures.getAllByRole('radio').map((radio) => radio.textContent)).toEqual([
@@ -360,7 +365,7 @@ describe('ConditionsEditor', () => {
   });
 
   it('the master creates "Inconsciente" incapacitating and unconscious in one define, then applies it', async () => {
-    renderEditor(lyra(), true);
+    await renderPicker(lyra(), true);
     await userEvent.type(nameField(), 'Inconsciente');
     await userEvent.click(screen.getByRole('radio', { name: 'Incapacitante' }));
     await userEvent.click(screen.getByRole('radio', { name: 'Desacordado' }));
@@ -389,7 +394,7 @@ describe('ConditionsEditor', () => {
 
   it('a refused define says why on the status line and applies nothing', async () => {
     commands.answerWith({ ok: false, failure: 'forbidden' });
-    renderEditor(lyra(), true);
+    await renderPicker(lyra(), true);
     await userEvent.type(nameField(), 'Inconsciente');
     await userEvent.click(screen.getByRole('button', { name: 'Criar e aplicar' }));
     expect(interaction.getState().notice).toBe('forbidden');
@@ -412,7 +417,7 @@ describe('ConditionsEditor', () => {
   });
 
   it('a player typing a name not on the list cannot apply it and is told why', async () => {
-    renderEditor(lyra(), false);
+    await renderPicker(lyra(), false);
     await userEvent.type(nameField(), 'Sangrando');
     expect(screen.getByRole('button', { name: 'Aplicar' })).toBeDisabled();
     expect(screen.getByText('Só o mestre cria condição nova.')).toBeInTheDocument();
@@ -421,7 +426,7 @@ describe('ConditionsEditor', () => {
   });
 
   it('a player sees −, + and × and the picker on a token they do not control', async () => {
-    renderEditor(lyra({ canControl: false, conditions: [ENVENENADO] }));
+    await renderPicker(lyra({ canControl: false, conditions: [ENVENENADO] }));
 
     expect(screen.getByRole('list', { name: 'Condições ativas de Lyra' })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Adicionar condição' })).toBeInTheDocument();
@@ -438,5 +443,15 @@ describe('ConditionsEditor', () => {
     expect(screen.getByRole('list', { name: 'Condições de Lyra' })).toHaveTextContent('Envenenado');
     expect(screen.queryByRole('button', { name: /Envenenado/ })).toBeNull();
     expect(screen.queryByLabelText('Adicionar condição')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Condição' })).toBeNull();
+  });
+
+  it('the picker stays shut until "Condição" opens it', async () => {
+    renderEditor(lyra());
+    expect(screen.queryByRole('combobox', { name: 'Adicionar condição' })).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Condição' }));
+
+    expect(screen.getByRole('combobox', { name: 'Adicionar condição' })).toBeInTheDocument();
   });
 });

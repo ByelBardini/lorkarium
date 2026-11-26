@@ -9,9 +9,11 @@ import {
   type BoardInteractionStore,
 } from '@/stores/board-interaction-store';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
+import { createRoomLayoutStore } from '@/stores/room-layout-store';
 import { createTablePresenceStore, type TablePresenceStore } from '@/stores/table-presence-store';
 import { VHARN } from '../../support/campaigns-api-fake';
 import { syncedCharacters } from '../../support/character-fixtures';
+import { StorageFake } from '../../support/storage-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import {
   ANA_AT_TABLE,
@@ -62,6 +64,7 @@ describe('CombatPanel', () => {
         interaction={interaction}
         isMaster={isMaster}
         onEditToken={() => undefined}
+        roomLayout={createRoomLayoutStore(new StorageFake())}
       />,
     );
   }

@@ -1,5 +1,5 @@
 import type { SessionMemberDto, TokenDto } from '@lorkarium/contracts';
-import { EyeIcon, EyeOffIcon, StarIcon, XIcon } from 'lucide-react';
+import { ChevronDownIcon, ChevronUpIcon, EyeIcon, EyeOffIcon, StarIcon, XIcon } from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import { playedByText } from '@/lib/played-by';
@@ -14,11 +14,15 @@ export type DockHeaderProps = Readonly<{
   isMaster?: boolean;
   members: readonly SessionMemberDto[];
   interaction: StoreApi<BoardInteractionStore>;
+  /** "Recolher ficha" / "Abrir ficha" (absent: the head cannot collapse what follows it). */
+  collapse?: DockCollapse;
 }>;
 
+export type DockCollapse = Readonly<{ collapsed: boolean; toggle: () => void }>;
+
 /** The head of the dock: avatar, name, who plays it, the "Principal" mark on the token of the
- *  viewer's character, the master's "Invisível para os jogadores" switch, and "Fechar ficha" on
- *  any other token (back to the main one).
+ *  viewer's character, the master's "Invisível para os jogadores" switch, "Recolher ficha" when
+ *  the dock can collapse, and "Fechar ficha" on any other token (back to the main one).
  *
  *  Example: `<DockHeader token={kael} isMain={false} members={members} interaction={interaction} />` */
 export function DockHeader(props: DockHeaderProps): React.JSX.Element {
@@ -32,6 +36,7 @@ export function DockHeader(props: DockHeaderProps): React.JSX.Element {
       </span>
       {isMain && <MainMark />}
       {props.isMaster && <HiddenToggle token={token} interaction={interaction} />}
+      {props.collapse && <CollapseToggle {...props.collapse} />}
       {!isMain && (
         <Button
           type="button"
@@ -67,6 +72,22 @@ function HiddenToggle({ token, interaction }: HiddenToggleProps) {
       disabled={readOnly}
       className="aria-pressed:text-label"
       onClick={() => void interaction.getState().setTokensHidden([token], !token.hidden)}
+    >
+      <Icon aria-hidden="true" />
+    </Button>
+  );
+}
+
+function CollapseToggle({ collapsed, toggle }: DockCollapse) {
+  const Icon = collapsed ? ChevronUpIcon : ChevronDownIcon;
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      aria-label={collapsed ? 'Abrir ficha' : 'Recolher ficha'}
+      aria-expanded={!collapsed}
+      onClick={toggle}
     >
       <Icon aria-hidden="true" />
     </Button>

@@ -17,6 +17,8 @@ export type RoomTab = (typeof ROOM_TABS)[number];
 
 export type RoomChat = 'open' | 'closed';
 
+export type RoomDock = 'open' | 'closed';
+
 export type RoomLayoutState = Readonly<{
   panel: RoomPanel;
   tab: RoomTab;
@@ -27,6 +29,8 @@ export type RoomLayoutState = Readonly<{
   chatFocusRequest: number;
   /** The library drawer width the user left it at (the drawer fits it to the room). */
   libraryWidth: number;
+  /** The token's detail at the foot of "Combate": open, or only its head (the tracker gets the room). */
+  dock: RoomDock;
 }>;
 
 export type RoomLayoutStore = RoomLayoutState &
@@ -43,6 +47,7 @@ export type RoomLayoutStore = RoomLayoutState &
     setChatHeight: (height: number) => void;
     requestChatFocus: () => void;
     setLibraryWidth: (width: number) => void;
+    toggleDock: () => void;
   }>;
 
 export const ROOM_PANEL_STORAGE_KEY = 'lorkarium.roomPanel';
@@ -53,13 +58,15 @@ export const ROOM_CHAT_HEIGHT_STORAGE_KEY = 'lorkarium.roomChatHeight';
 
 export const ROOM_LIBRARY_WIDTH_STORAGE_KEY = 'lorkarium.libraryWidth';
 
+export const ROOM_DOCK_STORAGE_KEY = 'lorkarium.tokenDock';
+
 const OPEN_OR_CLOSED = ['open', 'closed'] as const;
 
 type SetRoomLayout = StoreApi<RoomLayoutStore>['setState'];
 type GetRoomLayout = StoreApi<RoomLayoutStore>['getState'];
 type RoomPanelSlice = Omit<
   RoomLayoutStore,
-  keyof RoomChatSlice | keyof ChatFocusSlice | keyof LibraryWidthSlice
+  keyof RoomChatSlice | keyof ChatFocusSlice | keyof LibraryWidthSlice | keyof TokenDockSlice
 >;
 type RoomChatSlice = Pick<
   RoomLayoutStore,
@@ -67,10 +74,11 @@ type RoomChatSlice = Pick<
 >;
 type ChatFocusSlice = Pick<RoomLayoutStore, 'chatFocusRequest' | 'requestChatFocus'>;
 type LibraryWidthSlice = Pick<RoomLayoutStore, 'libraryWidth' | 'setLibraryWidth'>;
+type TokenDockSlice = Pick<RoomLayoutStore, 'dock' | 'toggleDock'>;
 
 /** How the play room is laid out around the board: the side panel and the chat bar (both
- *  remembered in the browser, with the chat drawer height and the library drawer width), the panel tab, focus mode (board
- *  only) and the requests for the chat composer. Tab, focus and requests reset per visit.
+ *  remembered in the browser, with the chat drawer height, the library drawer width and the token
+ *  dock opened or collapsed), the panel tab, focus mode (board only) and the requests for the chat composer. Tab, focus and requests reset per visit.
  *
  *  Example: `createRoomLayoutStore(window.localStorage).getState().showTab('people')` */
 export function createRoomLayoutStore(storage: ChoiceStorage): StoreApi<RoomLayoutStore> {
@@ -79,6 +87,7 @@ export function createRoomLayoutStore(storage: ChoiceStorage): StoreApi<RoomLayo
     ...chatSliceOf(storage, set, get),
     ...chatFocusSliceOf(set, get),
     ...libraryWidthSliceOf(storage, set),
+    ...tokenDockSliceOf(storage, set, get),
   }));
 }
 
@@ -169,6 +178,21 @@ function libraryWidthSliceOf(storage: ChoiceStorage, set: SetRoomLayout): Librar
       if (!isPositiveSize(libraryWidth)) return;
       set({ libraryWidth });
       writeStoredChoice(storage, ROOM_LIBRARY_WIDTH_STORAGE_KEY, String(libraryWidth));
+    },
+  };
+}
+
+function tokenDockSliceOf(
+  storage: ChoiceStorage,
+  set: SetRoomLayout,
+  get: GetRoomLayout,
+): TokenDockSlice {
+  return {
+    dock: readStoredChoice(storage, ROOM_DOCK_STORAGE_KEY, OPEN_OR_CLOSED, 'open'),
+    toggleDock: () => {
+      const dock: RoomDock = get().dock === 'open' ? 'closed' : 'open';
+      set({ dock });
+      writeStoredChoice(storage, ROOM_DOCK_STORAGE_KEY, dock);
     },
   };
 }

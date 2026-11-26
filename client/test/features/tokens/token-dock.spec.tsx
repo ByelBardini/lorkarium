@@ -13,6 +13,11 @@ import {
 } from '@/stores/board-interaction-store';
 import { createBoardStore, type BoardStore } from '@/stores/board-store';
 import { createCharactersStore, type CharactersStore } from '@/stores/characters-store';
+import {
+  createRoomLayoutStore,
+  ROOM_DOCK_STORAGE_KEY,
+  type RoomLayoutStore,
+} from '@/stores/room-layout-store';
 import { createTablePresenceStore, type TablePresenceStore } from '@/stores/table-presence-store';
 import { VHARN } from '../../support/campaigns-api-fake';
 import {
@@ -23,6 +28,7 @@ import {
   lyraCharacter,
   LYRA_CHARACTER_ID,
 } from '../../support/character-fixtures';
+import { StorageFake } from '../../support/storage-fake';
 import { TableBoardCommandsFake } from '../../support/table-board-commands-fake';
 import {
   ANA_AT_TABLE,
@@ -50,8 +56,12 @@ describe('TokenDock', () => {
   let interaction: StoreApi<BoardInteractionStore>;
   let commands: TableBoardCommandsFake;
   let edited: string[];
+  let layoutStorage: StorageFake;
+  let roomLayout: StoreApi<RoomLayoutStore>;
 
   beforeEach(() => {
+    layoutStorage = new StorageFake();
+    roomLayout = createRoomLayoutStore(layoutStorage);
     board = createBoardStore(VHARN.id, () => undefined);
     presence = createTablePresenceStore(VHARN.id);
     presence.setState({ members: [ANA_AT_TABLE, BIA_AT_TABLE] });
@@ -85,6 +95,7 @@ describe('TokenDock', () => {
           interaction={interaction}
           isMaster={isMaster}
           onEditToken={(tokenId) => edited.push(tokenId)}
+          roomLayout={roomLayout}
         />
       </TableTokenKeysContext>,
     );
@@ -116,6 +127,42 @@ describe('TokenDock', () => {
 
     expect(interaction.getState().selectedTokenIds).toEqual([]);
     expect(screen.queryByRole('region', { name: 'Token selecionado' })).toBeNull();
+  });
+
+  describe('collapsing', () => {
+    it('"Recolher ficha" keeps the head and the bar strip, drops the rest and remembers it', async () => {
+      renderDock();
+
+      await userEvent.click(within(dock()).getByRole('button', { name: 'Recolher ficha' }));
+
+      expect(within(dock()).getByRole('heading', { name: 'Lyra' })).toBeInTheDocument();
+      expect(within(dock()).getByRole('button', { name: 'Abrir ficha' })).toHaveAttribute(
+        'aria-expanded',
+        'false',
+      );
+      expect(dock()).not.toHaveTextContent('PV32 / 45');
+      expect(dock()).not.toHaveTextContent('Coluna 4');
+      expect(within(dock()).queryByRole('button', { name: 'Condição' })).toBeNull();
+      expect(dock().querySelectorAll('[aria-hidden="true"].rounded-full.bg-divider')).toHaveLength(
+        lyra().bars.length,
+      );
+      expect(layoutStorage.values.get(ROOM_DOCK_STORAGE_KEY)).toBe('closed');
+    });
+
+    it('a dock remembered as collapsed starts so, and "Abrir ficha" brings the detail back', async () => {
+      layoutStorage.values.set(ROOM_DOCK_STORAGE_KEY, 'closed');
+      roomLayout = createRoomLayoutStore(layoutStorage);
+      renderDock();
+      expect(dock()).not.toHaveTextContent('PV32 / 45');
+
+      await userEvent.click(within(dock()).getByRole('button', { name: 'Abrir ficha' }));
+
+      expect(dock()).toHaveTextContent('PV32 / 45');
+      expect(within(dock()).getByRole('button', { name: 'Recolher ficha' })).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
+    });
   });
 
   it('every bar received shows with its value, with no field under it', () => {
@@ -257,10 +304,12 @@ describe('TokenDock', () => {
         interaction={interaction}
         isMaster
         onEditToken={() => undefined}
+        roomLayout={roomLayout}
       />,
     );
 
-    await userEvent.click(within(dock()).getByRole('combobox', { name: 'Adicionar condição' }));
+    await userEvent.click(within(dock()).getByRole('button', { name: 'Condição' }));
+    await userEvent.click(screen.getByRole('combobox', { name: 'Adicionar condição' }));
 
     const list = screen.getByRole('listbox', { name: 'Condições da mesa' });
     expect(dock()).not.toContainElement(list);

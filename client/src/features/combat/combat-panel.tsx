@@ -9,6 +9,7 @@ import { seenTokensOf } from '@/lib/board-sight';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
 import { useBoard, type BoardStore } from '@/stores/board-store';
 import type { CharactersStore } from '@/stores/characters-store';
+import type { RoomLayoutStore } from '@/stores/room-layout-store';
 import { useTablePresence, type TablePresenceStore } from '@/stores/table-presence-store';
 import { CombatHeader } from './combat-header';
 import { CombatPrep, type CombatPrepMode } from './combat-prep';
@@ -29,6 +30,8 @@ export type CombatPanelProps = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
   isMaster: boolean;
   onEditToken: (tokenId: string) => void;
+  /** Remembers whether the token dock at the foot is opened or collapsed. */
+  roomLayout: StoreApi<RoomLayoutStore>;
 }>;
 
 /** What the tab shows besides the board's state: the preparation to start or to add, or the form
@@ -40,7 +43,7 @@ type PanelMode = 'idle' | CombatPrepMode | 'tokenless';
  *  selected token's detail stays at the foot, in combat and out of it. A refused start keeps the
  *  preparation open with what was typed.
  *
- *  Example: `<CombatPanel table={table} interaction={interaction} isMaster onEditToken={edit} />` */
+ *  Example: `<CombatPanel table={table} interaction={interaction} isMaster onEditToken={edit} roomLayout={roomLayout} />` */
 export function CombatPanel(props: CombatPanelProps): React.JSX.Element {
   const { table, interaction, isMaster } = props;
   const [mode, setMode] = useState<PanelMode>('idle');
@@ -76,6 +79,7 @@ export function CombatPanel(props: CombatPanelProps): React.JSX.Element {
         interaction={interaction}
         isMaster={isMaster}
         onEditToken={props.onEditToken}
+        roomLayout={props.roomLayout}
       />
     </div>
   );

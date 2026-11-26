@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ROOM_CHAT_HEIGHT_STORAGE_KEY,
   ROOM_CHAT_STORAGE_KEY,
+  ROOM_DOCK_STORAGE_KEY,
   ROOM_LIBRARY_WIDTH_STORAGE_KEY,
   ROOM_PANEL_STORAGE_KEY,
   createRoomLayoutStore,
@@ -22,6 +23,24 @@ describe('room layout store', () => {
     store.getState().togglePanel();
     expect(store.getState().panel).toBe('closed');
     expect(storage.values.get(ROOM_PANEL_STORAGE_KEY)).toBe('closed');
+  });
+
+  it('the token dock starts open, and toggleDock collapses it and remembers it', () => {
+    const storage = new StorageFake();
+    const store = createRoomLayoutStore(storage);
+    expect(store.getState().dock).toBe('open');
+
+    store.getState().toggleDock();
+
+    expect(store.getState().dock).toBe('closed');
+    expect(storage.values.get(ROOM_DOCK_STORAGE_KEY)).toBe('closed');
+    expect(createRoomLayoutStore(storage).getState().dock).toBe('closed');
+  });
+
+  it('an invalid remembered dock starts open', () => {
+    const storage = new StorageFake();
+    storage.values.set(ROOM_DOCK_STORAGE_KEY, 'half');
+    expect(createRoomLayoutStore(storage).getState().dock).toBe('open');
   });
 
   it('a panel remembered as closed starts closed', () => {
