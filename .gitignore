@@ -20,3 +20,6 @@ site/.astro/
 # Pesquisa local, fora do git
 research_notes/
 reports/
+
+# Ícones de condição gerados no predev/build (client/scripts/generate-condition-icons.ts)
+client/public/condition-icons/

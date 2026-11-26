@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && node scripts/check-entry-chunk.ts && node scripts/precompress.ts",
+    "build": "pnpm icons && tsc && vite build && node scripts/check-entry-chunk.ts && node scripts/precompress.ts",
     "preview": "vite preview",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "icons:keys": "tsx scripts/generate-condition-icons.ts --keys",
+    "icons": "tsx scripts/generate-condition-icons.ts",
+    "predev": "pnpm icons"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.4",
@@ -55,6 +58,11 @@
     "zustand": "^5.1.0"
   },
   "devDependencies": {
+    "@iconify-json/game-icons": "1.2.4",
+    "@iconify-json/lucide": "1.2.146",
+    "@iconify-json/mdi": "1.2.3",
+    "@iconify-json/ph": "1.2.2",
+    "@iconify-json/tabler": "1.2.42",
     "@lorkarium/tsconfig": "workspace:*",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
@@ -65,6 +73,7 @@
     "@vitejs/plugin-react": "^6.2.1",
     "jsdom": "^31.0.1",
     "shadcn": "^4.23.0",
+    "tsx": "4.23.15",
     "vite": "^8.3.8"
   }
 }
