@@ -133,9 +133,13 @@ test('a whole combat: the preparation with initiative, turns, rounds, a conditio
   // A condition from the detail at the foot of the panel; "+" reaches the others.
   await rowOf(admin, 'Lyra').click();
   const dock = dockOf(admin);
-  await dock.getByRole('combobox', { name: 'Adicionar condição' }).fill('Atordoado');
-  await dock.getByLabel('Rodadas').fill('1');
-  await dock.getByRole('button', { name: 'Aplicar' }).click();
+  // "Condição" opens the picker in a balloon, outside the dock's region.
+  await dock.getByRole('button', { name: 'Condição', exact: true }).click();
+  const balloon = admin.getByRole('dialog', { name: 'Condição em Lyra' });
+  await balloon.getByRole('combobox', { name: 'Adicionar condição' }).fill('Atordoado');
+  await balloon.getByLabel('Rodadas').fill('1');
+  await balloon.getByRole('button', { name: 'Aplicar' }).click();
+  await admin.keyboard.press('Escape');
   await dock.getByRole('button', { name: 'Mais uma rodada de Atordoado' }).click();
   await expect(caio.getByRole('list', { name: 'Condições de Lyra' })).toContainText('Atordoado2');
   await dock.getByRole('button', { name: 'Menos uma rodada de Atordoado' }).click();
