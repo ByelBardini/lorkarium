@@ -260,7 +260,8 @@ describe('TokenDock', () => {
       />,
     );
 
-    await userEvent.click(within(dock()).getByRole('combobox', { name: 'Adicionar condição' }));
+    await userEvent.click(within(dock()).getByRole('button', { name: 'Condição' }));
+    await userEvent.click(screen.getByRole('combobox', { name: 'Adicionar condição' }));
 
     const list = screen.getByRole('listbox', { name: 'Condições da mesa' });
     expect(dock()).not.toContainElement(list);
