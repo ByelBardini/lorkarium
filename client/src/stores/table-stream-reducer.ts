@@ -1,4 +1,4 @@
-import type { CharacterDto, ConditionDefinitionDto } from '@lorkarium/contracts';
+import type { CharacterDto, ConditionDefinitionDto, RoundCycleDto } from '@lorkarium/contracts';
 import {
   holdersShowingDefinition,
   holdersWithoutDefinition,
@@ -7,21 +7,26 @@ import {
 } from '@/lib/condition-catalog';
 import type { CharacterUpdate } from '@/services/table-session-api';
 
-/** A versioned event of the table stream: a character's or the condition list's. */
+/** A versioned event of the table stream: a character's, the condition list's or the round
+ *  cycles'. */
 export type TableStreamEvent = Exclude<
   CharacterUpdate,
-  Readonly<{ kind: 'characters' | 'charactersFailed' }>
+  Readonly<{ kind: 'characters' | 'charactersFailed' | 'roundCyclesAnnounced' }>
 >;
 
 type CharacterEvent = Extract<TableStreamEvent, { kind: 'characterChanged' | 'characterRemoved' }>;
 
-type ListEvent = Exclude<TableStreamEvent, CharacterEvent>;
+type ListEvent = Exclude<
+  TableStreamEvent,
+  CharacterEvent | Readonly<{ kind: 'roundCyclesChanged' }>
+>;
 
-/** What the table stream holds besides its version: the characters this viewer sees and the
- *  table's condition list. */
+/** What the table stream holds besides its version: the characters this viewer sees, the
+ *  table's condition list and the round cycles this viewer sees. */
 export type TableStreamContent = Readonly<{
   characters: readonly CharacterDto[];
   conditionDefinitions: ConditionDefinitionDto[];
+  roundCycles: readonly RoundCycleDto[];
 }>;
 
 /** The table stream after one event, already checked to be `version + 1`. An edited definition
@@ -30,13 +35,16 @@ export type TableStreamContent = Readonly<{
  *
  *  Example: `tableStreamAfter({ characters, conditionDefinitions }, update).characters` */
 export function tableStreamAfter(
-  { characters, conditionDefinitions }: TableStreamContent,
+  content: TableStreamContent,
   update: TableStreamEvent,
 ): TableStreamContent {
+  // The whole list of that version: it replaces, and an equal version may bring it (the server
+  // bumps once when a turn changes a character and the cycles).
+  if (update.kind === 'roundCyclesChanged') return { ...content, roundCycles: update.event.cycles };
   if (update.kind === 'characterChanged' || update.kind === 'characterRemoved') {
-    return { characters: charactersAfter(characters, update), conditionDefinitions };
+    return { ...content, characters: charactersAfter(content.characters, update) };
   }
-  return listEventAfter({ characters, conditionDefinitions }, update);
+  return { ...content, ...listEventAfter(content, update) };
 }
 
 function charactersAfter(
@@ -48,7 +56,9 @@ function charactersAfter(
   return characters.filter(({ id }) => id !== update.event.characterId);
 }
 
-function listEventAfter(content: TableStreamContent, update: ListEvent): TableStreamContent {
+type ListContent = Omit<TableStreamContent, 'roundCycles'>;
+
+function listEventAfter(content: ListContent, update: ListEvent): ListContent {
   const { characters, conditionDefinitions } = content;
   switch (update.kind) {
     case 'conditionDefined':
@@ -73,9 +83,9 @@ function listEventAfter(content: TableStreamContent, update: ListEvent): TableSt
 }
 
 function listWithout(
-  { characters, conditionDefinitions }: TableStreamContent,
+  { characters, conditionDefinitions }: ListContent,
   conditionId: string,
-): TableStreamContent {
+): ListContent {
   return {
     characters: holdersWithoutDefinition(characters, conditionId),
     conditionDefinitions: conditionDefinitions.filter(({ id }) => id !== conditionId),

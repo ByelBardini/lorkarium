@@ -13,6 +13,7 @@ import {
   type CharacterSeatTransactionRunner,
 } from './character-seat.service';
 import { ConditionsDao } from '../conditions/conditions.dao';
+import { RoundCyclesDao } from '../round-cycles/round-cycles.dao';
 import { SheetsDao } from '../sheets/sheets.dao';
 import { CharactersDao } from './characters.dao';
 import { CharactersService } from './characters.service';
@@ -52,7 +53,11 @@ export function createCharactersModule(options: CharactersModuleOptions): Charac
       ),
     snapshot: (work) =>
       runInSnapshot(db, (tx) =>
-        work({ characters: new CharactersDao(tx), conditions: new ConditionsDao(tx) }),
+        work({
+          characters: new CharactersDao(tx),
+          conditions: new ConditionsDao(tx),
+          roundCycles: new RoundCyclesDao(tx),
+        }),
       ),
     publisher,
     clock,

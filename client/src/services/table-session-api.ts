@@ -1,4 +1,6 @@
 import type {
+  RoundCyclesAnnouncedDto,
+  RoundCyclesChangedDto,
   BoardPingedDto,
   BoardStateDto,
   CharacterChangedEventDto,
@@ -122,7 +124,10 @@ export type CharacterUpdate =
   | Readonly<{ kind: 'conditionDefined'; event: ConditionDefinedDto }>
   | Readonly<{ kind: 'conditionDefinitionUpdated'; event: ConditionDefinitionUpdatedDto }>
   | Readonly<{ kind: 'conditionDefinitionDeleted'; event: ConditionDefinitionDeletedDto }>
-  | Readonly<{ kind: 'conditionDefaultsRestored'; event: ConditionDefaultsRestoredDto }>;
+  | Readonly<{ kind: 'conditionDefaultsRestored'; event: ConditionDefaultsRestoredDto }>
+  | Readonly<{ kind: 'roundCyclesChanged'; event: RoundCyclesChangedDto }>
+  // Ephemeral (no version): the phases a new round brought, to everyone in that grid.
+  | Readonly<{ kind: 'roundCyclesAnnounced'; event: RoundCyclesAnnouncedDto }>;
 
 export type CharacterListener = (update: CharacterUpdate) => void;
 

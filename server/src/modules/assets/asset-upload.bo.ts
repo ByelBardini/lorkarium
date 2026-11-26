@@ -18,6 +18,8 @@ export type FrameAspects = Readonly<Partial<Record<AssetPurpose, ImageAspect>>>;
 // The board fills a circle with the condition texture; a square one needs no mask, which would
 // break the GPU batch (docs/context/client/performance.md). Its square is always the centre.
 const CENTRED_SQUARE: ImageFrame = { aspect: { width: 1, height: 1 }, crop: null };
+// A round cycle phase shows in a square badge and announcement, like the condition.
+const SQUARE_PURPOSES: ReadonlySet<AssetPurpose> = new Set(['condition', 'round_cycle_phase']);
 
 /** How large the server keeps an image sent for `purpose`.
  *
@@ -39,7 +41,7 @@ export function frameFor(
   const aspect = aspects[purpose];
   if (aspect) return { aspect: { width: aspect.width, height: aspect.height }, crop };
   if (crop !== null) throw new InvalidCropError(purpose, crop, Object.keys(aspects));
-  return purpose === 'condition' ? CENTRED_SQUARE : null;
+  return SQUARE_PURPOSES.has(purpose) ? CENTRED_SQUARE : null;
 }
 
 /** How much a kept image may animate (the contract's `AURA_ANIMATION_LIMITS`). */
@@ -51,10 +53,12 @@ export type AnimationLimits = Readonly<{ maxFrames: number; maxDecodedPixels: nu
 // and banner stay on Narrador through `campaignArt`). A token, a background or a condition stays
 // still.
 const ANIMATED_PURPOSES: ReadonlySet<AssetPurpose> = new Set(['aura', 'sheet_image', 'chat_image']);
+// A round cycle phase is art of the table too (spec §3.16): it moves by the same rule.
 const PAID_ANIMATED_PURPOSES: ReadonlySet<AssetPurpose> = new Set([
   'campaign_photo',
   'cover',
   'campaign_banner',
+  'round_cycle_phase',
 ]);
 
 /** How much an image sent for `purpose` may keep animating, `ownerHasAnimatedArt` being the

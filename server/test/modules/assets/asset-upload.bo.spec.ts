@@ -34,6 +34,7 @@ const SIDES = {
   condition: 256,
   aura: 512,
   chat_image: 2048,
+  round_cycle_phase: 512,
 };
 const CROP = { x: 10, y: 0, w: 50, h: 100 } as const;
 const FRAMES = {
@@ -58,6 +59,7 @@ describe('resizeFor', () => {
     ['campaign_banner', 1800],
     ['aura', 512],
     ['chat_image', 2048],
+    ['round_cycle_phase', 512],
   ] as const)('a %s image is kept up to %i px', (purpose, maxSide) => {
     expect(resizeFor(purpose, SIDES)).toEqual({ maxSide });
   });
@@ -87,6 +89,13 @@ describe('frameFor', () => {
 
   it('a campaign photo with no rectangle (a link) is cut 1:1 at the centre', () => {
     expect(frameFor('campaign_photo', null, FRAMES)).toEqual({
+      aspect: { width: 1, height: 1 },
+      crop: null,
+    });
+  });
+
+  it('a round cycle phase is cut 1:1 at the centre, like a condition', () => {
+    expect(frameFor('round_cycle_phase', null, FRAMES)).toEqual({
       aspect: { width: 1, height: 1 },
       crop: null,
     });
@@ -129,7 +138,7 @@ describe('animationFor', () => {
     },
   );
 
-  it.each(['campaign_photo', 'cover', 'campaign_banner'] as const)(
+  it.each(['campaign_photo', 'cover', 'campaign_banner', 'round_cycle_phase'] as const)(
     'a %s animates within the same budget on a Lenda owner (animatedCampaignArt)',
     (purpose) => {
       const animates = PLAN_LIMITS.lenda.animatedCampaignArt;
@@ -138,7 +147,7 @@ describe('animationFor', () => {
     },
   );
 
-  it.each(['campaign_photo', 'cover', 'campaign_banner'] as const)(
+  it.each(['campaign_photo', 'cover', 'campaign_banner', 'round_cycle_phase'] as const)(
     'a %s stays still (no budget) on an owner without animatedCampaignArt',
     (purpose) => {
       expect(animationFor(purpose, ANIMATION, false)).toBeNull();

@@ -1,4 +1,5 @@
 import type {
+  RoundCycleDto,
   CharacterChangedEventDto,
   CharacterDto,
   CharacterRemovedEventDto,
@@ -94,8 +95,9 @@ export function tableSynced(
   version: number,
   characters: CharacterDto[],
   conditionDefinitions: ConditionDefinitionDto[],
+  roundCycles: RoundCycleDto[] = [],
 ): CharacterUpdate {
-  return { kind: 'characters', sync: { version, characters, conditionDefinitions } };
+  return { kind: 'characters', sync: { version, characters, conditionDefinitions, roundCycles } };
 }
 
 type TableEventFields = Readonly<{ campaignId: string; version: number; at: string }>;

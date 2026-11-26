@@ -8,6 +8,7 @@ import { libraryDocumentAssets } from '../documents/document-assets.po';
 import { libraryDocuments } from '../documents/documents.po';
 import { libraryImages } from '../library/library-images.po';
 import { libraryMaps } from '../library-maps/library-maps.po';
+import { roundCyclePhases } from '../round-cycles/round-cycles.po';
 import { scenes } from '../scenes/scenes.po';
 import { sheetAssets } from '../sheets/sheet-assets.po';
 import { sheetTemplates } from '../sheets/sheet-templates.po';
@@ -35,6 +36,7 @@ const ASSET_FOREIGN_KEYS: readonly AssetForeignKey[] = [
   { table: libraryDocumentAssets, column: libraryDocumentAssets.assetId },
   { table: libraryDocuments, column: libraryDocuments.previewAssetId },
   { table: sheetAssets, column: sheetAssets.assetId },
+  { table: roundCyclePhases, column: roundCyclePhases.imageAssetId },
 ];
 
 // Any stable number shared by every server: one sweep at a time across the instances.

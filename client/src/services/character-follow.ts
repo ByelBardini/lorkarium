@@ -7,6 +7,8 @@ import {
   conditionDefinedDto,
   conditionDefinitionDeletedDto,
   conditionDefinitionUpdatedDto,
+  roundCyclesAnnouncedDto,
+  roundCyclesChangedDto,
 } from '@lorkarium/contracts';
 import type { z } from 'zod';
 import type { RealtimeTransport, Unsubscribe } from './realtime-transport';
@@ -39,6 +41,14 @@ export class CharacterFollow {
         event,
       })),
       ...this.conditionListSubscriptions(),
+      this.onEvent(BOARD_EVENTS.roundCyclesChanged, roundCyclesChangedDto, (event) => ({
+        kind: 'roundCyclesChanged',
+        event,
+      })),
+      this.onEvent(BOARD_EVENTS.roundCyclesAnnounced, roundCyclesAnnouncedDto, (event) => ({
+        kind: 'roundCyclesAnnounced',
+        event,
+      })),
     ];
   }
 
@@ -114,6 +124,6 @@ function snapshotUpdateOf(answer: unknown): CharacterUpdate {
   if (!parsed.success) return { kind: 'charactersFailed', failure: 'unexpected' };
   if (!parsed.data.ok)
     return { kind: 'charactersFailed', failure: syncFailureOf(parsed.data.error) };
-  const { version, characters, conditionDefinitions } = parsed.data;
-  return { kind: 'characters', sync: { version, characters, conditionDefinitions } };
+  const { version, characters, conditionDefinitions, roundCycles } = parsed.data;
+  return { kind: 'characters', sync: { version, characters, conditionDefinitions, roundCycles } };
 }

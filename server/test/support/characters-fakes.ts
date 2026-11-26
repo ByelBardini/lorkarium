@@ -31,6 +31,7 @@ import type { BarValuesWritePo, TokenFormInputPo } from '../../src/modules/token
 import { characterBarPo, characterPo } from './characters-factories';
 import { ConditionsDaoFake } from './conditions-fakes';
 import { planAccount } from './plan-account-fakes';
+import { RoundCyclesDaoFake } from './round-cycles-fakes';
 
 /** A character as the fake keeps it: its `conditions`, if given, are ignored (reads take them
  *  from `conditionsFrom`). */
@@ -253,11 +254,15 @@ export class CharacterSnapshotRunnerFake {
       ConditionsDaoFake,
       'listDefinitions'
     > = new ConditionsDaoFake(),
+    private readonly roundCycles: RoundCyclesDaoFake = new RoundCyclesDaoFake(),
   ) {}
 
   readonly run: CharacterSnapshotRunner = async <T>(
     work: (daos: CharacterReadDaos) => Promise<T>,
-  ): Promise<T> => work({ characters: this.characters, conditions: this.conditions });
+  ): Promise<T> => {
+    const { characters, conditions, roundCycles } = this;
+    return work({ characters, conditions, roundCycles });
+  };
 }
 
 /** Keeps each change published and writes `publish` to `journal`. */

@@ -30,6 +30,13 @@ export {
   conditionTone,
 } from '../modules/conditions/conditions.po';
 export { combatantTokens, combatants, combats } from '../modules/combat/combat.po';
+export {
+  combatRoundCycles,
+  roundCycleMembers,
+  roundCyclePhases,
+  roundCycleVisibility,
+  roundCycles,
+} from '../modules/round-cycles/round-cycles.po';
 export { drawingKind, drawings, strokeWidth } from '../modules/drawings/drawings.po';
 export { effectAreaKind, effectAreas } from '../modules/effect-areas/effect-areas.po';
 export { doorState, wallKind, wallShape, walls } from '../modules/walls/walls.po';

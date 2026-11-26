@@ -1,3 +1,4 @@
+import { RoundCyclePublisherFake } from '../../support/round-cycles-fakes';
 import type { CombatEntryInput } from '@lorkarium/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { CombatService } from '../../../src/modules/combat/combat.service';
@@ -59,6 +60,7 @@ describe('CombatService', () => {
       transaction: transaction.run,
       publisher,
       characterPublisher: new CharacterPublisherFake(scenes.journal),
+      roundCyclePublisher: new RoundCyclePublisherFake(),
       clock: new ClockFake(NOW),
     });
   });

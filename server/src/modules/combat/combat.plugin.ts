@@ -6,6 +6,8 @@ import type { CharacterPublisherPort } from '../characters/character-publisher.p
 import { CharactersDao } from '../characters/characters.dao';
 import { ConditionsDao } from '../conditions/conditions.dao';
 import type { BoardPublisherPort } from '../scenes/board-publisher.port';
+import type { RoundCyclePublisherPort } from '../round-cycles/round-cycle-publisher.port';
+import { RoundCyclesDao } from '../round-cycles/round-cycles.dao';
 import { ScenesDao } from '../scenes/scenes.dao';
 import { TokensDao } from '../tokens/tokens.dao';
 import { CombatDao } from './combat.dao';
@@ -18,6 +20,8 @@ export type CombatModuleOptions = Readonly<{
   publisher: BoardPublisherPort;
   /** The conditions a turn counts down on a character go out with it. */
   characterPublisher: CharacterPublisherPort;
+  /** The cycles a combat command changes, and the phases it announces. */
+  roundCyclePublisher: RoundCyclePublisherPort;
   clock: ClockPort;
 }>;
 
@@ -35,10 +39,11 @@ export function createCombatModule(options: CombatModuleOptions): CombatModule {
         combat: new CombatDao(tx),
         conditions: new ConditionsDao(tx),
         characters: new CharactersDao(tx),
+        roundCycles: new RoundCyclesDao(tx),
       }),
     );
   const { members } = options;
-  const { publisher, characterPublisher, clock } = options;
-  const deps = { members, transaction, publisher, characterPublisher, clock };
+  const { publisher, characterPublisher, roundCyclePublisher, clock } = options;
+  const deps = { members, transaction, publisher, characterPublisher, roundCyclePublisher, clock };
   return { service: new CombatService(deps) };
 }

@@ -3,6 +3,7 @@ import { realtimeAckFailureDto, stateVersionDto } from '../http/realtime-ack.dto
 import { boardCommandShape, tableEventShape } from './board-event.dto';
 import type { BoardCommandAckDto } from './board.dto';
 import { activeConditionDto, conditionDefinitionDto } from './condition.dto';
+import { roundCycleDto } from './round-cycle.dto';
 import {
   CHARACTER_NOTE_MAX,
   CHARACTER_STAT_MAX,
@@ -206,6 +207,8 @@ export const characterSyncDto = z.strictObject({
   version: stateVersionDto,
   characters: z.array(characterDto),
   conditionDefinitions: z.array(conditionDefinitionDto),
+  /** The round cycles this member sees, in the same version (absent = an older server: none). */
+  roundCycles: z.array(roundCycleDto).default([]),
 });
 export type CharacterSyncDto = z.infer<typeof characterSyncDto>;
 

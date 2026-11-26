@@ -1,4 +1,10 @@
-import type { CharacterDto, CharacterSyncDto, ConditionDefinitionDto } from '@lorkarium/contracts';
+import type {
+  CharacterDto,
+  CharacterSyncDto,
+  ConditionDefinitionDto,
+  RoundCycleDto,
+  RoundCyclesAnnouncedDto,
+} from '@lorkarium/contracts';
 import { useStore } from 'zustand';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { BoardSyncFailure, CharacterUpdate } from '@/services/table-session-api';
@@ -16,6 +22,10 @@ export type CharactersStoreState = Readonly<{
   characters: readonly CharacterDto[];
   /** The table's list of conditions: the catalog, the picker and every token's conditions. */
   conditionDefinitions: ConditionDefinitionDto[];
+  /** The round cycles this viewer sees and where each stands in the table's combats. */
+  roundCycles: readonly RoundCycleDto[];
+  /** The last phases announced (no version: nothing waits on it); the screen shows it on its grid. */
+  announced: RoundCyclesAnnouncedDto | null;
   held: readonly TableStreamEvent[];
   resyncAsked: boolean;
 }>;
@@ -29,6 +39,7 @@ export type CharactersStore = CharactersStoreState &
 
 const NO_CHARACTERS: readonly CharacterDto[] = [];
 const NO_DEFINITIONS: ConditionDefinitionDto[] = [];
+const NO_CYCLES: readonly RoundCycleDto[] = [];
 
 /** The table stream store of one open table. A sync always replaces it (and replays the events
  *  held past its version); an event — a character's or the condition list's, one counter —
@@ -84,6 +95,8 @@ function initialState(campaignId: string): CharactersStoreState {
     version: null,
     characters: NO_CHARACTERS,
     conditionDefinitions: NO_DEFINITIONS,
+    roundCycles: NO_CYCLES,
+    announced: null,
     held: [],
     resyncAsked: false,
   };
@@ -97,6 +110,7 @@ function nextState(
   if (update.kind === 'characters') return syncedState(state, update.sync);
   if (update.kind === 'charactersFailed') return failedState(state, update.failure);
   if (update.event.campaignId !== state.campaignId) return {};
+  if (update.kind === 'roundCyclesAnnounced') return { announced: update.event };
   return eventState(state, update, resyncOnce);
 }
 
@@ -107,8 +121,9 @@ function syncedState(
   const later = state.held
     .filter(({ event }) => event.version > sync.version)
     .sort((a, b) => a.event.version - b.event.version);
-  const { version, characters, conditionDefinitions } = sync;
-  const replayed = later.reduce(replayedOne, { version, characters, conditionDefinitions });
+  const { version, characters, conditionDefinitions, roundCycles } = sync;
+  const synced = { version, characters, conditionDefinitions, roundCycles };
+  const replayed = later.reduce(replayedOne, synced);
   return { ...replayed, status: 'ready', failure: null, held: [], resyncAsked: false };
 }
 
@@ -116,11 +131,12 @@ type Confirmed = Readonly<{
   version: number;
   characters: readonly CharacterDto[];
   conditionDefinitions: ConditionDefinitionDto[];
+  roundCycles: readonly RoundCycleDto[];
 }>;
 
 // A held event past a hole after the snapshot is dropped: the next gap asks again.
 function replayedOne(confirmed: Confirmed, held: TableStreamEvent): Confirmed {
-  if (held.event.version !== confirmed.version + 1) return confirmed;
+  if (!appliesAt(held, confirmed.version)) return confirmed;
   return { ...tableStreamAfter(confirmed, held), version: held.event.version };
 }
 
@@ -131,6 +147,7 @@ function eventState(
 ): Partial<CharactersStoreState> {
   const { version } = state;
   if (version === null) return { held: [...state.held, update] };
+  if (sameVersionList(update, version)) return tableStreamAfter(state, update);
   if (update.event.version <= version) return {};
   if (update.event.version > version + 1) {
     return { ...resyncOnce(), held: [...state.held, update] };
@@ -145,4 +162,13 @@ function failedState(
 ): Partial<CharactersStoreState> {
   if (state.version !== null) return { resyncAsked: false };
   return { status: 'failed', failure };
+}
+
+// The cycles' list rides the version a character change of the same command took: equal applies.
+function sameVersionList(update: TableStreamEvent, version: number): boolean {
+  return update.kind === 'roundCyclesChanged' && update.event.version === version;
+}
+
+function appliesAt(held: TableStreamEvent, version: number): boolean {
+  return held.event.version === version + 1 || sameVersionList(held, version);
 }

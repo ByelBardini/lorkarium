@@ -169,7 +169,7 @@ describe('the character events', () => {
 
   it('the character:sync ack is the version and the characters, or the API error', () => {
     const ok = { ok: true, version: 4, characters: [lyra], conditionDefinitions: [] };
-    expect(characterSyncAckDto.parse(ok)).toEqual(ok);
+    expect(characterSyncAckDto.parse(ok)).toEqual({ ...ok, roundCycles: [] });
     const error = {
       ok: false,
       error: { code: 'CAMPAIGN_NOT_FOUND', message: 'Campaign not found' },

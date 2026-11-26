@@ -37,8 +37,8 @@ export async function charactersSynced(
   const answer = await client.timeout(2000).emitWithAck('character:sync', { campaignId: table.id });
   const ack = characterSyncAckDto.parse(answer);
   if (!ack.ok) throw new Error(`character:sync refused with ${ack.error.code}`);
-  const { version, characters, conditionDefinitions } = ack;
-  return { version, characters, conditionDefinitions };
+  const { version, characters, conditionDefinitions, roundCycles } = ack;
+  return { version, characters, conditionDefinitions, roundCycles };
 }
 
 /** The stored character of `user` at `table`, read straight from the database.

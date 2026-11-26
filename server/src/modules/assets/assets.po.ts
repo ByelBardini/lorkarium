@@ -26,6 +26,7 @@ export const assetPurpose = pgEnum('asset_purpose', [
   'campaign_photo',
   'campaign_banner',
   'chat_image',
+  'round_cycle_phase',
 ]);
 // GIF is kept only for an aura (the processor refuses it for any other purpose); a WOFF2 font only
 // as an asset of a sheet template.
