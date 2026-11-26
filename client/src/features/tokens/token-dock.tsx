@@ -2,12 +2,13 @@ import type { CharacterDto, TokenDto } from '@lorkarium/contracts';
 import { useMemo } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { useBoardSeen } from '@/features/board/use-board-sight';
-import { ConditionsEditor } from '@/features/combat/conditions-editor';
+import { ConditionsEditor, type ConditionsViewSwitch } from '@/features/combat/conditions-editor';
 import { barFill } from '@/lib/bar-display';
 import { seenTokensOf } from '@/lib/board-sight';
 import { cellsText, positionText } from '@/lib/cells-text';
 import { facingLabel } from '@/lib/facing-label';
 import { mainTokenIdOf } from '@/lib/main-token';
+import { cn } from '@/lib/utils';
 import {
   singleSelectedOf,
   useBoardInteraction,
@@ -23,6 +24,8 @@ import { BarTrack } from './bar-track';
 import { CharacterDock } from './character-dock';
 import { DockHeader, type DockCollapse } from './token-dock-header';
 import { TokenDockActions } from './token-dock-actions';
+import { TokenDockFrame } from './token-dock-frame';
+import { useTokenDockPrefsKey } from './use-token-dock-prefs-key';
 
 export type TokenDockProps = Readonly<{
   board: StoreApi<BoardStore>;
@@ -32,7 +35,8 @@ export type TokenDockProps = Readonly<{
   interaction: StoreApi<BoardInteractionStore>;
   isMaster: boolean;
   onEditToken: (tokenId: string) => void;
-  /** Where the dock's opened or collapsed state is remembered (per browser). */
+  /** Where the dock's opened or collapsed state (per browser), its height and its conditions view
+   *  (per account and table) are remembered. */
   roomLayout: StoreApi<RoomLayoutStore>;
 }>;
 
@@ -54,31 +58,54 @@ export function TokenDock(props: TokenDockProps): React.JSX.Element | null {
   }
   const { token, isMain, selected } = docked;
   return (
-    <section
-      aria-label={selected ? 'Token selecionado' : 'Token principal'}
-      // -mx-1 px-1: overflow-y-auto also clips X, and the avatar's side ring is a shadow outside it.
-      className="-mx-1 flex max-h-[45%] shrink-0 flex-col gap-2 overflow-y-auto border-t border-border px-1 pt-3"
+    <TokenDockFrame
+      board={props.board}
+      roomLayout={props.roomLayout}
+      resizable={!collapse.collapsed}
     >
-      <DockHeader
-        token={token}
-        isMain={isMain}
-        isMaster={props.isMaster}
-        members={members}
-        interaction={props.interaction}
-        collapse={collapse}
-      />
-      {collapse.collapsed ? (
-        <DockBarStrip token={token} />
-      ) : (
-        <DockDetail {...props} token={token} />
-      )}
-    </section>
+      <section
+        aria-label={selected ? 'Token selecionado' : 'Token principal'}
+        // -mx-1 px-1: overflow-y-auto also clips X, and the avatar's side ring is a shadow outside it.
+        className={cn(
+          '-mx-1 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-1',
+          collapse.collapsed ? 'border-t border-border pt-3' : 'pt-1',
+        )}
+      >
+        <DockHeader
+          token={token}
+          isMain={isMain}
+          isMaster={props.isMaster}
+          members={members}
+          interaction={props.interaction}
+          collapse={collapse}
+        />
+        {collapse.collapsed ? (
+          <DockBarStrip token={token} />
+        ) : (
+          <DockDetail {...props} token={token} />
+        )}
+      </section>
+    </TokenDockFrame>
   );
 }
 
 function useDockCollapse(roomLayout: StoreApi<RoomLayoutStore>): DockCollapse {
   const collapsed = useRoomLayout(roomLayout, (state) => state.dock === 'closed');
   return { collapsed, toggle: () => roomLayout.getState().toggleDock() };
+}
+
+// Per account and table, only in the dock: the tracker's tags keep their names.
+function useConditionsView({ board, roomLayout }: TokenDockProps): ConditionsViewSwitch {
+  const key = useTokenDockPrefsKey(board);
+  const shown = useRoomLayout(roomLayout, (state) =>
+    key ? state.tokenDockPrefsOf(key).conditions : 'full',
+  );
+  return {
+    shown,
+    change: (view) => {
+      if (key) roomLayout.getState().setConditionsView(key, view);
+    },
+  };
 }
 
 // Collapsed: the bars stay in sight as a row of tracks, read in full by opening the dock again.
@@ -95,6 +122,7 @@ function DockBarStrip({ token }: Readonly<{ token: TokenDto }>) {
 
 function DockDetail(props: TokenDockProps & Readonly<{ token: TokenDto }>) {
   const { token } = props;
+  const view = useConditionsView(props);
   return (
     <>
       <p className="text-xs text-muted-foreground">{whereText(token)}</p>
@@ -104,6 +132,7 @@ function DockDetail(props: TokenDockProps & Readonly<{ token: TokenDto }>) {
         board={props.board}
         interaction={props.interaction}
         isMaster={props.isMaster}
+        view={view}
       />
       <TokenDockActions {...props} token={token} />
     </>
