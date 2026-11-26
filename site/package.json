@@ -11,13 +11,13 @@
     "og:images": "node scripts/og-images.ts"
   },
   "dependencies": {
-    "@astrojs/sitemap": "^3.7.4",
+    "@astrojs/sitemap": "^3.7.6",
     "@fontsource-variable/cinzel": "^5.3.0",
     "@lorkarium/brand": "workspace:*",
     "@lorkarium/contracts": "workspace:*",
     "@lorkarium/dice-renderer": "workspace:*",
     "@tailwindcss/vite": "^4.3.5",
-    "astro": "^7.4.11",
+    "astro": "^7.4.13",
     "tailwindcss": "^4.3.5",
     "zod": "^4.6.7"
   },
