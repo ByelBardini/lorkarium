@@ -23,11 +23,12 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Chaves de token da mesa: o jogador cria, edita e exclui os seus                                        | [`token-rights.md`](client/token-rights.md)                     |
 | Patrulha do token: relógio do server, poses por timer, traço, editor, menu "Patrulhando"               | [`token-patrols.md`](client/token-patrols.md)                   |
 | Auras dos tokens: estado e eventos, formulário (`AuraEditor`), onde se edita, desenho                  | [`auras.md`](client/auras.md)                                   |
-| Rodapé do token (`TokenDock`): selecionado, token do meu personagem ou o personagem                    | [`token-dock.md`](client/token-dock.md)                         |
+| Rodapé do token (`TokenDock`): selecionado, meu personagem, divisória, condições compactas             | [`token-dock.md`](client/token-dock.md)                         |
 | Aba "Na mesa": mestres, card do personagem de cada jogador (barras, CA, fichas), ausência              | [`table-people.md`](client/table-people.md)                     |
 | Papéis na mesa: dono, co-mestre, juggernaut, troca de papel e o modo do admin                          | [`table-roles.md`](client/table-roles.md)                       |
 | Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro                           | [`combat.md`](client/combat.md)                                 |
 | Condições: etiquetas, descrição, stacks, página "Condições da mesa", ferramenta (C)                    | [`conditions.md`](client/conditions.md)                         |
+| Ícones de condição: chave, SVG servido, máscara, textura tingida, busca pt-BR, seletor                 | [`condition-icons.md`](client/condition-icons.md)               |
 | Ciclos por rodada: selo no tabuleiro, escolha da próxima fase, aba Ciclos, aviso da fase               | [`round-cycles.md`](client/round-cycles.md)                     |
 | Desenhos na sala, copiar/colar (Ctrl+C/V) e desfazer/refazer (Ctrl+Z/Y)                                | [`drawings.md`](client/drawings.md)                             |
 | Áreas de efeito na sala: estado, ferramenta (M), seleção, alças, copiar                                | [`effect-areas.md`](client/effect-areas.md)                     |
@@ -82,6 +83,8 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 ## Estrutura
 
 `main.tsx`, `buildRoutes`/`AppDependencies`, `src/components/`, `src/lib/`, os serviços HTTP e os stores comuns: [`client/estrutura.md`](client/estrutura.md).
+
+Ícones de condição gerados: `client/scripts/generate-condition-icons.ts` (por `tsx`, sobre os `@iconify-json/*` de dev). `pnpm icons` (no `predev` e no começo do `build` do client) escreve os SVG brancos em `client/public/condition-icons/<versão>/<biblioteca>/<nome>.svg` (fora do git; recusa se a versão gravada não bate com os pacotes). `pnpm icons:keys` (também na raiz) regrava os dois arquivos versionados: a lista do contrato (`packages/contracts/src/board/condition-icon-keys.ts`) e a versão (`client/src/lib/condition-icon-version.ts`, hash dos corpos servidos). Detalhe em [`client/condition-icons.md`](client/condition-icons.md).
 
 O app fica fora da busca: `index.html` com `<meta name="robots" content="noindex, nofollow">` (vale no dev e na casca desktop; em produção o server também manda o `X-Robots-Tag`) e `public/robots.txt` liberando o rastreio, para o noindex ser lido (ver [`site/seo.md`](site/seo.md)).
 

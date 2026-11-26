@@ -18,6 +18,8 @@ Detalhe de [`performance.md`](performance.md): os números das regras, antes e d
 
 Com as 30 auras na cena de estresse (2026-10-25, mediana de 3, outras sessões rodando testes na mesma máquina): só a régua 0,43, arraste remoto 0,45, olho anda uma casa 8,1 (mesma faixa de antes sob carga; sem aura, nas mesmas condições, 6,7 a 8,7), build frio 36,7. "A aura de um token muda" custa 7,6: como todo restyle, o `tokens` novo refaz o filtro de visão (regra 3, chave por identidade); a vista em si só compara a `auraKeyOf` de quem mudou. Antes da cena ter auras: só a régua 0,41 e arraste remoto 0,42.
 
+Ícone de condição por textura (2026-11-26, uma rodada antes/depois, outras sessões rodando na mesma máquina): o `buildBoardView` não muda (o ícone só vira url no renderer e no `imageUrlsOf`); antes/depois só a régua 0,23/0,24, arraste remoto 0,24/0,26, olho anda uma casa 3,9/4,5, build frio 27,0/26,2 ms. O server (dados) e o game-core, que não mudaram, oscilaram igual (+5 a 15%): ruído de carga, sem regressão. No renderer, o glifo passa de um `Graphics` por SVG e cor a um `Sprite` tingido de uma textura por ícone.
+
 A imagem de condição (regra 9) fica fora da tabela: a cena de estresse não tem condição com imagem, e o custo na vista é um `assetUrlOf` por condição no `conditionsOf`, dentro da oscilação do bench.
 
 Dados 3D (fase 17, 2026-10-25, uma rodada antes e depois, outras sessões rodando na mesma máquina): antes só a régua 0,68, arraste remoto 0,68, olho anda uma casa 9,8, aura muda 12,1, build frio 49,4; depois 0,37, 0,43, 9,4, 7,3, 36,7. O overlay não entra no caminho do tabuleiro (a diferença é oscilação da máquina, para baixo); a sala parada continua sem quadro dos dados.
