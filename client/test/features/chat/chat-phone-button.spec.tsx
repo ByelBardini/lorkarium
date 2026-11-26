@@ -213,6 +213,6 @@ describe('play room on a phone: "Chat" beside "Painel"', () => {
       within(sheet)
         .getAllByRole('tab')
         .map((tab) => tab.textContent?.replace(/\d+$/, '')),
-    ).toEqual(['Combate', 'Na mesa', 'Dados']);
+    ).toEqual(['Combate', 'Na mesa', 'Dados', 'Ciclos']);
   });
 });

@@ -79,7 +79,7 @@ describe('animatesImage', () => {
   });
 
   // On a Grátis owner the server keeps the first frame instead of refusing: the GIF always goes.
-  it.each(['campaign_photo', 'cover', 'campaign_banner'] as const)(
+  it.each(['campaign_photo', 'cover', 'campaign_banner', 'round_cycle_phase'] as const)(
     'a %s takes a GIF: it plays on a paid owner',
     (purpose) => {
       expect(animatesImage(purpose)).toBe(true);

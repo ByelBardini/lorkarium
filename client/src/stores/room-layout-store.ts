@@ -11,7 +11,7 @@ import {
 
 export type RoomPanel = 'open' | 'closed';
 
-export const ROOM_TABS = ['combat', 'people', 'dice'] as const;
+export const ROOM_TABS = ['combat', 'people', 'dice', 'cycles'] as const;
 
 export type RoomTab = (typeof ROOM_TABS)[number];
 

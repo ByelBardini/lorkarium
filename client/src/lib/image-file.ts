@@ -23,7 +23,7 @@ export type ImageFileOptions = Readonly<{ animated?: boolean }>;
  *
  *  Example: `animatesImage('cover') // true` */
 export function animatesImage(purpose: AssetPurposeDto): boolean {
-  return purpose === 'aura' || isFramedPurpose(purpose);
+  return purpose === 'aura' || purpose === 'round_cycle_phase' || isFramedPurpose(purpose);
 }
 
 /** Whether the server keeps a purpose in a fixed aspect (the three campaign images), so a chosen

@@ -340,13 +340,14 @@ describe('play room: the chat at the foot of the board', () => {
     return popup;
   }
 
-  it('the rail of the side panel has only "Combate", "Na mesa" and "Dados"', () => {
+  it('the rail of a master has "Combate", "Na mesa", "Dados" and "Ciclos" (no chat)', () => {
     const rail = screen.getByRole('tablist', { name: 'Painel da mesa' });
     const tabs = within(rail).getAllByRole('tab');
     expect(tabs.map((tab) => tab.getAttribute('aria-label'))).toEqual([
       'Combate',
       'Na mesa',
       'Dados',
+      'Ciclos',
     ]);
   });
 

@@ -1,4 +1,4 @@
-import { DicesIcon, SwordsIcon, UsersIcon, type LucideIcon } from 'lucide-react';
+import { DicesIcon, MoonStarIcon, SwordsIcon, UsersIcon, type LucideIcon } from 'lucide-react';
 import { useId } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { moveFocusAlongTabs } from '@/lib/tab-focus';
@@ -17,9 +17,12 @@ const ROOM_TAB_ICON: Readonly<Record<RoomTab, LucideIcon>> = {
   combat: SwordsIcon,
   people: UsersIcon,
   dice: DicesIcon,
+  cycles: MoonStarIcon,
 };
 
 const RAIL_TABS: readonly RoomTab[] = ['combat', 'people', 'dice'];
+// The round cycles are set up by the masters; the players read them on the board.
+const MASTER_RAIL_TABS: readonly RoomTab[] = [...RAIL_TABS, 'cycles'];
 
 export type RoomRailProps = Readonly<{
   roomLayout: StoreApi<RoomLayoutStore>;
@@ -27,6 +30,8 @@ export type RoomRailProps = Readonly<{
   presence: StoreApi<TablePresenceStore> | null;
   /** The tray of this table: "Dados" carries how many parts it holds (`null` for a spectator). */
   diceTray?: StoreApi<DiceTrayStore> | null;
+  /** A master also gets "Ciclos". */
+  isMaster?: boolean;
 }>;
 
 /** The 46px rail of icons at the right of the room, beside the board (tablet and desktop): a
@@ -48,7 +53,7 @@ export function RoomRail(props: RoomRailProps): React.JSX.Element | null {
       onKeyDown={moveFocusAlongTabs}
       className="absolute inset-y-0 right-0 flex w-[46px] flex-col items-center gap-1 border-l border-border bg-panel py-2"
     >
-      {RAIL_TABS.map((tab) => (
+      {(props.isMaster ? MASTER_RAIL_TABS : RAIL_TABS).map((tab) => (
         <RailTab
           key={tab}
           tab={tab}

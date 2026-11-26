@@ -65,6 +65,15 @@ describe('RoomRail beside the board', () => {
     expect(railTab('Dados')).toHaveAttribute('aria-selected', 'false');
   });
 
+  it('a master also has "Ciclos", last', () => {
+    const layout = createRoomLayoutStore(new StorageFake());
+    render(<RoomRail roomLayout={layout} presence={null} isMaster />);
+    const names = within(rail())
+      .getAllByRole('tab')
+      .map((tab) => tab.getAttribute('aria-label'));
+    expect(names).toEqual(['Combate', 'Na mesa', 'Dados', 'Ciclos']);
+  });
+
   it('clicking the open tab collapses the panel, and again opens it', async () => {
     const { layout } = renderRail();
     await userEvent.click(railTab('Combate'));

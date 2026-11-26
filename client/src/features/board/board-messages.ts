@@ -72,6 +72,11 @@ const COMMAND_FAILURE_MESSAGE: Readonly<Record<BoardFailureCode, string>> = {
   turn_changed: 'A vez já passou.',
   combat_active: 'Já há um combate nesta cena.',
   combat_inactive: 'Não há combate nesta cena.',
+  cycle_not_found: 'Esse ciclo ou fase não existe mais.',
+  cycle_limit: 'Esta mesa já tem 20 ciclos.',
+  cycle_not_active: 'Este ciclo não está no combate.',
+  cycle_member_not_player: 'Só jogadores da mesa podem ver ou escolher um ciclo.',
+  cycle_holder_not_found: 'Esse personagem ou token não está nesta mesa.',
   name_taken: 'Já há uma condição com esse nome.',
   invalid_stacks: 'Essa condição não acumula tanto.',
   out_of_scene: OUT_OF_SCENE_TEXT,
@@ -266,4 +271,5 @@ export const ROOM_TAB_NAME: Readonly<Record<RoomTab, string>> = {
   combat: 'Combate',
   people: 'Na mesa',
   dice: 'Dados',
+  cycles: 'Ciclos',
 };
