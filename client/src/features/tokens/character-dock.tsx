@@ -20,7 +20,7 @@ export function CharacterDock({ character, interaction }: CharacterDockProps): R
     <section
       aria-label="Meu personagem"
       // -mx-1 px-1: overflow-y-auto also clips X, and the avatar's side ring is a shadow outside it.
-      className="-mx-1 flex max-h-[58%] shrink-0 flex-col gap-3 overflow-y-auto border-t border-border px-1 pt-3"
+      className="-mx-1 flex max-h-[45%] shrink-0 flex-col gap-2 overflow-y-auto border-t border-border px-1 pt-3"
     >
       <header className="flex items-center gap-3">
         <TokenAvatar token={character} />
@@ -40,7 +40,7 @@ function CharacterBars({ character, interaction }: CharacterDockProps) {
   }
   const target = { characterId: character.id };
   return (
-    <ul className="flex flex-col gap-3">
+    <ul className="flex flex-col gap-1.5">
       {character.bars.map((bar) => (
         <li key={bar.id}>
           {character.canControl ? (
