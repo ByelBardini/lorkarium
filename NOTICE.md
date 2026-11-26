@@ -20,6 +20,12 @@ These files belong to their authors. Neither the AGPL nor the MIT grant gives an
 - `client/src/emotes/images/` (`nat20`, `nat1`, `mimic`) and their sources in `client/src/emotes/drawn/`: drawn for Lorkarium, under the repository license.
 - `client/src/dice-audio/dice-rolls.wav`: recordings from Pixabay, under the Pixabay Content License.
 - `client/src/chat-audio/chat-notice.wav`: "UI alert - synth beep", Epic Stock Media, under its own license.
+- Condition icons (`client/public/condition-icons/`, generated from the `@iconify-json/*` packages at build time):
+  - `game-icons/`: [Game-icons.net](https://game-icons.net), by Lorc, Delapouite and contributors, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
+  - `tabler/`: [Tabler Icons](https://tabler.io/icons), MIT License.
+  - `ph/`: [Phosphor Icons](https://phosphoricons.com), MIT License.
+  - `mdi/`: [Material Design Icons](https://pictogrammers.com/library/mdi/), Apache License 2.0.
+  - `lucide/`: [Lucide](https://lucide.dev), ISC License.
 
 ## Trademarks
 

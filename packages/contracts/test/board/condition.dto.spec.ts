@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   CONDITION_COLORS,
+  CONDITION_ICONS,
+  conditionIconDto,
   CONDITION_DESCRIPTION_MAX_LENGTH,
   CONDITION_ROUNDS_MAX,
   CONDITION_STACKS_MAX,
@@ -538,5 +540,26 @@ describe('the image of a condition', () => {
     expect(activeConditionDto.safeParse(active).success).toBe(false);
     const pictured = activeConditionDto.parse({ ...active, imageAssetId: IMAGE_ID });
     expect(pictured.imageAssetId).toBe(IMAGE_ID);
+  });
+});
+
+describe('conditionIconDto', () => {
+  it.each(['skull', 'game-icons:manacles', 'tabler:lock-square-rounded'])(
+    '%s is an icon a condition may take',
+    (icon) => {
+      expect(conditionIconDto.safeParse(icon).success).toBe(true);
+    },
+  );
+
+  it.each(['tabler:brand-netflix', 'game-icons:nope', 'lucide:skull', '<svg>', ''])(
+    '%j is refused: only the generated list and the 28 of before turn into an icon',
+    (icon) => {
+      expect(conditionIconDto.safeParse(icon).success).toBe(false);
+    },
+  );
+
+  it('the list holds every Game-icon and no key twice', () => {
+    expect(new Set(CONDITION_ICONS).size).toBe(CONDITION_ICONS.length);
+    expect(CONDITION_ICONS.filter((icon) => icon.startsWith('game-icons:'))).toHaveLength(4134);
   });
 });

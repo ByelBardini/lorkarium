@@ -1,7 +1,8 @@
 import type { ConditionColorDto, ConditionToneDto } from '@lorkarium/contracts';
-import { fireEvent, render } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { ConditionMark } from '@/features/combat/condition-marks';
+import { ConditionGlyph, ConditionMark } from '@/features/combat/condition-marks';
+import { conditionIconUrlOf } from '@/lib/condition-icons';
 
 const IMAGE_ID = '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
 
@@ -97,7 +98,7 @@ describe('ConditionMark', () => {
     const ring = ringOf({ tone: 'incapacitating', color: 'sky' });
     expect(ring).toHaveStyle({ backgroundColor: '#5cbcee' });
     expect(glyphIn(ring)).toHaveClass('text-background');
-    expect(glyphIn(ring).getAttribute('style')).toBeNull();
+    expect((glyphIn(ring) as HTMLElement).style.color).toBe('');
   });
 
   it('an incapacitating condition without a color is a full disc in the error color', () => {
@@ -113,5 +114,21 @@ describe('ConditionMark', () => {
     fireEvent.error(image);
     expect(ring.querySelector('img')).toBeNull();
     expect(glyphIn(ring)).toHaveClass('text-destructive');
+  });
+});
+
+describe('ConditionGlyph', () => {
+  it('paints the file of the icon as a mask filled with the color of the text', () => {
+    render(<ConditionGlyph icon="game-icons:manacles" tone="harm" color="ember" />);
+    const glyph = screen.getByRole('img', { name: 'Algemas' });
+    const url = `url("${conditionIconUrlOf('game-icons:manacles')}")`;
+    expect(glyph.style.getPropertyValue('mask-image')).toBe(url);
+    expect(glyph).toHaveClass('bg-current');
+    expect(glyph).toHaveStyle({ color: '#ec7a45' });
+  });
+
+  it('without a color it is painted by the tone', () => {
+    render(<ConditionGlyph icon="skull" tone="benefit" />);
+    expect(screen.getByRole('img', { name: 'Caveira' })).toHaveClass('text-primary');
   });
 });

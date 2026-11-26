@@ -8,12 +8,27 @@ type Entry =
 
 /** What the cache asks `Assets` for: `/api/assets/<id>` has no extension, so the parser is
  *  named; the board's images are drawn far smaller than they are (a token zoomed out, a whole
- *  map), so they get mipmaps. */
-export type TextureAsset = Readonly<{
-  src: string;
-  parser: 'texture';
-  data: Readonly<{ autoGenerateMipmaps: boolean }>;
-}>;
+ *  map), so they get mipmaps. A condition icon (`.svg`) is rasterized once at a fixed square,
+ *  whatever the size the browser would give it. */
+export type TextureAsset =
+  | Readonly<{
+      src: string;
+      parser: 'texture';
+      data: Readonly<{ autoGenerateMipmaps: boolean }>;
+    }>
+  | Readonly<{
+      src: string;
+      parser: 'svg';
+      data: Readonly<{
+        width: number;
+        height: number;
+        resolution: number;
+        autoGenerateMipmaps: boolean;
+      }>;
+    }>;
+
+// Ten times the badge of a 1×1 token: sharp up close; the mipmaps keep it smooth when small.
+const ICON_TEXTURE_SIDE = 128;
 
 /** The loader the cache talks to: PixiJS `Assets`, or a fake in the specs. */
 export interface TextureAssets {
@@ -109,5 +124,10 @@ export class PixiTextureCache {
 }
 
 function textureAssetOf(url: string): TextureAsset {
-  return { src: url, parser: 'texture', data: { autoGenerateMipmaps: true } };
+  if (!url.endsWith('.svg')) {
+    return { src: url, parser: 'texture', data: { autoGenerateMipmaps: true } };
+  }
+  const side = ICON_TEXTURE_SIDE;
+  const data = { width: side, height: side, resolution: 1, autoGenerateMipmaps: true };
+  return { src: url, parser: 'svg', data };
 }

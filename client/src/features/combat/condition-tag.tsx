@@ -36,13 +36,14 @@ function tagLookOf({ tone, color }: ActiveConditionDto): TagLook {
 
 /** The conditions of a token as tags: mark, name, the stacks of a stacking one ("×3") and the
  *  rounds left ("∞" without limit), read as "Envenenado, 3 stacks, 2 rodadas". Nothing when there
- *  is none.
+ *  is none. `compact` (the dock's choice) keeps the mark and the rounds; the rest on hover or focus.
  *
  *  Example: `<ConditionTags owner="Kael" conditions={kael.conditions} />` */
 export function ConditionTags({
   owner,
   conditions,
-}: Readonly<{ owner: string; conditions: readonly ActiveConditionDto[] }>) {
+  compact = false,
+}: Readonly<{ owner: string; conditions: readonly ActiveConditionDto[]; compact?: boolean }>) {
   if (conditions.length === 0) return null;
   return (
     <ul aria-label={`Condições de ${owner}`} className="flex flex-wrap gap-1">
@@ -50,9 +51,15 @@ export function ConditionTags({
         const look = tagLookOf(condition);
         return (
           <li key={condition.id} className={cn(TAG, look.className)} style={look.style}>
-            <TagMark condition={condition} />
-            <ConditionName condition={condition} />
-            <ConditionStacksMark stacks={shownStacksOf(condition)} />
+            {compact ? (
+              <CompactConditionMark condition={condition} />
+            ) : (
+              <>
+                <TagMark condition={condition} />
+                <ConditionName condition={condition} />
+                <ConditionStacksMark stacks={shownStacksOf(condition)} />
+              </>
+            )}
             <RoundsMark rounds={condition.remainingRounds} />
           </li>
         );
@@ -84,6 +91,8 @@ export type EditableConditionTagProps = Readonly<{
   /** The stacks after − or + of a stacking condition (1 up to its `maxStacks`). */
   onStacks: (stacks: number) => void;
   onRemove: () => void;
+  /** Mark, rounds and × only: the name and the rest on hover or focus, the −/+ in the full view. */
+  compact?: boolean;
 }>;
 
 /** A condition in the token's detail: on a stacking one, − and + change the stacks (1 up to its
@@ -96,10 +105,19 @@ export function EditableConditionTag(props: EditableConditionTagProps) {
   const look = tagLookOf(condition);
   return (
     <li className={cn(TAG, 'h-7 pr-0.5', look.className)} style={look.style}>
-      <TagMark condition={condition} />
-      <ConditionName condition={condition} />
-      <StacksControls {...props} />
-      <RoundsControls {...props} />
+      {props.compact ? (
+        <>
+          <CompactConditionMark condition={condition} />
+          <RoundsMark rounds={condition.remainingRounds} />
+        </>
+      ) : (
+        <>
+          <TagMark condition={condition} />
+          <ConditionName condition={condition} />
+          <StacksControls {...props} />
+          <RoundsControls {...props} />
+        </>
+      )}
       <TagButton label={`Remover ${condition.name}`} disabled={disabled} onClick={props.onRemove}>
         <XIcon aria-hidden="true" />
       </TagButton>
@@ -182,6 +200,36 @@ function ConditionName({ condition }: Readonly<{ condition: ActiveConditionDto }
           </span>
         </TooltipTrigger>
         <TooltipContent className="whitespace-pre-line">{condition.description}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+/** The compact tag's mark: it names the condition, and on hover or focus says the name, the
+ *  stacks, the rounds left and the description (Radix ties it by `aria-describedby` while open). */
+function CompactConditionMark({ condition }: Readonly<{ condition: ActiveConditionDto }>) {
+  const stacks = shownStacksOf(condition);
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            role="img"
+            tabIndex={0}
+            aria-label={condition.name}
+            className="inline-flex shrink-0 rounded-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <TagMark condition={condition} />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="flex max-w-64 flex-col gap-0.5 whitespace-pre-line">
+          <span className="font-semibold">{condition.name}</span>
+          <span>
+            {stacks !== null && `${stacksText(stacks)} · `}
+            {roundsLeftText(condition.remainingRounds)}
+          </span>
+          {condition.description !== '' && <span>{condition.description}</span>}
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );

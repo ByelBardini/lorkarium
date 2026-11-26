@@ -7,8 +7,11 @@ import type { PixiTextureCache } from '@/renderer/pixi-texture-cache';
  *  Example: `const textures = new TokenTexturesFake(); const square = textures.arrive(url)` */
 export class TokenTexturesFake implements Pick<PixiTextureCache, 'textureOf'> {
   private readonly ready = new Map<string, Texture>();
+  /** Every url asked for, in order, repeats included. */
+  readonly asked: string[] = [];
 
   textureOf(url: string): Texture | null {
+    this.asked.push(url);
     return this.ready.get(url) ?? null;
   }
 

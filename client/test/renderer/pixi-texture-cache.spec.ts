@@ -162,3 +162,29 @@ describe('PixiTextureCache.prefetch starts a load before any board draws it', ()
     expect(assets.unloaded).toEqual([]);
   });
 });
+
+describe('PixiTextureCache loads a condition icon as an SVG', () => {
+  const ICON = '/condition-icons/f9c08c8bd3/game-icons/manacles.svg';
+
+  it('an .svg url asks the SVG loader for a 128 px square at resolution 1, with mipmaps', () => {
+    const { cache, assets } = cacheWith();
+
+    cache.textureOf(ICON);
+
+    expect(assets.requests).toEqual([
+      {
+        src: ICON,
+        parser: 'svg',
+        data: { width: 128, height: 128, resolution: 1, autoGenerateMipmaps: true },
+      },
+    ]);
+  });
+
+  it('an image url without the extension still asks the texture loader', () => {
+    const { cache, assets } = cacheWith();
+
+    cache.textureOf(GOBLIN);
+
+    expect(assets.requests[0]?.parser).toBe('texture');
+  });
+});

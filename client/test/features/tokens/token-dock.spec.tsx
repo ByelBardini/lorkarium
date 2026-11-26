@@ -348,6 +348,17 @@ describe('TokenDock', () => {
       ]);
     });
 
+    // The labelled pair overflowed the panel next to "Condição" and the initiative, wrapping the row.
+    it("in combat the master's actions are icons, named only for the reader", () => {
+      renderDock({ combat });
+
+      for (const name of ['Tirar do combate', 'Editar token']) {
+        const button = within(dock()).getByRole('button', { name });
+        expect(button).toHaveTextContent(/^$/);
+        expect(button).toHaveAttribute('title', name);
+      }
+    });
+
     it('"Editar token" (master) asks to edit this token', async () => {
       renderDock();
 

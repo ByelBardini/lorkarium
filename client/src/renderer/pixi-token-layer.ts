@@ -1,4 +1,5 @@
 import { BitmapText, Container, Graphics, type Texture } from 'pixi.js';
+import { conditionIconUrlOf } from '@/lib/condition-icons';
 import { barColorNumber } from '@/lib/bar-display';
 import { NO_PERF_PROBE, type PerfProbe } from '@/lib/perf-probe';
 import type { TokenLayerDto, TokenSideDto } from '@lorkarium/contracts';
@@ -468,7 +469,9 @@ function drawBar(shape: Graphics, view: TokenView, box: TokenShape): void {
 }
 
 function showsConditionImage(view: TokenView, url: string): boolean {
-  return view.conditions.some(({ imageUrl }) => imageUrl === url);
+  return view.conditions.some(
+    ({ icon, imageUrl }) => imageUrl === url || conditionIconUrlOf(icon) === url,
+  );
 }
 
 function cornerOf(view: TokenView): Point {

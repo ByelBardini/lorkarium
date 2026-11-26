@@ -1,8 +1,9 @@
 import type { ActiveConditionDto, TokenDto } from '@lorkarium/contracts';
-import { PlusIcon } from 'lucide-react';
+import { LayoutGridIcon, PlusIcon } from 'lucide-react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import type { ConditionsView } from '@/lib/token-dock-prefs';
 import { useBoardInteraction, type BoardInteractionStore } from '@/stores/board-interaction-store';
 import type { BoardStore } from '@/stores/board-store';
 import { ConditionPicker } from './condition-picker';
@@ -13,6 +14,15 @@ export type ConditionsEditorProps = Readonly<{
   board: StoreApi<BoardStore>;
   interaction: StoreApi<BoardInteractionStore>;
   isMaster: boolean;
+  /** The dock's choice of full or compact tags, with its switch beside the title; without it,
+   *  the full tags and no switch. */
+  view?: ConditionsViewSwitch;
+}>;
+
+/** How the conditions show in the dock, and how to change it. */
+export type ConditionsViewSwitch = Readonly<{
+  shown: ConditionsView;
+  change: (view: ConditionsView) => void;
 }>;
 
 /** "Condições" of the selected token: for whoever acts on the table (master or player, on any
@@ -20,26 +30,47 @@ export type ConditionsEditorProps = Readonly<{
  *  stacks of a stacking one, by `condition:setStacks`), −/+ (the rounds left, by
  *  `condition:setRounds`) and ×; read-only (a spectator, or reconnecting), the tags only. A
  *  refusal keeps the confirmed value. Adding one is `AddConditionButton`, on the actions row.
+ *  Compact (`view`), each tag is its mark, the rounds and ×; the name on hover or focus.
  *
  *  Example: `<ConditionsEditor token={token} board={board} interaction={interaction} isMaster />` */
-export function ConditionsEditor({ token, interaction }: ConditionsEditorProps) {
+export function ConditionsEditor({ token, interaction, view }: ConditionsEditorProps) {
   const readOnly = useBoardInteraction(interaction, (state) => state.readOnly);
+  const compact = view?.shown === 'compact';
   return (
     <section aria-label={`Condições de ${token.name}`} className="flex flex-col gap-1.5">
       <span className="flex items-baseline gap-2">
         <h4 className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
           Condições
         </h4>
+        {view && <CompactSwitch view={view} />}
         {token.conditions.length === 0 && (
           <span className="text-xs text-muted-foreground">Nenhuma</span>
         )}
       </span>
       {readOnly ? (
-        <ConditionTags owner={token.name} conditions={token.conditions} />
+        <ConditionTags owner={token.name} conditions={token.conditions} compact={compact} />
       ) : (
-        <EditableTags token={token} interaction={interaction} />
+        <EditableTags token={token} interaction={interaction} compact={compact} />
       )}
     </section>
+  );
+}
+
+function CompactSwitch({ view }: Readonly<{ view: ConditionsViewSwitch }>) {
+  const compact = view.shown === 'compact';
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      aria-label="Condições compactas"
+      aria-pressed={compact}
+      title={compact ? 'Mostrar o nome das condições' : 'Só ícone e duração'}
+      onClick={() => view.change(compact ? 'full' : 'compact')}
+      className="size-5 self-center text-muted-foreground hover:text-foreground aria-pressed:text-primary [&_svg]:size-3.5"
+    >
+      <LayoutGridIcon aria-hidden="true" />
+    </Button>
   );
 }
 
@@ -79,9 +110,10 @@ export function AddConditionButton(props: ConditionsEditorProps): React.JSX.Elem
 type EditableTagsProps = Readonly<{
   token: TokenDto;
   interaction: StoreApi<BoardInteractionStore>;
+  compact: boolean;
 }>;
 
-function EditableTags({ token, interaction }: EditableTagsProps) {
+function EditableTags({ token, interaction, compact }: EditableTagsProps) {
   const send = interaction.getState().command;
   const setRounds = (condition: ActiveConditionDto, rounds: number): void =>
     void send((c, id) => c.setConditionRounds(id, token.id, condition.id, rounds));
@@ -95,6 +127,7 @@ function EditableTags({ token, interaction }: EditableTagsProps) {
           key={condition.id}
           condition={condition}
           disabled={false}
+          compact={compact}
           onRounds={(rounds) => setRounds(condition, rounds)}
           onStacks={(stacks) => setStacks(condition, stacks)}
           onRemove={() => void send((c, id) => c.removeCondition(id, token.id, condition.id))}

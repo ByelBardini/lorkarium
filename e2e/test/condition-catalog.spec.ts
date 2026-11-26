@@ -12,7 +12,13 @@ import {
   joinAsSpectatorAndEnter,
   joinByCodeAndEnter,
 } from './support/tables';
-import { cardOf, createTokenFor, openCard, statusOf } from './support/token-cards';
+import {
+  applyConditionFromCard,
+  cardOf,
+  createTokenFor,
+  openCard,
+  statusOf,
+} from './support/token-cards';
 
 // A new token lands at the middle of the default scene; the Goblin is walked 3 cells right.
 const KAEL_CELL = [10, 6] as const;
@@ -238,9 +244,7 @@ test('the master gives a condition an image and the player sees it on the token,
 
   await createTokenFor(admin, 'Kael', 'Caio');
   await openCard(admin, 'Kael');
-  const dock = cardOf(admin, 'Kael');
-  await dock.getByRole('combobox', { name: 'Adicionar condição' }).fill('Cego');
-  await dock.getByRole('button', { name: 'Aplicar' }).click();
+  await applyConditionFromCard(admin, 'Kael', 'Cego');
   await expect(activeTagsOf(admin, 'Kael')).toContainText('Cego');
   await openCard(caio, 'Kael');
   await expect(activeTagsOf(caio, 'Kael')).toContainText('Cego');

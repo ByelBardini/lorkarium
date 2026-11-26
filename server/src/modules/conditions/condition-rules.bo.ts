@@ -5,20 +5,20 @@ import type { NewConditionDefinition } from './conditions.po';
 
 /** The list every table starts with (spec §3.7): generic names, no rule attached. The master
  *  adds more by name; the migration `0004_conditions` gave it to the tables that already existed,
- *  `0009_condition_icons` their icons and `0030_condition_looks` the incapacitating tone and the
- *  looks. */
+ *  `0009_condition_icons` their icons, `0030_condition_looks` the incapacitating tone and the
+ *  looks, and `0128_condition_game_icons` moved the icons still on the old default to Game-icons. */
 export const DEFAULT_CONDITIONS: readonly NewConditionDefinition[] = [
-  defaultOf('Abençoado', 'benefit', 'sparkles'),
-  defaultOf('Concentrando', 'benefit', 'crosshair'),
-  defaultOf('Invisível', 'benefit', 'ghost', 'invisible'),
-  defaultOf('Agarrado', 'harm', 'hand'),
-  defaultOf('Amedrontado', 'harm', 'angry'),
-  defaultOf('Atordoado', 'incapacitating', 'zap'),
-  defaultOf('Caído', 'harm', 'arrow-down-to-line'),
-  defaultOf('Cego', 'harm', 'eye-off'),
-  defaultOf('Envenenado', 'harm', 'flask-conical'),
-  defaultOf('Imobilizado', 'harm', 'link'),
-  defaultOf('Paralisado', 'incapacitating', 'lock'),
+  defaultOf('Abençoado', 'benefit', 'game-icons:spiked-halo'),
+  defaultOf('Concentrando', 'benefit', 'game-icons:meditation'),
+  defaultOf('Invisível', 'benefit', 'game-icons:invisible', 'invisible'),
+  defaultOf('Agarrado', 'harm', 'game-icons:grab'),
+  defaultOf('Amedrontado', 'harm', 'game-icons:screaming'),
+  defaultOf('Atordoado', 'incapacitating', 'game-icons:knocked-out-stars'),
+  defaultOf('Caído', 'harm', 'game-icons:falling'),
+  defaultOf('Cego', 'harm', 'game-icons:blindfold'),
+  defaultOf('Envenenado', 'harm', 'game-icons:poison-bottle'),
+  defaultOf('Imobilizado', 'harm', 'game-icons:manacles'),
+  defaultOf('Paralisado', 'incapacitating', 'game-icons:frozen-body'),
 ];
 
 /** What a definition must show for the name check: who it is, whose and what it is called. */

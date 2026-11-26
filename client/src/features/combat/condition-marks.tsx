@@ -1,7 +1,7 @@
 import type { ConditionColorDto, ConditionIconDto, ConditionToneDto } from '@lorkarium/contracts';
 import { useState } from 'react';
 import { chosenConditionColorOf } from '@/lib/condition-colors';
-import { CONDITION_ICON_ENTRIES } from '@/lib/condition-icons';
+import { conditionIconLabelOf, conditionIconUrlOf } from '@/lib/condition-icons';
 import { cn } from '@/lib/utils';
 import { assetUrlOf } from '@/services/assets-api';
 
@@ -18,30 +18,53 @@ export type ConditionMarkProps = Omit<ConditionGlyphProps, 'className'> &
   Readonly<{
     /** The master's picture in place of the glyph; absent or `null`: the icon. */
     imageAssetId?: string | null;
+    /** The ring and glyph sizes; absent: the 20 px of the lists. */
+    size?: MarkSize;
   }>;
 
+/** Tailwind size classes of a mark: the ring, and the glyph at ~65% of it. */
+export type MarkSize = Readonly<{ ring: string; glyph: string }>;
+
 // The glyph takes ~65% of the disc, as on the board's badge (ICON_SHARE_OF_BADGE).
-const RING = 'grid size-5 shrink-0 place-items-center overflow-hidden rounded-full';
-const GLYPH_IN_RING = 'size-[13px]';
+const RING = 'grid shrink-0 place-items-center overflow-hidden rounded-full';
+const LIST_SIZE: MarkSize = { ring: 'size-5', glyph: 'size-[13px]' };
 
 type RingLook = Readonly<{ className: string; style?: React.CSSProperties }>;
 
 /** The icon of a condition alone, in its color or by its tone: gold for a benefit and the error
- *  color for a harm or an incapacitating one. The icon field shows it; a tag shows the mark.
+ *  color for a harm or an incapacitating one. The icon's white SVG is the mask of a block filled
+ *  with the text color, so any library's file takes the condition's color.
  *
  *  Example: `<ConditionGlyph icon="skull" tone="harm" color="ember" />` */
 export function ConditionGlyph(props: ConditionGlyphProps): React.JSX.Element {
   const { icon, tone, color = null } = props;
-  const Glyph = CONDITION_ICON_ENTRIES[icon].glyph;
-  const size = props.className ?? 'size-4';
-  if (color !== null) {
-    const style = { color: chosenConditionColorOf(color) };
-    return (
-      <Glyph aria-hidden="true" data-icon={icon} className={cn(size, 'shrink-0')} style={style} />
-    );
-  }
   const toneClass = tone === 'benefit' ? 'text-primary' : 'text-destructive';
-  return <Glyph aria-hidden="true" data-icon={icon} className={cn(size, 'shrink-0', toneClass)} />;
+  const paint = color === null ? toneClass : undefined;
+  const style = color === null ? undefined : { color: chosenConditionColorOf(color) };
+  return <IconMask icon={icon} className={cn(props.className ?? 'size-4', paint)} style={style} />;
+}
+
+type IconMaskProps = Readonly<{
+  icon: ConditionIconDto;
+  className: string;
+  style?: React.CSSProperties;
+}>;
+
+function IconMask({ icon, className, style }: IconMaskProps): React.JSX.Element {
+  const url = `url("${conditionIconUrlOf(icon)}")`;
+  const mask = { maskImage: url, WebkitMaskImage: url, ...style };
+  return (
+    <span
+      role="img"
+      aria-label={conditionIconLabelOf(icon)}
+      data-icon={icon}
+      className={cn(
+        'inline-block shrink-0 bg-current mask-contain mask-center mask-no-repeat',
+        className,
+      )}
+      style={mask}
+    />
+  );
 }
 
 /** A condition as a disc ringed in its color (or its tone's): its image covering the disc, or its
@@ -59,7 +82,7 @@ export function ConditionMark(props: ConditionMarkProps): React.JSX.Element {
     <span
       aria-hidden="true"
       data-condition-mark=""
-      className={cn(RING, ring.className)}
+      className={cn(RING, (props.size ?? LIST_SIZE).ring, ring.className)}
       style={ring.style}
     >
       <MarkFace {...props} image={image} filled={filled} onBroken={setBrokenId} />
@@ -74,6 +97,7 @@ function MarkFace({
   icon,
   tone,
   color,
+  size = LIST_SIZE,
   image,
   filled,
   onBroken,
@@ -83,15 +107,8 @@ function MarkFace({
     const look = 'size-full rounded-full object-cover';
     return <img src={assetUrlOf(image)} alt="" onError={failed} className={look} />;
   }
-  if (filled) return <DarkGlyph icon={icon} />;
-  return <ConditionGlyph icon={icon} tone={tone} color={color} className={GLYPH_IN_RING} />;
-}
-
-function DarkGlyph({ icon }: Readonly<{ icon: ConditionIconDto }>): React.JSX.Element {
-  const Glyph = CONDITION_ICON_ENTRIES[icon].glyph;
-  return (
-    <Glyph aria-hidden="true" data-icon={icon} className={cn(GLYPH_IN_RING, 'text-background')} />
-  );
+  if (filled) return <IconMask icon={icon} className={cn(size.glyph, 'text-background')} />;
+  return <ConditionGlyph icon={icon} tone={tone} color={color} className={size.glyph} />;
 }
 
 // A runtime color goes by style: Tailwind cannot build a class from it (Armadilhas, conditions.md).

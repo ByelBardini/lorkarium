@@ -210,6 +210,7 @@ function IconAndToneFields({ draft, onChange }: DraftFieldProps): React.JSX.Elem
           value={draft.icon}
           tone={draft.tone}
           color={draft.color}
+          name={draft.name}
           onChange={(icon) => onChange({ icon })}
         />
         <ConditionToneField value={draft.tone} onChange={(tone) => onChange({ tone })} />

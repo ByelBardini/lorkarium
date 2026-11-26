@@ -1,4 +1,5 @@
 import { BitmapText, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
+import { conditionIconUrlOf } from '@/lib/condition-icons';
 import { describe, expect, it } from 'vitest';
 import { INITIALS_FONT_NAME } from '@/renderer/pixi-initials-font';
 import { PixiTokenLayer, type TokenTextures } from '@/renderer/pixi-token-layer';
@@ -112,6 +113,29 @@ describe('PixiTokenLayer draws the condition images that arrive', () => {
     layer.refreshArt(BLINDED_X.imageUrl);
 
     expect(texturedBadges(layer.container, square)).toBe(3);
+    expect(probe.counts['token.redraw']).toBe(0);
+  });
+});
+
+describe('PixiTokenLayer draws the condition icons that arrive', () => {
+  it('the icon of a condition arriving redraws the strips of the tokens that show it, and no body', () => {
+    const probe = new PerfProbeFake();
+    const textures = new TokenTexturesFake();
+    const layer = new PixiTokenLayer(() => false, undefined, textures, probe);
+    const iconOnly = { ...BLINDED_X, imageUrl: null };
+    layer.sync(
+      horde(10, (index) => (index < 3 ? { conditions: [iconOnly] } : {})),
+      [],
+      0,
+    );
+    probe.counts['strip.redraw'] = 0;
+    probe.counts['token.redraw'] = 0;
+    const url = conditionIconUrlOf('eye-off');
+    textures.arrive(url);
+
+    layer.refreshArt(url);
+
+    expect(probe.counts['strip.redraw']).toBe(3);
     expect(probe.counts['token.redraw']).toBe(0);
   });
 });

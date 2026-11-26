@@ -9,6 +9,7 @@ import {
   isRoomTab,
   onChatFocusRequest,
 } from '@/stores/room-layout-store';
+import { tokenDockPrefsKey } from '@/lib/token-dock-prefs';
 import { StorageFake } from '../support/storage-fake';
 
 describe('room layout store', () => {
@@ -273,6 +274,55 @@ describe('room layout store', () => {
       const storage = new StorageFake();
       storage.values.set(ROOM_LIBRARY_WIDTH_STORAGE_KEY, 'wide');
       expect(createRoomLayoutStore(storage).getState().libraryWidth).toBe(420);
+    });
+  });
+
+  describe('the token dock per account and table', () => {
+    const BIA_HERE = tokenDockPrefsKey('bia', 'vharn');
+    const BIA_ELSEWHERE = tokenDockPrefsKey('bia', 'covil');
+    const CAIO_HERE = tokenDockPrefsKey('caio', 'vharn');
+
+    it('starts at the natural height with the full conditions', () => {
+      const store = createRoomLayoutStore(new StorageFake());
+      expect(store.getState().tokenDockPrefsOf(BIA_HERE)).toEqual({
+        height: null,
+        conditions: 'full',
+      });
+    });
+
+    it('remembers height and view for that account at that table only', () => {
+      const storage = new StorageFake();
+      const store = createRoomLayoutStore(storage);
+      store.getState().setTokenDockHeight(BIA_HERE, 260);
+      store.getState().setConditionsView(BIA_HERE, 'compact');
+
+      const reopened = createRoomLayoutStore(storage).getState();
+      expect(reopened.tokenDockPrefsOf(BIA_HERE)).toEqual({ height: 260, conditions: 'compact' });
+      expect(reopened.tokenDockPrefsOf(BIA_ELSEWHERE)).toEqual({
+        height: null,
+        conditions: 'full',
+      });
+      expect(reopened.tokenDockPrefsOf(CAIO_HERE)).toEqual({ height: null, conditions: 'full' });
+    });
+
+    it('setTokenDockHeight(null) brings the natural height back and keeps the view', () => {
+      const storage = new StorageFake();
+      const store = createRoomLayoutStore(storage);
+      store.getState().setConditionsView(BIA_HERE, 'compact');
+      store.getState().setTokenDockHeight(BIA_HERE, 300);
+
+      store.getState().setTokenDockHeight(BIA_HERE, null);
+
+      expect(createRoomLayoutStore(storage).getState().tokenDockPrefsOf(BIA_HERE)).toEqual({
+        height: null,
+        conditions: 'compact',
+      });
+    });
+
+    it('a blocked storage keeps the change for this visit', () => {
+      const store = createRoomLayoutStore(new StorageFake(true));
+      store.getState().setConditionsView(BIA_HERE, 'compact');
+      expect(store.getState().tokenDockPrefsOf(BIA_HERE).conditions).toBe('compact');
     });
   });
 });

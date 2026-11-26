@@ -178,7 +178,7 @@ describe('ConditionsDao on Postgres', () => {
       tokenId: lyraId,
       name: 'Envenenado',
       tone: 'harm',
-      icon: 'flask-conical',
+      icon: 'game-icons:poison-bottle',
       remainingRounds: 5,
       appliedRound: 3,
     });

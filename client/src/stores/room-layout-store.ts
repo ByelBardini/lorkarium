@@ -8,6 +8,12 @@ import {
   writeStoredChoice,
   type ChoiceStorage,
 } from '@/lib/stored-choice';
+import {
+  readTokenDockPrefs,
+  writeTokenDockPrefs,
+  type ConditionsView,
+  type TokenDockPrefs,
+} from '@/lib/token-dock-prefs';
 
 export type RoomPanel = 'open' | 'closed';
 
@@ -31,6 +37,9 @@ export type RoomLayoutState = Readonly<{
   libraryWidth: number;
   /** The token's detail at the foot of "Combate": open, or only its head (the tracker gets the room). */
   dock: RoomDock;
+  /** The dock's height and conditions view already read or changed, by `tokenDockPrefsKey`
+   *  (one account at one table); the rest is read from the browser on demand. */
+  tokenDockPrefs: Readonly<Record<string, TokenDockPrefs>>;
 }>;
 
 export type RoomLayoutStore = RoomLayoutState &
@@ -48,6 +57,11 @@ export type RoomLayoutStore = RoomLayoutState &
     requestChatFocus: () => void;
     setLibraryWidth: (width: number) => void;
     toggleDock: () => void;
+    /** One account's dock at one table (`tokenDockPrefsKey`): remembered, or the default. */
+    tokenDockPrefsOf: (key: string) => TokenDockPrefs;
+    /** The height the divider was left at; `null` gives the dock its natural height back. */
+    setTokenDockHeight: (key: string, height: number | null) => void;
+    setConditionsView: (key: string, view: ConditionsView) => void;
   }>;
 
 export const ROOM_PANEL_STORAGE_KEY = 'lorkarium.roomPanel';
@@ -66,7 +80,11 @@ type SetRoomLayout = StoreApi<RoomLayoutStore>['setState'];
 type GetRoomLayout = StoreApi<RoomLayoutStore>['getState'];
 type RoomPanelSlice = Omit<
   RoomLayoutStore,
-  keyof RoomChatSlice | keyof ChatFocusSlice | keyof LibraryWidthSlice | keyof TokenDockSlice
+  | keyof RoomChatSlice
+  | keyof ChatFocusSlice
+  | keyof LibraryWidthSlice
+  | keyof TokenDockSlice
+  | keyof TokenDockPrefsSlice
 >;
 type RoomChatSlice = Pick<
   RoomLayoutStore,
@@ -75,6 +93,10 @@ type RoomChatSlice = Pick<
 type ChatFocusSlice = Pick<RoomLayoutStore, 'chatFocusRequest' | 'requestChatFocus'>;
 type LibraryWidthSlice = Pick<RoomLayoutStore, 'libraryWidth' | 'setLibraryWidth'>;
 type TokenDockSlice = Pick<RoomLayoutStore, 'dock' | 'toggleDock'>;
+type TokenDockPrefsSlice = Pick<
+  RoomLayoutStore,
+  'tokenDockPrefs' | 'tokenDockPrefsOf' | 'setTokenDockHeight' | 'setConditionsView'
+>;
 
 /** How the play room is laid out around the board: the side panel and the chat bar (both
  *  remembered in the browser, with the chat drawer height, the library drawer width and the token
@@ -88,6 +110,7 @@ export function createRoomLayoutStore(storage: ChoiceStorage): StoreApi<RoomLayo
     ...chatFocusSliceOf(set, get),
     ...libraryWidthSliceOf(storage, set),
     ...tokenDockSliceOf(storage, set, get),
+    ...tokenDockPrefsSliceOf(storage, set, get),
   }));
 }
 
@@ -194,6 +217,28 @@ function tokenDockSliceOf(
       set({ dock });
       writeStoredChoice(storage, ROOM_DOCK_STORAGE_KEY, dock);
     },
+  };
+}
+
+// Kept per account and table in one JSON entry; read lazily, since the key is only known once a
+// table's board names its viewer.
+function tokenDockPrefsSliceOf(
+  storage: ChoiceStorage,
+  set: SetRoomLayout,
+  get: GetRoomLayout,
+): TokenDockPrefsSlice {
+  const prefsOf = (key: string): TokenDockPrefs =>
+    get().tokenDockPrefs[key] ?? readTokenDockPrefs(storage, key);
+  const change = (key: string, patch: Partial<TokenDockPrefs>): void => {
+    const prefs = { ...prefsOf(key), ...patch };
+    set({ tokenDockPrefs: { ...get().tokenDockPrefs, [key]: prefs } });
+    writeTokenDockPrefs(storage, key, prefs);
+  };
+  return {
+    tokenDockPrefs: {},
+    tokenDockPrefsOf: prefsOf,
+    setTokenDockHeight: (key, height) => change(key, { height }),
+    setConditionsView: (key, conditions) => change(key, { conditions }),
   };
 }
 

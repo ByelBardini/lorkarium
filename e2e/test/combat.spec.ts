@@ -9,7 +9,7 @@ import {
   joinByCodeAndEnter,
   showRoomTab,
 } from './support/tables';
-import { chooseController, statusOf } from './support/token-cards';
+import { applyConditionFromCard, chooseController, statusOf } from './support/token-cards';
 
 // Only the entries: the tokens of a group are list items nested inside them.
 function entries(page: Page): Locator {
@@ -133,9 +133,7 @@ test('a whole combat: the preparation with initiative, turns, rounds, a conditio
   // A condition from the detail at the foot of the panel; "+" reaches the others.
   await rowOf(admin, 'Lyra').click();
   const dock = dockOf(admin);
-  await dock.getByRole('combobox', { name: 'Adicionar condição' }).fill('Atordoado');
-  await dock.getByLabel('Rodadas').fill('1');
-  await dock.getByRole('button', { name: 'Aplicar' }).click();
+  await applyConditionFromCard(admin, 'Lyra', 'Atordoado', '1');
   await dock.getByRole('button', { name: 'Mais uma rodada de Atordoado' }).click();
   await expect(caio.getByRole('list', { name: 'Condições de Lyra' })).toContainText('Atordoado2');
   await dock.getByRole('button', { name: 'Menos uma rodada de Atordoado' }).click();

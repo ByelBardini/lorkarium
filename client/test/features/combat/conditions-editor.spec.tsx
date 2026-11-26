@@ -282,7 +282,7 @@ describe('ConditionsEditor', () => {
   it('each active condition shows its own icon, colored by its nature', () => {
     renderEditor();
     const active = section().querySelector('ul:not([role=listbox])');
-    const icons = [...(active?.querySelectorAll('svg[data-icon]') ?? [])];
+    const icons = [...(active?.querySelectorAll('[data-icon]') ?? [])];
     expect(icons.map((icon) => icon.getAttribute('data-icon'))).toEqual([
       'flask-conical',
       'crosshair',
@@ -295,14 +295,15 @@ describe('ConditionsEditor', () => {
     await renderPicker(lyra(), true);
     await userEvent.type(nameField(), 'Sangrando');
     await userEvent.click(screen.getByRole('button', { name: 'Ícone: Marca' }));
-    await userEvent.click(screen.getByRole('radio', { name: 'Gota' }));
-    expect(screen.queryByRole('radiogroup', { name: 'Ícone' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Ícone: Gota' })).toBeInTheDocument();
+    const suggested = screen.getByRole('group', { name: 'Sugeridos para “Sangrando”' });
+    await userEvent.click(within(suggested).getByRole('button', { name: 'Ferida sangrando' }));
+    expect(screen.queryByRole('dialog', { name: 'Escolher ícone' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Ícone: Ferida sangrando' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Criar e aplicar' }));
     expect(commands.sentAs('defineCondition')[0]?.fields).toEqual({
       name: 'Sangrando',
       tone: 'harm',
-      icon: 'droplet',
+      icon: 'game-icons:bleeding-wound',
       look: null,
     });
   });

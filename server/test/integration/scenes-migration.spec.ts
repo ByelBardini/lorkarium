@@ -4,7 +4,6 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readEnv } from '../../src/config/env';
 import { createDatabase, type DatabaseConnection } from '../../src/database/database';
-import { DEFAULT_CONDITIONS } from '../../src/modules/conditions/condition-rules.bo';
 import {
   databaseUrlNamed,
   LAST_MIGRATION_WITH_PLAIN_EMAIL,
@@ -13,6 +12,20 @@ import {
 
 const SCRATCH_DATABASE = 'lorkarium_scenes_migration';
 const LAST_MIGRATION_BEFORE_SCENES = '0001_campaigns';
+// The icons 0009 gave the initial conditions; 0128 (Game-icons) comes after the folder used here.
+const ICONS_OF_0009: Readonly<Record<string, string>> = {
+  Abençoado: 'sparkles',
+  Concentrando: 'crosshair',
+  Invisível: 'ghost',
+  Agarrado: 'hand',
+  Amedrontado: 'angry',
+  Atordoado: 'zap',
+  Caído: 'arrow-down-to-line',
+  Cego: 'eye-off',
+  Envenenado: 'flask-conical',
+  Imobilizado: 'link',
+  Paralisado: 'lock',
+};
 
 describe('migrations 0002_scenes, 0004_conditions and 0009_condition_icons on a database with campaigns', () => {
   let admin: DatabaseConnection;
@@ -58,7 +71,7 @@ describe('migrations 0002_scenes, 0004_conditions and 0009_condition_icons on a 
     expect(conditions.rows).toEqual([{ total: 11 }]);
     const icons = await scratch.db.execute<{ name: string; icon: string }>(sql`
       SELECT name, icon FROM condition_definitions ORDER BY name`);
-    const expected = DEFAULT_CONDITIONS.map(({ name, icon }) => ({ name, icon }));
+    const expected = Object.entries(ICONS_OF_0009).map(([name, icon]) => ({ name, icon }));
     expect(icons.rows).toEqual(expect.arrayContaining(expected));
   });
 });

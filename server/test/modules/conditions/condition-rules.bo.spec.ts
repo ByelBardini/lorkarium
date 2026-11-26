@@ -48,6 +48,23 @@ describe('ConditionRulesBo', () => {
     expect(icons).not.toContain('circle-dot');
   });
 
+  it('the 11 initial conditions are born with their Game-icons', () => {
+    const icons = Object.fromEntries(DEFAULT_CONDITIONS.map(({ name, icon }) => [name, icon]));
+    expect(icons).toEqual({
+      Abençoado: 'game-icons:spiked-halo',
+      Concentrando: 'game-icons:meditation',
+      Invisível: 'game-icons:invisible',
+      Agarrado: 'game-icons:grab',
+      Amedrontado: 'game-icons:screaming',
+      Atordoado: 'game-icons:knocked-out-stars',
+      Caído: 'game-icons:falling',
+      Cego: 'game-icons:blindfold',
+      Envenenado: 'game-icons:poison-bottle',
+      Imobilizado: 'game-icons:manacles',
+      Paralisado: 'game-icons:frozen-body',
+    });
+  });
+
   it('the 11 initial conditions are born with no image, shown by their icon', () => {
     expect(DEFAULT_CONDITIONS.filter(({ imageAssetId }) => imageAssetId !== null)).toEqual([]);
     expect(DEFAULT_CONDITIONS).toHaveLength(11);
@@ -66,7 +83,7 @@ describe('ConditionRulesBo', () => {
         {
           name: 'Cego',
           tone: 'harm',
-          icon: 'eye-off',
+          icon: 'game-icons:blindfold',
           look: null,
           color: null,
           description: '',

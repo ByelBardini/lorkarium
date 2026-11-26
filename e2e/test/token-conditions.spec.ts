@@ -9,20 +9,13 @@ import {
   joinByCodeAndEnter,
   showRoomTab,
 } from './support/tables';
-import { createTokenFor } from './support/token-cards';
+import { applyConditionFromCard, createTokenFor } from './support/token-cards';
 
 // A new token lands at the middle of the default scene.
 const KAEL_CELL = [10, 6] as const;
 
 function cardOf(page: Page): Locator {
   return page.getByRole('tooltip');
-}
-
-async function applyCondition(dock: Locator, name: string, rounds: string): Promise<void> {
-  await dock.getByRole('combobox', { name: 'Adicionar condição' }).fill(name);
-  await dock.getByLabel('Rodadas').fill(rounds);
-  await dock.getByRole('button', { name: 'Aplicar' }).click();
-  await expect(dock.getByRole('list', { name: 'Condições ativas de Kael' })).toContainText(name);
 }
 
 async function hoverKael(page: Page): Promise<void> {
@@ -60,7 +53,7 @@ test('the card of a hovered token lists all its conditions, the looks first, the
     ['Amedrontado', ''],
     ['Invisível', ''],
   ] as const) {
-    await applyCondition(dock, condition, rounds);
+    await applyConditionFromCard(admin, 'Kael', condition, rounds);
   }
   await dock.getByRole('button', { name: 'Fechar ficha' }).click();
 
