@@ -12,6 +12,9 @@ import { openTestDatabase } from '../support/test-database';
 
 const INDEX_HTML = '<!doctype html><html><body><div id="root"></div></body></html>';
 const APP_SCRIPT = 'console.log("lorkarium");';
+const ICON_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="#fff" d="M1 1h9"/></svg>';
+const ICONS_FOLDER = path.join('condition-icons', 'f9c08c8bd3', 'game-icons');
 
 /** A stand-in for `client/dist`: the index and one hashed script, as `vite build` lays them out. */
 async function fakeClientBuild(): Promise<string> {
@@ -19,6 +22,8 @@ async function fakeClientBuild(): Promise<string> {
   await mkdir(path.join(dir, 'assets'));
   await writeFile(path.join(dir, 'index.html'), INDEX_HTML);
   await writeFile(path.join(dir, 'assets', 'app-3f2a.js'), APP_SCRIPT);
+  await mkdir(path.join(dir, ICONS_FOLDER), { recursive: true });
+  await writeFile(path.join(dir, ICONS_FOLDER, 'manacles.svg'), ICON_SVG);
   return dir;
 }
 
@@ -73,6 +78,22 @@ describe('the server serves the client build (CLIENT_DIST_DIR)', () => {
     const response = await app.inject({ method: 'POST', url: '/campaigns' });
     expect(response.statusCode).toBe(404);
     expect(apiErrorDto.parse(response.json()).code).toBe('ROUTE_NOT_FOUND');
+  });
+
+  it('a condition icon is cached for a year as immutable: its folder changes with the icons', async () => {
+    const url = '/condition-icons/f9c08c8bd3/game-icons/manacles.svg';
+    const response = await app.inject({ method: 'GET', url });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toMatch(/^image\/svg\+xml/);
+    expect(response.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    expect(response.body).toBe(ICON_SVG);
+  });
+
+  it('a missing condition icon answers 404, never the index.html', async () => {
+    const url = '/condition-icons/f9c08c8bd3/game-icons/sumiu.svg';
+    const response = await app.inject({ method: 'GET', url });
+    expect(response.statusCode).toBe(404);
+    expect(response.body).not.toContain('<div id="root">');
   });
 
   it('a missing asset answers 404 without the fallback, so no HTML runs as a script', async () => {

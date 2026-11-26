@@ -5,15 +5,19 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 // Vite names every file under assets/ by its content hash: a new build is a new URL.
 const HASHED_FOLDER = 'assets';
+// The condition icons sit under a folder named by their hash (client/scripts/generate-condition-icons.ts).
+const ICONS_FOLDER = 'condition-icons';
+const IMMUTABLE_FOLDERS: ReadonlySet<string> = new Set([HASHED_FOLDER, ICONS_FOLDER]);
 const IMMUTABLE = 'public, max-age=31536000, immutable';
 // The index (and the rest of the root) is revalidated on every load, or a deploy would leave
 // players on an index that points at hashed files the new image no longer has.
 const REVALIDATE = 'no-cache';
 const SPA_METHODS: ReadonlySet<string> = new Set(['GET', 'HEAD']);
-const RESERVED_PREFIXES = ['/api/', `/${HASHED_FOLDER}/`];
+const RESERVED_PREFIXES = ['/api/', `/${HASHED_FOLDER}/`, `/${ICONS_FOLDER}/`];
 
 /** Serves the Vite build in `dir` on the same origin as the API: the files themselves, and the
- *  index.html for any other GET outside `/api` and `/assets` (the React Router deep links).
+ *  index.html for any other GET outside `/api`, `/assets` and
+ *  `/condition-icons` (the React Router deep links).
  *
  *  Example: `if (env.clientDistDir) await serveClient(app, env.clientDistDir)` */
 export async function serveClient(app: FastifyInstance, dir: string): Promise<void> {
@@ -31,7 +35,7 @@ export async function serveClient(app: FastifyInstance, dir: string): Promise<vo
 
 function cacheControlOf(dir: string, file: string): string {
   const [top] = path.relative(dir, file).split(path.sep);
-  return top === HASHED_FOLDER ? IMMUTABLE : REVALIDATE;
+  return top !== undefined && IMMUTABLE_FOLDERS.has(top) ? IMMUTABLE : REVALIDATE;
 }
 
 async function answerNotFound(request: FastifyRequest, reply: FastifyReply): Promise<unknown> {
@@ -40,7 +44,7 @@ async function answerNotFound(request: FastifyRequest, reply: FastifyReply): Pro
   return reply.type('text/html; charset=utf-8').sendFile('index.html');
 }
 
-// A missing /assets file must stay a 404: HTML answered for a script tag would run as one.
+// A missing /assets (or icon) file must stay a 404: HTML answered for a script tag would run as one.
 function fallsBackToIndex(request: FastifyRequest): boolean {
   if (!SPA_METHODS.has(request.method)) return false;
   const pathname = request.url.split('?')[0] ?? '';
