@@ -1,8 +1,10 @@
 import type { ConditionColorDto, ConditionToneDto } from '@lorkarium/contracts';
-import { Container, Graphics } from 'pixi.js';
+import { Container, Graphics, Sprite } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
+import { conditionIconUrlOf } from '@/lib/condition-icons';
 import { PixiConditionMarks } from '@/renderer/pixi-condition-marks';
 import type { ConditionMarkView } from '@/renderer/token-view';
+import { TokenTexturesFake } from '../support/token-textures-fake';
 import { goblinView } from '../support/token-view-fixtures';
 
 const EMBER = 0xec7a45;
@@ -17,7 +19,10 @@ function mark(tone: ConditionToneDto, color: ConditionColorDto | null): Conditio
 }
 
 function drawn(marks: ConditionMarkView[], zoom: number): PixiConditionMarks {
-  const strip = new PixiConditionMarks();
+  // The skull already loaded, so every badge carries its glyph.
+  const textures = new TokenTexturesFake();
+  textures.arrive(conditionIconUrlOf('skull'));
+  const strip = new PixiConditionMarks(textures);
   strip.draw(goblinView({ conditions: marks }), zoom);
   return strip;
 }
@@ -35,24 +40,27 @@ function paintedColors(graphics: Graphics, action: 'fill' | 'stroke'): number[] 
     .map((instruction) => (instruction.data as { style: { color: number } }).style.color);
 }
 
-// A badge is its disc then its glyph (the first two Graphics of the strip).
-function badgeOf(strip: PixiConditionMarks): { disc: Graphics; glyph: Graphics } {
-  const [disc, glyph] = graphicsOf(strip.container);
+// A badge is its disc (the first Graphics of the strip) and its glyph, the tinted icon.
+function badgeOf(strip: PixiConditionMarks): { disc: Graphics; glyph: Sprite } {
+  const [disc] = graphicsOf(strip.container);
+  const glyph = (strip.container.children[0] as Container | undefined)?.children.find(
+    (child): child is Sprite => child instanceof Sprite,
+  );
   if (!disc || !glyph) throw new Error('expected a badge with a disc and a glyph');
   return { disc, glyph };
 }
 
 describe('PixiConditionMarks colors', () => {
-  it('a harm condition in ember rings its badge and draws its glyph in ember', () => {
+  it('a harm condition in ember rings its badge and tints its glyph ember', () => {
     const { disc, glyph } = badgeOf(drawn([mark('harm', 'ember')], ICONS_ZOOM));
     expect(paintedColors(disc, 'stroke')).toEqual([EMBER]);
-    expect(paintedColors(glyph, 'stroke')).toContain(EMBER);
+    expect(glyph.tint).toBe(EMBER);
   });
 
   it('a custom color rings the badge and draws the glyph in it', () => {
     const { disc, glyph } = badgeOf(drawn([mark('harm', '#336699')], ICONS_ZOOM));
     expect(paintedColors(disc, 'stroke')).toEqual([0x336699]);
-    expect(paintedColors(glyph, 'stroke')).toContain(0x336699);
+    expect(glyph.tint).toBe(0x336699);
   });
 
   it('changing one custom color for a close one redraws the badges', () => {
@@ -64,14 +72,13 @@ describe('PixiConditionMarks colors', () => {
   it('a harm condition without a color keeps the copper of its tone', () => {
     const { disc, glyph } = badgeOf(drawn([mark('harm', null)], ICONS_ZOOM));
     expect(paintedColors(disc, 'stroke')).toEqual([COPPER]);
-    expect(paintedColors(glyph, 'stroke')).toContain(COPPER);
+    expect(glyph.tint).toBe(COPPER);
   });
 
   it('an incapacitating condition in sky is a disc filled in sky with a dark glyph', () => {
     const { disc, glyph } = badgeOf(drawn([mark('incapacitating', 'sky')], ICONS_ZOOM));
     expect(paintedColors(disc, 'fill')).toEqual([SKY]);
-    expect(paintedColors(glyph, 'stroke')).toContain(BADGE);
-    expect(paintedColors(glyph, 'stroke')).not.toContain(SKY);
+    expect(glyph.tint).toBe(BADGE);
   });
 
   it('from afar each dot is filled in its color, or its tone without one', () => {

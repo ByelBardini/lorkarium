@@ -1,5 +1,6 @@
 import { cell } from '@lorkarium/game-core';
 import { describe, expect, it } from 'vitest';
+import { conditionIconUrlOf } from '@/lib/condition-icons';
 import { DEFAULT_DRAWING_STYLE } from '@/lib/drawing-style';
 import { ROUTE_BEND_DWELL_MS, settleRoute, startRoute, stepRoute } from '@/lib/token-route';
 import { buildBoardView, imageUrlsOf } from '@/renderer/board-view';
@@ -176,11 +177,13 @@ describe('buildBoardView', () => {
       ]);
     });
 
-    it('the image of a condition shown on a token is among the image urls', () => {
-      const tokens = [lyra({ conditions: [activeCondition({ imageAssetId: PORTRAIT_ID })] })];
+    it('the image of a condition shown on a token is among the image urls, with its icon', () => {
+      const condition = activeCondition({ imageAssetId: PORTRAIT_ID });
+      const tokens = [lyra({ conditions: [condition] })];
 
       expect([...imageUrlsOf(viewWith(VHARN_SCENE, tokens))]).toEqual([
         `/api/assets/${PORTRAIT_ID}`,
+        conditionIconUrlOf(condition.icon),
       ]);
     });
 
@@ -190,13 +193,17 @@ describe('buildBoardView', () => {
 
       expect([...imageUrlsOf(viewWith(VHARN_SCENE, tokens))]).toEqual([
         `/api/assets/${PORTRAIT_ID}`,
+        conditionIconUrlOf(poisoned[0]?.icon ?? 'skull'),
       ]);
     });
 
-    it('a condition without an image adds no url', () => {
-      const tokens = [lyra({ conditions: [activeCondition({ imageAssetId: null })] })];
+    it('a condition without an image brings only the file of its icon', () => {
+      const condition = activeCondition({ imageAssetId: null, icon: 'game-icons:manacles' });
+      const tokens = [lyra({ conditions: [condition] })];
 
-      expect([...imageUrlsOf(viewWith(VHARN_SCENE, tokens))]).toEqual([]);
+      expect([...imageUrlsOf(viewWith(VHARN_SCENE, tokens))]).toEqual([
+        conditionIconUrlOf('game-icons:manacles'),
+      ]);
     });
   });
 

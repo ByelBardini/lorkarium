@@ -1,23 +1,11 @@
-import {
-  CONDITION_ICONS,
-  type ConditionColorDto,
-  type ConditionToneDto,
-} from '@lorkarium/contracts';
-import { Container, Graphics, GraphicsContext, Text, Texture } from 'pixi.js';
+import { type ConditionColorDto, type ConditionToneDto } from '@lorkarium/contracts';
+import { Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
-import { conditionIconSvg } from '@/lib/condition-icons';
+import { conditionIconUrlOf } from '@/lib/condition-icons';
 import { PixiConditionMarks } from '@/renderer/pixi-condition-marks';
 import type { ConditionMarkView } from '@/renderer/token-view';
 import { TokenTexturesFake } from '../support/token-textures-fake';
 import { goblinView } from '../support/token-view-fixtures';
-
-describe('condition icons on the canvas', () => {
-  it.each(CONDITION_ICONS)('PixiJS parses the %s markup into something with size', (icon) => {
-    const context = new GraphicsContext().svg(conditionIconSvg(icon, '#b5654f'));
-    expect(context.bounds.width).toBeGreaterThan(4);
-    expect(context.bounds.height).toBeGreaterThan(4);
-  });
-});
 
 describe('PixiConditionMarks stacks', () => {
   // No rounds left to write, so the only label a badge can carry is its stacks.
@@ -134,10 +122,13 @@ describe('PixiConditionMarks image', () => {
   });
 
   it('while its texture loads the badge keeps the glyph', () => {
-    const { container } = drawn(withImage('harm', 'ember'), ICONS_ZOOM, new TokenTexturesFake());
+    const textures = new TokenTexturesFake();
+    const icon = textures.arrive(conditionIconUrlOf('skull'));
+    const { container } = drawn(withImage('harm', 'ember'), ICONS_ZOOM, textures);
 
     expect(texturedFills(container)).toEqual([]);
-    expect(painted(container, 'stroke').length).toBeGreaterThan(1);
+    const glyphs = container.children.flatMap((badge) => (badge as Container).children);
+    expect(glyphs.some((child) => child instanceof Sprite && child.texture === icon)).toBe(true);
   });
 
   it('the texture arriving redraws the same view with the image in place of the glyph', () => {
@@ -159,5 +150,87 @@ describe('PixiConditionMarks image', () => {
 
     expect(texturedFills(container)).toEqual([]);
     expect(painted(container, 'fill').map(({ color }) => color)).toEqual([EMBER]);
+  });
+});
+
+describe('PixiConditionMarks icon texture', () => {
+  const SKULL = conditionIconUrlOf('skull');
+  const MANACLES = conditionIconUrlOf('game-icons:manacles');
+  const EMBER = 0xec7a45;
+  const ICONS_ZOOM = 1;
+  const BADGE_IN_A_CELL = 13;
+
+  function mark(icon: ConditionMarkView['icon'], color: ConditionColorDto | null = null) {
+    const view: ConditionMarkView = {
+      icon,
+      tone: 'harm',
+      color,
+      remainingRounds: null,
+      stacks: null,
+      imageUrl: null,
+    };
+    return view;
+  }
+
+  function spritesOf(container: Container): Sprite[] {
+    return container.children.flatMap((child) =>
+      child instanceof Sprite ? [child] : spritesOf(child as Container),
+    );
+  }
+
+  function drawn(conditions: ConditionMarkView[], textures: TokenTexturesFake, zoom = ICONS_ZOOM) {
+    const marks = new PixiConditionMarks(textures);
+    marks.draw(goblinView({ conditions }), zoom);
+    return marks;
+  }
+
+  it('asks the texture cache for the icon file of each condition', () => {
+    const textures = new TokenTexturesFake();
+    drawn([mark('skull'), mark('game-icons:manacles')], textures);
+    expect(new Set(textures.asked)).toEqual(new Set([SKULL, MANACLES]));
+  });
+
+  it('with the texture ready the glyph is the white icon tinted in the condition color, 65% of the badge', () => {
+    const textures = new TokenTexturesFake();
+    const white = textures.arrive(MANACLES);
+    const [glyph] = spritesOf(drawn([mark('game-icons:manacles', 'ember')], textures).container);
+    expect(glyph?.texture).toBe(white);
+    expect(glyph?.tint).toBe(EMBER);
+    expect(glyph?.width).toBeCloseTo(BADGE_IN_A_CELL * 0.65, 1);
+  });
+
+  it('while the icon loads the badge is the disc alone, without a glyph', () => {
+    const { container } = drawn([mark('skull')], new TokenTexturesFake());
+    expect(spritesOf(container)).toEqual([]);
+    expect(container.children).toHaveLength(1);
+  });
+
+  it('the icon arriving redraws the strip with its glyph', () => {
+    const textures = new TokenTexturesFake();
+    const marks = drawn([mark('skull')], textures);
+    const white = textures.arrive(SKULL);
+    marks.draw(goblinView({ conditions: [mark('skull')] }), ICONS_ZOOM);
+    expect(spritesOf(marks.container).map(({ texture }) => texture)).toEqual([white]);
+  });
+
+  it('the master image stays over the icon: no glyph when both are ready', () => {
+    const textures = new TokenTexturesFake();
+    const image = '/api/assets/4a3b2c1d-0e9f-4a8b-9c7d-6e5f4a3b2c1d';
+    textures.arrive(SKULL);
+    textures.arrive(image);
+    const { container } = drawn([{ ...mark('skull'), imageUrl: image }], textures);
+    expect(spritesOf(container)).toEqual([]);
+  });
+
+  it('two conditions with one icon in two colors ask for the same file', () => {
+    const textures = new TokenTexturesFake();
+    drawn([mark('skull', 'ember'), mark('skull', 'sky')], textures);
+    expect(new Set(textures.asked)).toEqual(new Set([SKULL]));
+  });
+
+  it('from afar the dots ask for no icon', () => {
+    const textures = new TokenTexturesFake();
+    drawn([mark('skull')], textures, 0.5);
+    expect(textures.asked).toEqual([]);
   });
 });

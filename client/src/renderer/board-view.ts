@@ -14,6 +14,7 @@ import {
   type SceneSize,
   type TokenBox,
 } from '@lorkarium/game-core';
+import { conditionIconUrlOf } from '@/lib/condition-icons';
 import type { DrawingStyle } from '@/lib/drawing-style';
 import { DEFAULT_EFFECT_AREA_STYLE, type EffectAreaStyle } from '@/lib/effect-area-style';
 import { DEFAULT_WALL_STYLE, wallSketchPreviewOf, type WallStyle } from '@/lib/wall-style';
@@ -434,8 +435,9 @@ function backgroundOf(scene: SceneDto): SceneBackgroundView | null {
   };
 }
 
-/** Every image url a view draws: the background, each token with art and each condition with
- *  an image on a token (the texture cache keeps these and unloads the rest).
+/** Every image url a view draws: the background, each token with art, each condition with an
+ *  image on a token and the icon file of each condition (the texture cache keeps these and
+ *  unloads the rest).
  *
  *  Example: `textures.retain(imageUrlsOf(view))` */
 export function imageUrlsOf(view: Pick<BoardView, 'background' | 'tokens'>): ReadonlySet<string> {
@@ -443,7 +445,10 @@ export function imageUrlsOf(view: Pick<BoardView, 'background' | 'tokens'>): Rea
   if (view.background) urls.add(view.background.url);
   for (const token of view.tokens) {
     if (token.art) urls.add(token.art.url);
-    for (const { imageUrl } of token.conditions) if (imageUrl) urls.add(imageUrl);
+    for (const { icon, imageUrl } of token.conditions) {
+      if (imageUrl) urls.add(imageUrl);
+      urls.add(conditionIconUrlOf(icon));
+    }
   }
   return urls;
 }
