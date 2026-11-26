@@ -1,4 +1,4 @@
-; Lorkarium: copy of the Tauri NSIS template (tauri-cli-v2.12.4,
+; Lorkarium: copy of the Tauri NSIS template (tauri-cli-v2.12.6,
 ; crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi), with only the interactive pages swapped
 ; for the one-click ones of lorkarium-ui.nsh (installerHooks). Every change is marked "Lorkarium:".
 ; Updating @tauri-apps/cli: diff the new upstream template against this one outside those marks.
