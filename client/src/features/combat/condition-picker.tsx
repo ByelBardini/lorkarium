@@ -104,7 +104,7 @@ export function ConditionPicker(props: ConditionPickerProps): React.JSX.Element 
       </div>
       {creating && (
         <div className="flex gap-2">
-          <ConditionIconField value={icon} tone={tone} onChange={setIcon} />
+          <ConditionIconField value={icon} tone={tone} name={name} onChange={setIcon} />
           <ConditionToneField value={tone} onChange={setTone} />
         </div>
       )}
