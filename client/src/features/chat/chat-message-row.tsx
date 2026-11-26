@@ -5,7 +5,12 @@ import { ProfileCardTrigger } from '@/features/profile-card/profile-card-trigger
 import { TokenFace } from '@/features/tokens/token-face';
 import { EmoteText } from '@/components/emote-text';
 import { ChatMessageImage } from './chat-message-image';
-import { ReplyButton, ReplyQuote, type QuotedMessage } from '@/components/message-reply';
+import {
+  ReplyButton,
+  ReplyQuote,
+  replyOnDoubleClick,
+  type QuotedMessage,
+} from '@/components/message-reply';
 import { UserAvatar } from '@/components/user-avatar';
 import { mentionsAny, type ChatMessage } from '@/lib/chat-conversations';
 import { repliesToViewer } from '@/lib/chat-replies';
@@ -56,6 +61,7 @@ export const ChatMessageRow = memo(function ChatMessageRow(
   return (
     <li
       data-message-id={event.messageId}
+      onDoubleClick={replyOnDoubleClick(() => props.onReply(message))}
       className={cn(
         // The hover lights up fast and fades at the flash's pace.
         'group relative flex min-h-7 flex-col border-l-2 border-transparent px-2 transition-colors duration-700 [contain-intrinsic-size:auto_2.5rem] [content-visibility:auto] hover:bg-foreground/5 hover:duration-100 data-[flash]:bg-primary/20',

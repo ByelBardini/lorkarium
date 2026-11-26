@@ -1,7 +1,12 @@
 ﻿import type { DmSentDto, FriendDto } from '@lorkarium/contracts';
 import { useMemo } from 'react';
 import { EmoteText } from '@/components/emote-text';
-import { ReplyButton, ReplyQuote, type QuotedMessage } from '@/components/message-reply';
+import {
+  ReplyButton,
+  ReplyQuote,
+  replyOnDoubleClick,
+  type QuotedMessage,
+} from '@/components/message-reply';
 import { NewMessagesNotice } from '@/components/new-messages-notice';
 import { useFollowBottom } from '@/components/use-follow-bottom';
 import { formatClockTime } from '@/lib/clock-time';
@@ -120,6 +125,7 @@ function MessageBubble({ message, mine, authors, quoted, onReply }: BubbleProps)
   return (
     <div
       data-message-id={message.messageId}
+      onDoubleClick={replyOnDoubleClick(() => onReply(message))}
       className={cn(
         'group flex max-w-[80%] flex-col gap-0.5 rounded-lg transition-colors duration-700 data-[flash]:bg-primary/20',
         mine ? 'items-end' : 'items-start',

@@ -67,6 +67,28 @@ export function ReplyButton({
   );
 }
 
+const CONTROLS = 'button, a, input, textarea, select, [role="button"]';
+
+/** The `onDoubleClick` of a message: starts answering it, except on a control inside it (the
+ *  author's name, a picture, a quote), which keeps its own meaning. The word the double click
+ *  selected is let go, so the answer does not start with a highlighted word behind it.
+ *
+ *  Example: `<li onDoubleClick={replyOnDoubleClick(() => reply.start(message))}>` */
+export function replyOnDoubleClick(
+  onReply: () => void,
+): (event: React.MouseEvent<HTMLElement>) => void {
+  return (event) => {
+    if (isElement(event.target) && event.target.closest(CONTROLS) !== null) return;
+    event.currentTarget.ownerDocument.getSelection()?.removeAllRanges();
+    onReply();
+  };
+}
+
+// `instanceof Element` fails for a detached window's elements, which come from another realm.
+function isElement(target: EventTarget): target is Element {
+  return 'closest' in target;
+}
+
 export type ReplyBarProps = Readonly<{
   authorName: string;
   /** The @ toggle; `null` where answering never calls anyone (one's own message, a direct). */

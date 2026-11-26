@@ -15,7 +15,7 @@ const PEOPLE: ChatPeople = {
   memberOf: () => BIA_AT_TABLE,
 };
 
-function renderRow(text: string): void {
+function renderRow(text: string, onReply: () => void = () => undefined): void {
   const message = { event: chatSent({ text, image: IMAGE }), receivedAtMs: 0 };
   render(
     <ul>
@@ -26,7 +26,7 @@ function renderRow(text: string): void {
         viewerNames={[]}
         face={null}
         quoted={null}
-        onReply={() => undefined}
+        onReply={onReply}
       />
     </ul>,
   );
@@ -52,6 +52,16 @@ describe('ChatMessageImage, in a message row', () => {
     );
 
     expect(screen.getByRole('dialog', { name: 'Imagem de Bia' })).toBeInTheDocument();
+  });
+
+  it('a double click answers on the text, but not on the picture, which keeps opening', async () => {
+    let answers = 0;
+    renderRow('olha', () => (answers += 1));
+
+    await userEvent.dblClick(screen.getByText('olha'));
+    expect(answers).toBe(1);
+    await userEvent.dblClick(screen.getByRole('img', { name: 'Imagem de Bia' }));
+    expect(answers).toBe(1);
   });
 
   it('a picture the server swept becomes "Imagem expirada", with nothing to open', () => {
