@@ -48,7 +48,7 @@ describe('emote catalog', () => {
     expect(SMILEYS).toHaveLength(131);
     expect(emoteById('joy')).toMatchObject({ category: 'reactions', unicode: '😂' });
     expect(emoteById('dice')).toMatchObject({ category: 'rpg', unicode: '🎲' });
-    expect(emoteById('see_no_evil')).toMatchObject({ category: 'monkeys', unicode: '🙈' });
+    expect(emoteById('see_no_evil')).toMatchObject({ category: 'reactions', unicode: '🙈' });
     expect(emoteById('thumbs-up')).toMatchObject({ category: 'gestures', unicode: '👍' });
   });
 

@@ -45,7 +45,7 @@ export function emoteOfUnicode(character: string): Emote | null {
 
 /** The emotes of one picker tab, in catalog order.
  *
- *  Example: `emotesIn('monkeys')[0]?.id // 'see_no_evil'` */
+ *  Example: `emotesIn('rpg')[0]?.id // 'dice'` */
 export function emotesIn(category: EmoteCategory): readonly Emote[] {
   return EMOTES.filter((emote) => emote.category === category);
 }

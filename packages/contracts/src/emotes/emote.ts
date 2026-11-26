@@ -2,14 +2,7 @@
 export type EmoteKind = 'smiley' | 'meme';
 
 /** The picker's tabs, in order. */
-export const EMOTE_CATEGORIES = [
-  'reactions',
-  'gestures',
-  'rpg',
-  'symbols',
-  'monkeys',
-  'memes',
-] as const;
+export const EMOTE_CATEGORIES = ['reactions', 'gestures', 'rpg', 'symbols', 'memes'] as const;
 
 export type EmoteCategory = (typeof EMOTE_CATEGORIES)[number];
 

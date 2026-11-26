@@ -29,7 +29,6 @@ describe('EmotePicker', () => {
       'Gestos',
       'RPG',
       'Símbolos',
-      'Macacos',
       'Memes',
     ]);
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
@@ -60,11 +59,20 @@ describe('EmotePicker', () => {
     );
   });
 
-  it('a click gives the first code and closes the grid', async () => {
+  it('the monkeys are in the Reações tab, with no tab of their own', async () => {
+    const { panel } = await openPicker();
+    expect(within(panel).queryByRole('tab', { name: 'Macacos' })).toBeNull();
+    const reactions = within(screen.getByRole('tabpanel'));
+    expect(reactions.getByRole('button', { name: ':see_no_evil:' })).toBeInTheDocument();
+    expect(reactions.getByRole('button', { name: ':orangutan:' })).toBeInTheDocument();
+  });
+
+  it('a click gives the first code and keeps the grid open for the next one', async () => {
     const { picked, panel } = await openPicker();
     await userEvent.click(within(panel).getByRole('button', { name: '=)' }));
-    expect(picked.codes).toEqual(['=)']);
-    expect(screen.queryByRole('dialog', { name: 'Memes e smileys' })).toBeNull();
+    await userEvent.click(within(panel).getByRole('button', { name: ':joy:' }));
+    expect(picked.codes).toEqual(['=)', ':joy:']);
+    expect(screen.getByRole('dialog', { name: 'Memes e smileys' })).toBeInTheDocument();
   });
 
   it('the search looks across every tab by code or name, and says when nothing matches', async () => {
