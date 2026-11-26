@@ -56,10 +56,11 @@ export const ChatMessageRow = memo(function ChatMessageRow(
     <li
       data-message-id={event.messageId}
       className={cn(
-        'group relative flex min-h-7 flex-col border-l-2 border-transparent px-2 transition-colors duration-700 [contain-intrinsic-size:auto_2.5rem] [content-visibility:auto] data-[flash]:bg-primary/20',
+        // The hover lights up fast and fades at the flash's pace.
+        'group relative flex min-h-7 flex-col border-l-2 border-transparent px-2 transition-colors duration-700 [contain-intrinsic-size:auto_2.5rem] [content-visibility:auto] hover:bg-foreground/5 hover:duration-100 data-[flash]:bg-primary/20',
         continued ? 'pt-0.5' : 'pt-3',
-        whispered && 'border-chart-2 bg-chart-2/5',
-        mentioned && 'border-primary bg-primary/5',
+        whispered && 'border-chart-2 bg-chart-2/5 hover:bg-chart-2/10',
+        mentioned && 'border-primary bg-primary/5 hover:bg-primary/10',
       )}
     >
       {event.replyTo !== null && <ReplyQuote quoted={quotedOf(props.quoted, people)} />}

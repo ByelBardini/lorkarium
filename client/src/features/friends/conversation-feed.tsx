@@ -129,8 +129,10 @@ function MessageBubble({ message, mine, authors, quoted, onReply }: BubbleProps)
       <div className={cn('flex items-center gap-1.5', mine && 'flex-row-reverse')}>
         <p
           className={cn(
-            'rounded-lg px-3 py-2 text-sm break-words whitespace-pre-wrap text-foreground',
-            mine ? 'bg-primary/15' : 'bg-muted',
+            'rounded-lg px-3 py-2 text-sm break-words whitespace-pre-wrap text-foreground transition-colors duration-100',
+            mine
+              ? 'bg-primary/15 group-hover:bg-primary/25'
+              : 'bg-muted group-hover:bg-foreground/10',
           )}
         >
           <EmoteText text={message.text} customEmojis={message.customEmojis} />
