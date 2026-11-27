@@ -5,6 +5,9 @@ import { describe, expect, it } from 'vitest';
 import { assets } from '../../src/modules/assets/assets.po';
 import { characters } from '../../src/modules/characters/characters.po';
 import { reputationVotes } from '../../src/modules/reputation/reputation-votes.po';
+import { SavedTokenFoldersDao } from '../../src/modules/saved-tokens/saved-token-folders.dao';
+import { SavedTokensDao } from '../../src/modules/saved-tokens/saved-tokens.dao';
+import { rottenFormPo, savedTokenPo } from '../support/saved-tokens-factories';
 import type { SignedInUser } from '../support/sign-in';
 import { useTokenTable } from '../support/token-table';
 
@@ -94,6 +97,27 @@ describe('GET /api/account/export', () => {
     // Joining Vharn as a player seated her own character there; that one is hers to take.
     expect(dados.characters.map((character) => character.campaignId)).toEqual([live.vharn.id]);
     expect(dados.images).toEqual([]);
+  });
+
+  it('dados.json brings the saved tokens of Bia with their folder, not those of Caio', async () => {
+    const { db } = live.connection;
+    const bia = { campaignId: live.vharn.id, userId: live.bia.id };
+    const folder = await new SavedTokenFoldersDao(db).insert({
+      ...bia,
+      name: 'Mortos',
+      nameKey: 'mortos',
+    });
+    const tokens = new SavedTokensDao(db);
+    await tokens.insert(savedTokenPo(bia, { folderId: folder.id }), [rottenFormPo()]);
+    await tokens.insert(
+      savedTokenPo({ campaignId: live.vharn.id, userId: live.caio.id }, { name: 'Do Caio' }),
+      [],
+    );
+
+    const { savedTokens } = dadosOf(filesOf(await exportOf(live.bia)));
+
+    expect(savedTokens.map((entry) => [entry.name, entry.folder])).toEqual([['Zumbi', 'Mortos']]);
+    expect(savedTokens[0]?.token.forms.map((form) => form.name)).toEqual(['Podre']);
   });
 
   it('never carries the password hash nor the session token, and the votes received only as a sum', async () => {

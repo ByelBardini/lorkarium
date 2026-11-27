@@ -64,7 +64,15 @@ type StandingPart =
   | 'sanctions'
   | 'feedbackSent';
 type TablePart =
-  'memberships' | 'characters' | 'bars' | 'sheets' | 'documents' | 'tabs' | 'savedRolls' | 'assets';
+  | 'memberships'
+  | 'characters'
+  | 'bars'
+  | 'sheets'
+  | 'documents'
+  | 'tabs'
+  | 'savedRolls'
+  | 'savedTokens'
+  | 'assets';
 
 const encoder = new TextEncoder();
 
@@ -158,14 +166,16 @@ export class DataExportService {
 
   private async tablePartsOf(userId: string): Promise<Pick<DataExportParts, TablePart>> {
     const { tables } = this.deps;
-    const [memberships, characters, sheets, documents, savedRolls, assets] = await Promise.all([
-      tables.membershipsOf(userId),
-      tables.charactersOf(userId),
-      tables.sheetsOf(userId),
-      tables.documentsOf(userId),
-      tables.savedRollsOf(userId),
-      tables.assetsSentBy(userId),
-    ]);
+    const [memberships, characters, sheets, documents, savedRolls, savedTokens, assets] =
+      await Promise.all([
+        tables.membershipsOf(userId),
+        tables.charactersOf(userId),
+        tables.sheetsOf(userId),
+        tables.documentsOf(userId),
+        tables.savedRollsOf(userId),
+        tables.savedTokensOf(userId),
+        tables.assetsSentBy(userId),
+      ]);
     const [bars, tabs] = await Promise.all([
       tables.barsOf(characters.map((character) => character.id)),
       tables.readableTabsOf(
@@ -173,7 +183,10 @@ export class DataExportService {
         documents.map((document) => document.id),
       ),
     ]);
-    return { memberships, characters, bars, sheets, documents, tabs, savedRolls, assets };
+    return {
+      ...{ memberships, characters, bars, sheets, documents, tabs },
+      ...{ savedRolls, savedTokens, assets },
+    };
   }
 
   /** `dados.json` first, then each image as it streams from the bucket, and the `LEIA-ME.txt`
