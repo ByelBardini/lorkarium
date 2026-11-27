@@ -18,7 +18,7 @@ export async function openRoomPeople(page: Page): Promise<void> {
   await showRoomTab(page, 'Na mesa');
 }
 
-export type RoomTabName = 'Combate' | 'Na mesa' | 'Dados' | 'Ciclos';
+export type RoomTabName = 'Combate' | 'Na mesa' | 'Dados' | 'Tokens salvos' | 'Ciclos';
 
 /** Shows a tab of the room panel by its icon on the rail at the right ("Painel da mesa"). A click
  *  on the tab already shown collapses the panel, so it clicks only when that tab is not shown.
