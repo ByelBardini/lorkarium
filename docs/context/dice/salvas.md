@@ -32,8 +32,7 @@ Códigos: `SAVED_ROLL_FOLDER_NOT_FOUND` (404), `SAVED_ROLL_FOLDER_NAME_TAKEN` (4
 - `listOf(campaignId, userId)` → `SavedRollPo[]` na ordem de criação (`created_at`, `id`)
 - `countOf(campaignId, userId)` → número
 - `rankOf(campaignId, userId, id)` → quantas salvas do mesmo membro na mesma mesa nasceram antes, por `(created_at, id)` (a ordem do `listOf`), num `LEFT JOIN` com o alias `older`; `undefined` se a salva não é do dono. Chamado na transação, depois do `lockPlans`.
-- `lockPlans(campaignId, userId)` → `SavedRollPlansPo | undefined` (`{ tableOwner, member }`, dois `UserPlanPo`): o plano do **dono da mesa** (`campaign_members` → `campaigns` → `users`) e o do **próprio membro** (`users` de novo, pelo alias `member_account`) numa consulta só, `FOR NO KEY UPDATE OF campaign_members` na linha do membro (no `tx`); `undefined` se ele saiu. Por quê: duas criações simultâneas do mesmo membro contam uma depois da outra e nunca passam do teto juntas, e o teto sai dos dois planos lidos na mesma consulta. `NO KEY UPDATE` não bloqueia o `KEY SHARE` das FKs que apontam para o membro (ficha, salvas), e a mesa, o dono e a conta do membro ficam livres (provado em `saved-rolls-dao.spec.ts`).
-- `findPlans(campaignId, userId)` → o mesmo, sem trava: o `planLocked` da lista.
+- `lockPlans(campaignId, userId)` / `findPlans` → `SavedRollPlansPo | undefined` (`{ tableOwner, member }`): delegam ao `MemberPlansDao` (`plans/member-plans.dao.ts`, o mesmo dos tokens salvos): os dois planos lidos com a linha do membro em `FOR NO KEY UPDATE OF campaign_members` (sem trava no `find`); `undefined` se ele saiu. Duas criações do mesmo membro contam uma depois da outra; a mesa, o dono e a conta ficam livres.
 - `insert(row)` → a linha; `update(campaignId, userId, id, changes)` → a linha ou `undefined` (não é do dono), soma `updated_at`; `remove(campaignId, userId, id)` → `boolean`
 
 ## Regra (`saved-roll.bo.ts`)

@@ -27,6 +27,7 @@ SPA React 19 + Vite 8 em `client/` (alias `@/*` → `src/*`). Tela em `src/featu
 | Aba "Na mesa": mestres, card do personagem de cada jogador (barras, CA, fichas), ausência              | [`table-people.md`](client/table-people.md)                     |
 | Papéis na mesa: dono, co-mestre, juggernaut, troca de papel e o modo do admin                          | [`table-roles.md`](client/table-roles.md)                       |
 | Combate na sala: tracker, iniciativa, turnos, condições e a vez no tabuleiro                           | [`combat.md`](client/combat.md)                                 |
+| Tokens salvos: aba da sala, salvar pelo menu do token, mira com prévia, arrastar para o mapa           | [`saved-tokens.md`](client/saved-tokens.md)                     |
 | Condições: etiquetas, descrição, stacks, página "Condições da mesa", ferramenta (C)                    | [`conditions.md`](client/conditions.md)                         |
 | Ícones de condição: chave, SVG servido, máscara, textura tingida, busca pt-BR, seletor                 | [`condition-icons.md`](client/condition-icons.md)               |
 | Ciclos por rodada: selo no tabuleiro, escolha da próxima fase, aba Ciclos, aviso da fase               | [`round-cycles.md`](client/round-cycles.md)                     |
