@@ -19,6 +19,8 @@ import {
   sentAssetRow,
 } from '../../support/data-export-fakes';
 import { feedbackEntryPo } from '../../support/feedback-fakes';
+import { rottenFormPo } from '../../support/saved-tokens-factories';
+import { savedTokenRowPo } from '../../support/saved-tokens-fakes';
 
 const NOW = new Date('2026-11-19T14:30:00Z');
 const AT = new Date('2026-11-02T09:00:00Z');
@@ -243,6 +245,27 @@ describe('toDataExportDto', () => {
       { label: 'PV', current: 12, max: 20, temp: 0 },
       { label: 'Mana', current: 5, max: 5, temp: 0 },
     ]);
+  });
+
+  it('a saved token carries its table, folder, name and the token with its forms', () => {
+    const { savedToken } = savedTokenRowPo({ campaignId: VHARN_ID, createdAt: AT, updatedAt: AT });
+    const form = { ...rottenFormPo(), savedTokenId: savedToken.id, position: 0 };
+    const parts = emptyExportParts({
+      savedTokens: [
+        { savedToken: { ...savedToken, activeForm: 0 }, forms: [form], folder: 'Mortos' },
+      ],
+    });
+
+    const [zombie] = toDataExportDto(parts, cipher, NOW).savedTokens;
+
+    expect(zombie).toMatchObject({
+      campaignId: VHARN_ID,
+      folder: 'Mortos',
+      name: 'Zumbi',
+      createdAt: AT.toISOString(),
+    });
+    expect(zombie?.token).toMatchObject({ name: 'Zumbi', activeForm: 0 });
+    expect(zombie?.token.forms.map((entry) => entry.name)).toEqual(['Podre']);
   });
 
   it('each document carries only its own readable tabs with their content', () => {

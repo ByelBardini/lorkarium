@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { SAVE_TOKEN_ITEM } from '@/features/saved-tokens/saved-token-messages';
 import { TokenSheetItems } from '@/features/sheets/token-sheet-items';
 import { TokenLinkItems, type CharacterLinkRequest } from '@/features/tokens/token-link-items';
 import type { TokenStyle } from '@/services/table-board-commands';
@@ -49,6 +50,8 @@ export type TokenContextMenuProps = Readonly<{
   }>;
   /** The master's "Patrulha…": the token the patrol editor opens on. Absent: no patrol items. */
   onEditPatrol?: (tokenId: string) => void;
+  /** "Salvar na minha lista…" (whoever controls the token): the token whose save dialog opens. */
+  onSaveToken?: (tokenId: string) => void;
   onClose: () => void;
 }>;
 
@@ -143,6 +146,11 @@ export function TokenContextMenu(props: TokenContextMenuProps): React.JSX.Elemen
           />
         )}
         <DropdownMenuSeparator />
+        {token.canControl && props.onSaveToken && (
+          <DropdownMenuItem onSelect={() => props.onSaveToken?.(token.id)}>
+            {SAVE_TOKEN_ITEM}
+          </DropdownMenuItem>
+        )}
         {token.canControl && (
           <DropdownMenuItem onSelect={() => props.onChangeAura(token.id)}>Aura…</DropdownMenuItem>
         )}

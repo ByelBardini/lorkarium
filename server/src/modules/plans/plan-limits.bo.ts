@@ -9,6 +9,7 @@ import {
   type UserPlan,
   higherPlanOf,
   savedRollLimitsOf,
+  savedTokenLimitsOf,
 } from '@lorkarium/contracts';
 import { PlanLimitError } from './plans.error';
 
@@ -93,6 +94,17 @@ export function memberSavedRollLimitsOf(
   return savedRollLimitsOf(table, effectiveLimitsOf(accounts.member).plan);
 }
 
+/** The ceilings of a member's saved tokens and folders at a table, by the rule of the saved
+ *  rolls (`savedTokenLimitsOf`).
+ *
+ *  Example: `memberSavedTokenLimitsOf({ tableOwner, member }).limits.maxSavedTokens // 5 for an Apoiador at a Grátis table` */
+export function memberSavedTokenLimitsOf(
+  accounts: Readonly<{ tableOwner: PlanAccount; member: PlanAccount }>,
+): MemberSavedRollLimits {
+  const table = effectiveLimitsOf(accounts.tableOwner);
+  return savedTokenLimitsOf(table, effectiveLimitsOf(accounts.member).plan);
+}
+
 /** The counted resources whose excess goes read only when the plan goes down (the NPC sheets,
  *  the tables and the members only refuse the new one). */
 export type PlanEditableResource = Extract<
@@ -102,6 +114,7 @@ export type PlanEditableResource = Extract<
   | 'sheetTemplates'
   | 'documentTabs'
   | 'savedRolls'
+  | 'savedTokens'
   | 'lights'
   | 'tokenBars'
   | 'tokenForms'
@@ -115,6 +128,7 @@ const EDITABLE_ITEM_NAME: Readonly<Record<PlanEditableResource, string>> = {
   sheetTemplates: 'sheet template',
   documentTabs: 'document tab',
   savedRolls: 'saved roll',
+  savedTokens: 'saved token',
   lights: 'light',
   tokenBars: 'token bar',
   tokenForms: 'token form',

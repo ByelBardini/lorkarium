@@ -271,5 +271,6 @@ export const ROOM_TAB_NAME: Readonly<Record<RoomTab, string>> = {
   combat: 'Combate',
   people: 'Na mesa',
   dice: 'Dados',
+  tokens: 'Tokens salvos',
   cycles: 'Ciclos',
 };

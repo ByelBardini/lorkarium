@@ -6,7 +6,8 @@ import {
 } from '@/stores/document-workspace-store';
 import { cn } from '@/lib/utils';
 import { isDesktopShell } from '@/lib/desktop-shell';
-import type { CampaignDetailDto } from '@lorkarium/contracts';
+import type { CampaignDetailDto, TokenDto } from '@lorkarium/contracts';
+import type { SceneSize } from '@lorkarium/game-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { useOpenTable, type OpenTableView } from '@/features/sessions/use-open-table';
@@ -48,6 +49,7 @@ import { DiceRollNotice } from '@/features/dice/dice-roll-notice';
 import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
 import type { DiceCommands } from '@/services/dice-commands';
 import type { SavedRollsApi } from '@/services/saved-rolls-api';
+import type { SavedTokensApi } from '@/services/saved-tokens-api';
 import type { ChatCommands } from '@/services/chat-commands';
 import type { ChatWindowHost } from '@/services/chat-window-host';
 import { watchesOnly } from '@/lib/table-role';
@@ -83,6 +85,8 @@ import { RoundCycleBadges } from '@/features/round-cycles/round-cycle-badges';
 import { BoardArea } from './board-area';
 import { DeleteSelectionDialog, type SelectionToDelete } from './delete-selection-dialog';
 import { tokenCommandFailureMessage } from './board-messages';
+import { useRoomSpawn } from '@/features/saved-tokens/use-room-spawn';
+import { SaveTokenDialog } from '@/features/saved-tokens/save-token-dialog';
 import { BoardRefusalBalloon } from './board-refusal-balloon';
 import { BoardStatusLine } from './board-status-line';
 import { RoomToolbar } from './room-toolbar';
@@ -140,6 +144,7 @@ export type PlayRoomPageProps = Readonly<{
   /** The "Dados" tab: the roll, the saved rolls and the wall clock of the history. */
   dice: DiceCommands;
   savedRolls: SavedRollsApi;
+  savedTokens: SavedTokensApi;
   diceClock: InteractionClock;
   /** The chat at the foot of the board: `chat:send` (the rest it shares with "Dados"). */
   chat: ChatCommands;
@@ -179,6 +184,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const [sceneDialog, setSceneDialog] = useState(false);
   const [tokenDialog, setTokenDialog] = useState<TokenDialogRequest | null>(null);
   const [tokenMenu, setTokenMenu] = useState<TokenMenuRequest | null>(null);
+  const [savingTokenId, setSavingTokenId] = useState<string | null>(null);
   const [doorMenu, setDoorMenu] = useState<DoorMenuRequest | null>(null);
   const [lightMenu, setLightMenu] = useState<LightMenuRequest | null>(null);
   const [conditionTargets, setConditionTargets] = useState<readonly string[] | null>(null);
@@ -236,6 +242,19 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
   const commands = props.boardCommands;
   const board = table?.board ?? null;
   const patrol = useRoomPatrolEditor({ commands, board, interaction, scopeOf });
+  const edits = table?.edits ?? null;
+  const savingToken = tokenOf(table?.board ?? null, savingTokenId);
+  const savedTokensApi = props.savedTokens;
+  const sceneOf = (): SceneSize | null => table?.board.getState().board?.scene ?? null;
+  const spawn = useRoomSpawn({
+    sceneOf,
+    campaignId: campaign.id,
+    api: savedTokensApi,
+    commands,
+    interaction,
+    edits,
+    scopeOf,
+  });
   const tokenKeys = useRoomTokenKeys(openTables, campaign);
   useEditShortcuts({
     scopeOf,
@@ -332,6 +351,9 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
               onPing={ping}
               clock={props.interactionClock}
               patrolEditor={patrol.editor}
+              spawnAim={spawn.aim}
+              onSpawn={spawn.spawnAt}
+              onSavedTokenDrop={spawn.dropAt}
             />
             {tool === 'draw' && !focus && (
               <DrawStylePanel
@@ -392,8 +414,16 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
                 onEditForms={(tokenId) => setTokenDialog({ tokenId, initialTab: 'forms' })}
                 onEditToken={(tokenId) => setTokenDialog({ tokenId })}
                 onEditPatrol={patrol.open}
+                onSaveToken={setSavingTokenId}
                 characters={{ store: table.characters, onConfirmLink: setCharacterLink }}
                 onClose={() => setTokenMenu(null)}
+              />
+            )}
+            {savingToken && (
+              <SaveTokenDialog
+                token={savingToken}
+                list={spawn.list}
+                onClose={() => setSavingTokenId(null)}
               />
             )}
             {characterLink && (
@@ -535,6 +565,7 @@ export function PlayRoomPage(props: PlayRoomPageProps): React.JSX.Element {
                   },
                 }}
                 diceWindow={diceWindow.slot}
+                savedTokens={spawn}
                 cycleImages={{ campaignId: campaign.id, assets: props.assets }}
               />
             )}
@@ -597,4 +628,10 @@ function useShownTab(
     const key = tab?.key ?? GROUP_TAB;
     return { view, table, interaction, scopeOf, tabs, key, group, pings: tab?.pings ?? null };
   }, [opened, tab, tabs, group, opening]);
+}
+
+// The token "Salvar na minha lista" opened on, as it is when the dialog opens.
+function tokenOf(board: StoreApi<BoardStore> | null, tokenId: string | null): TokenDto | null {
+  if (!board || tokenId === null) return null;
+  return board.getState().board?.tokens.find(({ id }) => id === tokenId) ?? null;
 }

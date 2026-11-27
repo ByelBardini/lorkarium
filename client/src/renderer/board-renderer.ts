@@ -122,6 +122,10 @@ export type BoardPingIntent = Readonly<{ kind: 'pingRequested'; x: number; y: nu
  *  token centered on the press and snapped like a drop (never off the scene). */
 export type BoardPatrolIntent = Readonly<{ kind: 'patrolPointPicked'; cell: Cell }>;
 
+/** A press with a saved token armed: where it spawns, centered on the press and snapped like a
+ *  drop (never off the scene). */
+export type BoardSpawnIntent = Readonly<{ kind: 'spawnPointPicked'; cell: Cell }>;
+
 /** The GPU dropped the WebGL context: this renderer draws nothing more. Whoever hosts it
  *  destroys it and mounts a new one (at `camera()`), rebuilt from the stores. */
 export type BoardLostIntent = Readonly<{ kind: 'boardLost' }>;
@@ -132,6 +136,7 @@ export type BoardIntent =
   | BoardLostIntent
   | BoardPingIntent
   | BoardPatrolIntent
+  | BoardSpawnIntent
   | BoardPointerIntent
   | BoardTokenIntent
   | BoardDrawingIntent

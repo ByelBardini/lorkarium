@@ -17,6 +17,12 @@ import {
   type DocumentPo,
 } from '../documents/documents.po';
 import { savedRollFolders, savedRolls, type SavedRollPo } from '../saved-rolls/saved-rolls.po';
+import {
+  savedTokenFolders,
+  savedTokenForms,
+  savedTokens,
+  type SavedTokenRow,
+} from '../saved-tokens/saved-tokens.po';
 import { sheetTemplates } from '../sheets/sheet-templates.po';
 import { tokenSheets, type SheetPo } from '../sheets/sheets.po';
 
@@ -54,6 +60,8 @@ export type OwnSavedRollRow = Pick<
   'campaignId' | 'name' | 'parts' | 'createdAt' | 'updatedAt'
 > &
   Readonly<{ folder: string | null }>;
+/** A saved token of the person with the name of its folder (`null` = out of any). */
+export type OwnSavedTokenRow = SavedTokenRow & Readonly<{ folder: string | null }>;
 export type SentAssetRow = Pick<
   AssetPo,
   'id' | 'campaignId' | 'purpose' | 'mimeType' | 'sizeBytes' | 'storageKey' | 'createdAt'
@@ -212,6 +220,30 @@ export class CampaignExportDao {
       .leftJoin(savedRollFolders, eq(savedRollFolders.id, r.folderId))
       .where(eq(r.userId, userId))
       .orderBy(asc(r.campaignId), asc(r.name));
+  }
+
+  /** The person's saved tokens at every table, with their forms in order: the key to the
+   *  membership takes them along when they leave, so only tables they sit at remain.
+   *
+   *  Example: `await dao.savedTokensOf(biaId) // [{ savedToken, forms, folder: 'Mortos' }]` */
+  async savedTokensOf(userId: string): Promise<OwnSavedTokenRow[]> {
+    const rows = await this.db
+      .select({ savedToken: savedTokens, folder: savedTokenFolders.name })
+      .from(savedTokens)
+      .leftJoin(savedTokenFolders, eq(savedTokenFolders.id, savedTokens.folderId))
+      .where(eq(savedTokens.userId, userId))
+      .orderBy(asc(savedTokens.campaignId), asc(savedTokens.createdAt), asc(savedTokens.id));
+    if (rows.length === 0) return [];
+    const ids = rows.map((row) => row.savedToken.id);
+    const forms = await this.db
+      .select()
+      .from(savedTokenForms)
+      .where(inArray(savedTokenForms.savedTokenId, ids))
+      .orderBy(asc(savedTokenForms.position));
+    return rows.map((row) => ({
+      ...row,
+      forms: forms.filter((form) => form.savedTokenId === row.savedToken.id),
+    }));
   }
 
   /** The images (and template fonts) the person sent to a table they still sit at. */

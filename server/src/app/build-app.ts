@@ -91,6 +91,7 @@ import { createDataExportModule } from '../modules/data-export/data-export.plugi
 import { FflateArchiveWriter } from '../infrastructure/archive/fflate-archive-writer';
 import { createPlansModule } from '../modules/plans/plans.plugin';
 import { createSavedRollsModule } from '../modules/saved-rolls/saved-rolls.plugin';
+import { createSavedTokensModule } from '../modules/saved-tokens/saved-tokens.plugin';
 import { createTokensModule } from '../modules/tokens/tokens.plugin';
 import { createCharactersModule } from '../modules/characters/characters.plugin';
 import { SocketIoCharacterPublisher } from '../infrastructure/character-publisher/socket-io-character-publisher';
@@ -283,6 +284,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const templateAssets = createSheetTemplateAssetsModule({ db: deps.db, assets: assets.service });
   await app.register(templateAssets.plugin, { prefix: API_PREFIX });
   await app.register(createSavedRollsModule({ db: deps.db }).plugin, { prefix: API_PREFIX });
+  await app.register(createSavedTokensModule({ db: deps.db }).plugin, { prefix: API_PREFIX });
   await app.register(createSavedColorsModule({ db: deps.db }).plugin, { prefix: API_PREFIX });
   const reputation = createReputationModule({ db: deps.db });
   await app.register(reputation.plugin, { prefix: API_PREFIX });

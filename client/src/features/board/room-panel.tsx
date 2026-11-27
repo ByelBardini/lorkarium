@@ -21,6 +21,13 @@ import {
 } from '@/stores/dice-tray-store';
 import { isRoomTab, useRoomLayout, type RoomLayoutStore } from '@/stores/room-layout-store';
 import { ROOM_TAB_NAME } from './board-messages';
+import { useViewerTokenRights } from './table-token-rights';
+import {
+  SavedTokensPanel,
+  type SavedTokensPanelProps,
+} from '@/features/saved-tokens/saved-tokens-panel';
+import type { SavedTokensStore } from '@/stores/saved-tokens-store';
+import type { SpawnAimStore } from '@/stores/spawn-aim-flow';
 import { RoomRail } from './room-rail';
 import {
   selectOnlineCount,
@@ -54,6 +61,8 @@ export type RoomPanelProps = Readonly<{
   diceWindow?: ChatWindowSlot | null;
   /** Where the master's "Ciclos" tab sends the phases' images. */
   cycleImages?: CycleImageTarget;
+  /** The "Tokens salvos" tab: the viewer's list and the aim of the board. */
+  savedTokens?: Readonly<{ list: StoreApi<SavedTokensStore>; aim: StoreApi<SpawnAimStore> }>;
 }>;
 
 const PANEL_TITLE = 'Painel da mesa';
@@ -138,6 +147,7 @@ function RoomPanelTabs(props: PanelTabsProps): React.JSX.Element {
               Dados
               <TrayPartsPill diceTray={diceTrayOf(props.dice)} />
             </TabsTrigger>
+            <TabsTrigger value="tokens">{ROOM_TAB_NAME.tokens}</TabsTrigger>
             {props.isMaster && <TabsTrigger value="cycles">Ciclos</TabsTrigger>}
           </TabsList>
         ) : (
@@ -188,6 +198,19 @@ function RoomPanelTabs(props: PanelTabsProps): React.JSX.Element {
       >
         <RoomDice {...props} />
       </TabsContent>
+      {table && props.savedTokens && (
+        <TabsContent
+          value="tokens"
+          aria-label={ROOM_TAB_NAME.tokens}
+          className="-mx-1 overflow-y-auto px-1 py-4"
+        >
+          <RoomSavedTokens
+            {...props.savedTokens}
+            board={table.board}
+            watchesOnly={watchesOnly(props.dice.role)}
+          />
+        </TabsContent>
+      )}
       {props.isMaster && table && props.cycleImages && (
         <TabsContent
           value="cycles"
@@ -199,6 +222,15 @@ function RoomPanelTabs(props: PanelTabsProps): React.JSX.Element {
       )}
     </Tabs>
   );
+}
+
+type RoomSavedTokensProps = Omit<SavedTokensPanelProps, 'canSpawn'> &
+  Readonly<{ board: StoreApi<BoardStore> }>;
+
+// Spawning is creating a token: the master always, a player by the table's create setting.
+function RoomSavedTokens({ board, ...panel }: RoomSavedTokensProps): React.JSX.Element {
+  const rights = useViewerTokenRights(board);
+  return <SavedTokensPanel {...panel} canSpawn={rights.canCreate} />;
 }
 
 function RoomDice({ dice, table, diceWindow }: RoomPanelProps): React.JSX.Element {

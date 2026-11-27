@@ -61,6 +61,8 @@ describe('plan grid texts', () => {
     ['Banner de perfil', 'não', 'não', 'não', 'sim'],
     ['Rolagens salvas por pessoa', '3', '15', '15', '50'],
     ['Pastas de rolagens por pessoa', '0', '5', '5', '50'],
+    ['Tokens salvos por pessoa', '0', '5', '20', '50'],
+    ['Pastas de tokens salvos por pessoa', '0', '2', '5', '20'],
     ['Emojis personalizados', '0', '10', '25', '50'],
     ['Emoji personalizado animado (GIF)', 'não', 'não', 'não', 'sim'],
   ] as const)(
@@ -94,6 +96,8 @@ describe('plan grid texts', () => {
       'Personalizações',
       'Rolagens salvas',
       'Pastas de rolagens',
+      'Tokens salvos',
+      'Pastas de tokens salvos',
       'Emojis personalizados',
     ];
     const tableRows = PLAN_GRID_ROWS.filter(

@@ -53,12 +53,12 @@ const railTab = (name: string): HTMLElement => within(rail()).getByRole('tab', {
 describe('RoomRail beside the board', () => {
   emulateViewport('desktop');
 
-  it('has Combate, Na mesa and Dados, each with its tooltip, the open one selected', () => {
+  it('has Combate, Na mesa, Dados and Tokens salvos, each with its tooltip, the open one selected', () => {
     renderRail();
     const names = within(rail())
       .getAllByRole('tab')
       .map((tab) => tab.getAttribute('aria-label'));
-    expect(names).toEqual(['Combate', 'Na mesa', 'Dados']);
+    expect(names).toEqual(['Combate', 'Na mesa', 'Dados', 'Tokens salvos']);
     expect(railTab('Dados')).toHaveAttribute('title', 'Dados');
     expect(railTab('Combate')).toHaveAttribute('aria-selected', 'true');
     expect(railTab('Combate')).toHaveAttribute('aria-expanded', 'true');
@@ -71,7 +71,7 @@ describe('RoomRail beside the board', () => {
     const names = within(rail())
       .getAllByRole('tab')
       .map((tab) => tab.getAttribute('aria-label'));
-    expect(names).toEqual(['Combate', 'Na mesa', 'Dados', 'Ciclos']);
+    expect(names).toEqual(['Combate', 'Na mesa', 'Dados', 'Tokens salvos', 'Ciclos']);
   });
 
   it('clicking the open tab collapses the panel, and again opens it', async () => {

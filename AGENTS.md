@@ -107,6 +107,7 @@ Uma linha por **hub**; o detalhe mora no arquivo, não nesta tabela. O hub de um
 | profiles         | Perfil: apelido, cor, bio, foto, banner, preferências, card de outra conta              | [`docs/context/profiles.md`](docs/context/profiles.md)                 |
 | badges           | Insígnias: catálogo do admin, imagem 128, ordem, concessão por conta, card              | [`docs/context/badges.md`](docs/context/badges.md)                     |
 | saved-colors     | Cores salvas por conta: tabela, teto de 24, três rotas, trava da corrida                | [`docs/context/saved-colors.md`](docs/context/saved-colors.md)         |
+| saved-tokens     | Tokens salvos do membro: retrato, imagens em coluna, pastas, teto por plano, spawn      | [`docs/context/saved-tokens.md`](docs/context/saved-tokens.md)         |
 | custom-emojis    | Emojis da conta: cota por plano, GIF na Lenda, inativos, rotas, cache do chat, admin    | [`docs/context/custom-emojis.md`](docs/context/custom-emojis.md)       |
 | plans            | Planos: grade, dono × conta, Dono, Apoiador, `PLAN_LIMIT`, excedente só leitura, cota   | [`docs/context/plans.md`](docs/context/plans.md)                       |
 | billing          | Cobrança: costura com o serviço de cobrança, plano pago, `/api/billing`, telas          | [`docs/context/billing.md`](docs/context/billing.md)                   |

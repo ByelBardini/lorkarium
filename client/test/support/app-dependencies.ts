@@ -59,6 +59,7 @@ import { RetryWaitFake } from './retry-wait-fake';
 import { SavedColorsApiFake } from './saved-colors-api-fake';
 import { CustomEmojisApiFake } from './custom-emojis-api-fake';
 import { SavedRollsApiFake } from './saved-rolls-api-fake';
+import { SavedTokensApiFake } from './saved-tokens-api-fake';
 import { TableBoardCommandsFake } from './table-board-commands-fake';
 import { TableSessionApiFake } from './table-session-api-fake';
 import { storedSheetEditorLayout } from '@/lib/sheet-editor-layout';
@@ -137,6 +138,7 @@ export type TestDependencies = AppDependencies & {
   /** The same fake as `interactionClock`: moving it reveals the rolls of the history. */
   diceClock: InteractionClockFake;
   savedRolls: SavedRollsApiFake;
+  savedTokens: SavedTokensApiFake;
   /** The `localStorage` under `dicePreferences`. */
   dicePreferencesStorage: StorageFake;
   /** Every dice renderer the room created, behind `createDiceRenderer`. */
@@ -304,6 +306,7 @@ export function testDependencies(): TestDependencies {
     // One fake clock for the board and the dice: a spec reveals a roll by `advance`.
     diceClock: interactionClock,
     savedRolls: new SavedRollsApiFake(),
+    savedTokens: new SavedTokensApiFake(),
     dicePreferencesStorage,
     dicePreferences: createDicePreferencesStore(dicePreferencesStorage),
     diceRenderers,

@@ -1,5 +1,6 @@
 import { ASSET_MAX_SIDE } from '../assets/asset.dto';
 import { LIGHTS_PER_SCENE_MAX } from '../board/light.dto';
+import { SAVED_TOKEN_FOLDERS_MAX, SAVED_TOKENS_MAX } from '../board/saved-token.dto';
 import { TOKEN_FORMS_MAX } from '../board/token-form.dto';
 import { TOKEN_PATROLS_RUNNING_MAX } from '../board/token-patrol.dto';
 import { MAX_BARS_PER_TOKEN, TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX } from '../board/token.dto';
@@ -39,6 +40,8 @@ export const PLAN_COUNT_LIMIT_KEY: Readonly<Record<PlanCountResource, PlanCountL
   sightBlockers: 'maxSightBlockers',
   savedRolls: 'maxSavedRolls',
   savedRollFolders: 'maxSavedRollFolders',
+  savedTokens: 'maxSavedTokens',
+  savedTokenFolders: 'maxSavedTokenFolders',
   customEmojis: 'maxCustomEmojis',
 };
 
@@ -63,6 +66,8 @@ const UNBOUNDED: PlanLimits = {
   maxSightBlockers: TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX,
   maxSavedRolls: SAVED_ROLLS_MAX,
   maxSavedRollFolders: SAVED_ROLL_FOLDERS_MAX,
+  maxSavedTokens: SAVED_TOKENS_MAX,
+  maxSavedTokenFolders: SAVED_TOKEN_FOLDERS_MAX,
   maxDiceModelsPerRoll: DICE_THROW_MODELS_MAX,
   maxMapSide: ASSET_MAX_SIDE.library_map,
   maxBackgroundSide: ASSET_MAX_SIDE.background,
@@ -119,6 +124,8 @@ const NARRADOR: PlanLimits = {
   maxSightBlockers: 5,
   maxSavedRolls: 15,
   maxSavedRollFolders: 5,
+  maxSavedTokens: 20,
+  maxSavedTokenFolders: 5,
   maxDiceModelsPerRoll: 15,
   auraKinds: ['color'],
   desktopWindows: false,
@@ -147,6 +154,8 @@ const FREE: PlanLimits = {
   maxSightBlockers: 0,
   maxSavedRolls: 3,
   maxSavedRollFolders: 0,
+  maxSavedTokens: 0,
+  maxSavedTokenFolders: 0,
   maxDiceModelsPerRoll: 8,
   maxMapSide: 4096,
   maxBackgroundSide: 2048,
@@ -190,27 +199,68 @@ export const PLAN_FAIR_USE_RESOURCES: Readonly<Record<UserPlan, readonly PlanCou
   amigo_do_dono: [],
 };
 
-/** The saved rolls and folders a person keeps at a table. */
-export type SavedRollCeilings = Pick<PlanLimits, 'maxSavedRolls' | 'maxSavedRollFolders'>;
+type PersonalCountKey = {
+  [K in keyof PlanLimits]: PlanLimits[K] extends number ? K : never;
+}[keyof PlanLimits];
 
-function savedRollCeilingsOf(limits: PlanLimits): SavedRollCeilings {
-  return { maxSavedRolls: limits.maxSavedRolls, maxSavedRollFolders: limits.maxSavedRollFolders };
+/** The ceilings a person carries to any table, the first key deciding who wins. */
+type PersonalCeilings<K extends PersonalCountKey> = Readonly<Pick<PlanLimits, K>>;
+
+function ceilingsOf<K extends PersonalCountKey>(
+  limits: PlanLimits,
+  keys: readonly K[],
+): PersonalCeilings<K> {
+  return Object.fromEntries(keys.map((key) => [key, limits[key]])) as PersonalCeilings<K>;
 }
+
+/** The limits a member's own items (saved rolls, saved tokens) are checked against, and whose
+ *  they are. */
+export type MemberPlanLimits = Readonly<{ limits: PlanLimits; holder: PlanLimitHolder }>;
+export type SavedRollLimits = MemberPlanLimits;
+
+// The grids grow together on every key of a group, so the first key alone picks the winner; a tie
+// stays with the table, and only the keys of the group come from the person.
+function memberLimitsOf<K extends PersonalCountKey>(
+  table: PlanLimits,
+  personal: PersonalCeilings<K>,
+  personalPlan: UserPlan,
+  decidingKey: K,
+): MemberPlanLimits {
+  if (personal[decidingKey] <= table[decidingKey]) return { limits: table, holder: 'table' };
+  return { limits: { ...table, ...personal, plan: personalPlan }, holder: 'account' };
+}
+
+const ROLL_KEYS = ['maxSavedRolls', 'maxSavedRollFolders'] as const;
+const TOKEN_KEYS = ['maxSavedTokens', 'maxSavedTokenFolders'] as const;
+
+/** The saved rolls and folders a person keeps at a table. */
+export type SavedRollCeilings = PersonalCeilings<(typeof ROLL_KEYS)[number]>;
+/** The saved tokens and folders a person keeps at a table. */
+export type SavedTokenCeilings = PersonalCeilings<(typeof TOKEN_KEYS)[number]>;
 
 /** What each plan gives its own holder at any table, whoever owns it: the grid of the plan, but
  *  the Apoiador, whose tables stay on Grátis, keeps the rolls of the Narrador for itself.
  *
  *  Example: `PERSONAL_SAVED_ROLL_LIMITS.apoiador.maxSavedRolls // 15` */
 export const PERSONAL_SAVED_ROLL_LIMITS: Readonly<Record<UserPlan, SavedRollCeilings>> = {
-  free: savedRollCeilingsOf(FREE),
-  apoiador: savedRollCeilingsOf(NARRADOR),
-  narrador: savedRollCeilingsOf(NARRADOR),
-  lenda: savedRollCeilingsOf(LENDA),
-  amigo_do_dono: savedRollCeilingsOf(UNBOUNDED),
+  free: ceilingsOf(FREE, ROLL_KEYS),
+  apoiador: ceilingsOf(NARRADOR, ROLL_KEYS),
+  narrador: ceilingsOf(NARRADOR, ROLL_KEYS),
+  lenda: ceilingsOf(LENDA, ROLL_KEYS),
+  amigo_do_dono: ceilingsOf(UNBOUNDED, ROLL_KEYS),
 };
 
-/** The limits a member's saved rolls are checked against, and whose they are. */
-export type SavedRollLimits = Readonly<{ limits: PlanLimits; holder: PlanLimitHolder }>;
+/** The saved tokens each plan gives its own holder at any table: the grid of the plan, but the
+ *  Apoiador (whose tables give none) keeps 5 tokens and 2 folders for itself.
+ *
+ *  Example: `PERSONAL_SAVED_TOKEN_LIMITS.apoiador.maxSavedTokens // 5` */
+export const PERSONAL_SAVED_TOKEN_LIMITS: Readonly<Record<UserPlan, SavedTokenCeilings>> = {
+  free: ceilingsOf(FREE, TOKEN_KEYS),
+  apoiador: { maxSavedTokens: 5, maxSavedTokenFolders: 2 },
+  narrador: ceilingsOf(NARRADOR, TOKEN_KEYS),
+  lenda: ceilingsOf(LENDA, TOKEN_KEYS),
+  amigo_do_dono: ceilingsOf(UNBOUNDED, TOKEN_KEYS),
+};
 
 /** The saved rolls of a member: the greater of the table's grid and the person's own (a tie
  *  stays with the table). The other keys are the table's; `plan` names the grid that won.
@@ -218,7 +268,13 @@ export type SavedRollLimits = Readonly<{ limits: PlanLimits; holder: PlanLimitHo
  *  Example: `savedRollLimitsOf(PLAN_LIMITS.free, 'apoiador').limits.maxSavedRolls // 15` */
 export function savedRollLimitsOf(table: PlanLimits, personalPlan: UserPlan): SavedRollLimits {
   const personal = PERSONAL_SAVED_ROLL_LIMITS[personalPlan];
-  // The grids grow together on both keys, so the rolls alone pick the winner.
-  if (personal.maxSavedRolls <= table.maxSavedRolls) return { limits: table, holder: 'table' };
-  return { limits: { ...table, ...personal, plan: personalPlan }, holder: 'account' };
+  return memberLimitsOf(table, personal, personalPlan, 'maxSavedRolls');
+}
+
+/** The saved tokens of a member, by the same rule as the saved rolls.
+ *
+ *  Example: `savedTokenLimitsOf(PLAN_LIMITS.free, 'apoiador').limits.maxSavedTokens // 5` */
+export function savedTokenLimitsOf(table: PlanLimits, personalPlan: UserPlan): MemberPlanLimits {
+  const personal = PERSONAL_SAVED_TOKEN_LIMITS[personalPlan];
+  return memberLimitsOf(table, personal, personalPlan, 'maxSavedTokens');
 }

@@ -1,4 +1,10 @@
-import { savedRollLimitsOf, type PlanLimits } from '@lorkarium/contracts';
+import {
+  savedRollLimitsOf,
+  savedTokenLimitsOf,
+  type MemberPlanLimits,
+  type PlanLimits,
+  type UserPlan,
+} from '@lorkarium/contracts';
 import { createContext, useContext, useMemo } from 'react';
 import type { PlanReadOnlyResource } from '@/lib/plan-limit-message';
 import type { AccountLimits } from '@/stores/session-store';
@@ -35,14 +41,31 @@ export function usePlanLock(
 ): PlanGate {
   const table = useContext(TablePlanLimitsContext);
   const account = useContext(AccountPlanContext);
-  const limits = resource === 'savedRolls' ? savedRollPlanOf(table, account) : table;
-  return planLockGate(limits, resource, item ?? { planLocked: false });
+  return planLockGate(
+    memberPlanOf(resource, table, account),
+    resource,
+    item ?? { planLocked: false },
+  );
 }
 
-function savedRollPlanOf(
+type MemberLimitsOf = (table: PlanLimits, personalPlan: UserPlan) => MemberPlanLimits;
+
+// The saved rolls and tokens are the person's: the greater of the table's grid and their own.
+const MEMBER_LIMITS: Readonly<Partial<Record<PlanReadOnlyResource, MemberLimitsOf>>> = {
+  savedRolls: savedRollLimitsOf,
+  savedTokens: savedTokenLimitsOf,
+};
+
+/** The limits a resource of the person is checked against around this component: the member's
+ *  own items by the greater of the table's and the account's plan, the rest by the table's.
+ *
+ *  Example: `memberPlanOf('savedTokens', PLAN_LIMITS.free, apoiador)?.maxSavedTokens // 5` */
+export function memberPlanOf(
+  resource: PlanReadOnlyResource,
   table: PlanLimits | null,
   account: AccountLimits | null,
 ): PlanLimits | null {
-  if (table === null || account === null) return table;
-  return savedRollLimitsOf(table, account.limits.plan).limits;
+  const limitsOf = MEMBER_LIMITS[resource];
+  if (limitsOf === undefined || table === null || account === null) return table;
+  return limitsOf(table, account.limits.plan).limits;
 }

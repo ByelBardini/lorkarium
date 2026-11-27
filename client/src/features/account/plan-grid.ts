@@ -1,12 +1,12 @@
 import {
   AURA_KINDS,
   PERSONAL_SAVED_ROLL_LIMITS,
+  PERSONAL_SAVED_TOKEN_LIMITS,
   PLAN_COUNT_LIMIT_KEY,
   PLAN_COUNT_RESOURCES,
   PLAN_FAIR_USE_RESOURCES,
   type PlanCountResource,
   type PlanLimits,
-  type SavedRollCeilings,
 } from '@lorkarium/contracts';
 import { byteSizeText } from '@/lib/byte-size-text';
 import { PLAN_COUNT_LABELS } from './plan-section-labels';
@@ -44,20 +44,24 @@ export function storageUsageLabel(used: number, limit: number | null): string {
   return `${byteSizeText(used)} de ${byteSizeText(limit)}`;
 }
 
-// The saved rolls are the person's: each plan shows what its holder keeps at any table.
-const PERSONAL_KEY: Readonly<Partial<Record<PlanCountResource, keyof SavedRollCeilings>>> = {
-  savedRolls: 'maxSavedRolls',
-  savedRollFolders: 'maxSavedRollFolders',
+// The saved rolls and tokens are the person's: each plan shows what its holder keeps at any table.
+const PERSONAL_CEILING: Readonly<
+  Partial<Record<PlanCountResource, (limits: PlanLimits) => number>>
+> = {
+  savedRolls: (limits) => PERSONAL_SAVED_ROLL_LIMITS[limits.plan].maxSavedRolls,
+  savedRollFolders: (limits) => PERSONAL_SAVED_ROLL_LIMITS[limits.plan].maxSavedRollFolders,
+  savedTokens: (limits) => PERSONAL_SAVED_TOKEN_LIMITS[limits.plan].maxSavedTokens,
+  savedTokenFolders: (limits) => PERSONAL_SAVED_TOKEN_LIMITS[limits.plan].maxSavedTokenFolders,
 };
 
 function ceilingOf(resource: PlanCountResource, limits: PlanLimits): number | null {
-  const personal = PERSONAL_KEY[resource];
-  if (personal !== undefined) return PERSONAL_SAVED_ROLL_LIMITS[limits.plan][personal];
+  const personal = PERSONAL_CEILING[resource];
+  if (personal !== undefined) return personal(limits);
   return limits[PLAN_COUNT_LIMIT_KEY[resource]];
 }
 
 /** The cell of a counted resource: "ilimitado" on a fair-use ceiling, "sem limite" without one;
- *  the saved rolls by the plan's own ceilings (the Apoiador keeps those of the Narrador).
+ *  the saved rolls and tokens by the plan's own ceilings (the Apoiador keeps its own).
  *
  *  Example: `countCell('scenes', PLAN_LIMITS.lenda) // 'ilimitado'` */
 export function countCell(resource: PlanCountResource, limits: PlanLimits): string {

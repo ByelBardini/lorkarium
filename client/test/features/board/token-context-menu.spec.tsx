@@ -442,3 +442,45 @@ describe('TokenContextMenu', () => {
     });
   });
 });
+
+describe('TokenContextMenu, "Salvar na minha lista…"', () => {
+  function openWith(token: ReturnType<typeof lyra>, saved: string[]): void {
+    const board = createBoardStore(VHARN.id, () => undefined);
+    board.getState().apply({ kind: 'board', state: vharnBoard({ tokens: [token] }) });
+    const commands = new TableBoardCommandsFake();
+    const interaction = createBoardInteractionStore({
+      scopeOf: () => VHARN_GRID,
+      commands,
+      describeRefusal: String,
+    });
+    render(
+      <TokenContextMenu
+        request={{ tokenId: token.id, x: 10, y: 10 }}
+        board={board}
+        interaction={interaction}
+        onApplyCondition={() => undefined}
+        onChangeImage={() => undefined}
+        onChangeAura={() => undefined}
+        onSaveToken={(tokenId) => saved.push(tokenId)}
+        onClose={() => undefined}
+      />,
+    );
+  }
+
+  it('on a token the viewer controls, the item opens the save dialog for it', async () => {
+    const saved: string[] = [];
+    openWith(lyra(), saved);
+
+    await userEvent.setup().click(screen.getByRole('menuitem', { name: 'Salvar na minha lista…' }));
+
+    expect(saved).toEqual([lyra().id]);
+  });
+
+  it('on a token the viewer does not control, there is no such item', () => {
+    openWith(lyra({ canControl: false }), []);
+
+    expect(
+      screen.queryByRole('menuitem', { name: 'Salvar na minha lista…' }),
+    ).not.toBeInTheDocument();
+  });
+});

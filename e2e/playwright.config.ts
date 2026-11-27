@@ -70,6 +70,7 @@ const SPEC_GROUPS: Readonly<Record<string, readonly string[]>> = {
     'token-forms',
     'token-patrol',
     'free-movement',
+    'saved-tokens',
   ],
   scene: [
     'layers',

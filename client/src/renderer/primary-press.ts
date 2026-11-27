@@ -9,9 +9,11 @@ import type { PixiBoardOverlays } from './pixi-board-overlays';
 import type { PixiFacingHandle } from './pixi-facing-handle';
 import type { PixiMarquee } from './pixi-marquee';
 import type { PixiResizeHandles } from './pixi-resize-handles';
+import type { PixiSpawnGhost } from './pixi-spawn-ghost';
 import { isAltPing, movePingHold, pingHoldDue, startPingHold, type PingHold } from './ping-hold';
 import type { PixiTokenLayer } from './pixi-token-layer';
 import { pressRouteOf, type PressRoute } from './press-route';
+import { spawnLandingOf } from './spawn-ghost';
 import {
   dropCellOf,
   grabOffsetOf,
@@ -44,6 +46,7 @@ export type PressParts = Readonly<{
     readonly facingHandle: Pick<PixiFacingHandle, 'press'>;
     readonly resizeHandles: Pick<PixiResizeHandles, 'press'>;
     readonly marquee: Pick<PixiMarquee, 'start' | 'grow' | 'end'>;
+    readonly spawnGhost: Pick<PixiSpawnGhost, 'follow'>;
   };
   lights: Pick<LightGestures, 'press' | 'move' | 'release' | 'cancel'>;
   sketches: Pick<DrawingGestures, 'startSketch' | 'press' | 'move' | 'release' | 'cancel'>;
@@ -109,7 +112,11 @@ export class PrimaryPress {
   }
 
   /** The plain pointer of a held button that no gesture took. */
-  pointerMoved(at: PressPoint): void {
+  /** A move no gesture took: the ruler's pointer and, with a saved token armed, its preview.
+   *
+   *  Example: `press.pointerMoved(context, at)` */
+  pointerMoved({ view }: PressContext, at: PressPoint): void {
+    if (view) this.parts.overlays.spawnGhost.follow(view.grid.cells, at.world);
     if (this.primaryDown) this.parts.onIntent({ kind: 'pointerMove', cell: at.cell });
   }
 
@@ -162,6 +169,7 @@ export class PrimaryPress {
     if (view && route.kind === 'drawing') return void sketches.press(view, screen, world);
     if (view && route.kind === 'effectArea') return void areas.press(view, screen, world);
     if (view && route.kind === 'patrolPoint') return this.pickPatrolPoint(view, world);
+    if (view && route.kind === 'spawnPoint') return this.pickSpawnPoint(view, world);
     this.pressPointer(route, at);
   }
 
@@ -170,6 +178,12 @@ export class PrimaryPress {
     const size = view.patrolPath?.size;
     const landing = size ? dropCellOf(view.grid.cells, size, world) : null;
     if (landing) this.parts.onIntent({ kind: 'patrolPointPicked', cell: landing });
+  }
+
+  // Snapped like a drop, the saved token centered on the press; off the scene nothing spawns.
+  private pickSpawnPoint(view: BoardView, world: Point): void {
+    const landing = spawnLandingOf(view, world);
+    if (landing) this.parts.onIntent({ kind: 'spawnPointPicked', cell: landing });
   }
 
   // Only a point of the scene: off it there is nothing to point at (and the server refuses it).

@@ -151,6 +151,7 @@ function tableRoute({
   createDiceSound,
   dice,
   savedRolls,
+  savedTokens,
   diceClock,
   chat,
   chatWindowHost,
@@ -210,6 +211,7 @@ function tableRoute({
                       createDiceSound={createDiceSound}
                       dice={dice}
                       savedRolls={savedRolls}
+                      savedTokens={savedTokens}
                       diceClock={diceClock}
                       chat={chat}
                       chatWindowHost={chatWindowHost}

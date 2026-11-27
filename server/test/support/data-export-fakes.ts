@@ -22,6 +22,7 @@ import type {
   OwnCharacterRow,
   OwnDocumentRow,
   OwnSavedRollRow,
+  OwnSavedTokenRow,
   OwnSheetRow,
   ReadableTabRow,
   SentAssetRow,
@@ -90,6 +91,7 @@ export function emptyExportParts(overrides: Partial<DataExportParts> = {}): Data
     documents: [],
     tabs: [],
     savedRolls: [],
+    savedTokens: [],
     assets: [],
     ...overrides,
   };
@@ -172,6 +174,7 @@ export class CampaignExportDaoFake implements Pick<CampaignExportDao, keyof Camp
   documents: OwnDocumentRow[] = [];
   tabs: ReadableTabRow[] = [];
   savedRolls: OwnSavedRollRow[] = [];
+  savedTokens: OwnSavedTokenRow[] = [];
   assets: SentAssetRow[] = [];
 
   async membershipsOf(): Promise<MembershipRow[]> {
@@ -194,6 +197,9 @@ export class CampaignExportDaoFake implements Pick<CampaignExportDao, keyof Camp
   }
   async savedRollsOf(): Promise<OwnSavedRollRow[]> {
     return this.savedRolls;
+  }
+  async savedTokensOf(): Promise<OwnSavedTokenRow[]> {
+    return this.savedTokens;
   }
   async assetsSentBy(): Promise<SentAssetRow[]> {
     return this.assets;

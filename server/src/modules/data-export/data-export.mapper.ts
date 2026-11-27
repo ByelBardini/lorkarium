@@ -19,6 +19,7 @@ import type {
 } from './account-export.dao';
 import type { FeedbackEntryPo } from '../feedback/feedback-entries.po';
 import { contentOf } from '../feedback/feedback.mapper';
+import { toSavedTokenDto } from '../saved-tokens/saved-tokens.mapper';
 import type { MadeReportRow, ReceivedSanctionRow } from './moderation-export.dao';
 import type {
   MembershipRow,
@@ -26,6 +27,7 @@ import type {
   OwnCharacterRow,
   OwnDocumentRow,
   OwnSavedRollRow,
+  OwnSavedTokenRow,
   OwnSheetRow,
   ReadableTabRow,
   SentAssetRow,
@@ -55,6 +57,7 @@ export type DataExportParts = Readonly<{
   documents: readonly OwnDocumentRow[];
   tabs: readonly ReadableTabRow[];
   savedRolls: readonly OwnSavedRollRow[];
+  savedTokens: readonly OwnSavedTokenRow[];
   assets: readonly SentAssetRow[];
 }>;
 
@@ -257,13 +260,17 @@ function sanctionOf(row: ReceivedSanctionRow): DataExportDto['sanctions'][number
 
 function tablesOf(
   parts: DataExportParts,
-): Pick<DataExportDto, 'campaigns' | 'characters' | 'sheets' | 'documents' | 'savedRolls'> {
+): Pick<
+  DataExportDto,
+  'campaigns' | 'characters' | 'sheets' | 'documents' | 'savedRolls' | 'savedTokens'
+> {
   return {
     campaigns: parts.memberships.map(campaignOf),
     characters: parts.characters.map((row) => characterOf(row, parts.bars)),
     sheets: parts.sheets.map(sheetOf),
     documents: parts.documents.map((row) => documentOf(row, parts.tabs)),
     savedRolls: parts.savedRolls.map(savedRollOf),
+    savedTokens: parts.savedTokens.map(savedTokenOf),
   };
 }
 
@@ -328,6 +335,18 @@ function savedRollOf(row: OwnSavedRollRow): DataExportDto['savedRolls'][number] 
     parts,
     createdAt: iso(row.createdAt),
     updatedAt: iso(row.updatedAt),
+  };
+}
+
+function savedTokenOf(row: OwnSavedTokenRow): DataExportDto['savedTokens'][number] {
+  const { savedToken, folder } = row;
+  return {
+    campaignId: savedToken.campaignId,
+    folder,
+    name: savedToken.name,
+    token: toSavedTokenDto(row, false).token,
+    createdAt: iso(savedToken.createdAt),
+    updatedAt: iso(savedToken.updatedAt),
   };
 }
 

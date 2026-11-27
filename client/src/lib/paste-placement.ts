@@ -11,6 +11,7 @@ import { shiftEffectArea, type Cell, type SceneSize } from '@lorkarium/game-core
 import { entryOfToken } from './combat-entries';
 import { toHundredth } from './drawing-geometry';
 import { sentShapeOf, shapeOfEffectArea } from './effect-area-shape';
+import { copiedLookOf } from './token-copy';
 
 /** What Ctrl+C keeps: the tokens, drawings and areas of effect of the selection, ready to be
  *  created again. */
@@ -93,20 +94,7 @@ export function pastePlacement(
 
 function newTokenOf(token: TokenDto, combatantId: string | undefined): NewTokenInput {
   const { name, initials, side, width, height, col, row, layer, controllerIds } = token;
-  const { imageAssetId, frame, flipX, flipY, facing, sightAngle } = token;
-  const look = {
-    imageAssetId,
-    frame,
-    flipX,
-    flipY,
-    facing,
-    sightAngle,
-    sight: token.sight,
-    light: token.light,
-    aura: token.aura,
-    blocksSight: token.blocksSight,
-    magicSight: token.magicSight,
-  };
+  const look = copiedLookOf(token);
   const bars = token.bars.map(({ label, current, max, temp, color, visibility }) => ({
     label,
     current,

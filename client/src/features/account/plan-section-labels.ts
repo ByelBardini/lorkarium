@@ -22,5 +22,7 @@ export const PLAN_COUNT_LABELS: Readonly<Record<PlanCountResource, string>> = {
   sightBlockers: 'Tokens que bloqueiam a visão por cena',
   savedRolls: 'Rolagens salvas por pessoa',
   savedRollFolders: 'Pastas de rolagens por pessoa',
+  savedTokens: 'Tokens salvos por pessoa',
+  savedTokenFolders: 'Pastas de tokens salvos por pessoa',
   customEmojis: 'Emojis personalizados',
 };

@@ -2,7 +2,7 @@ import { PLAN_LIMITS, type PlanLimits } from '@lorkarium/contracts';
 import { render, renderHook, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useCustomColorLock } from '@/components/color-picker/custom-color-locks';
-import { usePlanLimits } from '@/features/plans/use-plan-limits';
+import { memberPlanOf, usePlanLimits } from '@/features/plans/use-plan-limits';
 import {
   AccountPlanProvider,
   TablePlanLimitsProvider,
@@ -55,6 +55,27 @@ describe('usePlanLimits', () => {
     });
     expect(result.current.account?.plan).toBe('free');
     expect(result.current.table).toBe(PLAN_LIMITS.narrador);
+  });
+});
+
+describe('memberPlanOf', () => {
+  const apoiador = { ...FREE_ACCOUNT, plan: 'apoiador' as const, limits: PLAN_LIMITS.apoiador };
+
+  it('an Apoiador at a Grátis table keeps 5 saved tokens from its own plan', () => {
+    const limits = memberPlanOf('savedTokens', PLAN_LIMITS.free, {
+      ...apoiador,
+      customization: true,
+    });
+    expect(limits?.maxSavedTokens).toBe(5);
+  });
+
+  it('a table resource stays the table one, whatever the account', () => {
+    const limits = memberPlanOf('scenes', PLAN_LIMITS.free, { ...apoiador, customization: true });
+    expect(limits).toBe(PLAN_LIMITS.free);
+  });
+
+  it('without the account known, the table decides', () => {
+    expect(memberPlanOf('savedTokens', PLAN_LIMITS.narrador, null)).toBe(PLAN_LIMITS.narrador);
   });
 });
 

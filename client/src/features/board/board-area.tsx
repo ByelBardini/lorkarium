@@ -1,6 +1,9 @@
 import type { TokenDto, WallDto } from '@lorkarium/contracts';
 import { useState } from 'react';
+import type { Cell } from '@lorkarium/game-core';
 import type { StoreApi } from 'zustand/vanilla';
+import type { SpawnAimStore } from '@/stores/spawn-aim-flow';
+import type { Point } from '@/renderer/camera';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -82,6 +85,11 @@ export type BoardAreaProps = Readonly<{
   clock?: InteractionClock;
   /** The master's patrol editor: its draft is drawn and a press adds its next point. */
   patrolEditor?: StoreApi<TokenPatrolEditor>;
+  /** The saved token armed to spawn: its ghost is drawn and a press spawns it there. */
+  spawnAim?: StoreApi<SpawnAimStore>;
+  onSpawn?: (at: Cell) => void;
+  /** A saved token dropped from the panel at a world point of the board. */
+  onSavedTokenDrop?: (savedTokenId: string, world: Point) => void;
   /** The grid tab shown: the canvas stays, only its scene and camera change with it. */
   tabKey?: string;
 }>;
@@ -160,6 +168,9 @@ function InteractiveCanvas({
   onPing,
   clock,
   patrolEditor,
+  spawnAim,
+  onSpawn,
+  onSavedTokenDrop,
   tabKey,
 }: Omit<OpenBoardProps, 'presence'>): React.JSX.Element {
   const onKeyDown = useBoardKeyboard({
@@ -180,11 +191,14 @@ function InteractiveCanvas({
         createBoardRenderer={createBoardRenderer}
         clock={clock}
         patrolEditor={patrolEditor}
+        spawnAim={spawnAim}
+        onSavedTokenDrop={onSavedTokenDrop}
         tabKey={tabKey}
         onIntent={(intent) => {
           if (intent.kind === 'patrolPointPicked') {
             return patrolEditor?.getState().addPoint(intent.cell);
           }
+          if (intent.kind === 'spawnPointPicked') return onSpawn?.(intent.cell);
           if (intent.kind === 'tokenHovered') return onTokenHover(hoverRequestOf(intent));
           if (intent.kind === 'pingRequested') return onPing({ x: intent.x, y: intent.y });
           if (intent.kind === 'tokenDragged') onTokenHover(null);

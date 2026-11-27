@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { sanctionKindDto, sanctionRuleDto, appealOutcomeDto } from '../admin/account-sanction.dto';
 import { assetPurposeDto } from '../assets/asset.dto';
 import { userRoleDto } from '../auth/auth-user.dto';
+import { savedTokenBodyDto } from '../board/saved-token.dto';
 import { tokenSideDto } from '../board/token.dto';
 import { campaignRoleDto } from '../campaigns/campaign.dto';
 import { diceRollPartDto } from '../dice/dice.dto';
@@ -173,6 +174,16 @@ const exportedSavedRollDto = z.strictObject({
   updatedAt: instant,
 });
 
+/** A token the person keeps at a table to spawn again, as they saved it. */
+const exportedSavedTokenDto = z.strictObject({
+  campaignId: z.uuid(),
+  folder: z.string().nullable(),
+  name: z.string(),
+  token: savedTokenBodyDto,
+  createdAt: instant,
+  updatedAt: instant,
+});
+
 /** A bug report or suggestion still waiting for review (a closed one is no longer kept). */
 const exportedFeedbackDto = z.strictObject({
   content: feedbackContentDto,
@@ -220,6 +231,7 @@ export const dataExportDto = z.strictObject({
   sheets: z.array(exportedSheetDto),
   documents: z.array(exportedDocumentDto),
   savedRolls: z.array(exportedSavedRollDto),
+  savedTokens: z.array(exportedSavedTokenDto),
   sessions: z.array(exportedSessionDto),
   images: z.array(exportedImageDto),
 });

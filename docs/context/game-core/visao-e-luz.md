@@ -74,7 +74,7 @@ A pose é a da arte (`artBox`: o encaixe é feito no quadrado e depois estica co
 
 ## Armadilhas
 
-- **Token sem imagem bloqueia pelo disco, mesmo com a borda `square`** (o padrão): o `drawToken` só desenha quadrado com a imagem carregada. Ler só o `frame` deu sombra e buraco de névoa quadrados em volta de um disco. A regra é "bloqueia o que se vê": confira a forma contra o `pixi-token-layer.ts`, não contra o `frame`.
+- **Token sem imagem bloqueia pelo disco, mesmo com a borda `square`** (o padrão): o `drawTokenBody` só desenha quadrado com a imagem carregada. Ler só o `frame` deu sombra e buraco de névoa quadrados em volta de um disco. A regra é "bloqueia o que se vê": confira a forma contra o `pixi-token-layer.ts`, não contra o `frame`.
 - **Ignorar é por lista, nunca por array filtrado:** um array por olho pagaria uma preparação por olho. Todos dividem a preparação da lista única, e `ignores`/`exceto` só pulam os trechos. As paredes passadas têm de ser **as mesmas instâncias** que estão em `paredes`: cópia não é reconhecida e a parede volta a cortar.
 - **O alvo bloqueador precisa do próprio `ignores`:** o centro e os cantos recuados dele estão atrás do próprio contorno, então sem `SightTarget.ignores` ele fica `hidden` para todo mundo. Passe só as paredes dele (`bloqueador.walls`), não o `blockersIgnoredAt`, senão o alvo dentro de outra estátua deixaria de ser escondido por ela.
 - **Visão e passagem novas passam pelo `preparedWalls`** (o índice por baldes e os cruzamentos prontos), nunca por `wallSegments(parede)` dentro de laço: era o que fazia o `lineOfSight` custar 200 vezes mais. Quem chama em laço passa **o mesmo array** de paredes; deixar uma parede de fora é o `exceto` por referência, não um array filtrado (array novo = preparação nova).

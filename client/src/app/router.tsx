@@ -76,6 +76,7 @@ import type { SheetsApi } from '@/services/sheets-api';
 import type { SheetTemplatesApi } from '@/services/sheet-templates-api';
 import type { SheetEditorLayoutMemory } from '@/lib/sheet-editor-layout';
 import type { SavedRollsApi } from '@/services/saved-rolls-api';
+import type { SavedTokensApi } from '@/services/saved-tokens-api';
 import type { DicePreferencesStore } from '@/stores/dice-preferences-store';
 import type { DiceRendererFactory } from '@lorkarium/dice-renderer';
 import type { DiceSoundFactory } from '@/dice-audio/dice-sound';
@@ -208,6 +209,8 @@ export type AppDependencies = Readonly<{
   chatWindowHost: ChatWindowHost;
   /** The session's own saved rolls at a table (REST). */
   savedRolls: SavedRollsApi;
+  /** The session's own saved tokens at a table (REST). */
+  savedTokens: SavedTokensApi;
   /** The dice history's own time (wall clock, `Date.now` in the app): the `revealAtMs` of each
    *  roll is on it, and so is the open tables' `wallClock`. */
   diceClock: InteractionClock;
