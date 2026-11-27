@@ -33,6 +33,8 @@ export const PLAN_COUNT_RESOURCES = [
   'sightBlockers',
   'savedRolls',
   'savedRollFolders',
+  'savedTokens',
+  'savedTokenFolders',
   'customEmojis',
 ] as const;
 

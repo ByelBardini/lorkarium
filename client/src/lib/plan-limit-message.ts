@@ -74,6 +74,16 @@ export const PLAN_COUNT_LABEL: Readonly<Record<PlanCountResource, PlanCountLabel
     'pastas de rolagens por pessoa',
     'Pasta de rolagens está',
   ),
+  savedTokens: countLabel(
+    'token salvo por pessoa',
+    'tokens salvos por pessoa',
+    'Salvar token está',
+  ),
+  savedTokenFolders: countLabel(
+    'pasta de tokens salvos por pessoa',
+    'pastas de tokens salvos por pessoa',
+    'Pasta de tokens salvos está',
+  ),
   customEmojis: countLabel(
     'emoji personalizado',
     'emojis personalizados',
@@ -130,6 +140,7 @@ export type PlanReadOnlyResource = Extract<
   | 'sheetTemplates'
   | 'documentTabs'
   | 'savedRolls'
+  | 'savedTokens'
   | 'tokenBars'
   | 'tokenForms'
   | 'lights'
@@ -158,6 +169,11 @@ const READ_ONLY_LABEL: Readonly<Record<PlanReadOnlyResource, ReadOnlyLabel>> = {
     'Esta rolagem salva',
     'rolar, mover para pasta e excluir seguem livres',
     'Apague uma rolagem mais antiga',
+  ),
+  savedTokens: readOnlyLabel(
+    'Este token salvo',
+    'pôr no mapa, mover para pasta e excluir seguem livres',
+    'Apague um token salvo mais antigo',
   ),
   // Bars and forms rank by their place on the token, not by age.
   tokenBars: readOnlyLabel(

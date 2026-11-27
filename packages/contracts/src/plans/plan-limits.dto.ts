@@ -39,6 +39,9 @@ export const planLimitsDto = z.strictObject({
   maxSightBlockers: countCeiling,
   maxSavedRolls: countCeiling,
   maxSavedRollFolders: countCeiling,
+  /** Saved tokens of one member at one table (the greater of the table's and the person's). */
+  maxSavedTokens: countCeiling,
+  maxSavedTokenFolders: countCeiling,
   maxDiceModelsPerRoll: countCeiling,
   maxMapSide: countCeiling,
   maxBackgroundSide: countCeiling,

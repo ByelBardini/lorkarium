@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ASSET_MAX_SIDE } from '../../src/assets/asset.dto';
 import { LIGHTS_PER_SCENE_MAX } from '../../src/board/light.dto';
+import { SAVED_TOKEN_FOLDERS_MAX, SAVED_TOKENS_MAX } from '../../src/board/saved-token.dto';
 import { TOKEN_FORMS_MAX } from '../../src/board/token-form.dto';
 import { TOKEN_PATROLS_RUNNING_MAX } from '../../src/board/token-patrol.dto';
 import { MAX_BARS_PER_TOKEN, TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX } from '../../src/board/token.dto';
@@ -12,9 +13,11 @@ import {
   PLAN_COUNT_LIMIT_KEY,
   PLAN_FAIR_USE_RESOURCES,
   PERSONAL_SAVED_ROLL_LIMITS,
+  PERSONAL_SAVED_TOKEN_LIMITS,
   PLAN_LIMITS,
   planLimitsDto,
   savedRollLimitsOf,
+  savedTokenLimitsOf,
   type PlanLimits,
 } from '../../src/plans/plan-limits';
 import {
@@ -172,6 +175,8 @@ describe('PLAN_LIMITS', () => {
       maxSightBlockers: TOKEN_SIGHT_BLOCKERS_PER_SCENE_MAX,
       maxSavedRolls: SAVED_ROLLS_MAX,
       maxSavedRollFolders: SAVED_ROLL_FOLDERS_MAX,
+      maxSavedTokens: SAVED_TOKENS_MAX,
+      maxSavedTokenFolders: SAVED_TOKEN_FOLDERS_MAX,
       maxDiceModelsPerRoll: DICE_THROW_MODELS_MAX,
       maxMapSide: ASSET_MAX_SIDE.library_map,
       maxBackgroundSide: ASSET_MAX_SIDE.background,
@@ -317,7 +322,65 @@ describe('PERSONAL_SAVED_ROLL_LIMITS', () => {
   });
 });
 
+describe('saved tokens in the grid', () => {
+  it('a table gives 0 saved tokens on Grátis and Apoiador, 20 on Narrador, 50 on Lenda', () => {
+    expect(USER_PLANS.map((plan) => PLAN_LIMITS[plan].maxSavedTokens)).toEqual([0, 0, 20, 50, 50]);
+    expect(PLAN_LIMITS.amigo_do_dono.maxSavedTokens).toBe(SAVED_TOKENS_MAX);
+  });
+
+  it('a table gives 0 folders on Grátis and Apoiador, 5 on Narrador, 20 on Lenda', () => {
+    expect(USER_PLANS.map((plan) => PLAN_LIMITS[plan].maxSavedTokenFolders)).toEqual([
+      0, 0, 5, 20, 20,
+    ]);
+    expect(PLAN_LIMITS.amigo_do_dono.maxSavedTokenFolders).toBe(SAVED_TOKEN_FOLDERS_MAX);
+  });
+
+  it('a refusal may name savedTokens and savedTokenFolders', () => {
+    expect(PLAN_COUNT_LIMIT_KEY.savedTokens).toBe('maxSavedTokens');
+    expect(PLAN_COUNT_LIMIT_KEY.savedTokenFolders).toBe('maxSavedTokenFolders');
+    expect(planLimitResourceDto.parse('savedTokens')).toBe('savedTokens');
+  });
+
+  it('the person: Grátis 0/0, Apoiador 5/2, Narrador 20/5, Lenda 50/20', () => {
+    expect(PERSONAL_SAVED_TOKEN_LIMITS).toEqual({
+      free: { maxSavedTokens: 0, maxSavedTokenFolders: 0 },
+      apoiador: { maxSavedTokens: 5, maxSavedTokenFolders: 2 },
+      narrador: { maxSavedTokens: 20, maxSavedTokenFolders: 5 },
+      lenda: { maxSavedTokens: 50, maxSavedTokenFolders: 20 },
+      amigo_do_dono: { maxSavedTokens: 50, maxSavedTokenFolders: 20 },
+    });
+  });
+});
+
+describe('savedTokenLimitsOf', () => {
+  it('an Apoiador at a Grátis table keeps 5 tokens and 2 folders, from its own plan', () => {
+    const { limits, holder } = savedTokenLimitsOf(PLAN_LIMITS.free, 'apoiador');
+    expect(limits).toMatchObject({ maxSavedTokens: 5, maxSavedTokenFolders: 2, plan: 'apoiador' });
+    expect(holder).toBe('account');
+  });
+
+  it('a Grátis member at a Narrador table keeps the 20 tokens of the table', () => {
+    const { limits, holder } = savedTokenLimitsOf(PLAN_LIMITS.narrador, 'free');
+    expect(limits).toMatchObject({ maxSavedTokens: 20, maxSavedTokenFolders: 5, plan: 'narrador' });
+    expect(holder).toBe('table');
+  });
+
+  it('a Narrador at a Narrador table ties, and the tie stays with the table', () => {
+    expect(savedTokenLimitsOf(PLAN_LIMITS.narrador, 'narrador').holder).toBe('table');
+  });
+
+  it('the person winning on tokens leaves the saved rolls of the table alone', () => {
+    const { limits } = savedTokenLimitsOf(PLAN_LIMITS.free, 'lenda');
+    expect(limits).toMatchObject({ maxSavedTokens: 50, maxSavedRolls: 3, maxScenes: 3 });
+  });
+});
+
 describe('savedRollLimitsOf', () => {
+  it('the person winning on rolls leaves the saved tokens of the table alone', () => {
+    const { limits } = savedRollLimitsOf(PLAN_LIMITS.free, 'apoiador');
+    expect(limits).toMatchObject({ maxSavedRolls: 15, maxSavedTokens: 0 });
+  });
+
   it('an Apoiador at a Grátis table keeps 15 rolls and 5 folders, from its own plan', () => {
     const { limits, holder } = savedRollLimitsOf(PLAN_LIMITS.free, 'apoiador');
     expect(limits).toMatchObject({ maxSavedRolls: 15, maxSavedRollFolders: 5, plan: 'apoiador' });
