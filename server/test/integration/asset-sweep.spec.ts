@@ -14,10 +14,12 @@ import type { AssetStoragePort } from '../../src/modules/assets/asset-storage.po
 import type { AssetSweepService } from '../../src/modules/assets/asset-sweep.service';
 import { assets, type AssetPo } from '../../src/modules/assets/assets.po';
 import { storageDeletions } from '../../src/modules/assets/storage-deletions.po';
+import { SavedTokensDao } from '../../src/modules/saved-tokens/saved-tokens.dao';
 import { scenes } from '../../src/modules/scenes/scenes.po';
 import { ClockFake } from '../support/auth-fakes';
 import { FlakyRemovalStorageFake } from '../support/asset-quota-fakes';
 import { newAssetPo } from '../support/assets-factories';
+import { rottenFormPo, savedTokenPo } from '../support/saved-tokens-factories';
 import { DeletionLogFake } from '../support/storage-deletions-fakes';
 import type { SignedInUser } from '../support/sign-in';
 import type { Table } from '../support/tables';
@@ -129,6 +131,23 @@ describe('the sweep of loose files', () => {
 
     expect(await rowExists(background)).toBe(true);
     expect(await storageOf(live.ana)).toBe(700);
+    storage.destroy();
+  });
+
+  it('old files used only by a saved token of Bia (portrait and form) are not deleted', async () => {
+    const storage = bucket();
+    const portrait = await looseFile(storage, live.vharn, 25);
+    const formImage = await looseFile(storage, live.vharn, 25);
+    const owner = { campaignId: live.vharn.id, userId: live.bia.id };
+    await new SavedTokensDao(live.connection.db).insert(
+      savedTokenPo(owner, { imageAssetId: portrait }),
+      [rottenFormPo(formImage)],
+    );
+
+    await sweep().sweep();
+
+    expect(await rowExists(portrait)).toBe(true);
+    expect(await rowExists(formImage)).toBe(true);
     storage.destroy();
   });
 

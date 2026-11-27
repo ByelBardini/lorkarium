@@ -53,6 +53,11 @@ export { twoFactorChallenges } from '../modules/auth/two-factor-challenges.po';
 export { invitationOrigin, invitations } from '../modules/account-links/invitations.po';
 export { passwordResets } from '../modules/account-links/password-resets.po';
 export { savedRollFolders, savedRolls } from '../modules/saved-rolls/saved-rolls.po';
+export {
+  savedTokenFolders,
+  savedTokenForms,
+  savedTokens,
+} from '../modules/saved-tokens/saved-tokens.po';
 export { accountSavedColors } from '../modules/saved-colors/saved-colors.po';
 export { customEmojis } from '../modules/custom-emojis/custom-emoji.po';
 export { friendRequests } from '../modules/friends/friend-requests.po';

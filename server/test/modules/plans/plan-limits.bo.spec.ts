@@ -6,6 +6,7 @@ import {
   effectiveLimitsOf,
   effectivePlanOf,
   memberSavedRollLimitsOf,
+  memberSavedTokenLimitsOf,
   profileBannerAllowed,
 } from '../../../src/modules/plans/plan-limits.bo';
 import { PlanLimitError } from '../../../src/modules/plans/plans.error';
@@ -94,6 +95,26 @@ describe('profileBannerAllowed', () => {
   it('the admin and the Dono do Lorkarium have it on free', () => {
     expect(profileBannerAllowed({ ...USER, role: 'admin', plan: 'free' })).toBe(true);
     expect(profileBannerAllowed({ ...USER, plan: 'free', lorkariumOwner: true })).toBe(true);
+  });
+});
+
+describe('memberSavedTokenLimitsOf', () => {
+  const USER = { role: 'user', lorkariumOwner: false } as const;
+
+  it('an Apoiador (paid) at a Grátis table keeps 5 tokens and 2 folders from its own plan', () => {
+    const member = { ...USER, plan: 'free', activePaidPlan: 'apoiador' } as const;
+    const tableOwner = { ...USER, plan: 'free' } as const;
+    const { limits, holder } = memberSavedTokenLimitsOf({ tableOwner, member });
+    expect(limits).toMatchObject({ maxSavedTokens: 5, maxSavedTokenFolders: 2 });
+    expect(holder).toBe('account');
+  });
+
+  it('a Grátis member at a Narrador table keeps the 20 tokens of the table', () => {
+    const tableOwner = { ...USER, plan: 'narrador' } as const;
+    const member = { ...USER, plan: 'free' } as const;
+    const { limits, holder } = memberSavedTokenLimitsOf({ tableOwner, member });
+    expect(limits.maxSavedTokens).toBe(20);
+    expect(holder).toBe('table');
   });
 });
 
