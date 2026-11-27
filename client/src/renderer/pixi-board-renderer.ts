@@ -39,7 +39,7 @@ import { DrawingGestures } from './drawing-gestures';
 import { EffectAreaGestures } from './effect-area-gestures';
 import { LightGestures } from './light-gestures';
 import { erasedStrokesOf, wallTargetAt } from './wall-view';
-import { pointOf, prefersReducedMotion, wheelFields } from './dom-input';
+import { listenTo, pointOf, prefersReducedMotion, wheelFields } from './dom-input';
 import { HoverReport, tokenScreenRect, type HoveredToken } from './hover-report';
 import { hoverRouteOf, menuIntentOf, menuRouteOf } from './press-route';
 import { PrimaryPress, type PressContext, type PressPoint } from './primary-press';
@@ -100,7 +100,7 @@ class PixiBoardRenderer implements BoardRenderer {
   private readonly fog = new PixiFogLayer();
   private readonly pings = new PixiPingLayer(prefersReducedMotion);
   private readonly speech = new PixiSpeechLayer();
-  private readonly overlays = new PixiBoardOverlays((intent) => this.onIntent(intent));
+  private readonly overlays: PixiBoardOverlays;
   private readonly lightGestures = new LightGestures((intent) => this.onIntent(intent));
   // Every change only marks what to redraw; the ticker draws once per frame (`flush`).
   private readonly frame = new FrameWork();
@@ -140,6 +140,7 @@ class PixiBoardRenderer implements BoardRenderer {
     const beneath = this.effectAreas.under(this.drawings.layer);
     this.textureGauge = new PixiTextureGauge(probe);
     const { textures, auraSources } = this;
+    this.overlays = new PixiBoardOverlays(onIntent, () => textures);
     this.tokens = new PixiTokenLayer(prefersReducedMotion, beneath, textures, probe, auraSources);
     this.press = new PrimaryPress({
       overlays: this.overlays,
@@ -339,6 +340,7 @@ class PixiBoardRenderer implements BoardRenderer {
   private textureArrived(url: string): void {
     if (this.view?.background?.url === url) return this.frame.viewChanged();
     this.tokens.refreshArt(url);
+    this.overlays.spawnGhost.refreshArt(url);
   }
 
   private drawView(view: BoardView, app: Application): void {
@@ -366,6 +368,7 @@ class PixiBoardRenderer implements BoardRenderer {
     this.on(canvas, 'pointerleave', () => {
       this.hover.left();
       this.tokens.hover(null);
+      this.overlays.spawnGhost.hide();
     });
     // Keys on the focusable host, not on the window: typing elsewhere never moves the board.
     this.on(host, 'keydown', (event) => this.keys.down(event));
@@ -412,7 +415,7 @@ class PixiBoardRenderer implements BoardRenderer {
     const pressed = event.buttons !== 0;
     const token = pressed ? null : this.hoveredToken(this.hoverAt(event));
     this.hover.moved({ cell: at.cell, pressed, token });
-    this.press.pointerMoved(at);
+    this.press.pointerMoved(this.pressContext(), at);
   }
 
   // The name of the token under the pointer and the stretch cursor over a handle.
@@ -491,8 +494,6 @@ class PixiBoardRenderer implements BoardRenderer {
     listener: (event: HTMLElementEventMap[K]) => void,
     options?: AddEventListenerOptions,
   ): void {
-    const touching = this.frame.touching(listener);
-    target.addEventListener(type, touching, options);
-    this.disposers.push(() => target.removeEventListener(type, touching, options));
+    this.disposers.push(listenTo(target, type, this.frame.touching(listener), options));
   }
 }

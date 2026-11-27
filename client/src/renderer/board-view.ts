@@ -52,6 +52,7 @@ import {
 } from './sight-blocker-outline-view';
 import { sightConeViewOf, type SightConeView } from './sight-cone-view';
 import { tokenViewsOf, type TokenView } from './token-view';
+import type { SpawnGhostView } from './spawn-ghost';
 import { boardPatrolPathOf, type PatrolDraftView, type PatrolPathView } from './patrol-path-view';
 import {
   doorIconsOf,
@@ -127,6 +128,9 @@ export type BoardView = Readonly<{
   /** The master's patrol line: the editor's draft, or the route of the token selected alone;
    *  `null` for anyone else. With the draft a press adds a point instead of picking. */
   patrolPath: PatrolPathView | null;
+  /** The footprint of the saved token armed to spawn (`null`: none): a press puts it there
+   *  instead of picking, and the ghost follows the pointer. */
+  spawnGhost: SpawnGhostView | null;
   /** With the draw tool: how the sketch under the pointer looks; `null` with another tool. */
   sketch: DrawingStyle | null;
   /** With the area tool: the shape and color of the next area; `null` with another tool. */
@@ -211,6 +215,8 @@ export type BoardViewInput = Omit<DrawingViewInput, 'picking' | 'readOnly'> &
     patrols?: PatrolPoses;
     /** The route the master's patrol editor is drawing (absent: the editor is closed). */
     patrolDraft?: PatrolDraftView | null;
+    /** The saved token armed to spawn (absent: none). */
+    spawnGhost?: SpawnGhostView | null;
     /** Reconnecting: nothing is draggable. */
     readOnly: boolean;
     tool: BoardViewTool;
@@ -279,6 +285,7 @@ export function buildBoardView(input: BoardViewInput): BoardView {
       geometry,
     }),
     patrolPath: boardPatrolPathOf(input),
+    spawnGhost: input.spawnGhost ?? null,
     sketch: sketchStyleOf(input),
     sketchStraight: input.tool === 'walls' && !erasingArea(input) && wallPreviewOf(input).straight,
     wallMode: input.wallMode ?? 'draw',
@@ -440,9 +447,13 @@ function backgroundOf(scene: SceneDto): SceneBackgroundView | null {
  *  unloads the rest).
  *
  *  Example: `textures.retain(imageUrlsOf(view))` */
-export function imageUrlsOf(view: Pick<BoardView, 'background' | 'tokens'>): ReadonlySet<string> {
+export function imageUrlsOf(
+  view: Pick<BoardView, 'background' | 'tokens'> & Partial<Pick<BoardView, 'spawnGhost'>>,
+): ReadonlySet<string> {
   const urls = new Set<string>();
   if (view.background) urls.add(view.background.url);
+  const preview = view.spawnGhost?.token.art;
+  if (preview) urls.add(preview.url);
   for (const token of view.tokens) {
     if (token.art) urls.add(token.art.url);
     for (const { icon, imageUrl } of token.conditions) {

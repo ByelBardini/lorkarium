@@ -1,3 +1,5 @@
+import { spawnGhostOf } from '@/renderer/spawn-ghost';
+import { zombieSaved } from '../support/saved-token-fixtures';
 import { cell } from '@lorkarium/game-core';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_DRAWING_STYLE } from '@/lib/drawing-style';
@@ -290,6 +292,47 @@ describe('PrimaryPress with the patrol editor open', () => {
 
   it('a press off the scene adds nothing', () => {
     press.down(editing(), pointAt(25, 4));
+
+    expect(parts.intents).toEqual([]);
+  });
+});
+
+describe('PrimaryPress with a saved token armed to spawn', () => {
+  let parts: PressPartsFake;
+  let press: PrimaryPress;
+  const zombieGhost = spawnGhostOf(zombieSaved({}).token);
+  const bigZombie = { token: { ...zombieGhost.token, width: 2, height: 2 } };
+
+  function aiming(): PressContext {
+    return { view: boardView({ tokens: [lyra()], spawnGhost: bigZombie }), zoom: 1 };
+  }
+
+  beforeEach(() => {
+    parts = new PressPartsFake();
+    press = new PrimaryPress(parts);
+  });
+
+  it('a press at (5.2, 6.1) spawns the 2×2 zombie centered there, at (4, 5), and starts no marquee', () => {
+    press.down(aiming(), pointAt(5.2, 6.1));
+
+    expect(parts.intents).toEqual([{ kind: 'spawnPointPicked', cell: cell(4, 5) }]);
+    expect(parts.log).toEqual([]);
+  });
+
+  it('a press over Lyra spawns there instead of grabbing her', () => {
+    press.down(aiming(), pointAt(3.5, 4.5));
+
+    expect(parts.intents).toEqual([{ kind: 'spawnPointPicked', cell: cell(3, 4) }]);
+  });
+
+  it('a free move of the pointer takes the preview along', () => {
+    press.pointerMoved(aiming(), pointAt(5.2, 6.1));
+
+    expect(parts.log).toEqual(['spawn:follow']);
+  });
+
+  it('a press whose footprint leaves the scene spawns nothing', () => {
+    press.down(aiming(), pointAt(0.2, 0.2));
 
     expect(parts.intents).toEqual([]);
   });

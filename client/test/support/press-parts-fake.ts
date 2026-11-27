@@ -68,6 +68,7 @@ export class PressPartsFake implements PressParts {
     facingHandle: { press: (): boolean => this.logged('facing:press') },
     resizeHandles: { press: (): boolean => this.logged('resize:press') },
     marquee: new MarqueeFake(this.log),
+    spawnGhost: { follow: (): void => void this.log.push('spawn:follow') },
   };
   readonly lights = new IdleGestureFake('light', this.log);
   readonly sketches = new IdleGestureFake('drawing', this.log);

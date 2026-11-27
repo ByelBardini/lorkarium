@@ -16,3 +16,16 @@ export function wheelFields(event: WheelEvent): Omit<Parameters<typeof wheelInte
   const { deltaX, deltaY, deltaMode, ctrlKey, metaKey, shiftKey } = event;
   return { deltaX, deltaY, deltaMode, ctrlKey, metaKey, shiftKey };
 }
+
+/** Adds `listener` to `target` and answers how to take it away again.
+ *
+ *  Example: `disposers.push(listenTo(canvas, 'pointerdown', onDown))` */
+export function listenTo<K extends keyof HTMLElementEventMap>(
+  target: HTMLElement,
+  type: K,
+  listener: (event: HTMLElementEventMap[K]) => void,
+  options?: AddEventListenerOptions,
+): () => void {
+  target.addEventListener(type, listener, options);
+  return () => target.removeEventListener(type, listener, options);
+}

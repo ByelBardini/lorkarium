@@ -1,4 +1,11 @@
-import { DicesIcon, MoonStarIcon, SwordsIcon, UsersIcon, type LucideIcon } from 'lucide-react';
+import {
+  BookmarkIcon,
+  DicesIcon,
+  MoonStarIcon,
+  SwordsIcon,
+  UsersIcon,
+  type LucideIcon,
+} from 'lucide-react';
 import { useId } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { moveFocusAlongTabs } from '@/lib/tab-focus';
@@ -17,10 +24,11 @@ const ROOM_TAB_ICON: Readonly<Record<RoomTab, LucideIcon>> = {
   combat: SwordsIcon,
   people: UsersIcon,
   dice: DicesIcon,
+  tokens: BookmarkIcon,
   cycles: MoonStarIcon,
 };
 
-const RAIL_TABS: readonly RoomTab[] = ['combat', 'people', 'dice'];
+const RAIL_TABS: readonly RoomTab[] = ['combat', 'people', 'dice', 'tokens'];
 // The round cycles are set up by the masters; the players read them on the board.
 const MASTER_RAIL_TABS: readonly RoomTab[] = [...RAIL_TABS, 'cycles'];
 

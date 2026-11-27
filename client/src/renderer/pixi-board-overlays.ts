@@ -12,12 +12,17 @@ import { PixiResizeHandles } from './pixi-resize-handles';
 import { PixiRuler } from './pixi-ruler';
 import { PixiSightBlockerLayer } from './pixi-sight-blocker-layer';
 import { PixiSightConeLayer } from './pixi-sight-cone-layer';
+import { PixiSpawnGhost } from './pixi-spawn-ghost';
+import type { PixiTextureCache } from './pixi-texture-cache';
+
+type SpawnTextures = Pick<PixiTextureCache, 'textureOf'>;
 import { PixiWallLayer } from './pixi-wall-layer';
 import { doorsInBand, wallsInBand } from './wall-view';
 
 /** What the board draws above the fog, in drawing order: what the master's lights light, the
  *  outline of the field of view and the line of the blocker selected alone, the walls,
- *  the light icons and the doors, the master's patrol line, the handles of
+ *  the light icons and the doors, the master's patrol line, the ghost of the saved token armed
+ *  to spawn, the handles of
  *  the selected token, the sketches of the tools (passed in), the ruler and the marquee. Redrawn
  *  when the view changes, the zoom settles or the camera leaves the grid band, since their lines
  *  keep their width on screen; a pan inside the band only moves the world. Walls, doors and
@@ -34,9 +39,15 @@ export class PixiBoardOverlays {
   readonly resizeHandles: PixiResizeHandles;
   readonly ruler = new PixiRuler();
   readonly patrolPath = new PixiPatrolPath();
+  readonly spawnGhost: PixiSpawnGhost;
   readonly marquee: PixiMarquee;
 
-  constructor(onIntent: BoardIntentListener) {
+  /** `textures`: where the spawn preview's image comes from (read when it draws). */
+  constructor(
+    onIntent: BoardIntentListener,
+    textures: () => SpawnTextures | undefined = () => undefined,
+  ) {
+    this.spawnGhost = new PixiSpawnGhost(textures);
     this.facingHandle = new PixiFacingHandle(onIntent);
     this.resizeHandles = new PixiResizeHandles(onIntent);
     this.marquee = new PixiMarquee(onIntent);
@@ -45,7 +56,7 @@ export class PixiBoardOverlays {
   /** The containers to add to the world above the fog, the tools' sketches in the middle. */
   containers(sketches: readonly Container[]): Container[] {
     const { walls, lights, sightCone, sightBlocker } = this;
-    const { resizeHandles, facingHandle, ruler, marquee, patrolPath } = this;
+    const { resizeHandles, facingHandle, ruler, marquee, patrolPath, spawnGhost } = this;
     return [
       lights.areas,
       sightCone.shape,
@@ -54,6 +65,7 @@ export class PixiBoardOverlays {
       lights.icons,
       walls.doors,
       patrolPath.shape,
+      spawnGhost.shape,
       resizeHandles.shape,
       facingHandle.shape,
       ...sketches,
@@ -71,6 +83,7 @@ export class PixiBoardOverlays {
     this.sightCone.draw(view.sightCone, zoom);
     this.sightBlocker.draw(view.sightBlockerOutline, zoom);
     this.patrolPath.draw(view.patrolPath, zoom);
+    this.spawnGhost.draw(view.spawnGhost);
     this.ruler.draw(view.ruler, zoom);
     this.resizeHandles.draw(view, zoom);
     this.facingHandle.draw(view, zoom);

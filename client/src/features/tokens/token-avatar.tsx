@@ -5,10 +5,16 @@ import { TokenFace } from './token-face';
 
 export type TokenAvatarProps = Readonly<{
   token: Pick<TokenDto, 'initials' | 'imageAssetId' | 'frame' | 'side'>;
-  /** `sm` for a member under its group. */
-  size?: 'sm' | 'md';
+  /** `sm` for a member under its group; `lg` for a list of portraits (the saved tokens). */
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
 }>;
+
+const AVATAR_SIZE: Readonly<Record<NonNullable<TokenAvatarProps['size']>, string>> = {
+  sm: 'size-6 text-[10px]',
+  md: 'size-8 text-[11px]',
+  lg: 'size-10 text-xs',
+};
 
 /** The token's face in the panel: its image in its frame, or its initials, with the ring of its
  *  side (the same tone as on the board).
@@ -24,10 +30,7 @@ export function TokenAvatar({ token, size = 'md', className }: TokenAvatarProps)
         initials={token.initials}
         imageAssetId={token.imageAssetId}
         round={token.frame === 'round'}
-        className={cn(
-          'bg-muted text-foreground',
-          size === 'sm' ? 'size-6 text-[10px]' : 'size-8 text-[11px]',
-        )}
+        className={cn('bg-muted text-foreground', AVATAR_SIZE[size])}
       />
     </span>
   );

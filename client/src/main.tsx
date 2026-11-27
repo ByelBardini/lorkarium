@@ -57,6 +57,7 @@ import { storedSheetEditorLayout } from '@/lib/sheet-editor-layout';
 import { chunkLoaderOf } from '@/lib/chunk-loader';
 import { createWebAudioDiceSound } from '@/dice-audio/web-audio-dice-sound';
 import { HttpSavedRollsApi } from '@/services/saved-rolls-api';
+import { HttpSavedTokensApi } from '@/services/saved-tokens-api';
 import { createDicePreferencesStore } from '@/stores/dice-preferences-store';
 import { createChatPreferencesStore } from '@/stores/chat-preferences-store';
 import { createWebAudioChatSound } from '@/chat-audio/web-audio-chat-sound';
@@ -244,6 +245,7 @@ const router = createBrowserRouter(
       : new BrowserChatWindowHost(window),
     diceClock: browserWallClock,
     savedRolls: new HttpSavedRollsApi(transport),
+    savedTokens: new HttpSavedTokensApi(transport),
     dicePreferences: createDicePreferencesStore(browserStorage),
     // Its own chunk: three.js is only fetched on the first roll with "Dados 3D" on.
     createDiceRenderer: () =>

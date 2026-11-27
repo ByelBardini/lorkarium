@@ -37,6 +37,9 @@ import { useTabCamera } from './use-tab-camera';
 import { usePatrolPoses } from './use-patrol-poses';
 import { createTokenPatrolEditor, type TokenPatrolEditor } from '@/stores/token-patrol-flow';
 import type { PatrolDraftView } from '@/renderer/patrol-path-view';
+import { createSpawnAimStore, type SpawnAimStore } from '@/stores/spawn-aim-flow';
+import { carriesSavedToken, dropWorldOf, savedTokenIdOf } from '@/lib/saved-token-drag';
+import type { Point } from '@/renderer/camera';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -61,6 +64,10 @@ export type BoardCanvasProps = Readonly<{
   clock?: InteractionClock;
   /** The master's patrol editor: its draft is drawn on the grid it belongs to. */
   patrolEditor?: StoreApi<TokenPatrolEditor>;
+  /** The saved token armed to spawn: its ghost follows the pointer. */
+  spawnAim?: StoreApi<SpawnAimStore>;
+  /** A saved token dragged from the panel and dropped on the board, at the world point. */
+  onSavedTokenDrop?: (savedTokenId: string, world: Point) => void;
   /** The grid tab shown: another key resets the same renderer to that tab's camera. */
   tabKey?: string;
 }>;
@@ -119,6 +126,9 @@ export function BoardCanvas(props: BoardCanvasProps): React.JSX.Element {
         aria-describedby={instructionsId}
         tabIndex={0}
         onKeyDown={props.onKeyDown}
+        onDragEnter={(event) => acceptSavedToken(event, props.onSavedTokenDrop)}
+        onDragOver={(event) => acceptSavedToken(event, props.onSavedTokenDrop)}
+        onDrop={(event) => dropSavedToken(event, renderer, props.onSavedTokenDrop)}
         className="absolute inset-0 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
       />
       <p id={instructionsId} className="sr-only">
@@ -136,8 +146,10 @@ function useBoardView({
   wallStyle,
   clock,
   patrolEditor,
+  spawnAim,
 }: BoardCanvasProps): BoardView | null {
   const patrolDraft = usePatrolDraft(patrolEditor, board);
+  const spawnGhost = useStore(spawnAim ?? NO_SPAWN_AIM, (state) => state.ghost);
   const patrols = usePatrolPoses(board, clock ?? browserClock);
   const scene = useBoard(board, (state) => state.board?.scene ?? null);
   const tokens = useBoard(board, (state) => state.board?.tokens ?? NO_TOKENS);
@@ -167,6 +179,7 @@ function useBoardView({
     if (!scene) return null;
     const viewer = { userId: viewerId, isMaster };
     const extra = { tokens, drawings, viewer, currentTokenIds, dragged, patrols, patrolDraft };
+    const aimed = { spawnGhost };
     const areas = {
       effectAreas,
       effectAreaStyle: areaStyle,
@@ -177,7 +190,7 @@ function useBoardView({
       sight,
       sightOutlines,
     };
-    return buildBoardView({ scene, ...extra, drawingStyle: style, ...areas, ...local });
+    return buildBoardView({ scene, ...extra, ...aimed, drawingStyle: style, ...areas, ...local });
   }, [
     scene,
     tokens,
@@ -188,6 +201,7 @@ function useBoardView({
     veiledLights,
     patrols,
     patrolDraft,
+    spawnGhost,
     viewerId,
     isMaster,
     currentTokenIds,
@@ -207,6 +221,35 @@ const NO_PATROL_EDITOR: StoreApi<TokenPatrolEditor> = createTokenPatrolEditor({
 });
 
 // The draft of the editor, only on the grid it was drawn on (a text key would lose the cells).
+// The enter accepts as well as the over: a quick release may come before any dragover.
+function acceptSavedToken(
+  event: React.DragEvent<HTMLDivElement>,
+  onDrop: BoardCanvasProps['onSavedTokenDrop'],
+): void {
+  if (!onDrop || !carriesSavedToken(event.dataTransfer)) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'copy';
+}
+
+// Through the camera of the renderer shown: the drop point of the viewport becomes a world point.
+function dropSavedToken(
+  event: React.DragEvent<HTMLDivElement>,
+  renderer: BoardRenderer | null,
+  onDrop: BoardCanvasProps['onSavedTokenDrop'],
+): void {
+  const savedTokenId = savedTokenIdOf(event.dataTransfer);
+  if (!savedTokenId || !renderer || !onDrop) return;
+  event.preventDefault();
+  const client = { x: event.clientX, y: event.clientY };
+  onDrop(
+    savedTokenId,
+    dropWorldOf(renderer.camera(), event.currentTarget.getBoundingClientRect(), client),
+  );
+}
+
+// Nothing armed where the room passes no aim (the canvas specs).
+const NO_SPAWN_AIM = createSpawnAimStore();
+
 function usePatrolDraft(
   editor: StoreApi<TokenPatrolEditor> | undefined,
   board: StoreApi<BoardStore>,
