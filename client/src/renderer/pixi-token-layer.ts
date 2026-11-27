@@ -1,81 +1,27 @@
-import { BitmapText, Container, Graphics, type Texture } from 'pixi.js';
+import { Container, Graphics } from 'pixi.js';
 import { conditionIconUrlOf } from '@/lib/condition-icons';
-import { barColorNumber } from '@/lib/bar-display';
 import { NO_PERF_PROBE, type PerfProbe } from '@/lib/perf-probe';
-import type { TokenLayerDto, TokenSideDto } from '@lorkarium/contracts';
-import { facingVector } from '@lorkarium/game-core';
+import type { TokenLayerDto } from '@lorkarium/contracts';
 import type { GhostView, TokenView } from './board-view';
 import type { Point } from './camera';
 import { PixiAuraFloors } from './pixi-aura-floors';
 import type { AuraImages, PixiTokenAura } from './pixi-token-aura';
-import { PixiConditionMarks } from './pixi-condition-marks';
-import { INITIALS_FONT_NAME } from './pixi-initials-font';
-import { PixiTokenArt, ROUND_RADIUS_SHARE } from './pixi-token-art';
+import { ROUND_RADIUS_SHARE } from './pixi-token-art';
 import type { PixiTextureCache } from './pixi-texture-cache';
 import { showsNameTag } from './name-tag';
-import { PixiNameTag } from './pixi-name-tag';
-import { PixiTokenLook } from './pixi-token-look';
-import { barSegments, type BarTone } from './token-bar';
+import { drawTokenBody, newTokenSprite, type TokenSprite } from './pixi-token-sprite';
 import { tokenWorldRect } from './token-box';
-import { defeatedCross } from './token-defeated';
-import { tokenLookStyle } from './token-look';
 import { tokenRedrawOf, type TokenRedraw } from './token-redraw';
 
-// Design system tokens (client/src/index.css): the canvas cannot read CSS variables.
-const DISC_COLOR = 0x1b1f25;
-const TEXT_COLOR = 0xeae5da;
+// Design system token (client/src/index.css): the canvas cannot read CSS variables.
 const GOLD_COLOR = 0xc5a46d;
-const BAR_TRACK_COLOR = 0x262b33;
-const BAR_OUTLINE_COLOR = 0x15130f;
-// Below zero and above the maximum need hues no bar color has: crimson and bone.
-const BAR_NEGATIVE_COLOR = 0xd6455d;
-const BAR_OVER_COLOR = 0xeae5da;
-// The temp is a pale strip on the top half: it has to read over every other tone of the bar.
-const BAR_TEMP_COLOR = 0xa9d4e6;
-const BAR_TEMP_HEIGHT = 3;
-const BAR_HEIGHT = 6;
-const RING_COLOR: Readonly<Record<TokenSideDto, number>> = {
-  ally: 0xd5d0c4,
-  enemy: 0xb5654f,
-  neutral: 0x8a9bb8,
-};
 const MOVE_ANIMATION_MS = 150;
-const SILHOUETTE = { color: 0x000000, alpha: 0.9 } as const;
-const DEFEATED_COLOR = BAR_NEGATIVE_COLOR;
-const DEFEATED_OUTLINE = 3;
-
-type TokenSprite = Readonly<{
-  root: Container;
-  /** The disc, the art and the initials: what a look fades and greys, as one. */
-  face: Container;
-  disc: Graphics;
-  art: PixiTokenArt;
-  shape: Graphics;
-  label: BitmapText;
-  cross: Graphics;
-  look: PixiTokenLook;
-  marks: PixiConditionMarks;
-  /** Over the tokens of its layer: the strip and the name plate, which hang under the cell. */
-  overlay: Container;
-  nameTag: PixiNameTag;
-}> & {
-  view: TokenView;
-  from: Point;
-  to: Point;
-  startedMs: number;
-  /** How long the glide under way lasts: 150 ms, or a patrol's whole step. */
-  glideMs: number;
-  stripHeight: number;
-};
 
 /** Where the token images come from: a texture, or `null` while it loads (or failed). */
 export type TokenTextures = Pick<PixiTextureCache, 'textureOf'>;
 
 const WHOLE: TokenRedraw = { body: true, nameTag: true, aura: true };
 const STRIP_ONLY: TokenRedraw = { body: false, nameTag: false, aura: false };
-
-const FACING_MARK_LENGTH = 7;
-const FACING_MARK_HALF_WIDTH = 5;
 
 /** The tokens on the canvas: one `Container` per token, kept by id so a change redraws only that
  *  token, and of it only the part that changed (`tokenRedrawOf`; spec §14, rendering risk), inside
@@ -264,7 +210,7 @@ export class PixiTokenLayer {
     if (redraw.body) {
       this.probe.count('token.redraw');
       const art = sprite.view.art;
-      drawToken(sprite, art ? (this.textures?.textureOf(art.url) ?? null) : null);
+      drawTokenBody(sprite, art ? (this.textures?.textureOf(art.url) ?? null) : null);
     }
     const { band, height } = sprite.marks.draw(sprite.view, this.zoom);
     if (band !== 'none') this.probe.count('strip.redraw');
@@ -282,48 +228,9 @@ export class PixiTokenLayer {
   }
 
   private add(view: TokenView, at: Point, nowMs: number): void {
-    const root = new Container({ label: `token:${view.id}` });
-    const shape = new Graphics();
-    // One atlas for every token (`pixi-initials-font.ts`): no texture per token.
-    const label = new BitmapText({
-      text: '',
-      style: { fontFamily: INITIALS_FONT_NAME, fill: TEXT_COLOR },
-    });
-    label.anchor.set(0.5);
-    const marks = new PixiConditionMarks(this.textures);
-    const disc = new Graphics();
-    const art = new PixiTokenArt();
-    const nameTag = new PixiNameTag();
-    const cross = new Graphics();
-    const look = new PixiTokenLook();
-    const face = new Container();
-    face.addChild(disc, art.container, label);
-    root.addChild(face, shape, look.container, cross);
-    const overlay = new Container();
-    overlay.addChild(marks.container, nameTag.container);
-    root.position.set(at.x, at.y);
-    overlay.position.set(at.x, at.y);
-    this.layers[view.layer].addChild(root);
-    this.strips[view.layer].addChild(overlay);
-    const sprite: TokenSprite = {
-      root,
-      face,
-      disc,
-      art,
-      shape,
-      label,
-      cross,
-      look,
-      marks,
-      overlay,
-      nameTag,
-      view,
-      from: at,
-      to: at,
-      startedMs: nowMs,
-      glideMs: MOVE_ANIMATION_MS,
-      stripHeight: 0,
-    };
+    const sprite = newTokenSprite(view, at, nowMs, this.textures);
+    this.layers[view.layer].addChild(sprite.root);
+    this.strips[view.layer].addChild(sprite.overlay);
     this.sprites.set(view.id, sprite);
     this.draw(sprite, WHOLE);
   }
@@ -337,134 +244,6 @@ export class PixiTokenLayer {
         .ellipse(rect.x + rect.width / 2, rect.y + rect.height / 2, radius.x, radius.y)
         .stroke({ width: 2, color: GOLD_COLOR, alpha: 0.6 });
     }
-  }
-}
-
-// The token's size in world px and the radii of its disc (an ellipse once it is stretched).
-type TokenShape = Readonly<{ width: number; height: number; rx: number; ry: number }>;
-
-function shapeOf(view: TokenView): TokenShape {
-  const { width, height } = tokenWorldRect(view);
-  return { width, height, rx: width * ROUND_RADIUS_SHARE, ry: height * ROUND_RADIUS_SHARE };
-}
-
-// With its image loaded the token is the image (square: no disc; round: cropped with the side
-// ring); until then, or when it fails, the initials disc. The facing mark only when the view asks.
-function drawToken(sprite: TokenSprite, texture: Texture | null): void {
-  const { disc, art, shape, label, view } = sprite;
-  const box = shapeOf(view);
-  if (view.silhouette) return drawSilhouette(sprite, box, texture);
-  const center = { x: box.width / 2, y: box.height / 2 };
-  const image = texture && view.art;
-  const square = Boolean(image && view.art?.frame === 'square');
-  disc.clear();
-  if (!image) disc.ellipse(center.x, center.y, box.rx, box.ry).fill(DISC_COLOR);
-  art.draw(view.art, texture, box, view.facing);
-  art.shade(null);
-  shape.clear();
-  if (!square)
-    shape
-      .ellipse(center.x, center.y, box.rx, box.ry)
-      .stroke({ width: 3, color: RING_COLOR[view.ring] });
-  drawOutlines(shape, view, box, square);
-  drawBar(shape, view, box);
-  if (view.facingMark) drawFacingMark(shape, view.facing, box);
-  label.visible = !image;
-  label.text = view.initials;
-  const fontSize = Math.round(Math.min(box.width, box.height) * 0.3);
-  label.style.fontSize = fontSize;
-  label.position.set(center.x, center.y);
-  drawDefeated(sprite, box, square);
-}
-
-// The rings and the bar stay bright: they are about the table, not about the token's face. The
-// face fades (and greys) by the defeat, the looks and being hidden together, so the cross still
-// reads first.
-function drawDefeated(sprite: TokenSprite, box: TokenShape, square = false): void {
-  const { face, cross, view } = sprite;
-  sprite.look.draw(face, tokenLookStyle(view), { ...box, square });
-  cross.clear();
-  if (!view.defeated) return;
-  const { strokes, width } = defeatedCross(box);
-  for (const [color, stroke] of [
-    [BAR_OUTLINE_COLOR, width + DEFEATED_OUTLINE],
-    [DEFEATED_COLOR, width],
-  ] as const) {
-    for (const [from, to] of strokes) cross.moveTo(from.x, from.y).lineTo(to.x, to.y);
-    cross.stroke({ width: stroke, color, cap: 'round' });
-  }
-}
-
-// In the penumbra: the image painted black (a cut-out PNG keeps its outline) or, without one
-// loaded, a black shape of the footprint; nothing that tells who it is beyond the shape.
-function drawSilhouette(sprite: TokenSprite, box: TokenShape, texture: Texture | null): void {
-  const { disc, art, shape, label, view } = sprite;
-  const image = texture && view.art;
-  disc.clear();
-  art.draw(view.art, texture, box, view.facing);
-  art.shade(SILHOUETTE);
-  shape.clear();
-  label.visible = false;
-  if (image) return drawDefeated(sprite, box);
-  if (view.silhouette === 'square') disc.rect(0, 0, box.width, box.height);
-  else disc.ellipse(box.width / 2, box.height / 2, box.rx, box.ry);
-  disc.fill(SILHOUETTE);
-  drawDefeated(sprite, box);
-}
-
-// The turn and selection rings follow the token's outline: a square image gets square ones.
-function drawOutlines(shape: Graphics, view: TokenView, box: TokenShape, square: boolean): void {
-  const outline = (gap: number, width: number): void => {
-    if (square) shape.rect(-gap, -gap, box.width + gap * 2, box.height + gap * 2);
-    else shape.ellipse(box.width / 2, box.height / 2, box.rx + gap, box.ry + gap);
-    shape.stroke({ width, color: GOLD_COLOR });
-  };
-  if (view.onTurn) outline(9, 4);
-  if (view.selected) outline(5, 2);
-}
-
-// A small triangle on the border pointing where the token looks; it stays when nothing turns.
-function drawFacingMark(shape: Graphics, facing: number, box: TokenShape): void {
-  const ahead = facingVector(facing);
-  const side = { x: -ahead.y, y: ahead.x };
-  const base = { x: box.width / 2 + ahead.x * box.rx, y: box.height / 2 + ahead.y * box.ry };
-  const tip = {
-    x: base.x + ahead.x * FACING_MARK_LENGTH,
-    y: base.y + ahead.y * FACING_MARK_LENGTH,
-  };
-  shape
-    .poly([
-      tip.x,
-      tip.y,
-      base.x + side.x * FACING_MARK_HALF_WIDTH,
-      base.y + side.y * FACING_MARK_HALF_WIDTH,
-      base.x - side.x * FACING_MARK_HALF_WIDTH,
-      base.y - side.y * FACING_MARK_HALF_WIDTH,
-    ])
-    .fill(GOLD_COLOR);
-}
-
-function drawBar(shape: Graphics, view: TokenView, box: TokenShape): void {
-  if (!view.bar) return;
-  const width = box.width * 0.8;
-  const left = (box.width - width) / 2;
-  const top = box.height - BAR_HEIGHT - 3;
-  const tones: Readonly<Record<BarTone, number>> = {
-    track: BAR_TRACK_COLOR,
-    fill: barColorNumber(view.bar.color),
-    negative: BAR_NEGATIVE_COLOR,
-    over: BAR_OVER_COLOR,
-    temp: BAR_TEMP_COLOR,
-  };
-  shape
-    .roundRect(left - 1, top - 1, width + 2, BAR_HEIGHT + 2, BAR_HEIGHT / 2 + 1)
-    .fill(BAR_OUTLINE_COLOR);
-  for (const segment of barSegments(view.bar, width)) {
-    const height = segment.tone === 'temp' ? BAR_TEMP_HEIGHT : BAR_HEIGHT;
-    const radius = Math.min(height, segment.width) / 2;
-    shape
-      .roundRect(left + segment.left, top, segment.width, height, radius)
-      .fill(tones[segment.tone]);
   }
 }
 
