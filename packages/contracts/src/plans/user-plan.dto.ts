@@ -35,6 +35,8 @@ export const PLAN_COUNT_RESOURCES = [
   'savedRollFolders',
   'savedTokens',
   'savedTokenFolders',
+  'roundCycles',
+  'roundCyclePhases',
   'customEmojis',
 ] as const;
 
@@ -54,6 +56,7 @@ export const PLAN_FEATURE_RESOURCES = [
   'privateCampaign',
   'sheetScripts',
   'magicSight',
+  'roundCyclePhaseImage',
 ] as const;
 
 /** Every resource a `PLAN_LIMIT` refusal may name. The dice with physics are not here: past the

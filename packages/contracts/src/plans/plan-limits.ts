@@ -1,5 +1,6 @@
 import { ASSET_MAX_SIDE } from '../assets/asset.dto';
 import { LIGHTS_PER_SCENE_MAX } from '../board/light.dto';
+import { ROUND_CYCLE_MAX_PER_TABLE, ROUND_CYCLE_PHASES_MAX } from '../board/round-cycle.dto';
 import { SAVED_TOKEN_FOLDERS_MAX, SAVED_TOKENS_MAX } from '../board/saved-token.dto';
 import { TOKEN_FORMS_MAX } from '../board/token-form.dto';
 import { TOKEN_PATROLS_RUNNING_MAX } from '../board/token-patrol.dto';
@@ -42,6 +43,8 @@ export const PLAN_COUNT_LIMIT_KEY: Readonly<Record<PlanCountResource, PlanCountL
   savedRollFolders: 'maxSavedRollFolders',
   savedTokens: 'maxSavedTokens',
   savedTokenFolders: 'maxSavedTokenFolders',
+  roundCycles: 'maxRoundCycles',
+  roundCyclePhases: 'maxRoundCyclePhases',
   customEmojis: 'maxCustomEmojis',
 };
 
@@ -68,6 +71,8 @@ const UNBOUNDED: PlanLimits = {
   maxSavedRollFolders: SAVED_ROLL_FOLDERS_MAX,
   maxSavedTokens: SAVED_TOKENS_MAX,
   maxSavedTokenFolders: SAVED_TOKEN_FOLDERS_MAX,
+  maxRoundCycles: ROUND_CYCLE_MAX_PER_TABLE,
+  maxRoundCyclePhases: ROUND_CYCLE_PHASES_MAX,
   maxDiceModelsPerRoll: DICE_THROW_MODELS_MAX,
   maxMapSide: ASSET_MAX_SIDE.library_map,
   maxBackgroundSide: ASSET_MAX_SIDE.background,
@@ -82,6 +87,7 @@ const UNBOUNDED: PlanLimits = {
   sheetScripts: true,
   profileBanner: true,
   magicSight: true,
+  roundCyclePhaseImage: true,
   maxCustomEmojis: null,
   animatedCustomEmojis: true,
 };
@@ -98,6 +104,7 @@ const LENDA: PlanLimits = {
   maxLibraryMaps: 100,
   maxSheetTemplates: 50,
   maxNpcSheets: 1000,
+  maxRoundCycles: 10,
   maxCustomEmojis: 50,
 };
 
@@ -126,6 +133,8 @@ const NARRADOR: PlanLimits = {
   maxSavedRollFolders: 5,
   maxSavedTokens: 20,
   maxSavedTokenFolders: 5,
+  maxRoundCycles: 3,
+  maxRoundCyclePhases: 6,
   maxDiceModelsPerRoll: 15,
   auraKinds: ['color'],
   desktopWindows: false,
@@ -156,6 +165,8 @@ const FREE: PlanLimits = {
   maxSavedRollFolders: 0,
   maxSavedTokens: 0,
   maxSavedTokenFolders: 0,
+  maxRoundCycles: 1,
+  maxRoundCyclePhases: 3,
   maxDiceModelsPerRoll: 8,
   maxMapSide: 4096,
   maxBackgroundSide: 2048,
@@ -170,6 +181,7 @@ const FREE: PlanLimits = {
   sheetScripts: false,
   profileBanner: false,
   magicSight: false,
+  roundCyclePhaseImage: false,
   maxCustomEmojis: 0,
   animatedCustomEmojis: false,
 };

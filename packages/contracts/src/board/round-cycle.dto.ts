@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { boardCommandShape, tableEventShape } from './board-event.dto';
 import type { BoardCommandAckDto } from './board.dto';
+import { conditionIconDto } from './condition.dto';
 import { firstRepeated } from './token-id-group.dto';
 
 /** Round cycles a table may keep (the game-core `ROUND_CYCLES_PER_TABLE_MAX`): small lists, so
@@ -31,10 +32,12 @@ const phaseNameDto = z.string().trim().min(1).max(ROUND_CYCLE_PHASE_NAME_MAX_LEN
 const memberIdsDto = z.array(z.uuid()).max(ROUND_CYCLE_MEMBERS_MAX);
 
 /** A phase as the master writes it: `id` keeps a phase already saved (and where a combat is on
- *  it); without `id` it is new. `imageAssetId` is an image of the table (`null` = the name only). */
+ *  it); without `id` it is new. `icon` comes from the condition icons; `imageAssetId` is an image
+ *  of the table shown in its place (`null` = the icon only; the image is a plan feature). */
 export const roundCyclePhaseInputDto = z.strictObject({
   id: z.uuid().optional(),
   name: phaseNameDto,
+  icon: conditionIconDto,
   imageAssetId: z.uuid().nullable(),
 });
 export type RoundCyclePhaseInputDto = z.infer<typeof roundCyclePhaseInputDto>;
@@ -125,6 +128,7 @@ export type ChooseNextPhaseCommandDto = z.infer<typeof chooseNextPhaseCommandDto
 export const roundCyclePhaseDto = z.strictObject({
   id: z.uuid(),
   name: z.string(),
+  icon: conditionIconDto,
   imageAssetId: z.uuid().nullable(),
 });
 export type RoundCyclePhaseDto = z.infer<typeof roundCyclePhaseDto>;
@@ -148,13 +152,15 @@ export const roundCycleCombatDto = z.strictObject({
 });
 export type RoundCycleCombatDto = z.infer<typeof roundCycleCombatDto>;
 
-/** A cycle as one member sees it: `canChoose` is theirs; `config` only for the masters. */
+/** A cycle as one member sees it: `canChoose` is theirs; `config` only for the masters.
+ *  `planLocked`: past the table's ceiling of cycles (newest first), its setup is read only. */
 export const roundCycleDto = z.strictObject({
   id: z.uuid(),
   name: z.string(),
   announce: z.boolean(),
   phases: z.array(roundCyclePhaseDto),
   canChoose: z.boolean(),
+  planLocked: z.boolean(),
   config: roundCycleConfigDto.nullable(),
   combats: z.array(roundCycleCombatDto),
 });
@@ -172,7 +178,11 @@ export type RoundCyclesChangedDto = z.infer<typeof roundCyclesChangedDto>;
 export const roundCycleAnnouncementDto = z.strictObject({
   cycleId: z.uuid(),
   cycleName: z.string(),
-  phase: z.strictObject({ name: z.string(), imageAssetId: z.uuid().nullable() }),
+  phase: z.strictObject({
+    name: z.string(),
+    icon: conditionIconDto,
+    imageAssetId: z.uuid().nullable(),
+  }),
 });
 export type RoundCycleAnnouncementDto = z.infer<typeof roundCycleAnnouncementDto>;
 

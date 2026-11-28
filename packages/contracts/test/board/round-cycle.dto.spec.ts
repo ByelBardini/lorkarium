@@ -16,7 +16,7 @@ const CHARACTER_ID = 'c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f';
 const CYCLE_ID = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
 const PHASE_ID = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 
-const phase = (name: string) => ({ name, imageAssetId: null });
+const phase = (name: string) => ({ name, icon: 'game-icons:moon-orbit', imageAssetId: null });
 const MOON = ['Lua Nova', 'Crescente', 'Lua Cheia', 'Minguante'].map(phase);
 
 const moonCycle = {
@@ -95,6 +95,18 @@ describe('updateRoundCycleCommandDto', () => {
       ],
     });
     expect(result.error?.issues[0]?.message).toContain(PHASE_ID);
+  });
+});
+
+describe('the icon of a phase', () => {
+  it('a phase without icon is refused', () => {
+    const phases = [{ name: 'Lua Nova', imageAssetId: null }, phase('Lua Cheia')];
+    expect(defineRoundCycleCommandDto.safeParse({ ...moonCycle, phases }).success).toBe(false);
+  });
+
+  it('an icon out of the condition icons is refused', () => {
+    const phases = [{ ...phase('Lua Nova'), icon: 'not-an-icon' }, phase('Lua Cheia')];
+    expect(defineRoundCycleCommandDto.safeParse({ ...moonCycle, phases }).success).toBe(false);
   });
 });
 
