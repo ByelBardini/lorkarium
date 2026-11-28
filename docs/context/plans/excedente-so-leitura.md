@@ -27,9 +27,10 @@ Detalhe da seção "Regra efetiva" de [`../plans.md`](../plans.md). Quando o pla
   - o modelo: todo `update` (nome, pasta, arquivos, manifesto); criar ficha a partir dele segue livre;
   - a aba: o conteúdo e o nome; ocultar, reordenar e apagar seguem livres;
   - a rolagem salva: a fórmula e o nome; mover para pasta segue livre;
+  - o ciclo por rodada: todo `cycle:update`; virar no combate, escolher a próxima fase e apagar seguem livres;
   - a barra: nome, máximo, cor e a ordem;
   - a forma: a imagem e o nome;
   - a luz: posição, alcance, cor e cone;
   - a patrulha rodando: a rota.
 
-Provado em `server/test/modules/plans/plan-limits.bo.spec.ts` (`PlanLimitsBo.requireEditable`, `the reason of a PLAN_LIMIT`) e `plan-limit-response.spec.ts` (o corpo com `reason: 'readOnly'`). Integração por recurso (Postgres, `amigo_do_dono` para criar e o dono descido ao `free` depois): `grid-read-only.spec.ts` (grids, paredes, `scene:configure`, snapshot, jogo e porta no 5º grid, isolamento por mesa), `library-read-only.spec.ts` (mapas e modelos), `documents-plan-limit.spec.ts` (abas), `saved-rolls-plan-limit.spec.ts` e `token-plan-read-only.spec.ts` (barras, formas, patrulha, bloqueador, luzes).
+Provado em `server/test/modules/plans/plan-limits.bo.spec.ts` (`PlanLimitsBo.requireEditable`, `the reason of a PLAN_LIMIT`) e `plan-limit-response.spec.ts` (o corpo com `reason: 'readOnly'`). Integração por recurso (Postgres, `amigo_do_dono` para criar e o dono descido ao `free` depois): `grid-read-only.spec.ts` (grids, paredes, `scene:configure`, snapshot, jogo e porta no 5º grid, isolamento por mesa), `library-read-only.spec.ts` (mapas e modelos), `documents-plan-limit.spec.ts` (abas), `saved-rolls-plan-limit.spec.ts`, `round-cycles-plan-limit.spec.ts` e `token-plan-read-only.spec.ts` (barras, formas, patrulha, bloqueador, luzes).
