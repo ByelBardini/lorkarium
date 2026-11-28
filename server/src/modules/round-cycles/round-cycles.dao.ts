@@ -27,6 +27,7 @@ export type RoundCycleRow = Readonly<{
 export type RoundCyclePhaseWrite = Readonly<{
   id?: string | undefined;
   name: string;
+  icon: RoundCyclePhasePo['icon'];
   imageAssetId: string | null;
 }>;
 
@@ -253,7 +254,8 @@ export class RoundCyclesDao {
     );
     await this.deletePhasesBut(cycleId, keptIds);
     for (const [position, phase] of phases.entries()) {
-      const values = { name: phase.name, imageAssetId: phase.imageAssetId, position };
+      const { name, icon, imageAssetId } = phase;
+      const values = { name, icon, imageAssetId, position };
       if (phase.id !== undefined && keptIds.includes(phase.id)) {
         await this.db.update(roundCyclePhases).set(values).where(eq(roundCyclePhases.id, phase.id));
         continue;

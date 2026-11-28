@@ -35,6 +35,7 @@ export function roundCycleRow(overrides: RoundCycleOverrides = {}): RoundCycleRo
       cycleId: cycle.id,
       position,
       name,
+      icon: 'game-icons:cycle',
       imageAssetId: null,
     })),
     members: members.map((member) => ({ cycleId: cycle.id, ...member })),

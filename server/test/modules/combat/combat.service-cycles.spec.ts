@@ -106,7 +106,7 @@ describe('CombatService with round cycles', () => {
           {
             cycleId: 'moon',
             cycleName: 'Fases da Lua',
-            phase: { name: 'Lua Nova', imageAssetId: null },
+            phase: { name: 'Lua Nova', icon: 'game-icons:cycle', imageAssetId: null },
           },
         ],
       },

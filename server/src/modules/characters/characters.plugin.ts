@@ -5,6 +5,7 @@ import { AssetsDao } from '../assets/assets.dao';
 import type { ClockPort } from '../auth/clock.port';
 import { UsersDao } from '../auth/users.dao';
 import type { MembershipReader } from '../campaigns/cached-memberships';
+import { CampaignsDao } from '../campaigns/campaigns.dao';
 import type { MemberSeatPort } from '../campaigns/member-seat.port';
 import type { CharacterPublisherPort } from './character-publisher.port';
 import {
@@ -57,6 +58,7 @@ export function createCharactersModule(options: CharactersModuleOptions): Charac
           characters: new CharactersDao(tx),
           conditions: new ConditionsDao(tx),
           roundCycles: new RoundCyclesDao(tx),
+          campaigns: new CampaignsDao(tx),
         }),
       ),
     publisher,

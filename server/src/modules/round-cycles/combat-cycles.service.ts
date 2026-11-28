@@ -1,4 +1,4 @@
-import type { RoundCycleAnnouncementDto } from '@lorkarium/contracts';
+import type { PlanLimits, RoundCycleAnnouncementDto } from '@lorkarium/contracts';
 import type { ClockPort } from '../auth/clock.port';
 import { charactersEventBase } from '../characters/locked-characters';
 import { planCombatCycles, type CombatMoment, type CycleInCombat } from './combat-cycles.bo';
@@ -31,6 +31,8 @@ export type CombatCyclesSync = Readonly<{
   round: number;
   holders: CombatHolders;
   moment: CombatMoment;
+  /** The limits of the table's owner: which cycles the lists mark read only. */
+  limits: PlanLimits;
   /** Called before the first cycle write: the table stream gets locked (a rerun) if it was not. */
   requireTableLock: () => void;
 }>;
@@ -68,7 +70,11 @@ export async function syncCombatCycles(
   await daos.roundCycles.startCycles(sync.combatId, plan.start);
   await daos.roundCycles.turnAll(sync.combatId, plan.turn);
   const after = await daos.roundCycles.combatStatesOfCampaign(sync.campaignId);
-  return { cuts: roundCycleCutsOf(rows, after), round: sync.round, announced: plan.announced };
+  return {
+    cuts: roundCycleCutsOf({ rows, states: after, limits: sync.limits }),
+    round: sync.round,
+    announced: plan.announced,
+  };
 }
 
 /** Whether the table keeps any cycle: a combat command of such a table locks the table stream
@@ -101,9 +107,10 @@ export function publishCombatCycles(
 
 function toCycleInCombat(row: RoundCycleRow): CycleInCombat {
   const { id, name, announce } = row.cycle;
-  const phases = row.phases.map(({ id: phaseId, name: phaseName, imageAssetId }) => ({
+  const phases = row.phases.map(({ id: phaseId, name: phaseName, icon, imageAssetId }) => ({
     id: phaseId,
     name: phaseName,
+    icon,
     imageAssetId,
   }));
   return { id, name, announce, holder: holderOf(row.cycle), phases };

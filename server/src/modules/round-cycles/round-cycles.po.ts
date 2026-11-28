@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import type { ConditionIconDto } from '@lorkarium/contracts';
 import {
   boolean,
   check,
@@ -68,7 +69,11 @@ export const roundCyclePhases = pgTable(
       .references(() => roundCycles.id, { onDelete: 'cascade' }),
     position: integer('position').notNull(),
     name: text('name').notNull(),
-    // An image of the table; losing the asset (set null) leaves the phase with its name only.
+    // Text, not a pg enum: the closed list is the condition icons of the contract. The default
+    // is what the phases saved before the icon got.
+    icon: text('icon').$type<ConditionIconDto>().notNull().default('game-icons:cycle'),
+    // An image of the table in place of the icon (a plan feature); losing the asset (set null)
+    // leaves the phase with its icon.
     imageAssetId: uuid('image_asset_id').references(() => assets.id, { onDelete: 'set null' }),
   },
   // No unique (cycle, position): a reorder rewrites the positions row by row.

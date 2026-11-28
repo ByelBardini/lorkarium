@@ -3,6 +3,7 @@ import {
   requireCharactersLock,
   type LockedGridMaybeCharacters,
 } from '../characters/locked-characters-grid';
+import { effectiveLimitsOf } from '../plans/plan-limits.bo';
 import type { CombatMoment } from '../round-cycles/combat-cycles.bo';
 import {
   syncCombatCycles,
@@ -51,6 +52,7 @@ export async function cyclesIn<Daos>(
     round: row.combat.round,
     holders,
     moment,
+    limits: effectiveLimitsOf(locked.scene.owner),
     requireTableLock: () => {
       requireCharactersLock(locked);
     },

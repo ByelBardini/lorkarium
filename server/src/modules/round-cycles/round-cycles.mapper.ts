@@ -1,10 +1,12 @@
 import type {
+  PlanLimits,
   RoundCycleCombatDto,
   RoundCycleDto,
   RoundCycleHolderDto,
   RoundCyclePhaseInputDto,
   RoundCycleVisibilityDto,
 } from '@lorkarium/contracts';
+import { RoundCyclePlanBo } from './round-cycle-plan.bo';
 import { RoundCycleRulesBo, type CycleViewer } from './round-cycle-rules.bo';
 import type {
   CombatCycleState,
@@ -62,35 +64,43 @@ export function holderOf(cycle: RoundCyclePo): RoundCycleHolderDto {
   return { kind: 'table' };
 }
 
+/** What every list of the cycles reads: the rows oldest first (their rank is their place), the
+ *  combats of the table and the limits of its owner (`planLocked`). */
+export type RoundCycleListing = Readonly<{
+  rows: readonly RoundCycleRow[];
+  states: readonly CombatCycleState[];
+  limits: PlanLimits;
+}>;
+
 /** The cycles one viewer sees, as they may see them: `canChoose` theirs, the config only for a
- *  master, and where each stands in the table's combats.
+ *  master, `planLocked` by the rank against the owner's plan, and where each stands in the
+ *  table's combats.
  *
- *  Example: `roundCyclesSeenBy(rows, states, { kind: 'member', userId: lyraId })` */
+ *  Example: `roundCyclesSeenBy({ rows, states, limits }, { kind: 'member', userId: lyraId })` */
 export function roundCyclesSeenBy(
-  rows: readonly RoundCycleRow[],
-  states: readonly CombatCycleState[],
+  listing: RoundCycleListing,
   viewer: CycleViewer,
 ): RoundCycleDto[] {
-  return rows
-    .filter((row) => RULES.sees(audienceOf(row), viewer))
-    .map((row) => toRoundCycleDto(row, states, viewer));
+  return listing.rows.flatMap((row, rank) => {
+    if (!RULES.sees(audienceOf(row), viewer)) return [];
+    const planLocked = RoundCyclePlanBo.isLocked(rank, listing.limits);
+    return [toRoundCycleDto(row, listing.states, viewer, planLocked)];
+  });
 }
 
 /** Every audience's list after a change: the masters', each named member's, and the rest's.
  *
- *  Example: `publisher.roundCyclesChanged({ ...base, cuts: roundCycleCutsOf(rows, states) })` */
-export function roundCycleCutsOf(
-  rows: readonly RoundCycleRow[],
-  states: readonly CombatCycleState[],
-): RoundCycleCuts {
+ *  Example: `publisher.roundCyclesChanged({ ...base, cuts: roundCycleCutsOf({ rows, states, limits }) })` */
+export function roundCycleCutsOf(listing: RoundCycleListing): RoundCycleCuts {
+  const { rows } = listing;
   const named = [...new Set(rows.flatMap(({ members }) => members.map(({ userId }) => userId)))];
   return {
-    masters: roundCyclesSeenBy(rows, states, { kind: 'master' }),
+    masters: roundCyclesSeenBy(listing, { kind: 'master' }),
     members: named.map((userId) => ({
       userId,
-      cycles: roundCyclesSeenBy(rows, states, { kind: 'member', userId }),
+      cycles: roundCyclesSeenBy(listing, { kind: 'member', userId }),
     })),
-    rest: roundCyclesSeenBy(rows, states, { kind: 'rest' }),
+    rest: roundCyclesSeenBy(listing, { kind: 'rest' }),
   };
 }
 
@@ -105,14 +115,21 @@ function toRoundCycleDto(
   row: RoundCycleRow,
   states: readonly CombatCycleState[],
   viewer: CycleViewer,
+  planLocked: boolean,
 ): RoundCycleDto {
   const { cycle } = row;
   return {
     id: cycle.id,
     name: cycle.name,
     announce: cycle.announce,
-    phases: row.phases.map(({ id, name, imageAssetId }) => ({ id, name, imageAssetId })),
+    phases: row.phases.map(({ id, name, icon, imageAssetId }) => ({
+      id,
+      name,
+      icon,
+      imageAssetId,
+    })),
     canChoose: RULES.canChoose(audienceOf(row), viewer),
+    planLocked,
     config: viewer.kind === 'master' ? configOf(row) : null,
     combats: states.filter(({ cycleId }) => cycleId === cycle.id).map(toCombatDto),
   };

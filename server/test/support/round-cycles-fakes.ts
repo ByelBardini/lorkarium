@@ -161,6 +161,7 @@ export class RoundCyclesDaoFake implements Pick<
       ...row,
       phases: row.phases.map((phase, i) => ({
         ...phase,
+        icon: phases[i]?.icon ?? phase.icon,
         imageAssetId: phases[i]?.imageAssetId ?? null,
       })),
     };
