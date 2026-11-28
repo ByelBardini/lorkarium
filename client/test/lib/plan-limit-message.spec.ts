@@ -241,4 +241,21 @@ describe('amountText', () => {
   it('uses the singular for one', () => {
     expect(amountText('lights', 1)).toBe('1 luz por cena');
   });
+
+  it('names the round cycles and their phases of a Grátis table, and what frees more', () => {
+    expect(planLimitMessage({ resource: 'roundCycles', limit: 1, plan: 'free' })).toBe(
+      'Esta mesa usa o plano Grátis, que permite até 1 ciclo de rodada. O Narrador libera 3.',
+    );
+    expect(planLimitMessage({ resource: 'roundCyclePhases', limit: 6, plan: 'narrador' })).toBe(
+      'Esta mesa usa o plano Narrador, que permite até 6 fases por ciclo. A Lenda libera 12.',
+    );
+  });
+
+  it('says the image of a phase is in Narrador, and a locked cycle how to free it', () => {
+    expect(
+      planLimitMessage({ resource: 'roundCyclePhaseImage', limit: 0, plan: 'free' }),
+    ).toContain('Imagem própria na fase do ciclo está no plano Narrador');
+    const locked = { resource: 'roundCycles', limit: 1, plan: 'free', reason: 'readOnly' } as const;
+    expect(planLimitMessage(locked)).toContain('Apague um ciclo mais antigo');
+  });
 });

@@ -16,8 +16,8 @@ const fields: RoundCycleFields = {
   chooserIds: [LYRA_USER],
   announce: true,
   phases: [
-    { name: 'Lua Nova', imageAssetId: null },
-    { name: 'Lua Cheia', imageAssetId: null },
+    { name: 'Lua Nova', icon: 'game-icons:cycle' as const, imageAssetId: null },
+    { name: 'Lua Cheia', icon: 'game-icons:cycle' as const, imageAssetId: null },
   ],
 };
 

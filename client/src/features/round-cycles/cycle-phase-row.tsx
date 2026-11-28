@@ -3,6 +3,8 @@ import { useRef } from 'react';
 import { useImageSender, type ImageSender } from '@/components/use-image-sender';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ConditionIconField } from '@/features/combat/condition-icon-field';
+import type { PlanGate } from '@/features/plans/plan-gate';
 import type { PhaseDraft } from '@/lib/round-cycle-form';
 import { cn } from '@/lib/utils';
 import type { AssetsApi } from '@/services/assets-api';
@@ -19,13 +21,16 @@ export type CyclePhaseRowProps = Readonly<{
   count: number;
   canRemove: boolean;
   images: CycleImageTarget;
-  onChange: (change: Partial<Pick<PhaseDraft, 'name' | 'imageAssetId'>>) => void;
+  /** The table's plan on own images: closed, a phase takes only its icon (one it has stays). */
+  imageGate: PlanGate;
+  onChange: (change: Partial<Pick<PhaseDraft, 'name' | 'icon' | 'imageAssetId'>>) => void;
   onMove: (by: -1 | 1) => void;
   onRemove: () => void;
 }>;
 
 /** One phase of the cycle in the editor, on one line: its place, its image (a square that takes
- *  a click or a dropped file), its name, and the moves. Never under two phases.
+ *  a click or a dropped file, where the plan has own images), its icon (from the condition
+ *  icons, shown when there is no image), its name, and the moves. Never under two phases.
  *
  *  Example: `<CyclePhaseRow phase={phase} place={1} count={4} canRemove images={images} onChange={…} onMove={…} onRemove={…} />` */
 export function CyclePhaseRow(props: CyclePhaseRowProps): React.JSX.Element {
@@ -45,7 +50,15 @@ export function CyclePhaseRow(props: CyclePhaseRowProps): React.JSX.Element {
         >
           {place}
         </span>
-        <PhaseImageButton {...props} sender={sender} />
+        {(props.imageGate.open || phase.imageAssetId !== null) && (
+          <PhaseImageButton {...props} sender={sender} />
+        )}
+        <ConditionIconField
+          value={phase.icon}
+          tone="benefit"
+          name={phase.name}
+          onChange={(icon) => onChange({ icon })}
+        />
         <Input
           aria-label={`Nome da fase ${place}`}
           placeholder="Nome da fase"
@@ -97,26 +110,32 @@ export function CyclePhaseRow(props: CyclePhaseRowProps): React.JSX.Element {
 }
 
 // The square of the image: a click opens the file picker, a dropped file goes too; with an image,
-// a small × takes it away. The refusal (type, size, plan) shows under the row.
+// a small × takes it away. The refusal (type, size, plan) shows under the row. Without the plan's
+// own images, the image a phase kept can only be taken away.
 function PhaseImageButton({
   phase,
   place,
+  imageGate,
   onChange,
   sender,
 }: CyclePhaseRowProps & Readonly<{ sender: ImageSender }>) {
   const input = useRef<HTMLInputElement>(null);
   const label = `Imagem ou GIF da fase ${place}`;
+  const send = (file: File | undefined): void => {
+    if (imageGate.open) sender.sendFile(file);
+  };
   return (
     <div className="relative shrink-0">
       <button
         type="button"
         aria-label={label}
-        title={label}
+        title={imageGate.hint ?? label}
+        disabled={!imageGate.open}
         onClick={() => input.current?.click()}
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault();
-          sender.sendFile(event.dataTransfer.files[0]);
+          send(event.dataTransfer.files[0]);
         }}
         className={cn(
           'grid size-14 place-items-center overflow-hidden rounded-md border border-dashed text-muted-foreground hover:border-primary hover:text-primary',
@@ -126,7 +145,7 @@ function PhaseImageButton({
         {sender.busy && <LoaderCircleIcon aria-hidden="true" className="size-5 animate-spin" />}
         {!sender.busy && phase.imageAssetId !== null && (
           <CyclePhaseImage
-            phase={{ phaseId: phase.key, name: phase.name, imageAssetId: phase.imageAssetId }}
+            phase={{ ...phase, phaseId: phase.key }}
             className="size-14 rounded-none border-0"
           />
         )}
@@ -150,7 +169,7 @@ function PhaseImageButton({
         hidden
         accept={sender.accept}
         onChange={(event) => {
-          sender.sendFile(event.target.files?.[0]);
+          send(event.target.files?.[0]);
           event.target.value = '';
         }}
       />

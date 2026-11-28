@@ -16,9 +16,13 @@ const announced = (sceneId: string): RoundCyclesAnnouncedDto => ({
     {
       cycleId: MOON_ID,
       cycleName: 'Fases da Lua',
-      phase: { name: 'Lua Cheia', imageAssetId: null },
+      phase: { name: 'Lua Cheia', icon: 'game-icons:cycle' as const, imageAssetId: null },
     },
-    { cycleId: TIDE_ID, cycleName: 'Maré', phase: { name: 'Alta', imageAssetId: null } },
+    {
+      cycleId: TIDE_ID,
+      cycleName: 'Maré',
+      phase: { name: 'Alta', icon: 'game-icons:cycle' as const, imageAssetId: null },
+    },
   ],
 });
 
@@ -31,12 +35,22 @@ describe('announcementOn', () => {
         {
           cycleId: MOON_ID,
           cycleName: 'Fases da Lua',
-          phase: { phaseId: MOON_ID, name: 'Lua Cheia', imageAssetId: null },
+          phase: {
+            phaseId: MOON_ID,
+            name: 'Lua Cheia',
+            icon: 'game-icons:cycle' as const,
+            imageAssetId: null,
+          },
         },
         {
           cycleId: TIDE_ID,
           cycleName: 'Maré',
-          phase: { phaseId: TIDE_ID, name: 'Alta', imageAssetId: null },
+          phase: {
+            phaseId: TIDE_ID,
+            name: 'Alta',
+            icon: 'game-icons:cycle' as const,
+            imageAssetId: null,
+          },
         },
       ],
     });

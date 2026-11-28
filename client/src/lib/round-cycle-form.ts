@@ -1,6 +1,7 @@
 import {
   ROUND_CYCLE_PHASES_MAX,
   ROUND_CYCLE_PHASES_MIN,
+  type ConditionIconDto,
   type RoundCycleDto,
   type RoundCycleHolderDto,
   type RoundCycleVisibilityDto,
@@ -13,8 +14,12 @@ export type PhaseDraft = Readonly<{
   key: string;
   id?: string;
   name: string;
+  icon: ConditionIconDto;
   imageAssetId: string | null;
 }>;
+
+/** The icon a new phase starts with, until the master picks one. */
+export const NEW_PHASE_ICON: ConditionIconDto = 'game-icons:cycle';
 
 /** `table`, `character:<id>` or `token:<id>`: the holder as one `<select>` value. */
 export type HolderKey = string;
@@ -33,7 +38,12 @@ export type RoundCycleDraft = Readonly<{
 let nextKey = 0;
 const newKey = (): string => `phase-${++nextKey}`;
 
-const emptyPhase = (): PhaseDraft => ({ key: newKey(), name: '', imageAssetId: null });
+const emptyPhase = (): PhaseDraft => ({
+  key: newKey(),
+  name: '',
+  icon: NEW_PHASE_ICON,
+  imageAssetId: null,
+});
 
 /** "Novo ciclo": of the table, seen by everyone, not announced, with two empty phases. */
 export const NEW_CYCLE_DRAFT: RoundCycleDraft = Object.freeze({
@@ -73,7 +83,13 @@ export function draftOfCycle(cycle: RoundCycleDto): RoundCycleDraft {
     seerIds: config?.seerIds ?? [],
     chooserIds: config?.chooserIds ?? [],
     announce: cycle.announce,
-    phases: cycle.phases.map(({ id, name, imageAssetId }) => ({ key: id, id, name, imageAssetId })),
+    phases: cycle.phases.map(({ id, name, icon, imageAssetId }) => ({
+      key: id,
+      id,
+      name,
+      icon,
+      imageAssetId,
+    })),
   };
 }
 
@@ -88,9 +104,10 @@ export function fieldsOfDraft(draft: RoundCycleDraft): RoundCycleFields {
     seerIds: draft.visibility === 'some' ? [...draft.seerIds] : [],
     chooserIds: [...draft.chooserIds],
     announce: draft.announce,
-    phases: draft.phases.map(({ id, name, imageAssetId }) => ({
+    phases: draft.phases.map(({ id, name, icon, imageAssetId }) => ({
       ...(id === undefined ? {} : { id }),
       name: name.trim(),
+      icon,
       imageAssetId,
     })),
   };
@@ -107,9 +124,14 @@ export function draftProblem(draft: RoundCycleDraft): string | null {
   return null;
 }
 
-/** Example: `withPhaseAdded(draft).phases.length // one more, up to 12` */
-export function withPhaseAdded(draft: RoundCycleDraft): RoundCycleDraft {
-  if (draft.phases.length >= ROUND_CYCLE_PHASES_MAX) return draft;
+/** One more phase, up to `max` (the plan's ceiling, 12 by default).
+ *
+ *  Example: `withPhaseAdded(draft, 3).phases.length // one more, up to 3` */
+export function withPhaseAdded(
+  draft: RoundCycleDraft,
+  max: number = ROUND_CYCLE_PHASES_MAX,
+): RoundCycleDraft {
+  if (draft.phases.length >= max) return draft;
   return { ...draft, phases: [...draft.phases, emptyPhase()] };
 }
 
@@ -136,7 +158,7 @@ export function withPhaseMoved(draft: RoundCycleDraft, key: string, by: -1 | 1):
 export function withPhaseChanged(
   draft: RoundCycleDraft,
   key: string,
-  change: Partial<Pick<PhaseDraft, 'name' | 'imageAssetId'>>,
+  change: Partial<Pick<PhaseDraft, 'name' | 'icon' | 'imageAssetId'>>,
 ): RoundCycleDraft {
   const phases = draft.phases.map((phase) => (phase.key === key ? { ...phase, ...change } : phase));
   return { ...draft, phases };

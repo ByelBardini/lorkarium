@@ -26,8 +26,14 @@ export function moonCycle(overrides: MoonOverrides = {}): RoundCycleDto {
     id: MOON_ID,
     name: 'Fases da Lua',
     announce: true,
-    phases: MOON_PHASE_IDS.map((id, i) => ({ id, name: MOON_NAMES[i] ?? '', imageAssetId: null })),
+    phases: MOON_PHASE_IDS.map((id, i) => ({
+      id,
+      name: MOON_NAMES[i] ?? '',
+      icon: 'game-icons:cycle' as const,
+      imageAssetId: null,
+    })),
     canChoose: false,
+    planLocked: false,
     config: null,
     combats: [
       {

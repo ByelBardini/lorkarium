@@ -109,7 +109,7 @@ describe('the table stream of a table visit', () => {
         {
           cycleId: '7a6b5c4d-3e2f-4a1b-9c8d-7e6f5a4b3c2d',
           cycleName: 'Fases da Lua',
-          phase: { name: 'Crescente', imageAssetId: null },
+          phase: { name: 'Crescente', icon: 'game-icons:cycle', imageAssetId: null },
         },
       ],
     };

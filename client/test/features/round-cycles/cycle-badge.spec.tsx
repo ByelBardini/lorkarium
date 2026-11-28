@@ -4,7 +4,12 @@ import { describe, expect, it } from 'vitest';
 import { CycleBadge } from '@/features/round-cycles/cycle-badge';
 import type { CycleBadge as CycleBadgeView } from '@/lib/round-cycle-view';
 
-const phase = (name: string) => ({ phaseId: `p-${name}`, name, imageAssetId: null });
+const phase = (name: string) => ({
+  phaseId: `p-${name}`,
+  name,
+  icon: 'game-icons:cycle' as const,
+  imageAssetId: null,
+});
 
 const badge: CycleBadgeView = {
   cycleId: 'moon',

@@ -84,6 +84,8 @@ export const PLAN_COUNT_LABEL: Readonly<Record<PlanCountResource, PlanCountLabel
     'pastas de tokens salvos por pessoa',
     'Pasta de tokens salvos está',
   ),
+  roundCycles: countLabel('ciclo de rodada', 'ciclos de rodada', 'Ciclo de rodada está'),
+  roundCyclePhases: countLabel('fase por ciclo', 'fases por ciclo', 'Ciclo de rodada está'),
   customEmojis: countLabel(
     'emoji personalizado',
     'emojis personalizados',
@@ -107,6 +109,7 @@ export const PLAN_FEATURE_LABEL: Readonly<Record<PlanFeatureResource, string>> =
   privateCampaign: 'Mesa privada está',
   sheetScripts: 'Scripts no modelo de ficha estão',
   magicSight: 'Visão mágica está',
+  roundCyclePhaseImage: 'Imagem própria na fase do ciclo está',
 };
 
 // The features, by what frees them in the grid. The other account customizations (texture,
@@ -125,6 +128,7 @@ const FEATURE_IN_GRID: Readonly<
   sheetScripts: (limits) => limits.sheetScripts,
   profileBanner: (limits) => limits.profileBanner,
   magicSight: (limits) => limits.magicSight,
+  roundCyclePhaseImage: (limits) => limits.roundCyclePhaseImage,
 };
 
 /** How an item kept past the ceiling is named: `item` opens the sentence, `free` says what stays
@@ -141,6 +145,7 @@ export type PlanReadOnlyResource = Extract<
   | 'documentTabs'
   | 'savedRolls'
   | 'savedTokens'
+  | 'roundCycles'
   | 'tokenBars'
   | 'tokenForms'
   | 'lights'
@@ -174,6 +179,11 @@ const READ_ONLY_LABEL: Readonly<Record<PlanReadOnlyResource, ReadOnlyLabel>> = {
     'Este token salvo',
     'pôr no mapa, mover para pasta e excluir seguem livres',
     'Apague um token salvo mais antigo',
+  ),
+  roundCycles: readOnlyLabel(
+    'Este ciclo',
+    'virar no combate, escolher a próxima fase e apagar seguem livres',
+    'Apague um ciclo mais antigo',
   ),
   // Bars and forms rank by their place on the token, not by age.
   tokenBars: readOnlyLabel(
