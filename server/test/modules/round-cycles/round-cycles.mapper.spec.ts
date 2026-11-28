@@ -1,3 +1,4 @@
+import { PLAN_LIMITS } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import type {
   CombatCycleState,
@@ -10,6 +11,7 @@ import {
 } from '../../../src/modules/round-cycles/round-cycles.mapper';
 import { roundCycleRow } from '../../support/round-cycles-factories';
 
+const UNBOUNDED = PLAN_LIMITS.amigo_do_dono;
 const LYRA = 'user-lyra';
 const KAEL = 'user-kael';
 
@@ -38,7 +40,10 @@ const state: CombatCycleState = {
 
 describe('roundCyclesSeenBy', () => {
   it('the master sees every cycle with its config and may choose in all', () => {
-    const seen = roundCyclesSeenBy([moon, sky, tide], [state], { kind: 'master' });
+    const seen = roundCyclesSeenBy(
+      { rows: [moon, sky, tide], states: [state], limits: UNBOUNDED },
+      { kind: 'master' },
+    );
     expect(seen.map(({ id, canChoose }) => [id, canChoose])).toEqual([
       ['moon', true],
       ['sky', true],
@@ -54,7 +59,10 @@ describe('roundCyclesSeenBy', () => {
   });
 
   it('a seer gets the cycles they see, with no config, and where each stands in combat', () => {
-    const seen = roundCyclesSeenBy([moon, sky, tide], [state], { kind: 'member', userId: LYRA });
+    const seen = roundCyclesSeenBy(
+      { rows: [moon, sky, tide], states: [state], limits: UNBOUNDED },
+      { kind: 'member', userId: LYRA },
+    );
     expect(seen.map(({ id }) => id)).toEqual(['moon', 'sky']);
     expect(seen[0]).toMatchObject({ canChoose: true, config: null });
     expect(seen[0]?.combats).toEqual([
@@ -69,14 +77,17 @@ describe('roundCyclesSeenBy', () => {
   });
 
   it('someone not named sees only what everyone sees, without choosing', () => {
-    const seen = roundCyclesSeenBy([moon, sky, tide], [state], { kind: 'member', userId: KAEL });
+    const seen = roundCyclesSeenBy(
+      { rows: [moon, sky, tide], states: [state], limits: UNBOUNDED },
+      { kind: 'member', userId: KAEL },
+    );
     expect(seen.map(({ id, canChoose }) => [id, canChoose])).toEqual([['sky', false]]);
   });
 });
 
 describe('roundCycleCutsOf', () => {
   it('one list for the masters, one per named member and one for the rest', () => {
-    const cuts = roundCycleCutsOf([moon, sky, tide], []);
+    const cuts = roundCycleCutsOf({ rows: [moon, sky, tide], states: [], limits: UNBOUNDED });
     expect(cuts.masters.map(({ id }) => id)).toEqual(['moon', 'sky', 'tide']);
     expect(cuts.members.map(({ userId, cycles }) => [userId, cycles.map(({ id }) => id)])).toEqual([
       [LYRA, ['moon', 'sky']],
@@ -92,5 +103,28 @@ describe('toRoundCycleWrite', () => {
     const ofTable = toRoundCycleWrite({ ...fields, holder: { kind: 'table' } }, []);
     expect([ofToken.holderCharacterId, ofToken.holderTokenId]).toEqual([null, 't-1']);
     expect([ofTable.holderCharacterId, ofTable.holderTokenId]).toEqual([null, null]);
+  });
+});
+
+describe('planLocked', () => {
+  it('on a Grátis owner only the oldest cycle is editable, in every cut', () => {
+    const listing = { rows: [moon, sky, tide], states: [], limits: PLAN_LIMITS.free };
+    const master = roundCyclesSeenBy(listing, { kind: 'master' });
+    expect(master.map(({ id, planLocked }) => [id, planLocked])).toEqual([
+      ['moon', false],
+      ['sky', true],
+      ['tide', true],
+    ]);
+    expect(roundCycleCutsOf(listing).rest).toEqual([expect.objectContaining({ planLocked: true })]);
+  });
+
+  it('above the plans no cycle is locked', () => {
+    const seen = roundCyclesSeenBy(
+      { rows: [moon, sky, tide], states: [], limits: UNBOUNDED },
+      {
+        kind: 'master',
+      },
+    );
+    expect(seen.every(({ planLocked }) => !planLocked)).toBe(true);
   });
 });

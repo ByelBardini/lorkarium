@@ -1,0 +1,1 @@
+ALTER TABLE "round_cycle_phases" ADD COLUMN "icon" text DEFAULT 'game-icons:cycle' NOT NULL;

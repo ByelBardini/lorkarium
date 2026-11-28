@@ -115,6 +115,7 @@ export type PlanEditableResource = Extract<
   | 'documentTabs'
   | 'savedRolls'
   | 'savedTokens'
+  | 'roundCycles'
   | 'lights'
   | 'tokenBars'
   | 'tokenForms'
@@ -129,6 +130,7 @@ const EDITABLE_ITEM_NAME: Readonly<Record<PlanEditableResource, string>> = {
   documentTabs: 'document tab',
   savedRolls: 'saved roll',
   savedTokens: 'saved token',
+  roundCycles: 'round cycle',
   lights: 'light',
   tokenBars: 'token bar',
   tokenForms: 'token form',

@@ -87,6 +87,7 @@ const yesNo = (allowed: boolean): string => (allowed ? 'sim' : 'não');
  *  Example: `PLAN_FEATURE_ROWS[0]?.cellOf(PLAN_LIMITS.free) // 'não'` */
 export const PLAN_FEATURE_ROWS: readonly PlanGridRow[] = [
   { label: 'Condição com imagem própria', cellOf: (l) => yesNo(l.conditionImage) },
+  { label: 'Fase de ciclo com imagem própria', cellOf: (l) => yesNo(l.roundCyclePhaseImage) },
   { label: 'Duplicar grid', cellOf: (l) => yesNo(l.sceneCopy) },
   { label: 'Janelas Chat e Imagens', cellOf: (l) => yesNo(l.desktopWindows) },
   { label: 'Scripts na ficha', cellOf: (l) => yesNo(l.sheetScripts) },

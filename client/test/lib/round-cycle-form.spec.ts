@@ -2,6 +2,7 @@ import type { RoundCycleConfigDto } from '@lorkarium/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   NEW_CYCLE_DRAFT,
+  NEW_PHASE_ICON,
   draftOfCycle,
   draftProblem,
   fieldsOfDraft,
@@ -9,6 +10,7 @@ import {
   keyOfHolder,
   withChooserToggled,
   withPhaseAdded,
+  withPhaseChanged,
   withPhaseMoved,
   withPhaseRemoved,
   withSeerToggled,
@@ -55,8 +57,8 @@ describe('the round cycle draft', () => {
       name: 'Lua',
       seerIds: [],
       phases: [
-        { name: 'F0', imageAssetId: null },
-        { name: 'F1', imageAssetId: null },
+        { name: 'F0', icon: 'game-icons:cycle' as const, imageAssetId: null },
+        { name: 'F1', icon: 'game-icons:cycle' as const, imageAssetId: null },
       ],
     });
   });
@@ -112,5 +114,27 @@ describe('the round cycle draft', () => {
     ] as const) {
       expect(holderOfKey(keyOfHolder(holder))).toEqual(holder);
     }
+  });
+});
+
+describe('the plan and the icon of a phase', () => {
+  it('withPhaseAdded stops at the ceiling it is given', () => {
+    const three = withPhaseAdded(NEW_CYCLE_DRAFT, 3);
+    expect(withPhaseAdded(three, 3).phases).toHaveLength(3);
+  });
+
+  it('a new phase starts with the cycle icon, and its icon is sent', () => {
+    const draft = withPhaseAdded(NEW_CYCLE_DRAFT, 3);
+    expect(draft.phases.map(({ icon }) => icon)).toEqual([
+      NEW_PHASE_ICON,
+      NEW_PHASE_ICON,
+      NEW_PHASE_ICON,
+    ]);
+    const moved = withPhaseChanged(draft, draft.phases[0]!.key, { icon: 'game-icons:moon-orbit' });
+    expect(fieldsOfDraft(moved).phases[0]?.icon).toBe('game-icons:moon-orbit');
+  });
+
+  it('a saved phase keeps its icon in the draft', () => {
+    expect(draftOfCycle(moonCycle()).phases[0]?.icon).toBe('game-icons:cycle');
   });
 });

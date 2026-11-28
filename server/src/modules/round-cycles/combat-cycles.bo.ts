@@ -1,4 +1,4 @@
-import type { RoundCycleAnnouncementDto } from '@lorkarium/contracts';
+import type { ConditionIconDto, RoundCycleAnnouncementDto } from '@lorkarium/contracts';
 import {
   activeCyclesOf,
   cycleStart,
@@ -14,7 +14,12 @@ export type CycleInCombat = Readonly<{
   name: string;
   announce: boolean;
   holder: CycleHolder;
-  phases: readonly Readonly<{ id: string; name: string; imageAssetId: string | null }>[];
+  phases: readonly Readonly<{
+    id: string;
+    name: string;
+    icon: ConditionIconDto;
+    imageAssetId: string | null;
+  }>[];
 }>;
 
 /** Where one cycle stands in this combat. */
@@ -88,7 +93,7 @@ function announcedOf(
     const cycle = cycles.find(({ id }) => id === cycleId);
     const phase = cycle?.phases.find(({ id }) => id === currentPhaseId);
     if (!cycle?.announce || !phase) return [];
-    const { name, imageAssetId } = phase;
-    return [{ cycleId, cycleName: cycle.name, phase: { name, imageAssetId } }];
+    const { name, icon, imageAssetId } = phase;
+    return [{ cycleId, cycleName: cycle.name, phase: { name, icon, imageAssetId } }];
   });
 }

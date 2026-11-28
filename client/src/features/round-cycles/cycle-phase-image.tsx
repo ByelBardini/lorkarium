@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ConditionGlyph } from '@/features/combat/condition-marks';
 import { cn } from '@/lib/utils';
 import { assetUrlOf } from '@/services/assets-api';
 import type { CyclePhaseView } from '@/lib/round-cycle-view';
@@ -10,7 +11,8 @@ export type CyclePhaseImageProps = Readonly<{
 }>;
 
 /** The image of one phase (a GIF animates by itself in the `<img>`); without one, or when it fails
- *  to load, the first letter of its name on a plain square. Decorative: the name goes beside it.
+ *  to load, its icon (one of the condition icons) on a plain square. Decorative: the name goes
+ *  beside it.
  *
  *  Example: `<CyclePhaseImage phase={badge.current} className="size-11" />` */
 export function CyclePhaseImage({ phase, className }: CyclePhaseImageProps): React.JSX.Element {
@@ -20,7 +22,7 @@ export function CyclePhaseImage({ phase, className }: CyclePhaseImageProps): Rea
   if (image === null) {
     return (
       <span aria-hidden="true" className={cn(box, 'flex items-center justify-center')}>
-        <span className="font-display text-lg text-muted-foreground">{phase.name.charAt(0)}</span>
+        <ConditionGlyph icon={phase.icon} tone="benefit" className="size-[60%]" />
       </span>
     );
   }

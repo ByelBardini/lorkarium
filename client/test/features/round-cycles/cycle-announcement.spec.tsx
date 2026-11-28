@@ -25,7 +25,7 @@ function announced(round: number, sceneId: string = VHARN_SCENE.id): RoundCycles
       {
         cycleId: MOON_ID,
         cycleName: 'Fases da Lua',
-        phase: { name: 'Lua Cheia', imageAssetId: IMAGE_ID },
+        phase: { name: 'Lua Cheia', icon: 'game-icons:cycle' as const, imageAssetId: IMAGE_ID },
       },
     ],
   };

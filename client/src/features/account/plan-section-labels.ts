@@ -24,5 +24,7 @@ export const PLAN_COUNT_LABELS: Readonly<Record<PlanCountResource, string>> = {
   savedRollFolders: 'Pastas de rolagens por pessoa',
   savedTokens: 'Tokens salvos por pessoa',
   savedTokenFolders: 'Pastas de tokens salvos por pessoa',
+  roundCycles: 'Ciclos de rodada por mesa',
+  roundCyclePhases: 'Fases por ciclo de rodada',
   customEmojis: 'Emojis personalizados',
 };

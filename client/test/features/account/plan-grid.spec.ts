@@ -64,6 +64,9 @@ describe('plan grid texts', () => {
     ['Tokens salvos por pessoa', '0', '5', '20', '50'],
     ['Pastas de tokens salvos por pessoa', '0', '2', '5', '20'],
     ['Emojis personalizados', '0', '10', '25', '50'],
+    ['Ciclos de rodada por mesa', '1', '1', '3', '10'],
+    ['Fases por ciclo de rodada', '3', '3', '6', '12'],
+    ['Fase de ciclo com imagem própria', 'não', 'não', 'sim', 'sim'],
     ['Emoji personalizado animado (GIF)', 'não', 'não', 'não', 'sim'],
   ] as const)(
     'the "%s" row reads %s / %s / %s / %s on Grátis, Apoiador, Narrador and Lenda',

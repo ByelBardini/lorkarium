@@ -30,7 +30,7 @@ import { formRowsOf } from '../../src/modules/tokens/token-forms.dao';
 import type { BarValuesWritePo, TokenFormInputPo } from '../../src/modules/tokens/tokens.po';
 import { characterBarPo, characterPo } from './characters-factories';
 import { ConditionsDaoFake } from './conditions-fakes';
-import { planAccount } from './plan-account-fakes';
+import { planAccount, TableOwnerPlansFake } from './plan-account-fakes';
 import { RoundCyclesDaoFake } from './round-cycles-fakes';
 
 /** A character as the fake keeps it: its `conditions`, if given, are ignored (reads take them
@@ -255,13 +255,14 @@ export class CharacterSnapshotRunnerFake {
       'listDefinitions'
     > = new ConditionsDaoFake(),
     private readonly roundCycles: RoundCyclesDaoFake = new RoundCyclesDaoFake(),
+    private readonly campaigns: TableOwnerPlansFake = new TableOwnerPlansFake(),
   ) {}
 
   readonly run: CharacterSnapshotRunner = async <T>(
     work: (daos: CharacterReadDaos) => Promise<T>,
   ): Promise<T> => {
-    const { characters, conditions, roundCycles } = this;
-    return work({ characters, conditions, roundCycles });
+    const { characters, conditions, roundCycles, campaigns } = this;
+    return work({ characters, conditions, roundCycles, campaigns });
   };
 }
 

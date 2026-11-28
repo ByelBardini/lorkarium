@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ASSET_MAX_SIDE } from '../../src/assets/asset.dto';
 import { LIGHTS_PER_SCENE_MAX } from '../../src/board/light.dto';
+import { ROUND_CYCLE_MAX_PER_TABLE, ROUND_CYCLE_PHASES_MAX } from '../../src/board/round-cycle.dto';
 import { SAVED_TOKEN_FOLDERS_MAX, SAVED_TOKENS_MAX } from '../../src/board/saved-token.dto';
 import { TOKEN_FORMS_MAX } from '../../src/board/token-form.dto';
 import { TOKEN_PATROLS_RUNNING_MAX } from '../../src/board/token-patrol.dto';
@@ -177,6 +178,8 @@ describe('PLAN_LIMITS', () => {
       maxSavedRollFolders: SAVED_ROLL_FOLDERS_MAX,
       maxSavedTokens: SAVED_TOKENS_MAX,
       maxSavedTokenFolders: SAVED_TOKEN_FOLDERS_MAX,
+      maxRoundCycles: ROUND_CYCLE_MAX_PER_TABLE,
+      maxRoundCyclePhases: ROUND_CYCLE_PHASES_MAX,
       maxDiceModelsPerRoll: DICE_THROW_MODELS_MAX,
       maxMapSide: ASSET_MAX_SIDE.library_map,
       maxBackgroundSide: ASSET_MAX_SIDE.background,
@@ -191,6 +194,7 @@ describe('PLAN_LIMITS', () => {
       sheetScripts: true,
       profileBanner: true,
       magicSight: true,
+      roundCyclePhaseImage: true,
       maxCustomEmojis: null,
       animatedCustomEmojis: true,
     } satisfies PlanLimits);
@@ -258,6 +262,35 @@ describe('PLAN_LIMITS', () => {
       lenda: ['scenes', 'libraryMaps', 'sheetTemplates', 'npcSheets'],
       amigo_do_dono: [],
     });
+  });
+});
+
+describe('round cycles in the grid', () => {
+  it('cycles per table: 1 on Grátis and Apoiador, 3 on Narrador, 10 on Lenda, 20 technical', () => {
+    expect(USER_PLANS.map((plan) => PLAN_LIMITS[plan].maxRoundCycles)).toEqual([1, 1, 3, 10, 20]);
+  });
+
+  it('phases per cycle: 3 on Grátis and Apoiador, 6 on Narrador, 12 on Lenda and technical', () => {
+    expect(USER_PLANS.map((plan) => PLAN_LIMITS[plan].maxRoundCyclePhases)).toEqual([
+      3, 3, 6, 12, 12,
+    ]);
+  });
+
+  it('the image of a phase opens from Narrador up', () => {
+    expect(USER_PLANS.map((plan) => PLAN_LIMITS[plan].roundCyclePhaseImage)).toEqual([
+      false,
+      false,
+      true,
+      true,
+      true,
+    ]);
+  });
+
+  it('a refusal may name the cycles, the phases and the phase image', () => {
+    for (const resource of ['roundCycles', 'roundCyclePhases', 'roundCyclePhaseImage']) {
+      expect(planLimitResourceDto.parse(resource)).toBe(resource);
+    }
+    expect(PLAN_COUNT_LIMIT_KEY.roundCyclePhases).toBe('maxRoundCyclePhases');
   });
 });
 

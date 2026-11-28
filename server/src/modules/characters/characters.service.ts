@@ -13,7 +13,7 @@ import { memberAccessOf, viewerAccessOf } from '../campaigns/member-access';
 import type { ConditionsDao } from '../conditions/conditions.dao';
 import { toConditionDefinitionDto } from '../conditions/conditions.mapper';
 import type { CycleViewer } from '../round-cycles/round-cycle-rules.bo';
-import { roundCyclesFor, type RoundCycleReadDaos } from '../round-cycles/round-cycles.service';
+import { roundCyclesFor, type RoundCycleSnapshotDaos } from '../round-cycles/round-cycles.service';
 import type { SheetsDao } from '../sheets/sheets.dao';
 import type { BarValuesPo } from '../tokens/tokens.po';
 import type { CharacterBo } from './character.bo';
@@ -58,7 +58,9 @@ export type CharacterReadDaos = Readonly<{
   /** The table's condition list rides the same stream (and version) as the characters. */
   conditions: Pick<ConditionsDao, 'listDefinitions'>;
   /** The round cycles ride the same stream: each member reads the ones they see. */
-  roundCycles: RoundCycleReadDaos['roundCycles'];
+  roundCycles: RoundCycleSnapshotDaos['roundCycles'];
+  /** The owner's plan: which cycles are read only. */
+  campaigns: RoundCycleSnapshotDaos['campaigns'];
 }>;
 
 export type CharacterTransactionRunner = CharactersTransaction<CharacterWriteDaos>;

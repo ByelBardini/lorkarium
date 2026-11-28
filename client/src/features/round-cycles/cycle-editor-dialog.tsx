@@ -14,6 +14,16 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import {
+  countGate,
+  featureGate,
+  OPEN_GATE,
+  planHintIdOf,
+  type PlanGate,
+} from '@/features/plans/plan-gate';
+import { PlanGateHint } from '@/features/plans/plan-gate-hint';
+import { PlanGated } from '@/features/plans/plan-gated';
+import { usePlanLimits } from '@/features/plans/use-plan-limits';
+import {
   draftProblem,
   fieldsOfDraft,
   withPhaseAdded,
@@ -72,7 +82,12 @@ export function CycleEditorDialog(props: CycleEditorDialogProps): React.JSX.Elem
           <div className="grid min-h-0 flex-1 overflow-y-auto md:grid-cols-[minmax(0,1fr)_19rem] md:overflow-hidden">
             <div className="flex min-h-0 flex-col gap-6 px-6 py-5 md:overflow-y-auto">
               <NameField draft={draft} onChange={setDraft} />
-              <PhaseList draft={draft} images={props.images} onChange={setDraft} />
+              <PhaseList
+                draft={draft}
+                images={props.images}
+                savedCount={props.initial.phases.length}
+                onChange={setDraft}
+              />
             </div>
             <aside
               aria-label="Como o ciclo joga"
@@ -147,14 +162,24 @@ function HolderField({
   );
 }
 
-function PhaseList({
-  draft,
-  images,
-  onChange,
-}: FieldsProps & Readonly<{ images: CycleImageTarget }>) {
+type PhaseListProps = FieldsProps &
+  Readonly<{
+    images: CycleImageTarget;
+    /** The phases the saved cycle has: one kept past the plan keeps them, without growing. */
+    savedCount: number;
+  }>;
+
+// The ceiling of phases is the table owner's plan; a cycle that kept more after the plan went down
+// may stay at what it had.
+function PhaseList({ draft, images, savedCount, onChange }: PhaseListProps) {
+  const limits = usePlanLimits().table;
   const count = draft.phases.length;
-  const full = count >= ROUND_CYCLE_PHASES_MAX;
+  const max = Math.max(limits?.maxRoundCyclePhases ?? ROUND_CYCLE_PHASES_MAX, savedCount);
+  // Full at the plan's ceiling says which plan has more; at the technical 12 the button only stops.
+  const addGate = count < max ? OPEN_GATE : countGate(limits, 'roundCyclePhases', count);
+  const imageGate = featureGate(limits, (offer) => offer.roundCyclePhaseImage);
   const headingId = useId();
+  const addHintId = useId();
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-3">
@@ -162,7 +187,7 @@ function PhaseList({
           Fases, na ordem
         </h3>
         <span className="text-xs text-muted-foreground tabular-nums">
-          {count} de {ROUND_CYCLE_PHASES_MAX}
+          {count} de {max}
         </span>
       </div>
       <ol className="flex flex-col gap-2">
@@ -174,27 +199,40 @@ function PhaseList({
             count={count}
             canRemove={count > ROUND_CYCLE_PHASES_MIN}
             images={images}
+            imageGate={imageGate}
             onChange={(change) => onChange(withPhaseChanged(draft, phase.key, change))}
             onMove={(by) => onChange(withPhaseMoved(draft, phase.key, by))}
             onRemove={() => onChange(withPhaseRemoved(draft, phase.key))}
           />
         ))}
       </ol>
-      <Button
-        type="button"
-        variant="outline"
-        className="border-dashed"
-        disabled={full}
-        onClick={() => onChange(withPhaseAdded(draft))}
-      >
-        <PlusIcon aria-hidden="true" />
-        Adicionar fase
-      </Button>
-      <p className="text-xs text-muted-foreground">
-        Todo combate começa na primeira fase. Clique no quadrado ou solte nele uma imagem ou GIF.
-      </p>
+      <PlanGated gate={addGate}>
+        <Button
+          type="button"
+          variant="outline"
+          className="border-dashed"
+          disabled={addGate.open && count >= max}
+          aria-describedby={planHintIdOf(addGate, addHintId)}
+          onClick={addGate.open ? () => onChange(withPhaseAdded(draft, max)) : undefined}
+        >
+          <PlusIcon aria-hidden="true" />
+          Adicionar fase
+        </Button>
+      </PlanGated>
+      <PlanGateHint id={addHintId} gate={addGate} />
+      <p className="text-xs text-muted-foreground">{phaseHelpOf(imageGate)}</p>
     </section>
   );
+}
+
+const lowerFirst = (text: string): string => text.charAt(0).toLowerCase() + text.slice(1);
+
+function phaseHelpOf(imageGate: PlanGate): string {
+  const start = 'Todo combate começa na primeira fase.';
+  if (imageGate.open) {
+    return `${start} Escolha um ícone, ou clique no quadrado ou solte nele uma imagem ou GIF.`;
+  }
+  return `${start} Escolha um ícone para cada fase. Imagem ou GIF próprio: ${lowerFirst(imageGate.hint)}.`;
 }
 
 function AnnounceField({ draft, onChange }: FieldsProps) {

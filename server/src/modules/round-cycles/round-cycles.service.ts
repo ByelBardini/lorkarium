@@ -2,12 +2,14 @@ import type {
   ChooseNextPhaseCommandDto,
   DefineRoundCycleCommandDto,
   DeleteRoundCycleCommandDto,
+  PlanLimits,
   RoundCycleDto,
   UpdateRoundCycleCommandDto,
 } from '@lorkarium/contracts';
 import type { AssetsDao } from '../assets/assets.dao';
 import type { ClockPort } from '../auth/clock.port';
 import type { CampaignMembersDao } from '../campaigns/campaign-members.dao';
+import type { CampaignsDao } from '../campaigns/campaigns.dao';
 import { memberAccessOf } from '../campaigns/member-access';
 import type { CharactersDao } from '../characters/characters.dao';
 import {
@@ -15,11 +17,14 @@ import {
   inLockedCharacters,
   type CharactersLockDaos,
   type CharactersTransaction,
+  type LockedCharacters,
 } from '../characters/locked-characters';
+import { effectiveLimitsOf } from '../plans/plan-limits.bo';
 import { requireAssetsOf } from '../tokens/token-transaction';
+import { RoundCyclePlanBo } from './round-cycle-plan.bo';
 import { RoundCycleRulesBo, type CycleViewer } from './round-cycle-rules.bo';
 import type { RoundCyclePublisherPort } from './round-cycle-publisher.port';
-import type { RoundCyclesDao, RoundCycleWrite } from './round-cycles.dao';
+import type { RoundCycleRow, RoundCyclesDao, RoundCycleWrite } from './round-cycles.dao';
 import {
   RoundCycleHolderNotFoundError,
   RoundCycleNotActiveError,
@@ -31,6 +36,7 @@ import {
   roundCyclesSeenBy,
   toRoundCycleWrite,
   type RoundCycleFields,
+  type RoundCycleListing,
 } from './round-cycles.mapper';
 
 type Envelope = 'actionId' | 'campaignId';
@@ -43,6 +49,10 @@ export type ChooseNextPhase = Omit<ChooseNextPhaseCommandDto, Envelope>;
 export type RoundCycleReadDaos = Readonly<{
   roundCycles: Pick<RoundCyclesDao, 'listOfCampaign' | 'combatStatesOfCampaign'>;
 }>;
+
+/** A read outside a write also reads the owner's plan (in a write, the lock reads it). */
+export type RoundCycleSnapshotDaos = RoundCycleReadDaos &
+  Readonly<{ campaigns: Pick<CampaignsDao, 'findOwnerPlan'> }>;
 
 export type RoundCycleWriteDaos = CharactersLockDaos &
   Readonly<{
@@ -77,13 +87,27 @@ const RULES = new RoundCycleRulesBo();
  *
  *  Example: `await roundCyclesFor(daos, campaignId, { kind: 'member', userId })` */
 export async function roundCyclesFor(
-  daos: RoundCycleReadDaos,
+  daos: RoundCycleSnapshotDaos,
   campaignId: string,
   viewer: CycleViewer,
 ): Promise<RoundCycleDto[]> {
+  const owner = await daos.campaigns.findOwnerPlan(campaignId);
+  if (!owner) throw new Error(`campaign ${campaignId} has no owner to read its round cycles`);
+  const listing = await listingOf(daos, campaignId, effectiveLimitsOf(owner));
+  return roundCyclesSeenBy(listing, viewer);
+}
+
+/** The table's cycles as every list reads them, with the owner's limits.
+ *
+ *  Example: `roundCycleCutsOf(await listingOf(daos, campaignId, limits))` */
+export async function listingOf(
+  daos: RoundCycleReadDaos,
+  campaignId: string,
+  limits: PlanLimits,
+): Promise<RoundCycleListing> {
   const rows = await daos.roundCycles.listOfCampaign(campaignId);
   const states = await daos.roundCycles.combatStatesOfCampaign(campaignId);
-  return roundCyclesSeenBy(rows, states, viewer);
+  return { rows, states, limits };
 }
 
 /** The table's round cycles (spec §3.16). They ride the table stream (the characters' version):
@@ -94,24 +118,30 @@ export async function roundCyclesFor(
 export class RoundCyclesService {
   constructor(private readonly deps: RoundCyclesServiceDeps) {}
 
-  /** The 21st cycle is ROUND_CYCLE_LIMIT; a holder, image or member from outside the table is
-   *  refused before anything is written. */
+  /** The 21st cycle is ROUND_CYCLE_LIMIT; past the owner's plan (cycles, phases, an image) it is
+   *  PLAN_LIMIT; a holder, image or member from outside the table is refused before anything is
+   *  written. */
   async define(userId: string, campaignId: string, command: DefineRoundCycle): Promise<number> {
     await this.requireMaster(userId, campaignId, 'create a round cycle');
-    return this.write(campaignId, async (daos) => {
-      RULES.requireRoom(campaignId, await daos.roundCycles.countOfCampaign(campaignId));
+    return this.write(campaignId, async (daos, limits) => {
+      const stored = await daos.roundCycles.countOfCampaign(campaignId);
+      RULES.requireRoom(campaignId, stored);
+      RoundCyclePlanBo.requireCycleRoom(stored, limits);
+      RoundCyclePlanBo.requirePhases([], command.phases, limits);
       const write = await writeOf(daos, campaignId, command);
       await daos.roundCycles.insertCycle(campaignId, write);
     });
   }
 
-  /** The whole cycle replaces the saved one; a cycle of another table is ROUND_CYCLE_NOT_FOUND. */
+  /** The whole cycle replaces the saved one; a cycle of another table is ROUND_CYCLE_NOT_FOUND,
+   *  one kept past the owner's plan is read only (PLAN_LIMIT `readOnly`). */
   async update(userId: string, campaignId: string, command: UpdateRoundCycle): Promise<number> {
     await this.requireMaster(userId, campaignId, 'edit a round cycle');
-    return this.write(campaignId, async (daos) => {
+    return this.write(campaignId, async (daos, limits) => {
+      const saved = await editableCycleOf(daos, campaignId, command.cycleId, limits);
+      RoundCyclePlanBo.requirePhases(saved.phases, command.phases, limits);
       const write = await writeOf(daos, campaignId, command);
-      const saved = await daos.roundCycles.replaceCycle(campaignId, command.cycleId, write);
-      if (!saved) throw new RoundCycleNotFoundError(campaignId, command.cycleId);
+      await daos.roundCycles.replaceCycle(campaignId, command.cycleId, write);
     });
   }
 
@@ -160,14 +190,15 @@ export class RoundCyclesService {
   // Lock the table stream → change → bump → read every audience's list → commit → publish.
   private async write(
     campaignId: string,
-    change: (daos: RoundCycleWriteDaos) => Promise<void>,
+    change: (daos: RoundCycleWriteDaos, limits: PlanLimits) => Promise<void>,
   ): Promise<number> {
-    const saved = await inLockedCharacters(this.deps.transaction, campaignId, async ({ daos }) => {
-      await change(daos);
-      const rows = await daos.roundCycles.listOfCampaign(campaignId);
-      const states = await daos.roundCycles.combatStatesOfCampaign(campaignId);
-      return { value: roundCycleCutsOf(rows, states), changed: true };
-    });
+    const work = async ({ daos, owner }: LockedCharacters<RoundCycleWriteDaos>) => {
+      const limits = effectiveLimitsOf(owner);
+      await change(daos, limits);
+      const listing = await listingOf(daos, campaignId, limits);
+      return { value: roundCycleCutsOf(listing), changed: true };
+    };
+    const saved = await inLockedCharacters(this.deps.transaction, campaignId, work);
     const base = charactersEventBase(campaignId, saved.version, this.deps.clock);
     this.deps.publisher.roundCyclesChanged({ ...base, cuts: saved.value });
     return saved.version;
@@ -180,6 +211,21 @@ function matchesScene(
   command: Readonly<{ sceneId?: string | undefined }>,
 ): boolean {
   return command.sceneId === undefined || state.sceneId === command.sceneId;
+}
+
+// The saved cycle; its rank among the table's (oldest first) is checked against the plan.
+async function editableCycleOf(
+  daos: RoundCycleWriteDaos,
+  campaignId: string,
+  cycleId: string,
+  limits: PlanLimits,
+): Promise<RoundCycleRow> {
+  const rows = await daos.roundCycles.listOfCampaign(campaignId);
+  const rank = rows.findIndex(({ cycle }) => cycle.id === cycleId);
+  const saved = rows[rank];
+  if (!saved) throw new RoundCycleNotFoundError(campaignId, cycleId);
+  RoundCyclePlanBo.requireEditable(rank, limits);
+  return saved;
 }
 
 type CycleCommand = RoundCycleFields &

@@ -29,6 +29,7 @@ const moon = (overrides: Partial<DefineRoundCycle> = {}): DefineRoundCycle => ({
   announce: true,
   phases: ['Lua Nova', 'Crescente', 'Lua Cheia', 'Minguante'].map((name) => ({
     name,
+    icon: 'game-icons:cycle',
     imageAssetId: null,
   })),
   ...overrides,

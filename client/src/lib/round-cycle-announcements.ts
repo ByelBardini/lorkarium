@@ -28,7 +28,7 @@ export function announcementOn(
     cycleId,
     cycleName,
     // The phase id is not announced; the cycle's keeps each item apart.
-    phase: { phaseId: cycleId, name: phase.name, imageAssetId: phase.imageAssetId },
+    phase: { phaseId: cycleId, ...phase },
   }));
   return { key: announced.at, round: announced.round, items };
 }

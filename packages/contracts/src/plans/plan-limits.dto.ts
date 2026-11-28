@@ -42,6 +42,9 @@ export const planLimitsDto = z.strictObject({
   /** Saved tokens of one member at one table (the greater of the table's and the person's). */
   maxSavedTokens: countCeiling,
   maxSavedTokenFolders: countCeiling,
+  /** Round cycles of one table, and phases of one of them. */
+  maxRoundCycles: countCeiling,
+  maxRoundCyclePhases: countCeiling,
   maxDiceModelsPerRoll: countCeiling,
   maxMapSide: countCeiling,
   maxBackgroundSide: countCeiling,
@@ -62,6 +65,8 @@ export const planLimitsDto = z.strictObject({
   profileBanner: z.boolean(),
   /** A token sees invisible tokens (its magic sight); past the plan it is kept, but not turned on. */
   magicSight: z.boolean(),
+  /** A phase of a round cycle shows an image of the table; without it, only its icon. */
+  roundCyclePhaseImage: z.boolean(),
   /** The account's own emojis (`:nome:`); past it the newest stop working, none is deleted. */
   maxCustomEmojis: countCeiling.nullable(),
   /** A custom emoji keeps its GIF animated; without it the first frame is shown. */

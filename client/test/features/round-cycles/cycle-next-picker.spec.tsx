@@ -7,6 +7,7 @@ import type { CycleOption } from '@/lib/round-cycle-view';
 const option = (name: string, extra: Partial<CycleOption> = {}): CycleOption => ({
   phaseId: `p-${name}`,
   name,
+  icon: 'game-icons:cycle' as const,
   imageAssetId: null,
   tag: null,
   isNext: false,

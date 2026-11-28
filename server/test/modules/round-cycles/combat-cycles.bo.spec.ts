@@ -5,7 +5,12 @@ import {
 } from '../../../src/modules/round-cycles/combat-cycles.bo';
 
 const phases = (id: string, names: readonly string[]) =>
-  names.map((name, i) => ({ id: `${id}-${i}`, name, imageAssetId: i === 2 ? 'img-cheia' : null }));
+  names.map((name, i) => ({
+    id: `${id}-${i}`,
+    name,
+    icon: 'game-icons:cycle' as const,
+    imageAssetId: i === 2 ? 'img-cheia' : null,
+  }));
 
 const moon: CycleInCombat = {
   id: 'moon',
@@ -57,7 +62,7 @@ describe('planCombatCycles', () => {
       {
         cycleId: 'moon',
         cycleName: 'Fases da Lua',
-        phase: { name: 'Lua Nova', imageAssetId: null },
+        phase: { name: 'Lua Nova', icon: 'game-icons:cycle', imageAssetId: null },
       },
     ]);
   });
@@ -80,7 +85,7 @@ describe('planCombatCycles', () => {
       {
         cycleId: 'moon',
         cycleName: 'Fases da Lua',
-        phase: { name: 'Lua Cheia', imageAssetId: 'img-cheia' },
+        phase: { name: 'Lua Cheia', icon: 'game-icons:cycle', imageAssetId: 'img-cheia' },
       },
     ]);
   });

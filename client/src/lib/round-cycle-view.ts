@@ -1,10 +1,12 @@
-import type { RoundCycleDto, RoundCyclePhaseDto } from '@lorkarium/contracts';
+import type { ConditionIconDto, RoundCycleDto, RoundCyclePhaseDto } from '@lorkarium/contracts';
 import { nextPhaseOf } from '@lorkarium/game-core';
 
 /** One phase as the badge and the picker show it. */
 export type CyclePhaseView = Readonly<{
   phaseId: string;
   name: string;
+  /** Shown when there is no image, or it fails to load. */
+  icon: ConditionIconDto;
   imageAssetId: string | null;
 }>;
 
@@ -69,6 +71,6 @@ function viewOf(phases: readonly RoundCyclePhaseDto[], id: string | null): Cycle
   return phase ? toView(phase) : null;
 }
 
-function toView({ id, name, imageAssetId }: RoundCyclePhaseDto): CyclePhaseView {
-  return { phaseId: id, name, imageAssetId };
+function toView({ id, name, icon, imageAssetId }: RoundCyclePhaseDto): CyclePhaseView {
+  return { phaseId: id, name, icon, imageAssetId };
 }

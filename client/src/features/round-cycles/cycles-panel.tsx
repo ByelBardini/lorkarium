@@ -1,7 +1,12 @@
 import type { RoundCycleDto, RoundCycleVisibilityDto } from '@lorkarium/contracts';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import { Button } from '@/components/ui/button';
+import { countGate, planHintIdOf } from '@/features/plans/plan-gate';
+import { PlanGateHint } from '@/features/plans/plan-gate-hint';
+import { PlanGated } from '@/features/plans/plan-gated';
+import { PlanLockSeal } from '@/features/plans/plan-lock-seal';
+import { usePlanLimits, usePlanLock } from '@/features/plans/use-plan-limits';
 import { cn } from '@/lib/utils';
 import {
   draftOfCycle,
@@ -59,12 +64,10 @@ export function CyclesPanel({ table, interaction, images }: CyclesPanelProps) {
     interaction.getState().command((commands, scope) => commands.deleteRoundCycle(scope, cycleId));
   return (
     <section aria-label="Ciclos da mesa" className="flex flex-col gap-3">
-      <Button
-        className="self-start"
-        onClick={() => setEditing({ title: 'Novo ciclo', draft: NEW_CYCLE_DRAFT, cycleId: null })}
-      >
-        Novo ciclo
-      </Button>
+      <NewCycleButton
+        stored={cycles.length}
+        onOpen={() => setEditing({ title: 'Novo ciclo', draft: NEW_CYCLE_DRAFT, cycleId: null })}
+      />
       {cycles.length === 0 && (
         <p className="text-sm text-muted-foreground">
           Nenhum ciclo ainda. Um ciclo vira sozinho no começo de cada rodada do combate, como as
@@ -100,6 +103,26 @@ export function CyclesPanel({ table, interaction, images }: CyclesPanelProps) {
   );
 }
 
+// Past the owner's plan "Novo ciclo" says which plan has more (the technical 20 the server says).
+function NewCycleButton({ stored, onOpen }: Readonly<{ stored: number; onOpen: () => void }>) {
+  const gate = countGate(usePlanLimits().table, 'roundCycles', stored);
+  const hintId = useId();
+  return (
+    <>
+      <PlanGated gate={gate}>
+        <Button
+          className="self-start"
+          aria-describedby={planHintIdOf(gate, hintId)}
+          onClick={gate.open ? onOpen : undefined}
+        >
+          Novo ciclo
+        </Button>
+      </PlanGated>
+      <PlanGateHint id={hintId} gate={gate} />
+    </>
+  );
+}
+
 type CycleItemProps = Readonly<{
   cycle: RoundCycleDto;
   holders: readonly CycleHolderOption[];
@@ -115,9 +138,13 @@ function CycleItem({ cycle, holders, sceneId, onEdit, onDelete }: CycleItemProps
   const combat = cycle.combats.find((one) => one.sceneId === sceneId);
   const phase = cycle.phases.find(({ id }) => id === combat?.currentPhaseId);
   const visibility = cycle.config ? VISIBILITY_TEXT[cycle.config.visibility] : '';
+  const lock = usePlanLock('roundCycles', cycle);
   return (
     <li className="flex flex-col gap-1.5 rounded-md border border-border bg-card p-3">
-      <span className="font-semibold">{cycle.name}</span>
+      <span className="flex items-center justify-between gap-2 font-semibold">
+        {cycle.name}
+        <PlanLockSeal gate={lock} className="[&_svg]:size-3.5" />
+      </span>
       <span className="text-xs text-muted-foreground">
         {[owner, visibility, cycle.announce ? 'Anuncia cada fase' : null]
           .filter(Boolean)
@@ -126,9 +153,16 @@ function CycleItem({ cycle, holders, sceneId, onEdit, onDelete }: CycleItemProps
       <PhaseStrip cycle={cycle} currentId={phase?.id ?? null} />
       {phase && <span className="text-xs text-label">Neste combate: {phase.name}</span>}
       <div className="flex gap-2">
-        <Button size="sm" variant="outline" aria-label={`Editar ${cycle.name}`} onClick={onEdit}>
-          Editar
-        </Button>
+        <PlanGated gate={lock}>
+          <Button
+            size="sm"
+            variant="outline"
+            aria-label={`Editar ${cycle.name}`}
+            onClick={lock.open ? onEdit : undefined}
+          >
+            Editar
+          </Button>
+        </PlanGated>
         <Button
           size="sm"
           variant={confirming ? 'destructive' : 'ghost'}
@@ -144,7 +178,7 @@ function CycleItem({ cycle, holders, sceneId, onEdit, onDelete }: CycleItemProps
 
 type PhaseStripProps = Readonly<{ cycle: RoundCycleDto; currentId: string | null }>;
 
-// The preview: every phase in order, its image or initial, the one of this combat ringed in gold.
+// The preview: every phase in order, its image or icon, the one of this combat ringed in gold.
 function PhaseStrip({ cycle, currentId }: PhaseStripProps) {
   return (
     <ol aria-label={`Fases de ${cycle.name}`} className="flex flex-wrap items-center gap-1.5 py-1">
@@ -158,10 +192,7 @@ function PhaseStrip({ cycle, currentId }: PhaseStripProps) {
             phase.id === currentId && 'ring-2 ring-primary ring-offset-2 ring-offset-card',
           )}
         >
-          <CyclePhaseImage
-            phase={{ phaseId: phase.id, name: phase.name, imageAssetId: phase.imageAssetId }}
-            className="size-9"
-          />
+          <CyclePhaseImage phase={{ ...phase, phaseId: phase.id }} className="size-9" />
           <span className="sr-only">{phase.name}</span>
         </li>
       ))}
