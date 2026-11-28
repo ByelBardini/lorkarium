@@ -1,5 +1,6 @@
 import { roundCyclesChangedDto, type RoundCyclesChangedDto } from '@lorkarium/contracts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setAccountPlan } from '../support/account-plans';
 import { envelope, eventPayload, send, silence } from '../support/live-table';
 import {
   recordEventsOf,
@@ -11,9 +12,11 @@ import type { Table } from '../support/tables';
 import { useTokenTable } from '../support/token-table';
 
 const live = useTokenTable();
+beforeEach(() => setAccountPlan(live.connection.db, live.ana.id, 'amigo_do_dono'));
 
 const PHASES = ['Lua Nova', 'Crescente', 'Lua Cheia', 'Minguante'].map((name) => ({
   name,
+  icon: 'game-icons:cycle',
   imageAssetId: null,
 }));
 

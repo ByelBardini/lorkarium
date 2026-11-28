@@ -61,6 +61,7 @@ describe('RoundCyclesDao on Postgres', () => {
     holderTokenId: null,
     phases: ['Lua Nova', 'Crescente', 'Lua Cheia', 'Minguante'].map((name) => ({
       name,
+      icon: 'game-icons:cycle',
       imageAssetId: null,
     })),
     members: [{ userId: lyraUserId, canSee: true, canChoose: true }],
@@ -132,9 +133,9 @@ describe('RoundCyclesDao on Postgres', () => {
     const write = moon({
       name: 'Lua',
       phases: [
-        { id: crescente?.id, name: 'Crescente', imageAssetId: null },
-        { id: nova?.id, name: 'Nova', imageAssetId: null },
-        { name: 'Eclipse', imageAssetId: null },
+        { id: crescente?.id, name: 'Crescente', icon: 'game-icons:cycle', imageAssetId: null },
+        { id: nova?.id, name: 'Nova', icon: 'game-icons:cycle', imageAssetId: null },
+        { name: 'Eclipse', icon: 'game-icons:cycle', imageAssetId: null },
       ],
       members: [],
     });
@@ -155,8 +156,8 @@ describe('RoundCyclesDao on Postgres', () => {
     const replaced = await cycles.replaceCycle(vharnId, saved.cycle.id, {
       ...moon(),
       phases: [
-        { id: foreignId, name: 'Roubada', imageAssetId: null },
-        { name: 'Outra', imageAssetId: null },
+        { id: foreignId, name: 'Roubada', icon: 'game-icons:cycle', imageAssetId: null },
+        { name: 'Outra', icon: 'game-icons:cycle', imageAssetId: null },
       ],
     });
 
@@ -298,7 +299,12 @@ describe('RoundCyclesDao on Postgres', () => {
 
       await cycles.replaceCycle(vharnId, saved.cycle.id, {
         ...moon(),
-        phases: rest.map(({ id, name }) => ({ id, name, imageAssetId: null })),
+        phases: rest.map(({ id, name }) => ({
+          id,
+          name,
+          icon: 'game-icons:cycle',
+          imageAssetId: null,
+        })),
       });
 
       expect((await cycles.combatStatesOfCampaign(vharnId))[0]?.currentPhaseId).toBeNull();
